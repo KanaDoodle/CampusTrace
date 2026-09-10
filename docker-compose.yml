@@ -1,0 +1,33 @@
+name: campustrace
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: local-root-only
+      MYSQL_DATABASE: campustrace
+      MYSQL_USER: campus
+      MYSQL_PASSWORD: local-campus-only
+    ports: ["127.0.0.1:13306:3306"]
+    volumes: ["mysql-data:/var/lib/mysql"]
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 3s
+      retries: 40
+  redis:
+    image: redis:7.4-alpine
+    ports: ["127.0.0.1:16379:6379"]
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes: ["redis-data:/data"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      retries: 20
+  etcd:
+    image: quay.io/coreos/etcd:v3.6.7
+    command: ["etcd", "--data-dir=/etcd-data", "--listen-client-urls=http://0.0.0.0:2379", "--advertise-client-urls=http://etcd:2379"]
+    ports: ["127.0.0.1:12379:2379"]
+    volumes: ["etcd-data:/etcd-data"]
+volumes:
+  mysql-data:
+  redis-data:
+  etcd-data:

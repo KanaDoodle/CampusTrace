@@ -1,0 +1,26 @@
+.env
+bin/
+*.log
+.DS_Store
+
+# Local multi-module development; never publish an absolute or sibling replace.
+go.work
+go.work.sum
+
+# Private configuration, generated files and local audit evidence.
+.env.*
+!.env.example
+.idea/
+.vscode/
+__debug_bin*
+*.test
+*.prof
+*.db
+*.sqlite
+*.sqlite3
+/docs/*
+!/docs/api.md
+!/docs/dependency-audit.md
+/release-repair-report.md
+/repair-report.md
+/release-final-report.md

@@ -1,0 +1,7 @@
+company,title,job_type,locations,source_id,external_id,text,fetch_status
+Synthetic CSV Company,Go backend intern,INTERNSHIP,Shanghai,manual,synthetic-csv-1,"graduation: 2027
+degree: BACHELOR
+job_type: INTERNSHIP
+location: Shanghai
+tech: go|java
+apply: PRESENT",SUCCESS

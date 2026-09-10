@@ -1,0 +1,12 @@
+[
+  {
+    "company": "Synthetic Import Company",
+    "title": "Go backend graduate",
+    "job_type": "FULL_TIME",
+    "locations": ["Shanghai"],
+    "source_id": "manual",
+    "external_id": "synthetic-import-1",
+    "text": "graduation: 2027\ndegree: BACHELOR\njob_type: FULL_TIME\nlocation: Shanghai\ntech: REQUIRED:go\napply: PRESENT",
+    "fetch_status": "SUCCESS"
+  }
+]

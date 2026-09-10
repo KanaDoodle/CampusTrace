@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CampusTrace · 校招求职记录</title><link rel="stylesheet" href="/style.css"></head>
+<body>
+<header><div><strong>CampusTrace</strong><span> 1.0 · 校招全流程记录</span></div><p>记录有来源，投递有依据。</p></header>
+<main>
+<section id="auth"><h1>校招的每一步，都有据可查。</h1><p>招聘页面能打开，不代表岗位仍可投递。在这里核对岗位信息、跟进投递进展、整理面试复盘。</p>
+<form id="login" novalidate><label>邮箱<input aria-label="邮箱" name="email" type="email" autocomplete="username" placeholder="请输入邮箱" required></label><label>密码<input aria-label="密码" name="password" type="password" autocomplete="current-password" placeholder="请输入密码" required></label><div class="actions"><button>登录</button><button type="button" id="register">注册账号</button></div></form>
+<small>演示账号由项目初始化时提供；演示公司、岗位和经历均为虚构，不代表真实招聘信息。</small></section>
+<section id="workspace" hidden><nav aria-label="主要功能"><button data-page="jobs">校招岗位</button><button data-page="applications">投递进展</button><button data-page="interviews">面试与复盘</button><button data-page="weak_topics">待加强知识点</button><button data-page="project_facts">项目事实</button><button data-page="agent">求职问答</button><button data-page="profile">求职资料</button><button data-page="ingest">录入岗位</button><button id="logout">退出登录</button></nav><div id="content"></div></section>
+<p id="notice" role="status" aria-live="polite"></p>
+</main><script src="/display.js"></script><script src="/app.js"></script>
+</body></html>
