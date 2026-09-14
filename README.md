@@ -2,7 +2,7 @@
 
 **中文** | [English](README_EN.md)
 
-**面向应届校招的可信岗位情报与 AI 求职工作流平台**
+**持续监控招聘来源的校招 Job Radar 与可信求职工作流**
 
 *Evidence-first campus recruiting workflow backend built in Go.*
 
@@ -16,7 +16,7 @@ CampusTrace 用 Go 将岗位观察、证据核验、校招资格判断、投递�
 
 ## CampusTrace 是什么
 
-你可以导入岗位、查看招聘信息的变化与来源，结合个人资料核对 Eligibility，分别查看 GoFit 和投递优先级，再记录投递、面试与复盘。Grounded Agent 使用受约束的业务工具查询这些信息；涉及写入时，先给出预览，再由用户明确确认。
+CampusTrace 持续监控用户关注的招聘来源，自动发现新增岗位、状态变化和截止变化，并基于可信岗位数据形成每日 Job Radar 与行动工作流。你也可以手动导入岗位，结合个人资料核对 Eligibility，分别查看 GoFit 和投递优先级，再记录投递、面试与复盘。Grounded Agent 使用受约束的业务工具查询这些信息；涉及写入时，先给出预览，再由用户明确确认。
 
 面向求职者，它帮助区分“岗位是否开放”“我是否符合要求”“是否值得优先投递”；面向 Go 后端面试官和 GitHub 开发者，它展示一套围绕真实业务约束实现的事务、异步处理、RPC 服务治理与 Agent 工具执行边界。
 
@@ -54,7 +54,18 @@ flowchart TD
   Host[External MCP Host] --> MCP[MCP stdio / 5 read tools]
   MCP --> Tools[Local business tools]
   API --> Tools
-  API --> O[SourcePosting / Observation]
+  API --> Watch[User-owned WatchTarget]
+  Watch --> Scheduler[Worker 内周期 Scheduler]
+  Scheduler --> DB
+  Worker --> Discover[WATCH_CHECK / PostingDiscoverer]
+  Discover --> Fanout[MySQL Outbox / WATCH_FETCH]
+  Fanout --> Stream
+  Worker --> Fetch[PostingFetcher / public sources]
+  Fetch --> O[SourcePosting / Observation]
+  API --> O
+  Rules --> Radar[DailyDigest / Changes / Deadline Radar]
+  Radar --> Inbox[MySQL Notification Inbox]
+  API --> Preference[UserJobPreference / SAVED / IGNORED]
   O --> DB[(MySQL / authoritative data + Outbox)]
   DB --> Publisher[Outbox publisher]
   Publisher --> Stream[(Redis Stream / Consumer Group)]
@@ -86,7 +97,7 @@ MySQL 事务与唯一约束承担业务正确性；Redis 承担队列、重试�
 - 来源为运营者登记的 `OFFICIAL`、`THIRD_PARTY` 或 `MANUAL`；可信度不是系统自动认证的。公共 API 导入只能创建用户自有的 `PRIVATE` manual source，不能自行赋予官方可信度。官方/系统来源为 `GLOBAL`，私人观察不会并入共享岗位库。
 - 一个 canonical Job 可以对应多个 SourcePosting。先按来源与 external ID 匹配，再按来源内 URL 确定 posting 身份；结构化摘要仅用于寻找跨来源候选，还需核对公司、规范化标题、岗位类型、地点集合与来源身份。归并依据保存在 posting JSON 中，不做模糊或 LLM 归并。
 - External ID、URL path/query 保留大小写，内容按精确字节处理。不确定的候选保持分离；没有稳定 external ID/URL 的手工文本发生变化时，可能形成新岗位。
-- 连续成功观察的内容 hash 用于记录内容与结构化变化；每个 posting 取最新观察。Worker 每小时用已有观察重新评估 freshness，状态缓存最多可能滞后一小时，**不会自动重新抓取网站**。
+- 连续成功观察的内容 hash 用于记录内容与结构化变化；每个 posting 取最新观察。Worker 每小时用已有观察重新评估 freshness，状态缓存最多可能滞后一小时，该 freshness 任务只重算已有观察；启用 WatchTarget 后，独立的周期检查会自动发现并重新抓取岗位。
 
 ### Eligibility、GoFit 与投递优先级
 
@@ -104,6 +115,61 @@ GoFit 独立输出 `EXPLICIT_GO`、`LANGUAGE_FLEXIBLE`、`NO_GO_SIGNAL`、`CONFL
 
 面试和复盘归属于对应投递的用户。复盘为追加记录，每次面试一份；经验证的显式薄弱知识点累积次数、严重程度、首次/最近出现时间与复盘引用。准备上下文使用与 Eligibility/GoFit 相同的输入快照，展示 `current_requirements`、`current_observations`、已核验项目事实及限制、薄弱知识点和检索知识，不混入历史要求。准备优先级目前为严重程度 × 出现次数。
 
+## Job Radar v0.2
+
+首页提供今日新增、优先投递、7 天内截止、状态变化和未来 7 天面试；“稍后看 / 忽略”使用独立的 UserJobPreference，“准备投递 / 已投递”复用原 Application FSM。Agent 的四个雷达 read tools 只读当前事实，`watch_source` / `unwatch_source` 仍需要 Proposal → PendingAction → 显式确认 → MySQL receipt。
+
+调度与来源链：
+
+```text
+WatchTarget (MySQL next_check_at)
+  → SELECT due FOR UPDATE SKIP LOCKED
+  → 同事务 schedule_version++ / next_check_at / Outbox(WATCH_CHECK)
+  → Redis Stream → Worker → Discover
+  → 同事务 fan-out Outbox(WATCH_FETCH) + discovery receipt
+  → Redis Stream → bounded Fetch / existing source Lua rate limit
+  → 锁定并重验 Watch generation → existing Ingest + per-posting SQL receipt
+  → Observation → KanaRPC Analysis → Evidence → Rules → Assessment
+  → Radar read models / idempotent Notification Inbox
+```
+
+抓取子任务共享现有 Stream，每个岗位独立 timeout/retry；来源不增加服务或 RPC 边界。重复投递会收敛到同一 Observation；更改设置、暂停或删除后，旧 generation 不再写观察或调度状态。来源 429 至少等待一分钟再重试，5xx/timeout 使用已有 backoff，401/403/格式不兼容为本次任务的永久失败。访问失败、列表中消失或 HTTP 200 都不能直接决定 CLOSED/OPEN。
+
+`make seed` 会登记以下三个公开平台的示例企业，但不会替用户启用关注。来源可信度仍由维护者登记；平台上的全职岗位不自动等于校招岗位。
+
+| Adapter | 示例 tenant | 验证级别（2026-09-14） | 实际验证范围 |
+| --- | --- | --- | --- |
+| Lever | `weride` | IMPLEMENTED / FIXTURE TESTED / LIVE VERIFIED | 最终验证发现 17 个发布；抓取中国 New Grads 岗位并写入 Observation |
+| Greenhouse | `pingcap` | IMPLEMENTED / FIXTURE TESTED / LIVE VERIFIED | 发现 10 个发布；抓取东京岗位并写入 Observation，未宣称中国应届覆盖 |
+| SmartRecruiters | `Ubisoft2` | IMPLEMENTED / FIXTURE TESTED / LIVE VERIFIED | 发现 293 个发布；抓取上海岗位并写入 Observation，未宣称该样本是应届岗位 |
+
+平台接口依据：[Lever public Postings API](https://github.com/lever/postings-api)、[Greenhouse Job Board API](https://docs.greenhouse.io/job-board.html)、[SmartRecruiters Posting endpoints](https://developers.smartrecruiters.com/docs/endpoints)。上述实时计数是一次验证快照，不保证未来来源数量与可用性。
+
+登记其他企业（仅维护者本地操作）：
+
+```sh
+go run ./cmd/ingest -register-source -source company-radar -name 'Company' \
+  -type OFFICIAL -trust OFFICIAL -adapter lever -tenant COMPANY_TENANT -rate 30
+```
+
+用户在“关注源”选择已有 Source，设置标题/地点关键词和 5 分钟～7 天间隔。来源地址由维护者登记的 adapter + tenant 确定，用户不能把任意 URL 绑定到官方 Source；更换 Source 需另建关注。旧版手动 URL 导入保持可用。
+
+新 migration `004_job_radar.sql` 增加 Watch、抓取 receipt/进度、Preference 和 Notification 表；`make seed` 执行迁移。升级前停止旧 Worker，再迁移并启动新 API/Worker；旧 Worker 不识别新 task type，不能混跑消费同一队列。
+
+容量与展示：每个用户最多 100 个 Watch，每个 Watch 最多 500 个已发现/历史 posting；响应解压后最多 1 MiB，岗位正文最多 60,000 bytes。完整 Radar 聚合最多 500 个可见 Job、500 个未完成 Interview、10,000 个窗口内 change，超限明确返回 `RADAR_CAPACITY`；不提供无界扫描。摘要计数完整，岗位各展示前 5 条、变化/面试各前 10 条，并标明 `truncated`。变化 feed 和 Inbox 最近 100 条，尚未提供历史翻页。最近窗口为滚动 24h/7d，截止窗口为滚动 3/7/14 天。
+
+推荐要求当前 OPEN、ELIGIBLE/CONDITIONAL、尚未投递或仅 PLANNED、未忽略；按现有规则评分降序及 Job ID 排序，使用与原 evaluation CAS 相同的计算函数。新岗位分数 ≥70 才发优先提醒。截止提醒以“deadline 语义版本 + D7/D3/D1”去重，进入当前最紧窗口时发一次；同一截止值连续重抓不重复，修改再改回也形成新版本。状态变化引用现有 Assessment 历史，内容/截止变化引用 JobChange；Notification 不承担 Job truth。通知后台每分钟轮转处理 10 个用户，仅站内提醒。
+
+真实外网验证独立启用，不纳入普通 CI：
+
+```sh
+# MYSQL_TEST_DSN 指向独立测试库；需要 Compose 依赖
+CAMPUS_INTEGRATION=1 CAMPUS_LIVE_SOURCES=1 GOWORK=off \
+  go test -count=1 -run TestRadarLiveSources -v ./internal/integration
+```
+
+详细变更与验收见 [PRODUCTIZATION_REPORT.md](PRODUCTIZATION_REPORT.md)。
+
 ## Reliable Async Pipeline
 
 ```text
@@ -114,7 +180,7 @@ MySQL Outbox → Redis Stream → Worker → KanaRPC Analysis
 
 整体采用 **at-least-once** 投递。Outbox 在崩溃后可能重复发布，业务结果通过数据库幂等收敛；SQL analysis result 与已完成 Assessment task key 是正确性边界。
 
-- 同一个 Stream 承载 `ANALYZE` 和 `ASSESS` envelope。Worker 使用固定池，RPC 有独立 semaphore；模型和 embedding 工作另有可配置并发上限，不意味着默认使用外部 embedding 服务。
+- 同一个 Stream 承载 `WATCH_CHECK`、`WATCH_FETCH`、`ANALYZE` 和 `ASSESS` envelope。Worker 使用固定池，RPC 有独立 semaphore；模型和 embedding 工作另有可配置并发上限，不意味着默认使用外部 embedding 服务。
 - PEL 通过 `XAUTOCLAIM` 恢复，idle time 大于任务 deadline。恢复在有界轮次间保留 stream/group cursor，每轮最多 32 次命令；每个串行 worker 只为一个空闲槽 claim 一条消息。任务执行超过 claim idle timeout 时仍可能再次被 claim，没有 fencing 或 lease renewal。
 - 临时失败按 2s、4s、8s 等指数退避并加入 jitter。Lua 将 retry/DLQ 状态记录与 ACK 放在同一操作中；另一个脚本将到期 retry 原子转回 Stream。永久 schema/auth/validation 错误直接进入 DLQ。终态分析失败写入 MySQL，并重新评估为未知。
 - 测试覆盖数据库已提交、ACK 前崩溃的场景。异常 envelope 被保存为净化后的 DLQ 记录；`poison` hash 保留有界诊断、digest、时间、consumer 与可恢复的关联 ID，不保留完整畸形原始 payload。隔离失败则继续留在 PEL。
@@ -242,9 +308,11 @@ go test -count=1 ./...
 go test -race -count=1 ./...
 go vet ./...
 go build ./...
-node --test web/display.test.cjs
+node --test web/*.test.cjs
 make verify-boundary
-make integration           # 创建/授权 campustrace_test 后运行真实依赖测试
+./scripts/verify-radar.sh   # 独立临时库：全部真实集成 + old schema upgrade
+RADAR_RACE=1 ./scripts/verify-radar.sh # 同样覆盖真实 MySQL/Redis/etcd/KanaRPC
+make integration           # 兼容旧命令；复用 campustrace_test，历史任务可能影响测试
 CAMPUS_INTEGRATION=1 go test -race -count=1 -v ./internal/integration
 make eval                  # 24 个 scripted runtime contract cases
 make loadgen               # 100 个 synthetic Observation，经实际 Worker/KanaRPC
@@ -259,13 +327,13 @@ Scripted eval 不代表真实模型准确率，synthetic loadgen 不代表线上
 - **来源与抓取**：parser/HTTP adapter 能力有限；不支持 JS 渲染、登录自动化或反爬绕过。来源 trust 为 operator-attested，不验证域名所有权或第三方平台真实性。不提供自动岗位投递。
 - **岗位归并**：精确策略有意保守，包含初始内容 fingerprint；稳定 external ID/URL 维持 posting 关联，但文本变化的跨来源别名可能保持分离。
 - **数据模型与管理**：JSON-backed SQL aggregates 配合 relational ownership/FK/unique keys，优先满足个人规模的实现清晰度；没有 schema downgrade、文档 revisions、丰富分页或多租户管理角色。
-- **历史与时效**：历史 Evidence 保留，显式调度决定 active generation；旧结果不能覆盖 current，未重新处理的 legacy Observation 需要显式 reanalysis。没有全历史版本选择界面；旧官方矛盾保守产生核验/未知，freshness 状态可能滞后一小时，没有自动 recrawl。
+- **历史与时效**：历史 Evidence 保留，显式调度决定 active generation；旧结果不能覆盖 current，未重新处理的 legacy Observation 需要显式 reanalysis。没有全历史版本选择界面；旧官方矛盾保守产生核验/未知，freshness 状态缓存可能滞后一小时；只对已启用且适配器支持的关注源自动重抓。
 - **RPC**：KanaRPC 为教育性 v0.x 框架，API 稳定性及提前远程取消存在上述限制。
 - **Agent 与检索**：自由生成事实回答被刻意限制。可选 live provider 未完成效果评估；当前没有 semantic embedding provider，也未评估其质量。弱点提取依赖经过验证的显式输入，非 LLM extractor。RAG 容量、重复导入和文档更新/删除限制见上文。
 - **会话与认证**：SSE 无 replay/reconnect；MCP 认证仅在启动时进行；没有邮箱验证、密码重置或撤销服务。Redis 故障可影响短期状态与 trace 保存。
 - **队列与运维**：没有自动队列/历史归档或 Redis Cluster 支持；DLQ 仅通过 operator CLI 管理。Redis 相关 metrics 是进程内计数，重启重置；API `/metrics`，Worker `127.0.0.1:18081/metrics`。
 - **UI**：中文优先，使用结构化资料与复盘表单；岗位搜索最多 100 条结果，没有使用前端框架。
 
-后续方向包括 v0.x facade 演进、来源专用 adapter、schema migration、带评估的 semantic embedding provider、结构化复盘提取、历史归档和更丰富的 UI/资料表单。**这些均为计划，不是当前已实现能力。**
+后续方向包括 v0.x facade 演进、更多来源 adapter、带评估的 semantic embedding provider、结构化复盘提取、历史归档和更丰富的 UI/资料表单。**这些均为计划，不是当前已实现能力。**
 
 许可证：GNU Affero General Public License, Version 3（AGPL v3）。参见 [LICENSE](LICENSE) 与 [上游及依赖说明](docs/dependency-audit.md)。英文技术说明完整保留于 [README_EN.md](README_EN.md)。

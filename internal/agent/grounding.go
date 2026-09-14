@@ -5,6 +5,7 @@ import (
 	"fmt"
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
 	"strings"
+	"time"
 )
 
 // Final business-fact narration is rendered from tool observations. Model prose
@@ -74,7 +75,11 @@ func GroundedAnswer(facts []any) string {
 			var rows []d.Job
 			json.Unmarshal(item.Data, &rows)
 			lines = append(lines, fmt.Sprintf("找到 %d 个岗位；列表状态是最近持久化评估，详情中可查看时间和证据。", len(rows)))
-		case "create_application", "transition_application", "record_interview_review":
+		case "get_daily_digest":
+			var v d.DailyDigest
+			json.Unmarshal(item.Data, &v)
+			lines = append(lines, fmt.Sprintf("截至 %s：今日新增 %d，优先投递 %d，7 天内截止 %d，状态变化 %d，本周面试 %d。具体岗位及依据见工具记录。", v.AsOf.Format(time.RFC3339), v.Counts["new_jobs"], v.Counts["recommended_jobs"], v.Counts["closing_soon"], v.Counts["status_changes"], v.Counts["upcoming_interviews"]))
+		case "create_application", "transition_application", "record_interview_review", "watch_source", "unwatch_source":
 			var pending Pending
 			json.Unmarshal(item.Data, &pending)
 			lines = append(lines, fmt.Sprintf("仅生成待确认操作 %s（%s），尚未写入业务状态。请检查预览后显式确认。", pending.ID, item.Tool))

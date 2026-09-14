@@ -10,3 +10,6 @@ var VisibilitySQL string
 
 //go:embed 003_release_repair.sql
 var ReleaseSQL string
+
+//go:embed 004_job_radar.sql
+var RadarSQL string

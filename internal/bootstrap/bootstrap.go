@@ -65,6 +65,8 @@ func Open(ctx context.Context) (*App, error) {
 		model = agent.LiveModel{Client: client}
 	}
 	runtime := &agent.Runtime{MaxToolResultBytes: config.Int("AGENT_MAX_TOOL_RESULT_BYTES", 32768), MaxFactsBytes: config.Int("AGENT_MAX_FACTS_BYTES", 98304), MaxAnswerBytes: config.Int("AGENT_MAX_ANSWER_BYTES", 32768), MaxFinalBytes: config.Int("AGENT_MAX_FINAL_BYTES", 163840), Model: model, Tools: tools, R: r, Prefix: q.Prefix, MaxModels: config.Int("AGENT_MAX_MODEL_CALLS", 4), MaxTools: config.Int("AGENT_MAX_TOOL_CALLS", 8), Deadline: time.Duration(config.Int("AGENT_DEADLINE_SECONDS", 35)) * time.Second, ToolTimeout: time.Duration(config.Int("AGENT_TOOL_TIMEOUT_SECONDS", 8)) * time.Second}
-	return &App{c, s, q, tools, runtime, observability.New()}, nil
+	metrics := observability.New()
+	s.Metrics = metrics
+	return &App{c, s, q, tools, runtime, metrics}, nil
 }
 func (a *App) Close() { a.Store.DB.Close(); a.Queue.R.Close() }

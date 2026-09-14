@@ -37,3 +37,27 @@ Operational DLQ has no public REST endpoint; use `go run ./cmd/dlq` and explicit
 The canonical evidence normalization vocabulary and import fixtures are in `internal/domain`, `internal/analysis` and `testdata`. Errors returned to HTTP are deliberately generic to avoid exposing SQL/schema or private payload contents; internal tests assert concrete error types.
 
 Release repair: preparation fields are a single current input snapshot; historical evidence is available separately through the evidence endpoint. Knowledge ingestion/search returns HTTP 409 with `code: CORPUS_CAPACITY` when the searchable 10,000-chunk bound would be exceeded/is already exceeded. Agent `OUTPUT_LIMIT` is a terminal partial/limited outcome. Confirm replays a completed owner-scoped SQL receipt before consulting Redis pending data. Query evaluation is separated from persistence; explicit assessment uses input CAS (stale inputs return a conflict).
+
+## Job Radar v0.2 additions
+
+All `/api/*` routes use the existing JWT owner scope; there is no body/query owner override.
+
+| Endpoint | Contract |
+| --- | --- |
+| GET /api/sources | Visible operator-registered source catalog, up to 100 |
+| GET, POST /api/watches | Owner list / create; `source_id`, `check_interval` in seconds (300..604800), `keyword` (0..100 bytes), `enabled` |
+| GET, PUT, DELETE /api/watches/{id} | Owner read / replace settings / delete; PUT retains source_id; enabling/disabling uses the enabled field |
+| GET /api/radar/digest | Current SQL snapshot; `counts`, `as_of`, new/recommended/closing jobs, status/recent changes, upcoming interviews, explicit `truncated` |
+| GET /api/radar/changes?days=1 | days = 1 or 7; latest 100 visible, non-ignored change events |
+| GET /api/radar/closing?days=7 | days = 3, 7 or 14; current status/evidence timezone/eligibility/ranking/application/preference |
+| GET /api/preferences | Owner preference records, up to 500 |
+| PUT /api/jobs/{id}/preference | `{"disposition":"NONE|SAVED|IGNORED"}`; verifies job access |
+| GET /api/notifications | Latest 100 owner notifications, including read_at |
+| POST /api/notifications/refresh | Explicitly materialize current notification facts; SQL dedup; counts created/deduplicated |
+| POST /api/notifications/{id}/read | Idempotently mark one owned notification as read |
+
+Digest is read-only and does not send/materialize notifications. It returns complete counts within the aggregation capacity; each job section shows at most 5 records, changes/interviews at most 10. Capacity overflows return HTTP 409 `code: RADAR_CAPACITY`, rather than claiming a complete result. Closing results exclude ignored/closed/past-deadline jobs and applications beyond PLANNED. Existing application creation and versioned transition routes implement quick actions.
+
+Source configuration is not a user-write API: a local operator registers `adapter` (`lever`, `greenhouse`, `smartrecruiters`), `tenant`, and optional `rate_limit` in the Source record. The Watch keyword filters posting title/location; URLs are derived from the registered platform and tenant. Editing a Watch increments its scheduling version and makes previous work stale. Already committed observations remain immutable history.
+
+Agent read tools: `get_daily_digest {}`, `get_watched_sources {}`, `get_recent_changes {"days":1|7}`, `get_closing_jobs {"days":3|7|14}`. Writes: `watch_source` takes the same create fields; `unwatch_source {"watch_id":"..."}` proposes deletion. Both reuse PendingAction, owner/TTL checks, explicit `{"confirm":true}` and the existing transaction receipt. They cannot invoke confirmation themselves. Existing five-tool stdio MCP surface is unchanged.

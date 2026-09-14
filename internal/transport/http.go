@@ -44,6 +44,11 @@ func write(w http.ResponseWriter, v any, err error) {
 		if errors.Is(err, p.ErrBackendUnavailable) {
 			status = 503
 		}
+		if errors.Is(err, p.ErrRadarCapacity) {
+			w.WriteHeader(409)
+			json.NewEncoder(w).Encode(map[string]string{"error": "RADAR_CAPACITY", "code": "RADAR_CAPACITY"})
+			return
+		}
 		if errors.Is(err, rag.ErrCapacity) {
 			w.WriteHeader(409)
 			json.NewEncoder(w).Encode(map[string]string{"error": "CORPUS_CAPACITY", "code": "CORPUS_CAPACITY"})
@@ -120,6 +125,7 @@ func (a *API) Handler() http.Handler {
 		})
 	}
 	on := func(pattern string, h http.HandlerFunc) { mux.HandleFunc(pattern, a.protected(h)) }
+	a.radarRoutes(on)
 	on("GET /api/jobs", func(w http.ResponseWriter, r *http.Request) {
 		v, err := a.Store.JobsForUser(r.Context(), user(r), r.URL.Query().Get("q"))
 		write(w, v, err)

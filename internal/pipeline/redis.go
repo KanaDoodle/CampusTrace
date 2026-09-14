@@ -78,6 +78,10 @@ type Failure struct {
 }
 
 func Transient(err error) bool {
+	var classified interface{ Transient() bool }
+	if errors.As(err, &classified) {
+		return classified.Transient()
+	}
 	if errors.Is(err, context.DeadlineExceeded) {
 		return true
 	}
@@ -158,7 +162,17 @@ func (q *Queue) Fail(ctx context.Context, msg string, t p.Task, err error, max i
 	} else {
 		value = d.JSON(Failure{Task: t, Category: category, FirstFailed: t.FirstFailed, LastFailed: transferAt})
 	}
-	_, e := failScript.Run(ctx, q.R, []string{q.Stream(), q.Prefix + "retry:" + t.Type, q.Prefix + "dlq", q.Prefix + "failure-transferred:v2"}, msg, q.Group(), mode, now.Add(Backoff(t.Attempt-1)).UnixMilli(), value, t.ID).Result()
+	delay := Backoff(t.Attempt - 1)
+	var pacing interface{ RetryAfter() time.Duration }
+	if errors.As(err, &pacing) {
+		if minimum := pacing.RetryAfter(); minimum > delay {
+			if minimum > time.Hour {
+				minimum = time.Hour
+			}
+			delay = minimum
+		}
+	}
+	_, e := failScript.Run(ctx, q.R, []string{q.Stream(), q.Prefix + "retry:" + t.Type, q.Prefix + "dlq", q.Prefix + "failure-transferred:v2"}, msg, q.Group(), mode, now.Add(delay).UnixMilli(), value, t.ID).Result()
 	return retry, e
 }
 
@@ -167,7 +181,7 @@ var dueScript = redis.NewScript(`local t=redis.call('TIME');local now=t[1]*1000+
 
 func (q *Queue) Schedule(ctx context.Context) (int, error) {
 	n := 0
-	for _, typ := range []string{"ANALYZE", "ASSESS"} {
+	for _, typ := range []string{"ANALYZE", "ASSESS", "WATCH_CHECK", "WATCH_FETCH"} {
 		v, err := dueScript.Run(ctx, q.R, []string{q.Prefix + "retry:" + typ, q.Stream()}).Int()
 		if err != nil {
 			return n, err
@@ -204,7 +218,21 @@ func Decode(m redis.XMessage) (p.Task, error) {
 const MaxTaskAttempt = 100
 
 func ValidateTask(t p.Task) error {
-	if strings.TrimSpace(t.ID) == "" || len(t.ID) > 100 || strings.TrimSpace(t.EntityID) == "" || len(t.EntityID) > 100 || len(t.CorrelationID) > 200 || t.Attempt < 1 || t.Attempt > MaxTaskAttempt || t.Version != 1 || (t.Type != "ANALYZE" && t.Type != "ASSESS") {
+	if t.Type == "WATCH_CHECK" || t.Type == "WATCH_FETCH" {
+		if len(t.WatchID) != 32 || t.EntityID != t.WatchID || t.ScheduleVersion == 0 || t.CorrelationID == "" {
+			return errors.New("schema: invalid watch envelope")
+		}
+		if t.Type == "WATCH_FETCH" && (t.Posting == nil || t.Posting.SourceID == "" || t.Posting.ExternalID == "" || t.Posting.Text != "") {
+			return errors.New("schema: invalid watch posting")
+		}
+		if t.Type == "WATCH_CHECK" && t.Posting != nil {
+			return errors.New("schema: unexpected posting")
+		}
+	} else if t.WatchID != "" || t.ScheduleVersion != 0 || t.Posting != nil {
+		return errors.New("schema: unexpected watch fields")
+	}
+
+	if strings.TrimSpace(t.ID) == "" || len(t.ID) > 100 || strings.TrimSpace(t.EntityID) == "" || len(t.EntityID) > 100 || len(t.CorrelationID) > 200 || t.Attempt < 1 || t.Attempt > MaxTaskAttempt || t.Version != 1 || (t.Type != "ANALYZE" && t.Type != "ASSESS" && t.Type != "WATCH_CHECK" && t.Type != "WATCH_FETCH") {
 		return errors.New("schema: invalid task envelope")
 	}
 	return nil

@@ -1,12 +1,24 @@
 [中文](README.md) | **English**
 
-# CampusTrace 1.0 — Full Interview Edition
+# CampusTrace v0.2 — Job Radar
 
-**An evidence-first campus recruiting workflow backend built in Go.**
+**A campus recruiting workflow and job intelligence backend that monitors watched recruiting sources and turns verified facts into a daily Job Radar.**
 
 A job page returning HTTP 200 does not mean the role is still open. A model saying “eligible” is not evidence. Campus recruiting has graduation, degree and job-type constraints that need explicit rules. CampusTrace records **what was observed, when, and why an assessment exists**.
 
 This is a new domain implementation, with synthetic demonstrations. It does not apply to jobs automatically, invent personal experience, or claim production adoption.
+
+## Job Radar increment
+
+User-owned watches, atomic MySQL scheduling, posting discovery/fetch fan-out, recent changes, deadline radar, preferences, daily digest and a notification inbox now share the existing business chain. The Chinese homepage centers on daily actions. Four Agent read tools and two confirmation-only watch proposal tools reuse the existing runtime.
+
+Lever (`weride`), Greenhouse (`pingcap`) and SmartRecruiters (`Ubisoft2`) are IMPLEMENTED, FIXTURE TESTED and LIVE VERIFIED on 2026-09-14 through Discover → Fetch → Ingest → persisted Observation. The WeRide sample was a China new-graduate role; the Greenhouse sample was in Tokyo, and the Ubisoft Shanghai sample was not claimed to be a graduate role. No universal China-campus coverage is claimed. Unknown adapters are UNSUPPORTED; 401/403 are terminal BLOCKED for that attempt, while 429/5xx/timeouts retry. Failure never establishes closure.
+
+Migration 004 adds watch targets, run/result receipts, references, user preferences and notification uniqueness. Stop old workers before upgrading: old binaries cannot consume the new task types. The Source fetch-only API remains compatible; discovery is an additive capability. KanaRPC-Go and the Analysis RPC boundary are unchanged.
+
+Use `./scripts/verify-radar.sh` for fresh isolated integration/migration databases and `RADAR_RACE=1 ./scripts/verify-radar.sh` for real-dependency race coverage. Explicit external verification requires `CAMPUS_LIVE_SOURCES=1 CAMPUS_INTEGRATION=1` with `go test -count=1 -run TestRadarLiveSources -v ./internal/integration`. Frontend tests: `node --test web/*.test.cjs`.
+
+Defaults are intentionally bounded: 100 watches per owner; 500 posting refs per watch; 1 MiB decompressed response and 60,000-byte posting body; 500 visible jobs per Radar aggregation. Digest totals are complete within capacity, with 5 jobs per section and 10 changes/interviews; feeds/inbox expose the latest 100 records. The Worker scans 10 notification owners per minute. Historical pagination, automatic retention, broad source coverage, source-login automation and external notifications are not implemented. See the [engineering report](PRODUCTIZATION_REPORT.md) and [Chinese setup and adapter details](README.md#job-radar-v02).
 
 ## Core ideas
 
@@ -24,7 +36,17 @@ flowchart TD
   Host[External MCP Host] --> MCP[MCP stdio - 5 read tools]
   MCP --> Local[Local business tools]
   API --> Local
-  API --> O[SourcePosting / Observation]
+  API --> Watch[User-owned WatchTarget]
+  Watch --> Scheduler[Scheduler inside Worker]
+  Scheduler --> DB
+  Worker --> Discover[WATCH_CHECK / public discoverer]
+  Discover --> Fanout[Transactional Outbox / WATCH_FETCH]
+  Fanout --> Stream
+  Worker --> Fetch[Public posting fetcher]
+  Fetch --> O[SourcePosting / Observation]
+  API --> O
+  Assessment --> Radar[DailyDigest / changes / deadlines]
+  Radar --> Inbox[MySQL notification inbox]
   O --> DB[(MySQL authoritative data + outbox)]
   DB --> Publisher[Transactional outbox publisher]
   Publisher --> Stream[(Redis Stream + Consumer Group)]
@@ -55,7 +77,7 @@ Sources are operator-attested `OFFICIAL`, `THIRD_PARTY` or `MANUAL`. Public API 
 
 Canonicalization first matches source + external ID, then a source-scoped URL as **posting** identity. A versioned structured digest only finds cross-source candidates; reuse also checks company ID, normalized title, job type, canonical location set, and source identity. External IDs and URL path/query preserve case; content uses exact bytes. No fuzzy/LLM merge. Posting JSON stores the rationale. Uncertain matches remain separate. Without a stable external ID or URL, changed manual text may form a separate job; supply a stable external ID when observing a manual posting again.
 
-Status: recent official application evidence without closure permits `OPEN`; explicit official closure/expired deadline permits `CLOSED`; conflicting/insufficient or third-party-only evidence needs verification; failed/stale official observations yield `UNKNOWN`. HTTP 200 alone never opens a job. Latest observations are selected per posting; previous successes cannot hide a newer 403. Worker enqueues hourly freshness reassessments using stored observations, with up to one hour of status-cache lag. It does not automatically re-fetch sites.
+Status: recent official application evidence without closure permits `OPEN`; explicit official closure/expired deadline permits `CLOSED`; conflicting/insufficient or third-party-only evidence needs verification; failed/stale official observations yield `UNKNOWN`. HTTP 200 alone never opens a job. Latest observations are selected per posting; previous successes cannot hide a newer 403. Worker enqueues hourly freshness reassessments using stored observations, with up to one hour of status-cache lag. Enabled WatchTargets now discover and re-fetch supported sources through the existing ingestion chain.
 
 Assessment history is append-only. Successive successful content hashes drive content/structured changes. SQL receipts and Redis cache share a complete `ProcessingVersion`: semantic/model/prompt configuration, implementation parser version, source adapter/parser version and the observation parser version. Change `ANALYSIS_VERSION` when changing a model or extraction prompt; parser-only changes invalidate receipts automatically. At scheduling (`BindAnalysis`), a previously unseen processing identity receives a numeric generation and becomes the observation's explicit desired/active generation. Queued tasks are durably bound to that identity. Replaying a known old identity never reactivates it; version strings are never sorted. Only the active generation may become current. Late old results remain historical; active receipt replay reconciles the pointer and replaces derived apply/deadline fields atomically. While the desired generation is pending, old-generation evidence is excluded from current rules. Deployment must schedule the desired implementation before relying on it; this is explicit request order, not automatic inference of release chronology from version names. To intentionally redo or roll back an implementation, use a new processing configuration identity. A full history selection interface remains outside 1.0.
 
@@ -73,7 +95,7 @@ Interviews and reviews belong to their application owner. Reviews are append-onl
 
 ## Reliable async pipeline
 
-One Stream carries `ANALYZE` and `ASSESS` envelopes. Publishing outbox rows may duplicate after a crash; consumers tolerate this. SQL analysis results and completed assessment-task keys are the correctness boundaries.
+One Stream carries `WATCH_CHECK`, `WATCH_FETCH`, `ANALYZE` and `ASSESS` envelopes. Publishing outbox rows may duplicate after a crash; consumers tolerate this. SQL analysis results and completed assessment-task keys are the correctness boundaries.
 
 Workers use a fixed pool. MyRPC calls have a separate semaphore; model and embedding work have separately configurable limits. PEL recovery uses `XAUTOCLAIM` with idle time greater than the task deadline. Crash-after-commit-before-ACK is explicitly tested.
 
@@ -187,7 +209,7 @@ Remote reproducibility is checked by cloning this repository outside a developme
 - Exact canonicalization intentionally under-merges and includes the initial content fingerprint. Changed postings stay attached by external ID/URL; cross-source aliases with changed text may remain separate.
 - JSON-backed SQL aggregates plus relational ownership/FK/unique keys optimize implementation clarity for personal scale. No schema downgrade tool, document revisions, rich search pagination or multi-tenant administrative roles.
 - Historical evidence versions remain stored. Explicit scheduling selects an active processing generation; older completions cannot replace its current evidence. Untouched legacy observations require explicit reanalysis. No all-history migration or version-switching UI is provided.
-- Old official contradictions conservatively produce verification/unknown outcomes. Freshness status cache may lag one hour; no automatic site recrawl schedule.
+- Old official contradictions conservatively produce verification/unknown outcomes. Freshness status cache may lag one hour; enabled watches add a MySQL-authoritative recrawl schedule.
 - The v0.x KanaRPC API and remote cancellation limitations described above; educational framework, not a production RPC-platform claim.
 - Free-form model answers are intentionally withheld in favor of grounded rendering. Optional live provider and semantic embedding quality have not been evaluated. Weak-topic extraction currently uses validated explicit input, not an LLM extractor.
 - SSE no replay/reconnect; MCP auth is startup-scoped; no account email verification/password reset/revocation service.
@@ -196,7 +218,7 @@ Remote reproducibility is checked by cloning this repository outside a developme
 
 ## Roadmap
 
-Evolve the existing public RPC facade under v0.x; add source-specific adapters and future schema migrations; semantic embedding provider with evals; structured review extraction; retained-history archival; richer UI/profile forms. None of these planned features is described as implemented.
+Evolve the existing public RPC facade under v0.x; extend the three implemented public platform adapters; semantic embedding provider with evals; structured review extraction; retained-history archival; richer UI/profile forms. None of these planned features is described as implemented.
 
 License: GNU Affero General Public License, Version 3 (AGPL v3); see the existing [LICENSE](LICENSE) and the upstream notice in [dependency audit](docs/dependency-audit.md). The license text is unchanged.
 

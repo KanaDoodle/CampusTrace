@@ -22,6 +22,23 @@ type TransitionArgs struct {
 
 func ValidateAction(kind string, raw []byte) error {
 	switch kind {
+	case "watch_source":
+		var a d.WatchInput
+		if err := d.Strict(raw, &a); err != nil {
+			return err
+		}
+		return a.Validate()
+	case "unwatch_source":
+		var a struct {
+			WatchID string `json:"watch_id"`
+		}
+		if err := d.Strict(raw, &a); err != nil {
+			return err
+		}
+		if len(a.WatchID) != 32 {
+			return ErrValidation
+		}
+
 	case "create_application":
 		var a CreateArgs
 		if err := d.Strict(raw, &a); err != nil {
@@ -84,6 +101,20 @@ func (s *Store) ApplyAction(ctx context.Context, user, nonce, kind string, raw [
 		}
 		now := time.Now().UTC()
 		switch kind {
+		case "watch_source":
+			var a d.WatchInput
+			json.Unmarshal(raw, &a)
+			v, e := createWatchTx(ctx, tx, user, a)
+			err = e
+			result = []byte(d.JSON(v))
+		case "unwatch_source":
+			var a struct {
+				WatchID string `json:"watch_id"`
+			}
+			json.Unmarshal(raw, &a)
+			err = deleteWatchTx(ctx, tx, user, a.WatchID)
+			result = []byte(d.JSON(map[string]bool{"deleted": err == nil}))
+
 		case "create_application":
 			var a CreateArgs
 			json.Unmarshal(raw, &a)

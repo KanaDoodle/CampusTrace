@@ -13,21 +13,22 @@ import (
 )
 
 type Ingest struct {
-	Company     string    `json:"company"`
-	Title       string    `json:"title"`
-	JobType     string    `json:"job_type"`
-	Locations   []string  `json:"locations"`
-	SourceID    string    `json:"source_id"`
-	ExternalID  string    `json:"external_id"`
-	URL         string    `json:"url"`
-	Text        string    `json:"text"`
-	FetchStatus string    `json:"fetch_status"`
-	HTTPStatus  int       `json:"http_status"`
-	ObservedAt  time.Time `json:"observed_at"`
+	SourceParserVersion string    `json:"-"`
+	Company             string    `json:"company"`
+	Title               string    `json:"title"`
+	JobType             string    `json:"job_type"`
+	Locations           []string  `json:"locations"`
+	SourceID            string    `json:"source_id"`
+	ExternalID          string    `json:"external_id"`
+	URL                 string    `json:"url"`
+	Text                string    `json:"text"`
+	FetchStatus         string    `json:"fetch_status"`
+	HTTPStatus          int       `json:"http_status"`
+	ObservedAt          time.Time `json:"observed_at"`
 }
 
 func (i Ingest) Validate() error {
-	if i.Company == "" || len(i.Company) > 200 || i.Title == "" || len(i.Title) > 300 || i.SourceID == "" || len(i.Text) > 60000 || len(i.Locations) > 30 || len(i.URL) > 2000 || (i.JobType != "FULL_TIME" && i.JobType != "INTERNSHIP" && i.JobType != "UNKNOWN") {
+	if len(i.SourceParserVersion) > 64 || i.Company == "" || len(i.Company) > 200 || i.Title == "" || len(i.Title) > 300 || i.SourceID == "" || len(i.Text) > 60000 || len(i.Locations) > 30 || len(i.URL) > 2000 || (i.JobType != "FULL_TIME" && i.JobType != "INTERNSHIP" && i.JobType != "UNKNOWN") {
 		return ErrValidation
 	}
 	switch i.FetchStatus {
@@ -43,6 +44,9 @@ func (i Ingest) Validate() error {
 }
 
 type Task struct {
+	Posting           *Ingest   `json:"posting,omitempty"`
+	WatchID           string    `json:"watch_id,omitempty"`
+	ScheduleVersion   uint64    `json:"schedule_version,omitempty"`
 	Generation        uint64    `json:"generation,omitempty"`
 	ProcessingVersion string    `json:"processing_version,omitempty"`
 	ID                string    `json:"task_id"`
@@ -101,7 +105,14 @@ func (s *Store) Ingest(ctx context.Context, i Ingest) (d.Observation, error) {
 	if i.ObservedAt.After(time.Now().Add(time.Minute)) {
 		return o, ErrValidation
 	}
-	err := s.Tx(ctx, func(tx *sql.Tx) error {
+	err := s.Tx(ctx, func(tx *sql.Tx) error { var err error; o, err = s.ingestTx(ctx, tx, i); return err })
+	return o, err
+}
+
+// Shared by manual import and watch receipts. Caller owns the transaction.
+func (s *Store) ingestTx(ctx context.Context, tx *sql.Tx, i Ingest) (d.Observation, error) {
+	var o d.Observation
+	err := func() error {
 		source, err := One[d.Source](ctx, tx, "SELECT body FROM sources WHERE id=?", i.SourceID)
 		if err != nil {
 			return err
@@ -215,7 +226,11 @@ func (s *Store) Ingest(ctx context.Context, i Ingest) (d.Observation, error) {
 		if _, err = tx.ExecContext(ctx, "UPDATE jobs SET body=? WHERE id=?", d.JSON(job), job.ID); err != nil {
 			return err
 		}
-		o = d.Observation{ID: d.ID(), PostingID: posting.ID, JobID: posting.JobID, ObservedAt: i.ObservedAt, FetchStatus: i.FetchStatus, HTTPStatus: i.HTTPStatus, Text: i.Text, ParserVersion: d.ParserVersion, Timezone: source.Timezone, ExtractionStatus: "PENDING", Trust: source.Trust, ApplySignal: "UNKNOWN"}
+		parser := i.SourceParserVersion
+		if parser == "" {
+			parser = d.ParserVersion
+		}
+		o = d.Observation{ID: d.ID(), PostingID: posting.ID, JobID: posting.JobID, ObservedAt: i.ObservedAt, FetchStatus: i.FetchStatus, HTTPStatus: i.HTTPStatus, Text: i.Text, ParserVersion: parser, Timezone: source.Timezone, ExtractionStatus: "PENDING", Trust: source.Trust, ApplySignal: "UNKNOWN"}
 		if i.FetchStatus == "SUCCESS" {
 			o.Hash = d.Hash(i.Text)
 		} else {
@@ -226,9 +241,10 @@ func (s *Store) Ingest(ctx context.Context, i Ingest) (d.Observation, error) {
 			return err
 		}
 		return Outbox(ctx, tx, NewTask("ANALYZE", o.ID))
-	})
+	}()
 	return o, err
 }
+
 func (s *Store) Analyzed(ctx context.Context, id, version string) (bool, error) {
 	var n int
 	err := s.DB.QueryRowContext(ctx, "SELECT COUNT(*) FROM analysis_results WHERE observation_id=? AND analysis_version=?", id, version).Scan(&n)
@@ -266,6 +282,7 @@ func (s *Store) PersistAnalysis(ctx context.Context, id, version string, claims 
 	})
 }
 func (s *Store) Assess(ctx context.Context, taskID, jobID string) error {
+	detected := int64(0)
 	err := s.Tx(ctx, func(tx *sql.Tx) error {
 		j, err := One[d.Job](ctx, tx, "SELECT body FROM jobs WHERE id=? FOR UPDATE", jobID)
 		if err != nil {
@@ -288,6 +305,9 @@ func (s *Store) Assess(ctx context.Context, taskID, jobID string) error {
 		}
 		now := time.Now().UTC()
 		a := rules.Status(jobID, os, es, now)
+		if j.CurrentStatus != a.Status {
+			detected++
+		}
 		j.CurrentStatus = a.Status
 		for _, o := range os {
 			if o.ObservedAt.After(j.UpdatedAt) {
@@ -322,7 +342,12 @@ func (s *Store) Assess(ctx context.Context, taskID, jobID string) error {
 				changes = rules.Changes(old, o, get(old.ID), get(o.ID))
 			}
 			for _, ch := range changes {
-				_, err = tx.ExecContext(ctx, "INSERT INTO changes(id,job_id,change_key,body) VALUES(?,?,?,?) ON DUPLICATE KEY UPDATE id=id", ch.ID, jobID, ch.From+":"+ch.To+":"+ch.Type, d.JSON(ch))
+				result, e := tx.ExecContext(ctx, "INSERT INTO changes(id,job_id,change_key,body) VALUES(?,?,?,?) ON DUPLICATE KEY UPDATE id=id", ch.ID, jobID, ch.From+":"+ch.To+":"+ch.Type, d.JSON(ch))
+				err = e
+				if err == nil {
+					n, _ := result.RowsAffected()
+					detected += n
+				}
 				if err != nil {
 					return err
 				}
@@ -333,6 +358,9 @@ func (s *Store) Assess(ctx context.Context, taskID, jobID string) error {
 	})
 	if err != nil {
 		return err
+	}
+	if s.Metrics != nil {
+		s.Metrics.Add("job_changes_detected", float64(detected))
 	}
 	profiles, err := Many[d.Profile](ctx, s.DB, "SELECT body FROM profiles")
 	if err != nil {

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
+	"github.com/KanaDoodle/CampusTrace/internal/observability"
 	"github.com/KanaDoodle/CampusTrace/internal/rules"
 	"github.com/KanaDoodle/CampusTrace/migrations"
 	"github.com/go-sql-driver/mysql"
@@ -19,6 +20,7 @@ var ErrBackendUnavailable = errors.New("backend unavailable")
 var ErrValidation = errors.New("business validation")
 
 type Store struct {
+	Metrics *observability.Metrics
 	DB      *sql.DB
 	Weights rules.Weights
 }
@@ -51,7 +53,10 @@ func (s *Store) Migrate(ctx context.Context) error {
 			}
 		}
 	}
-	return s.migrateRepair(ctx)
+	if err := s.migrateRepair(ctx); err != nil {
+		return err
+	}
+	return s.migrateRadar(ctx)
 }
 
 type Queryer interface {

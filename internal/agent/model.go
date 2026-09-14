@@ -74,6 +74,22 @@ func (DemoModel) Next(ctx context.Context, msgs []Message, defs []Definition) (R
 		calls = append(calls, Call{ID: fmt.Sprintf("call-%d", len(calls)), Name: name, Args: []byte(d.JSON(args))})
 	}
 	switch {
+	case Has(q, "今天", "今日", "daily digest", "值得处理"):
+		add("get_daily_digest", struct{}{})
+	case Has(q, "截止", "closing"):
+		days := 7
+		if Has(q, "三天", "3天") {
+			days = 3
+		}
+		if Has(q, "14天", "两周") {
+			days = 14
+		}
+		add("get_closing_jobs", map[string]int{"days": days})
+	case Has(q, "最近", "关闭", "变化"):
+		add("get_recent_changes", map[string]int{"days": 7})
+	case Has(q, "关注源", "关注来源", "watched sources"):
+		add("get_watched_sources", struct{}{})
+
 	case Has(q, "投过", "applications", "申请记录"):
 		add("list_applications", struct{}{})
 	case Has(q, "项目", "project"):

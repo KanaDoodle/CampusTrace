@@ -25,6 +25,8 @@ func main() {
 	limit := flag.Int("rate", 6, "source requests per minute")
 	owner := flag.String("owner", "", "owner user ID for private manual ingestion")
 	timezone := flag.String("timezone", "Asia/Shanghai", "source IANA timezone for date-only deadlines")
+	adapter := flag.String("adapter", "", "public discovery adapter: lever, greenhouse, smartrecruiters")
+	tenant := flag.String("tenant", "", "public platform tenant identifier")
 	flag.Parse()
 	ctx, cancel := bootstrap.Root()
 	defer cancel()
@@ -34,7 +36,12 @@ func main() {
 	}
 	defer app.Close()
 	if *register {
-		if err = app.Store.SaveSource(ctx, d.Source{ID: *sourceID, Name: *name, Type: *kind, Trust: *trust, OwnerID: *owner, Timezone: *timezone}); err != nil {
+		if *adapter != "" {
+			if _, e := source.PlatformURL(d.Source{Adapter: *adapter, Tenant: *tenant}); e != nil {
+				log.Fatal(e)
+			}
+		}
+		if err = app.Store.SaveSource(ctx, d.Source{Adapter: *adapter, Tenant: *tenant, RateLimit: *limit, ID: *sourceID, Name: *name, Type: *kind, Trust: *trust, OwnerID: *owner, Timezone: *timezone}); err != nil {
 			log.Fatal(err)
 		}
 		fmt.Println("source registered by local operator")

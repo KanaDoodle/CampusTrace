@@ -34,7 +34,7 @@ func main() {
 		user, err = (auth.Service{Store: app.Store}).Register(ctx, email, password)
 		must(err)
 	}
-	for _, src := range []d.Source{{ID: "manual", Name: "Manual submission (unverified)", Type: "MANUAL", Trust: "MANUAL"}, {ID: "seed-official", Name: "Synthetic official careers", Type: "OFFICIAL", Trust: "OFFICIAL"}, {ID: "seed-third", Name: "Synthetic third-party board", Type: "THIRD_PARTY", Trust: "THIRD_PARTY"}} {
+	for _, src := range []d.Source{{ID: "radar-weride", Name: "WeRide", Type: "OFFICIAL", Trust: "OFFICIAL", Adapter: "lever", Tenant: "weride", RateLimit: 30}, {ID: "radar-pingcap", Name: "PingCAP", Type: "OFFICIAL", Trust: "OFFICIAL", Adapter: "greenhouse", Tenant: "pingcap", RateLimit: 30}, {ID: "radar-ubisoft", Name: "Ubisoft", Type: "OFFICIAL", Trust: "OFFICIAL", Adapter: "smartrecruiters", Tenant: "Ubisoft2", RateLimit: 30}, {ID: "manual", Name: "Manual submission (unverified)", Type: "MANUAL", Trust: "MANUAL"}, {ID: "seed-official", Name: "Synthetic official careers", Type: "OFFICIAL", Trust: "OFFICIAL"}, {ID: "seed-third", Name: "Synthetic third-party board", Type: "THIRD_PARTY", Trust: "THIRD_PARTY"}} {
 		var count int
 		must(app.Store.DB.QueryRowContext(ctx, "SELECT COUNT(*) FROM sources WHERE id=?", src.ID).Scan(&count))
 		if count == 0 {

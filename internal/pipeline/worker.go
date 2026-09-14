@@ -8,6 +8,7 @@ import (
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
 	"github.com/KanaDoodle/CampusTrace/internal/observability"
 	p "github.com/KanaDoodle/CampusTrace/internal/persistence"
+	"github.com/KanaDoodle/CampusTrace/internal/source"
 	"github.com/redis/go-redis/v9"
 	"log/slog"
 	"sync"
@@ -18,6 +19,8 @@ type Analyzer interface {
 	Analyze(context.Context, d.Observation, string) ([]d.Claim, error)
 }
 type Worker struct {
+	Source                   source.DiscoveryAdapter
+	radarCursor              string
 	Version                  string
 	ParserVersion            string
 	Store                    *p.Store
@@ -58,6 +61,9 @@ func (w *Worker) Dispatch(ctx context.Context) error {
 func (w *Worker) Process(ctx context.Context, t p.Task) error {
 	if err := ValidateTask(t); err != nil {
 		return err
+	}
+	if t.Type == "WATCH_CHECK" || t.Type == "WATCH_FETCH" {
+		return w.processWatch(ctx, t)
 	}
 	if t.Type == "ASSESS" {
 		return w.Store.Assess(ctx, t.ID, t.EntityID)
@@ -156,6 +162,11 @@ func (w *Worker) handle(root context.Context, m redis.XMessage, consumers ...str
 			return
 		}
 	}
+	if (t.Type == "WATCH_CHECK" || t.Type == "WATCH_FETCH") && (!Transient(err) || t.Attempt >= w.MaxAttempts) {
+		if e := w.terminalWatch(root, t); e != nil {
+			return
+		}
+	}
 	retry, e := w.Queue.Fail(root, m.ID, t, err, w.MaxAttempts)
 	if e != nil {
 		slog.Error("task failure persistence failed", "task_id", t.ID)
@@ -212,6 +223,25 @@ func (w *Worker) Run(ctx context.Context) error {
 	if err := w.Store.EnqueueFreshness(ctx); err != nil {
 		slog.Warn("initial freshness scheduling failed")
 	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		tick := time.NewTicker(time.Minute)
+		defer tick.Stop()
+		for {
+			if ctx.Err() != nil {
+				return
+			}
+			batch, cancel := context.WithTimeout(ctx, 30*time.Second)
+			w.radarTick(batch)
+			cancel()
+			select {
+			case <-ctx.Done():
+				return
+			case <-tick.C:
+			}
+		}
+	}()
 	ticker := time.NewTicker(200 * time.Millisecond)
 	defer ticker.Stop()
 	defer wg.Wait()

@@ -45,6 +45,12 @@ func (s *Store) evaluation(ctx context.Context, q Queryer, user, job string, now
 	if err != nil {
 		return v, err
 	}
+	return s.evaluateInputs(j, profile, os, es, now), nil
+}
+
+// Shared deterministic computation for evaluation CAS and Radar snapshots.
+func (s *Store) evaluateInputs(j d.Job, profile d.Profile, os []d.Observation, es []d.Evidence, now time.Time) Evaluation {
+	job := j.ID
 	os, es = rules.Current(os, es)
 	sort.Slice(es, func(i, j int) bool { return es[i].ID < es[j].ID })
 	identity := d.Hash(d.JSON(struct {
@@ -76,7 +82,7 @@ func (s *Store) evaluation(ctx context.Context, q Queryer, user, job string, now
 			}
 		}
 	}
-	return Evaluation{identity, j, profile, os, es, e, r, fit, until}, nil
+	return Evaluation{identity, j, profile, os, es, e, r, fit, until}
 }
 func (s *Store) ComputeEvaluation(ctx context.Context, user, job string) (Evaluation, error) {
 	tx, err := s.DB.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true})

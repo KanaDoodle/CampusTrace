@@ -100,6 +100,9 @@ type Job struct {
 	UpdatedAt     time.Time `json:"updated_at"`
 }
 type Source struct {
+	Adapter    string `json:"adapter,omitempty"`
+	Tenant     string `json:"tenant,omitempty"`
+	RateLimit  int    `json:"rate_limit,omitempty"`
 	OwnerID    string `json:"owner_id,omitempty"`
 	Visibility string `json:"visibility"`
 	Timezone   string `json:"timezone"`

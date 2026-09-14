@@ -12,17 +12,18 @@
     extraction: {PENDING:'待分析', COMPLETE:'分析完成', FAILED:'分析失败'},
     trust: {OFFICIAL:'官方来源', THIRD_PARTY:'第三方来源', MANUAL:'手动录入'},
     method: {RULE:'规则提取', LLM:'模型提取', MANUAL:'人工录入'},
-    job_type: {FULL_TIME:'校招全职', INTERNSHIP:'实习', UNKNOWN:'岗位类型未明确'},
+    job_type: {FULL_TIME:'全职岗位', INTERNSHIP:'实习', UNKNOWN:'岗位类型未明确'},
     degree: {ASSOCIATE:'大专', BACHELOR:'本科', MASTER:'硕士', PHD:'博士'},
     signal: {PRESENT:'发现申请入口', ABSENT:'未发现申请入口', UNKNOWN:'入口情况待确认'},
     fact: {IMPLEMENTED:'已实现', LIMITATION:'已知局限', PLANNED:'计划实现'},
     terminal: {COMPLETED:'查询完成', ERROR:'查询失败', TIMEOUT:'查询超时', CANCELLED:'查询已取消', UNGROUNDED:'暂无充分依据', TOOL_LIMIT:'已达本次查询上限', STEP_LIMIT:'已达本次分析上限', OUTPUT_LIMIT:'查询内容超过本次输出上限，请缩小范围'},
     change: {JD_CONTENT_CHANGED:'岗位描述有更新', GRADUATION_CHANGED:'毕业届别要求有更新', LOCATION_CHANGED:'工作地点有更新', APPLY_SIGNAL_CHANGED:'申请入口有变化', DEADLINE_CHANGED:'截止日期有更新', TECH_REQUIREMENT_CHANGED:'技术要求有更新'},
     evidence: {GRADUATION_REQUIREMENT:'毕业届别要求', EDUCATION_REQUIREMENT:'学历要求', JOB_TYPE:'岗位类型', LOCATION:'工作地点', EXPERIENCE_REQUIREMENT:'经验要求', TECH_STACK:'技术要求', LANGUAGE_REQUIREMENT:'语言要求', MAJOR_REQUIREMENT:'专业要求', APPLY_ACTION:'申请入口', DEADLINE:'投递截止日期', OPEN_SIGNAL:'开放招聘信号', CLOSED_SIGNAL:'结束招聘信号'},
-    tool: {search_jobs:'检索校招岗位', get_job:'查询岗位详情', get_job_evidence:'核对岗位证据', get_job_eligibility:'核对投递条件', list_applications:'查询投递记录', get_application_history:'查询投递进展', get_interview_history:'查询面试与复盘', get_weak_topics:'查询待加强知识点', search_knowledge:'检索复习资料', get_project_facts:'核对项目事实', get_preparation_context:'整理面试准备内容', create_application:'加入投递计划', transition_application:'更新投递进展', record_interview_review:'保存面试复盘'},
+    tool: {get_daily_digest:'查询每日雷达',get_recent_changes:'查询最近变化',get_closing_jobs:'查询截止雷达',get_watched_sources:'查询关注源',watch_source:'关注招聘来源',unwatch_source:'取消关注来源',search_jobs:'检索校招岗位', get_job:'查询岗位详情', get_job_evidence:'核对岗位证据', get_job_eligibility:'核对投递条件', list_applications:'查询投递记录', get_application_history:'查询投递进展', get_interview_history:'查询面试与复盘', get_weak_topics:'查询待加强知识点', search_knowledge:'检索复习资料', get_project_facts:'核对项目事实', get_preparation_context:'整理面试准备内容', create_application:'加入投递计划', transition_application:'更新投递进展', record_interview_review:'保存面试复盘'},
     ranking: {status:'岗位可投递情况', eligibility:'投递条件匹配', city:'意向城市匹配', type:'岗位类型偏好', go_fit:'Go 技术方向匹配', role:'意向职能匹配', freshness:'岗位信息时效'}
   });
   const fields = Object.freeze({
+    counts:'雷达统计',as_of:'数据时间',new_jobs:'今日新增',recommended_jobs:'优先投递',closing_soon:'即将截止',status_changes:'状态变化',recent_changes:'最近变化',upcoming_interviews:'近期面试',disposition:'岗位偏好',deadline:'截止时间',deadline_version:'截止版本',check_interval:'检查间隔（秒）',enabled:'是否启用',next_check_at:'下次检查',last_checked_at:'上次检查',schedule_version:'调度版本',last_outcome:'检查结果',truncated:'已精简首页展示',watch_id:'关注编号',
     id:'记录编号', job_id:'岗位编号', company_id:'公司编号', user_id:'账号编号', title:'名称', company:'公司', name:'名称', job_type:'岗位类型', locations:'工作地点', current_status:'岗位状态', created_at:'创建时间', updated_at:'更新时间', fingerprint:'岗位识别标记',
     source_id:'来源编号', source_posting_id:'来源发布编号', external_id:'来源岗位编号', url:'来源网址', first_seen_at:'首次发现时间', last_seen_at:'最近发现时间', merge_reason:'岗位归并依据',
     observed_at:'观察时间', fetch_status:'获取情况', http_status:'页面响应码', normalized_content_hash:'内容指纹', text:'原文内容', apply_signal:'申请入口情况', deadline_signal:'截止日期线索', parser_version:'解析版本', extraction_status:'分析进度', error_category:'异常类型', trust:'来源类型',
