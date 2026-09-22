@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      # The module must build against the published KanaRPC-Go release, never
+      # against a sibling checkout. There is no go.work in CI, and this keeps
+      # it that way even if one is added locally.
+      GOWORK: "off"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - run: go build ./...
+      - run: go vet ./...
+      - run: go test -count=1 ./...
+      - run: go test -race -count=1 ./internal/...
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Frontend tests
+        run: node --test web/*.test.cjs
+
+      # Fails if the module resolves KanaRPC-Go through a replace directive or
+      # anything other than the published v0.1.0 tag.
+      - name: Verify published dependency boundary
+        run: ./scripts/verify-release-boundary.sh
