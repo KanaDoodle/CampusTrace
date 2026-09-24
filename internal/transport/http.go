@@ -31,9 +31,22 @@ type API struct {
 	SourceLimits map[string]int
 }
 
+// codedError reports a machine-readable code so the UI can show a specific
+// Chinese explanation instead of the generic bad-request fallback.
+func codedError(w http.ResponseWriter, status int, code string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(map[string]string{"error": code, "code": code})
+}
+
 func write(w http.ResponseWriter, v any, err error) {
 	w.Header().Set("Content-Type", "application/json")
 	if err != nil {
+		// Keep the real cause on the response recorder so the request log shows
+		// what failed; the client only receives a status-shaped message.
+		if rec, ok := w.(*recorder); ok {
+			rec.err = err
+		}
 		status := http.StatusBadRequest
 		if errors.Is(err, p.ErrNotFound) {
 			status = 404
@@ -45,13 +58,11 @@ func write(w http.ResponseWriter, v any, err error) {
 			status = 503
 		}
 		if errors.Is(err, p.ErrRadarCapacity) {
-			w.WriteHeader(409)
-			json.NewEncoder(w).Encode(map[string]string{"error": "RADAR_CAPACITY", "code": "RADAR_CAPACITY"})
+			codedError(w, http.StatusConflict, "RADAR_CAPACITY")
 			return
 		}
 		if errors.Is(err, rag.ErrCapacity) {
-			w.WriteHeader(409)
-			json.NewEncoder(w).Encode(map[string]string{"error": "CORPUS_CAPACITY", "code": "CORPUS_CAPACITY"})
+			codedError(w, http.StatusConflict, "CORPUS_CAPACITY")
 			return
 		}
 		w.WriteHeader(status)
@@ -113,6 +124,10 @@ func (a *API) Handler() http.Handler {
 			}
 			if route == "register" {
 				id, err := a.Auth.Register(r.Context(), v.Email, v.Password)
+				if errors.Is(err, p.ErrConflict) {
+					codedError(w, http.StatusConflict, "EMAIL_TAKEN")
+					return
+				}
 				write(w, map[string]string{"user_id": id}, err)
 			} else {
 				token, err := a.Auth.Login(r.Context(), v.Email, v.Password)
@@ -390,10 +405,52 @@ func (a *API) Handler() http.Handler {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("Referrer-Policy", "no-referrer")
 		w.Header().Set("Content-Security-Policy", "default-src 'self'; style-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'")
-		slog.InfoContext(r.Context(), "http request", "request_id", id, "method", r.Method, "path", r.URL.Path)
-		mux.ServeHTTP(w, r.WithContext(observability.With(r.Context(), observability.Fields{RequestID: id})))
+		ctx := observability.With(r.Context(), observability.Fields{RequestID: id})
+		rec := &recorder{ResponseWriter: w}
+		start := time.Now()
+		mux.ServeHTTP(rec, r.WithContext(ctx))
+		if rec.status == 0 {
+			rec.status = http.StatusOK
+		}
+		fields := []any{"request_id", id, "method", r.Method, "path", r.URL.Path, "status", rec.status, "duration_ms", time.Since(start).Milliseconds()}
+		switch {
+		case rec.err != nil:
+			slog.ErrorContext(ctx, "http request failed", append(fields, "error", rec.err.Error())...)
+		case rec.status >= 500:
+			slog.ErrorContext(ctx, "http request", fields...)
+		case rec.status >= 400:
+			slog.WarnContext(ctx, "http request", fields...)
+		default:
+			slog.InfoContext(ctx, "http request", fields...)
+		}
 	})
 }
+
+// recorder captures the status code each handler actually wrote and any error
+// passed to write, so the request log can report the real failure instead of
+// only the route that was hit.
+type recorder struct {
+	http.ResponseWriter
+	status int
+	err    error
+}
+
+func (rec *recorder) WriteHeader(code int) {
+	if rec.status == 0 {
+		rec.status = code
+	}
+	rec.ResponseWriter.WriteHeader(code)
+}
+
+func (rec *recorder) Write(b []byte) (int, error) {
+	if rec.status == 0 {
+		rec.status = http.StatusOK
+	}
+	return rec.ResponseWriter.Write(b)
+}
+
+// Unwrap keeps http.ResponseController (SSE flushing) working through the wrapper.
+func (rec *recorder) Unwrap() http.ResponseWriter { return rec.ResponseWriter }
 func SSE(w http.ResponseWriter, r *http.Request, run func(context.Context, func(agent.Event) error)) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")

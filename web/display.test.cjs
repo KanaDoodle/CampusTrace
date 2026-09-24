@@ -39,6 +39,14 @@ test('接口错误和新增规则说明使用中文兜底',()=>{
   assert.match(D.error(409,'/api/applications/transition'),/刷新/);
   assert.doesNotMatch(D.reason('New English internal explanation'),/English/);
 });
+test('服务端错误码优先于状态码兜底，注册重名不再报“必填项”',()=>{
+  assert.match(D.errorCode('EMAIL_TAKEN',409,'/auth/register'),/已经注册过/);
+  assert.match(D.errorCode('EMAIL_TAKEN',409,'/auth/register'),/登录/);
+  // Known codes fall back to the status mapping when absent or unknown.
+  assert.equal(D.errorCode(undefined,409,'/auth/register'),D.error(409,'/auth/register'));
+  assert.equal(D.errorCode('SOMETHING_ELSE',400,'/api/ingest'),D.error(400,'/api/ingest'));
+  assert.match(D.errorCode(undefined,400,'/api/ingest'),/提交未成功/);
+});
 // Run the actual render helpers without a browser so nested presentation and
 // source-text escaping can be regression-tested without introducing a UI framework.
 const context={CampusDisplay:D,sessionStorage:{getItem:()=>''},document:{querySelector:()=>null},globalThis:{},Intl,Date,Number,Object,Array,JSON,String,Error};

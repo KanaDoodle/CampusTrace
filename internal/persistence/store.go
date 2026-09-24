@@ -161,8 +161,16 @@ func (s *Store) Owned(ctx context.Context, table, user string) ([]json.RawMessag
 }
 func (s *Store) NewUser(ctx context.Context, email, hash string) (string, error) {
 	id := d.ID()
-	_, err := s.DB.ExecContext(ctx, "INSERT INTO users(id,email,password_hash) VALUES(?,?,?)", id, strings.ToLower(email), hash)
-	return id, err
+	if _, err := s.DB.ExecContext(ctx, "INSERT INTO users(id,email,password_hash) VALUES(?,?,?)", id, strings.ToLower(email), hash); err != nil {
+		// A taken email is a user-facing outcome, not an internal fault: the
+		// transport turns ErrConflict into 409 so the UI can say "log in instead"
+		// rather than reporting a generic bad-request.
+		if duplicate(err) {
+			return "", ErrConflict
+		}
+		return "", err
+	}
+	return id, nil
 }
 func (s *Store) Credentials(ctx context.Context, email string) (string, string, error) {
 	var id, hash string

@@ -141,6 +141,14 @@
     if (path.includes('/confirm')) return '该操作暂时无法确认，请重新查询并核对操作预览。';
     return '提交未成功，请检查必填项和填写格式后重试。';
   }
+  // A machine-readable code from the API wins over the status-code fallback: a
+  // taken email is not a formatting mistake the user can fix by retyping.
+  function errorCode(code, status, path='') {
+    if (code==='EMAIL_TAKEN') return '该邮箱已经注册过，请直接登录，或换一个邮箱注册。';
+    if (code==='RADAR_CAPACITY') return '可见岗位已超过当前雷达容量（500 条）；请联系维护者处理。';
+    if (code==='CORPUS_CAPACITY') return '资料库超过当前 10,000 个片段的可检索容量；本次导入或检索未执行。';
+    return error(status, path);
+  }
   function inputList(value) {return (Array.isArray(value)?value:[]).map(text).join('、');}
   function parseList(value) {
     const reverse=Object.fromEntries(Object.entries(aliases).map(([en,zh])=>[zh,en]));
@@ -152,7 +160,7 @@
     if (Number.isNaN(d.getTime())) throw new Error('面试时间格式不正确，请重新填写。');
     return d.toISOString();
   }
-  const display=Object.freeze({enums,fields,label,field,text,reason,date,scalar,requirement,error,inputList,parseList,shanghaiISO});
+  const display=Object.freeze({enums,fields,label,field,text,reason,date,scalar,requirement,error,errorCode,inputList,parseList,shanghaiISO});
   root.CampusDisplay=display;
   if (typeof module!=='undefined') module.exports=display;
 })(globalThis);

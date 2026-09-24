@@ -28,7 +28,7 @@ async function api(path,method='GET',body) {
   let response;
   try { response=await fetch(path,{method,headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)}); }
   catch { throw new UserError('暂时无法连接服务，请检查网络后重试。'); }
-  if (!response.ok) { const details=await response.json().catch(()=>({}));const error=new UserError(details.code==='RADAR_CAPACITY'?'可见岗位已超过当前雷达容量（500 条）；请联系维护者处理。':details.code==='CORPUS_CAPACITY'?'资料库超过当前 10,000 个片段的可检索容量；本次导入或检索未执行。':D.error(response.status,path));error.status=response.status;throw error; }
+  if (!response.ok) { const details=await response.json().catch(()=>({}));const error=new UserError(D.errorCode(details.code,response.status,path));error.status=response.status;throw error; }
   try { return await response.json(); } catch { throw new UserError('服务返回的内容暂时无法显示，请稍后重试。'); }
 }
 function fail(error) { $('#notice').textContent=error instanceof UserError?error.message:'暂时无法完成操作，请检查填写内容或稍后重试。'; }
