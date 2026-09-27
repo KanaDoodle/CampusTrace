@@ -12,6 +12,7 @@ import (
 	p "github.com/KanaDoodle/CampusTrace/internal/persistence"
 	"github.com/KanaDoodle/CampusTrace/internal/pipeline"
 	"github.com/KanaDoodle/CampusTrace/internal/rag"
+	"github.com/KanaDoodle/CampusTrace/internal/resume"
 	"github.com/KanaDoodle/CampusTrace/internal/source"
 	"github.com/KanaDoodle/CampusTrace/web"
 	"io"
@@ -22,13 +23,15 @@ import (
 )
 
 type API struct {
-	Store        *p.Store
-	Queue        *pipeline.Queue
-	Auth         auth.Service
-	Tools        *agent.Tools
-	Agent        *agent.Runtime
-	Metrics      *observability.Metrics
-	SourceLimits map[string]int
+	Store           *p.Store
+	Queue           *pipeline.Queue
+	Auth            auth.Service
+	Tools           *agent.Tools
+	Agent           *agent.Runtime
+	Metrics         *observability.Metrics
+	SourceLimits    map[string]int
+	ResumeModel     resume.Completer
+	ResumeModelName string
 }
 
 // codedError reports a machine-readable code so the UI can show a specific
@@ -261,6 +264,39 @@ func (a *API) Handler() http.Handler {
 		}
 		write(w, map[string]bool{"saved": true}, a.Store.SaveProfile(r.Context(), user(r), v))
 	})
+	on("GET /api/profile/resume/capabilities", func(w http.ResponseWriter, r *http.Request) {
+		write(w, map[string]any{"model_available": a.ResumeModel != nil, "model": a.ResumeModelName}, nil)
+	})
+	on("POST /api/profile/resume/draft", func(w http.ResponseWriter, r *http.Request) {
+		if a.ResumeModel == nil {
+			codedError(w, http.StatusServiceUnavailable, "RESUME_MODEL_UNAVAILABLE")
+			return
+		}
+		var v resume.Request
+		if err := decode(r, &v); err != nil {
+			codedError(w, http.StatusBadRequest, "RESUME_TEXT_INVALID")
+			return
+		}
+		if err := resume.CheckText(v.Text); err != nil {
+			code := "RESUME_TEXT_INVALID"
+			if errors.Is(err, resume.ErrSensitive) {
+				code = "RESUME_PII_DETECTED"
+			}
+			codedError(w, http.StatusBadRequest, code)
+			return
+		}
+		ok, err := a.Queue.Allow(r.Context(), "resume:llm:"+user(r), 5, time.Minute)
+		if err != nil || !ok {
+			codedError(w, http.StatusTooManyRequests, "RESUME_RATE_LIMIT")
+			return
+		}
+		draft, err := resume.Analyze(r.Context(), a.ResumeModel, v.Text)
+		if err != nil {
+			codedError(w, http.StatusBadGateway, "RESUME_DRAFT_FAILED")
+			return
+		}
+		write(w, draft, nil)
+	})
 	for _, table := range []string{"applications", "interviews", "reviews", "weak_topics", "projects", "project_facts", "documents"} {
 		on("GET /api/"+table, func(w http.ResponseWriter, r *http.Request) {
 			v, err := a.Store.Owned(r.Context(), table, user(r))
@@ -328,6 +364,15 @@ func (a *API) Handler() http.Handler {
 		out, err := a.Store.SaveProject(r.Context(), user(r), v)
 		write(w, out, err)
 	})
+	on("PUT /api/projects/{id}", func(w http.ResponseWriter, r *http.Request) {
+		var v d.Project
+		if err := decode(r, &v); err != nil {
+			write(w, nil, err)
+			return
+		}
+		out, err := a.Store.UpdateProject(r.Context(), user(r), r.PathValue("id"), v)
+		write(w, out, err)
+	})
 	on("POST /api/project_facts", func(w http.ResponseWriter, r *http.Request) {
 		var v d.ProjectFact
 		if err := decode(r, &v); err != nil {
@@ -335,6 +380,15 @@ func (a *API) Handler() http.Handler {
 			return
 		}
 		out, err := a.Store.SaveFact(r.Context(), user(r), v)
+		write(w, out, err)
+	})
+	on("PUT /api/project_facts/{id}", func(w http.ResponseWriter, r *http.Request) {
+		var v d.ProjectFact
+		if err := decode(r, &v); err != nil {
+			write(w, nil, err)
+			return
+		}
+		out, err := a.Store.UpdateFact(r.Context(), user(r), r.PathValue("id"), v)
 		write(w, out, err)
 	})
 	on("POST /api/documents", func(w http.ResponseWriter, r *http.Request) {

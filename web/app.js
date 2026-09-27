@@ -63,6 +63,7 @@ function displayQuery(query) {
   return samples[query.trim()]||query;
 }
 async function page(name,query='') {
+  if(name==='project_facts')name='profile';
   const version=++pageVersion;$('#notice').textContent='';const box=$('#content');box.innerHTML=empty('正在读取记录…');
   document.title=`${pageTitles[name]||'求职记录'} · CampusTrace`;
   const set=html=>{if(version!==pageVersion)return false;box.innerHTML=html;return true;};
@@ -79,11 +80,7 @@ async function page(name,query='') {
     for(const b of box.querySelectorAll('[data-example]'))b.onclick=()=>{$('#ask').elements.message.value=b.dataset.example;$('#ask').elements.message.focus();};
     formAction('#ask',async data=>{const result=await api('/agent/decide','POST',{session_id:'web',message:data.get('message')});if(version!==pageVersion)return;renderAgent(result,$('#agent-result'));});return;
   }
-  if (name==='profile') {
-    let profile={};try {profile=await api('/api/profile');}catch(error){if(error.status!==404)throw error;}
-    if(!set(`${heading}<p>如实填写毕业时间、学历和求职意向，用于逐项核对校招要求。留空表示尚未填写，不代表自动满足。</p><form id="save-profile" novalidate><div class="form-grid">${input('graduation_year','毕业届别（年份）',profile.graduation_year||'','number','min="2000" max="2100" placeholder="例如：2027"')}${input('graduation_from','毕业年份范围起点（届别未定时填写）',profile.graduation_from||'','number','min="2000" max="2100"')}${input('graduation_to','毕业年份范围终点',profile.graduation_to||'','number','min="2000" max="2100"')}<label>最高学历<select name="degree">${options('degree',profile.degree,true)}</select></label>${input('experience_months','相关实习或工作经验（月）',profile.experience_months??0,'number','min="0"')}</div><fieldset><legend>意向岗位类型</legend>${Object.entries(D.enums.job_type).filter(([v])=>v!=='UNKNOWN').map(([v,label])=>`<label class="check"><input name="preferred_job_types" type="checkbox" value="${v}" ${(profile.preferred_job_types||[]).includes(v)?'checked':''}>${label}</label>`).join('')}</fieldset><p class="meta">多项内容可用顿号或逗号分隔。</p><div class="form-grid">${['majors','preferred_cities','acceptable_cities','target_roles','technical_skills','target_languages'].map(k=>input(k,D.field(k),D.inputList(profile[k]))).join('')}</div><button>保存求职资料</button></form>`))return;
-    formAction('#save-profile',async data=>{const body={...profile};for(const k of ['graduation_year','graduation_from','graduation_to','experience_months'])body[k]=Number(data.get(k)||0);body.degree=data.get('degree');body.preferred_job_types=data.getAll('preferred_job_types');for(const k of ['majors','preferred_cities','acceptable_cities','target_roles','technical_skills','target_languages']){const raw=data.get(k);body[k]=raw===D.inputList(profile[k])?(profile[k]||[]):D.parseList(raw);}await api('/api/profile','PUT',body);$('#notice').textContent='求职资料已保存。';});return;
-  }
+  if (name==='profile') {await CampusProfile.page(set,heading,{api,esc,D,formAction,UserError});return;}
   if(name==='ingest') {
     set(`${heading}<p>粘贴招聘说明，或填写公开招聘页面的网址。手动录入的信息需要核验；遇到登录或验证码限制时，仅记录访问情况。</p><form id="ingest" novalidate><div class="form-grid">${input('company','公司名称','','text','required')}${input('title','岗位名称','','text','required')}${input('locations','工作地点（多项用顿号分隔）','','text','required')}<label>岗位类型<select name="job_type">${options('job_type','FULL_TIME')}</select></label></div>${input('url','公开招聘页面网址（可选）','','url','placeholder="粘贴公开招聘页面的网址"')}${area('text','岗位招聘说明','','maxlength="60000" placeholder="粘贴岗位说明；如已填写网址，可留空以获取公开页面。"')}<button>保存岗位观察</button></form><div id="ingest-result"></div>`);
     formAction('#ingest',async data=>{const body=Object.fromEntries(data);body.locations=D.parseList(body.locations);if(!body.text.trim()&&!body.url)throw new UserError('请粘贴岗位说明，或填写公开招聘页面的网址。');const result=await api('/api/ingest','POST',body);if(version===pageVersion)$('#ingest-result').innerHTML=`<h3>观察记录已保存</h3><p>后续会分析证据并更新判断。获取成功不代表岗位一定可投递。</p>${translated(result)}`;});return;

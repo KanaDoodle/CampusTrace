@@ -13,6 +13,8 @@ API binds localhost by default. JSON requests are strict and limited to 64KiB ex
 | POST /api/ingest | manual text or public URL, forced manual trust |
 | POST /api/import | JSON array or text/csv; per-row results, not an all-or-nothing batch |
 | GET, PUT /api/profile | current user's candidate profile |
+| GET /api/profile/resume/capabilities | whether an external resume model is configured; model name only |
+| POST /api/profile/resume/draft | accepts only user-reviewed redacted `{"text":"..."}` (max 16 KiB); returns cited, unsaved profile/project drafts; rejects common direct identifiers |
 | GET, POST /api/applications | list or directly create a plan (human API path) |
 | POST /api/applications/transition | application_id, state, expected version, optional note |
 | GET /api/applications/{id}/history | owner-scoped events |
@@ -21,7 +23,9 @@ API binds localhost by default. JSON requests are strict and limited to 64KiB ex
 | GET, POST /api/reviews | owner reviews; one validated review per interview |
 | GET /api/weak_topics | accumulated review-backed topics |
 | GET, POST /api/projects | owner projects |
+| PUT /api/projects/{id} | rename one owned project |
 | GET, POST /api/project_facts | IMPLEMENTED/LIMITATION/PLANNED facts; ownership checked against project |
+| PUT /api/project_facts/{id} | edit one owned fact, retaining its project and creation time; explicit `verified` flag |
 | GET, POST /api/documents | owner knowledge documents |
 | GET /api/knowledge?q=Redis | hybrid Top-5 chunks |
 | GET /api/jobs/{id}/preparation | job + current_requirements + current_observations + input_identity + eligibility/fit + project facts + weak topics + knowledge |
@@ -31,6 +35,8 @@ API binds localhost by default. JSON requests are strict and limited to 64KiB ex
 | GET /agent/traces/{runID} | sanitized owner-scoped 24h trace |
 
 Agent write tools are **not** mapped to direct CRUD routes. They call `Tools.Propose`, which only creates an expiring Redis preview. Direct authenticated human CRUD requests are already explicit actions. Confirmation uses a MySQL receipt in the same transaction as the workflow write.
+
+Resume files are read in the browser; the resume draft API never accepts a file or raw resume upload. Manual profile and project/fact writes still persist only the selected structured fields. The resume draft endpoint has a per-user model call limit of five per minute, validates exact source excerpts, and does not persist input or draft output. If `LLM_URL` is unset it returns `RESUME_MODEL_UNAVAILABLE`; other resume-specific codes are `RESUME_TEXT_INVALID`, `RESUME_PII_DETECTED`, and `RESUME_DRAFT_FAILED`.
 
 Operational DLQ has no public REST endpoint; use `go run ./cmd/dlq` and explicit `-redrive ID`. Worker metrics bind `127.0.0.1:18081`. Source registration is a local CLI operation, not a way for untrusted HTTP clients to create official evidence.
 

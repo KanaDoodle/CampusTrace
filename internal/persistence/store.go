@@ -7,6 +7,7 @@ import (
 	"errors"
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
 	"github.com/KanaDoodle/CampusTrace/internal/observability"
+	"github.com/KanaDoodle/CampusTrace/internal/resume"
 	"github.com/KanaDoodle/CampusTrace/internal/rules"
 	"github.com/KanaDoodle/CampusTrace/migrations"
 	"github.com/go-sql-driver/mysql"
@@ -137,6 +138,16 @@ func (s *Store) SaveProfile(ctx context.Context, user string, p d.Profile) error
 	if (p.GraduationFrom != 0 && (p.GraduationFrom < 2000 || p.GraduationTo > 2100 || p.GraduationTo < p.GraduationFrom)) || (p.GraduationYear != 0 && (p.GraduationYear < 2000 || p.GraduationYear > 2100)) || p.ExperienceMonths < 0 || len(p.Skills) > 100 {
 		return ErrValidation
 	}
+	for _, values := range [][]string{p.Majors, p.PreferredTypes, p.PreferredCities, p.AcceptableCities, p.TargetRoles, p.Skills, p.Languages} {
+		if len(values) > 100 {
+			return ErrValidation
+		}
+		for _, value := range values {
+			if len(value) > 200 || resume.HasSensitive(value) {
+				return ErrValidation
+			}
+		}
+	}
 	return s.Tx(ctx, func(tx *sql.Tx) error {
 		var id string
 		if err := tx.QueryRowContext(ctx, "SELECT id FROM users WHERE id=? FOR UPDATE", user).Scan(&id); err != nil {
@@ -145,6 +156,9 @@ func (s *Store) SaveProfile(ctx context.Context, user string, p d.Profile) error
 		old, err := One[d.Profile](ctx, tx, "SELECT body FROM profiles WHERE user_id=?", user)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return err
+		}
+		if p.Revision != 0 && p.Revision != old.Revision {
+			return ErrConflict
 		}
 		p.Revision = old.Revision + 1
 		_, err = tx.ExecContext(ctx, "INSERT INTO profiles(id,user_id,body) VALUES(?,?,?) ON DUPLICATE KEY UPDATE body=VALUES(body)", user, user, d.JSON(p))

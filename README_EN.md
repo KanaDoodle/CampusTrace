@@ -87,6 +87,14 @@ GoFit is independent: `EXPLICIT_GO`, `LANGUAGE_FLEXIBLE`, `NO_GO_SIGNAL`, `CONFL
 
 The conservative offline parser supports explicit labels in [testdata/import.json](testdata/import.json), common `2027届`, `本科及以上`, Go/Golang and apply/closed text. It does not claim broad natural-language extraction quality.
 
+## Candidate profile and resume drafts
+
+The **Candidate Profile** page now holds both job criteria and projects/facts. Users can add or rename projects, and add or edit facts with explicit IMPLEMENTED/LIMITATION/PLANNED and verification flags. Only verified IMPLEMENTED facts support completed-work claims in the Agent.
+
+Text-based PDF, DOCX, and TXT resumes (up to 5 MB) are extracted in the browser. The raw file and raw extracted text are never uploaded. Common direct identifiers are masked locally; the user must inspect and may edit the complete outbound preview before explicitly sending it to the configured external model. The model returns cited, unsaved drafts. Suggestions and project facts are unchecked by default, and a user selects what to persist in the existing MySQL profile/project records. Automatic masking is not exhaustive, and scanned PDFs have no OCR support. Without `LLM_URL`, manual editing remains available. This release does not add semantic role normalization or relative job-fit scoring.
+
+PDF.js and JSZip are bundled locally under `web/vendor/` with version and license information.
+
 ## Application and interview workflow
 
 Applications follow `PLANNED → APPLIED → OA / INTERVIEW → HR / OFFER`, with permitted rejection/withdrawal transitions. Every transition locks/validates current state and expected version, inserts an event and updates the application in **one MySQL transaction**. Closed jobs do not terminate applications. Terminal application states cannot be reopened in 1.0.

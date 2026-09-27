@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
+	"github.com/KanaDoodle/CampusTrace/internal/resume"
 	"time"
 )
 
@@ -256,16 +257,35 @@ func (s *Store) FinishInterview(ctx context.Context, user, id, result, notes str
 	return v, err
 }
 func (s *Store) SaveProject(ctx context.Context, user string, p d.Project) (d.Project, error) {
-	if p.Name == "" || len(p.Name) > 200 {
+	if p.Name == "" || len(p.Name) > 200 || resume.HasSensitive(p.Name) {
 		return p, ErrValidation
 	}
 	p.ID = d.ID()
 	_, err := s.DB.ExecContext(ctx, "INSERT INTO projects(id,user_id,body) VALUES(?,?,?)", p.ID, user, d.JSON(p))
 	return p, err
 }
+func (s *Store) UpdateProject(ctx context.Context, user, id string, incoming d.Project) (d.Project, error) {
+	if id == "" || incoming.Name == "" || len(incoming.Name) > 200 || resume.HasSensitive(incoming.Name) {
+		return d.Project{}, ErrValidation
+	}
+	var updated d.Project
+	err := s.Tx(ctx, func(tx *sql.Tx) error {
+		old, err := One[d.Project](ctx, tx, "SELECT body FROM projects WHERE id=? AND user_id=? FOR UPDATE", id, user)
+		if err != nil {
+			return err
+		}
+		updated = d.Project{ID: old.ID, Name: incoming.Name}
+		_, err = tx.ExecContext(ctx, "UPDATE projects SET body=? WHERE id=? AND user_id=?", d.JSON(updated), id, user)
+		return err
+	})
+	return updated, err
+}
 func (s *Store) SaveFact(ctx context.Context, user string, f d.ProjectFact) (d.ProjectFact, error) {
 	if err := f.Validate(); err != nil {
-		return f, err
+		return f, ErrValidation
+	}
+	if len(f.Reference) > 1000 || resume.HasSensitive(f.Claim) || resume.HasSensitive(f.Reference) {
+		return f, ErrValidation
 	}
 	f.ID = d.ID()
 	f.CreatedAt = time.Now().UTC()
@@ -279,6 +299,32 @@ func (s *Store) SaveFact(ctx context.Context, user string, f d.ProjectFact) (d.P
 		return err
 	})
 	return f, err
+}
+
+func (s *Store) UpdateFact(ctx context.Context, user, id string, incoming d.ProjectFact) (d.ProjectFact, error) {
+	var updated d.ProjectFact
+	if id == "" || len(incoming.Reference) > 1000 || resume.HasSensitive(incoming.Claim) || resume.HasSensitive(incoming.Reference) {
+		return updated, ErrValidation
+	}
+	err := s.Tx(ctx, func(tx *sql.Tx) error {
+		old, err := One[d.ProjectFact](ctx, tx, "SELECT body FROM project_facts WHERE id=? AND user_id=? FOR UPDATE", id, user)
+		if err != nil {
+			return err
+		}
+		if incoming.ProjectID != old.ProjectID {
+			return ErrValidation
+		}
+		if err := incoming.Validate(); err != nil {
+			return ErrValidation
+		}
+		updated = incoming
+		updated.ID = old.ID
+		updated.CreatedAt = old.CreatedAt
+		updated.UpdatedAt = time.Now().UTC()
+		_, err = tx.ExecContext(ctx, "UPDATE project_facts SET body=? WHERE id=? AND user_id=?", d.JSON(updated), id, user)
+		return err
+	})
+	return updated, err
 }
 
 func (s *Store) ActionReceipt(ctx context.Context, user, id string) (json.RawMessage, error) {
