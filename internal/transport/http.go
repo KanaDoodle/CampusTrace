@@ -322,7 +322,7 @@ func (a *API) Handler() http.Handler {
 		write(w, map[string]bool{"saved": true}, a.Store.SaveProfile(r.Context(), user(r), v))
 	})
 	on("GET /api/profile/resume/capabilities", func(w http.ResponseWriter, r *http.Request) {
-		write(w, map[string]any{"model_available": a.ResumeModel != nil, "model": a.ResumeModelName}, nil)
+		write(w, map[string]any{"model_available": a.ResumeModel != nil, "model": a.ResumeModelName, "user_id": user(r)}, nil)
 	})
 	on("POST /api/profile/resume/draft", func(w http.ResponseWriter, r *http.Request) {
 		var v resume.Request

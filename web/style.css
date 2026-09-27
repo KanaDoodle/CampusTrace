@@ -10,3 +10,6 @@ label{display:flex;flex-direction:column;gap:4px;margin:10px 0;color:#304b54}inp
 
 /* Candidate profile and resume review */
 .fact-row{border-top:1px solid #e1e8e2;padding:12px 0}.fact-row summary{cursor:pointer;overflow-wrap:anywhere}.draft-row{display:grid;grid-template-columns:minmax(110px,1fr) minmax(120px,1fr) minmax(180px,2fr);gap:8px;align-items:center;border-top:1px solid #e1e8e2;padding:12px 0}.draft-row small{grid-column:1/-1;white-space:pre-wrap}.draft-project{background:#f6f9f7;border:1px solid #dce6e0;border-radius:8px;padding:16px}.draft-project textarea{min-height:72px}.draft-project fieldset{background:#fff}#resume-preview{min-height:240px;font:13px/1.6 ui-monospace,monospace}.fact-row textarea{min-height:75px}@media(max-width:750px){.draft-row{grid-template-columns:1fr}}
+
+/* Built-in model selection */
+.model-presets{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.model-presets .card{margin:0}@media(max-width:750px){.model-presets{grid-template-columns:1fr}}

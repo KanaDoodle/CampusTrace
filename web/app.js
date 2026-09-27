@@ -53,7 +53,7 @@ $('#register').onclick=async()=>{
   if (size<10||size>72) {fail(new UserError('密码长度需为 10—72 字节；汉字通常占多个字节，建议使用字母、数字和符号组合。'));return;}
   try {await api('/auth/register','POST',data);$('#notice').textContent='账号已创建，请使用刚填写的邮箱和密码登录。';}catch(error){fail(error);}
 };
-$('#logout').onclick=()=>{pageVersion++;token='';sessionStorage.removeItem('campustrace-token');CampusModels.clear();$('#content').replaceChildren();$('#notice').textContent='';show();};
+$('#logout').onclick=()=>{pageVersion++;token='';sessionStorage.removeItem('campustrace-token');CampusModels.lock();$('#content').replaceChildren();$('#notice').textContent='';show();};
 for (const b of document.querySelectorAll('[data-page]')) b.onclick=()=>page(b.dataset.page).catch(fail);
 const pageTitles={radar:'我的校招雷达',watches:'关注源',source_jobs:'来源岗位',notifications:'通知收件箱',preferences:'稍后看与忽略',closing:'截止雷达',changes:'最近变化',jobs:'校招岗位',applications:'投递进展',interviews:'面试与复盘',weak_topics:'待加强知识点',project_facts:'项目事实',agent:'求职问答',profile:'求职资料',models:'模型设置',ingest:'录入岗位'};
 function input(name,label,value='',type='text',extra='') {return `<label>${esc(label)}<input name="${esc(name)}" type="${type}" value="${esc(value)}" ${extra}></label>`;}
@@ -78,6 +78,7 @@ async function page(name,query='') {
   }
   if (name==='agent') {
     const capabilities=await api('/api/profile/resume/capabilities');
+    CampusModels.bindUser(capabilities.user_id);
     if(!set(`${heading}<p>根据岗位证据和你的求职记录回答问题。涉及投递进展或面试复盘的修改，先展示预览，再由你确认。</p><p class="meta">当前模型：${esc(CampusModels.available(capabilities)?CampusModels.label(capabilities):'离线演示模型')}。使用外部模型时，问题和查询到的相关资料会发送给所选提供商。</p><button id="agent-model-settings" type="button">选择外部模型</button><div class="examples" aria-label="试着这样问"><span>试着这样问：</span>${['今天有什么值得处理？','最近哪些岗位关闭了？','未来三天哪些岗位截止？','我投过哪些岗位？'].map(q=>`<button type="button" data-example="${esc(q)}">${esc(q)}</button>`).join('')}</div><form id="ask" novalidate>${area('message','你的问题','','required maxlength="4000" placeholder="例如：为什么这个岗位可投递？请附上岗位编号，便于核对证据。"')}<button>查询求职记录</button></form><div id="agent-result" aria-live="polite"></div>`))return;
     $('#agent-model-settings').onclick=()=>page('models').catch(fail);
     for(const b of box.querySelectorAll('[data-example]'))b.onclick=()=>{$('#ask').elements.message.value=b.dataset.example;$('#ask').elements.message.focus();};

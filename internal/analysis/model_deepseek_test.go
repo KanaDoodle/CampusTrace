@@ -53,3 +53,30 @@ func TestGenericProviderKeepsExistingRequestShape(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestGPT6PresetUsesToolCompatibleChatSettings(t *testing.T) {
+	for _, model := range []string{"gpt-6-luna", "gpt-6-sol"} {
+		t.Run(model, func(t *testing.T) {
+			client := NewChat("https://api.openai.com/v1/chat/completions", "test-key", model, 1)
+			client.HTTP = &http.Client{Transport: modelTransport(func(r *http.Request) (*http.Response, error) {
+				var body map[string]any
+				if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+					t.Fatal(err)
+				}
+				if body["reasoning_effort"] != "none" || body["model"] != model {
+					t.Fatalf("incorrect GPT-6 settings: %+v", body)
+				}
+				if _, ok := body["temperature"]; ok {
+					t.Fatal("GPT-6 request must omit temperature")
+				}
+				if _, ok := body["tools"]; !ok {
+					t.Fatal("tool definitions were omitted")
+				}
+				return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(`{"choices":[{"message":{"content":"{}"}}]}`)), Header: make(http.Header)}, nil
+			})}
+			if _, err := client.Complete(context.Background(), nil, []any{map[string]any{"type": "function"}}); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}

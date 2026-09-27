@@ -62,6 +62,11 @@ func (c *ChatClient) complete(ctx context.Context, messages any, tools any, json
 			body["response_format"] = map[string]string{"type": "json_object"}
 		}
 	}
+	if endpoint != nil && endpoint.Hostname() == "api.openai.com" && (c.Model == "gpt-6-luna" || c.Model == "gpt-6-sol") {
+		// GPT-6 Chat Completions tool calls use none reasoning effort.
+		body["reasoning_effort"] = "none"
+		delete(body, "temperature")
+	}
 	if tools != nil {
 		body["tools"] = tools
 	}

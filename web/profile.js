@@ -3,6 +3,7 @@ const CampusProfile=(function(){
   async function page(set,heading,{api,esc,D,formAction,UserError,navigate}) {
     const readProfile=async()=>{try{return await api('/api/profile');}catch(error){if(error.status===404)return {revision:0};throw error;}};
     const [profile,projects,facts,capabilities]=await Promise.all([readProfile(),api('/api/projects'),api('/api/project_facts'),api('/api/profile/resume/capabilities')]);
+    CampusModels.bindUser(capabilities.user_id);
     const state={profile,projects,facts,capabilities,preview:'',draft:null};
     const notice=message=>{document.querySelector('#notice').textContent=message;};
     const listFields=['majors','preferred_cities','acceptable_cities','target_roles','technical_skills','target_languages'];
