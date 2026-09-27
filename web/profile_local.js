@@ -3,9 +3,10 @@
   const patterns = [
     [/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, '[已移除邮箱]'],
     [/(?:https?:\/\/|www\.|github\.com\/|linkedin\.com\/)\S+/gi, '[已移除链接]'],
-    [/\b1[3-9]\d{9}\b/g, '[已移除电话]'],
+    [/(^|[^\dA-Za-z])(?:(?:\+?86|0086)[ \t-]?)?1[3-9]\d[ \t-]?\d{4}[ \t-]?\d{4}(?!\d)/gm, (_,prefix)=>prefix+'[已移除电话]'],
     [/\b\d{17}[\dXx]\b/g, '[已移除证件号码]'],
-    [/(?:姓名|真实姓名|现居住地|家庭住址|通讯地址|联系地址|身份证号|联系电话|手机号码)\s*[:：]\s*[^\n\r]+/g, '[已移除身份或联系信息]']
+    [/(^|[\s|,，;；])(?:(?:真实姓名|姓名)[ \t]*[:：]?|(?:Full Name|Name)[ \t]*[:：])[ \t]*(?:[A-Za-z]+(?:[ \t]+[A-Za-z]+){0,2}|[\u3400-\u9fff·]{2,8})/gmi,(_,prefix)=>prefix+'[已移除姓名]'],
+    [/(?:现居住地|家庭住址|通讯地址|联系地址|身份证号|联系电话|手机号码)\s*[:：]\s*[^\n\r]+/g, '[已移除身份或联系信息]']
   ];
   function redact(text) {
     let result=String(text||'');
@@ -14,6 +15,11 @@
   }
   function hasDirectIdentifiers(text) {
     return patterns.some(([pattern])=>{pattern.lastIndex=0;return pattern.test(text);});
+  }
+  function maskAdditionalName(text,name) {
+    const value=String(name||'').trim();
+    if(value.length<2||value.length>60) throw new Error('请填写至少 2 个字的姓名或称呼。');
+    return String(text||'').split(value).join('[已移除姓名]');
   }
   async function readDocx(file) {
     if(!root.JSZip) throw new Error('文档读取组件未就绪，请刷新页面重试。');
@@ -56,7 +62,7 @@
     if(text.length>100000) throw new Error('简历正文过长，请先精简文件。');
     return redact(text);
   }
-  const api={redact,hasDirectIdentifiers,readFile};
+  const api={redact,hasDirectIdentifiers,maskAdditionalName,readFile};
   if(typeof module==='object'&&module.exports) module.exports=api;
   root.CampusProfileLocal=api;
 })(typeof window==='undefined'?globalThis:window);

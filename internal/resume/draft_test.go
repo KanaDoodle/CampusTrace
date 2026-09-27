@@ -35,7 +35,7 @@ func TestAnalyzeSendsOnlyReviewedTextAndBindsExcerpts(t *testing.T) {
 }
 
 func TestSensitiveTextBlockedBeforeModelCall(t *testing.T) {
-	for _, s := range []string{"张三 13812345678 熟悉 Go", "姓名：张三\n熟悉 Go", "邮箱 x@example.com 熟悉 Go", "github.com/someone/repo 熟悉 Go"} {
+	for _, s := range []string{"张三 13812345678 熟悉 Go", "手机 +86 138 1234 5678 熟悉 Go", "138-1234-5678 熟悉 Go", "姓名：张三\n熟悉 Go", "姓名 张三 熟悉 Go", "Full Name: Alice Zhang 熟悉 Go", "邮箱 x@example.com 熟悉 Go", "github.com/someone/repo 熟悉 Go"} {
 		m := &fakeModel{}
 		if _, err := Analyze(context.Background(), m, s); !errors.Is(err, ErrSensitive) || m.called {
 			t.Fatalf("text=%q err=%v called=%v", s, err, m.called)

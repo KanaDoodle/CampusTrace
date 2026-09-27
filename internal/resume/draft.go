@@ -46,9 +46,10 @@ var ErrInvalid = errors.New("invalid resume draft")
 var sensitive = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b`),
 	regexp.MustCompile(`(?i)\b(?:https?://|www\.|github\.com/|linkedin\.com/)\S+`),
-	regexp.MustCompile(`\b1[3-9]\d{9}\b`),
+	regexp.MustCompile(`(^|[^0-9A-Za-z])(?:(?:\+?86|0086)[ \t-]?)?1[3-9][0-9][ \t-]?[0-9]{4}[ \t-]?[0-9]{4}([^0-9]|$)`),
 	regexp.MustCompile(`\b\d{17}[\dXx]\b`),
-	regexp.MustCompile(`(?:姓名|真实姓名|现居住地|家庭住址|通讯地址|联系地址|身份证号|联系电话|手机号码)\s*[:：]\s*[^\n\r]+`),
+	regexp.MustCompile(`(?i)(^|[\s|,，;；])(?:(?:真实姓名|姓名)[ \t]*[:：]?|(?:Full Name|Name)[ \t]*[:：])[ \t]*(?:[A-Za-z]{2,}|[\p{Han}·]{2,8})`),
+	regexp.MustCompile(`(?:现居住地|家庭住址|通讯地址|联系地址|身份证号|联系电话|手机号码)\s*[:：]\s*[^\n\r]+`),
 }
 
 func CheckText(s string) error {
