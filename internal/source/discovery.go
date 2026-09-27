@@ -1,6 +1,7 @@
 package source
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -61,7 +62,7 @@ type PublicPlatform struct {
 	Allow  func(context.Context, string, int) (bool, error)
 }
 
-func (PublicPlatform) Version() string { return "public-platforms-v1" }
+func (PublicPlatform) Version() string { return "public-platforms-v2" }
 
 var tenantPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,100}$`)
 
@@ -76,16 +77,28 @@ func PlatformURL(s d.Source) (string, error) {
 		return "https://boards-api.greenhouse.io/v1/boards/" + s.Tenant + "/jobs", nil
 	case "smartrecruiters":
 		return "https://api.smartrecruiters.com/v1/companies/" + s.Tenant + "/postings", nil
+	case "xiaohongshu":
+		return "https://job.xiaohongshu.com/websiterecruit/position", nil
 	}
 	return "", fail("UNSUPPORTED", false, 0)
 }
 func (a PublicPlatform) get(ctx context.Context, s d.Source, raw string, dst any) error {
+	return a.request(ctx, s, http.MethodGet, raw, nil, dst)
+}
+func (a PublicPlatform) post(ctx context.Context, s d.Source, raw string, body any, dst any) error {
+	return a.request(ctx, s, http.MethodPost, raw, body, dst)
+}
+func (a PublicPlatform) request(ctx context.Context, s d.Source, method, raw string, body any, dst any) error {
 	if a.Allow != nil {
 		limit := s.RateLimit
 		if limit < 1 {
 			limit = 30
 		}
-		ok, err := a.Allow(ctx, s.ID, limit)
+		key := s.ID
+		if s.Adapter == "xiaohongshu" {
+			key = "xiaohongshu:public-site"
+		}
+		ok, err := a.Allow(ctx, key, limit)
 		if err != nil {
 			return err
 		}
@@ -97,11 +110,22 @@ func (a PublicPlatform) get(ctx context.Context, s d.Source, raw string, dst any
 	if client == nil {
 		client = PublicClient()
 	}
-	req, err := http.NewRequestWithContext(ctx, "GET", raw, nil)
+	var payload io.Reader
+	if body != nil {
+		b, err := json.Marshal(body)
+		if err != nil {
+			return fail("SCHEMA_INVALID", false, 0)
+		}
+		payload = bytes.NewReader(b)
+	}
+	req, err := http.NewRequestWithContext(ctx, method, raw, payload)
 	if err != nil {
 		return fail("UNSUPPORTED", false, 0)
 	}
 	req.Header.Set("Accept", "application/json")
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
 	req.Header.Set("User-Agent", "CampusTrace/0.2 (public recruiting source monitoring)")
 	resp, err := client.Do(req)
 	if err != nil {
@@ -251,6 +275,11 @@ func (a PublicPlatform) Discover(ctx context.Context, s d.Source, w d.WatchTarge
 				return nil, fail("SCHEMA_INVALID", false, 200)
 			}
 		}
+	case "xiaohongshu":
+		refs, err = a.discoverXHS(ctx, s, w)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if len(refs) > MaxPostings {
 		return nil, fail("CAPACITY", false, 200)
@@ -332,11 +361,16 @@ func (a PublicPlatform) FetchPosting(ctx context.Context, s d.Source, r PostingR
 				text += "\nApplication URL: " + v.ApplyURL
 			}
 		}
+	case "xiaohongshu":
+		text, err = a.fetchXHS(ctx, s, r)
 	}
 	if err != nil {
 		res := Result{Status: "HTTP_ERROR"}
 		var e *FetchError
 		if errors.As(err, &e) {
+			if e.Category == "RATE_LIMIT" {
+				return Result{}, err
+			}
 			res.HTTPStatus = e.HTTPStatus
 			switch e.Category {
 			case "BLOCKED":

@@ -164,7 +164,9 @@ go run ./cmd/ingest -register-source -source company-radar -name 'Company' \
   -type OFFICIAL -trust OFFICIAL -adapter lever -tenant COMPANY_TENANT -rate 30
 ```
 
-用户在“关注源”选择已有 Source，设置标题/地点关键词和 5 分钟～7 天间隔。来源地址由维护者登记的 adapter + tenant 确定，用户不能把任意 URL 绑定到官方 Source；更换 Source 需另建关注。旧版手动 URL 导入保持可用。
+用户在“关注源”可以粘贴 `https://job.xiaohongshu.com/campus/position`，先预览当前校招项目、岗位总数与样例，再选全部/研发/算法/非技术方向、可选标题或地点关键词，以及 30 分钟～7 天检查间隔。创建后在“我的关注”查看进度和“已导入岗位”分页列表，点岗位可查看原有证据、资格与评分。预览只读，不创建关注；首次导入由后台逐步完成。网页输入的网址会严格限定为已适配的小红书列表页，不能任意抓取其他域名或自动推断其他公司的接口。该用户自建来源为私有 `MANUAL`，系统不会仅因网址属于企业网站就自动赋予 `OFFICIAL` 可信度。
+
+其他已登记 Source 仍可在折叠区选择。用户可设置标题/地点关键词和检查间隔；来源地址由维护者登记的 adapter + tenant 确定。更换 Source 需另建关注。旧版手动 URL 导入保持可用。小红书适配器通过其公开招聘接口获取项目、分页列表与岗位详情；网页本身为 JavaScript 应用，不能只抓初始 HTML。接口、招聘项目或网页结构改变时会明确报错，不会把不完整列表视为抓取成功。来源本地限速会延后任务，不消耗抓取失败的重试额度。
 
 新 migration `004_job_radar.sql` 增加 Watch、抓取 receipt/进度、Preference 和 Notification 表；`make seed` 执行迁移。升级前停止旧 Worker，再迁移并启动新 API/Worker；旧 Worker 不识别新 task type，不能混跑消费同一队列。
 

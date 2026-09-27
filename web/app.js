@@ -55,7 +55,7 @@ $('#register').onclick=async()=>{
 };
 $('#logout').onclick=()=>{pageVersion++;token='';sessionStorage.removeItem('campustrace-token');CampusModels.clear();$('#content').replaceChildren();$('#notice').textContent='';show();};
 for (const b of document.querySelectorAll('[data-page]')) b.onclick=()=>page(b.dataset.page).catch(fail);
-const pageTitles={radar:'我的校招雷达',watches:'关注源',notifications:'通知收件箱',preferences:'稍后看与忽略',closing:'截止雷达',changes:'最近变化',jobs:'校招岗位',applications:'投递进展',interviews:'面试与复盘',weak_topics:'待加强知识点',project_facts:'项目事实',agent:'求职问答',profile:'求职资料',models:'模型设置',ingest:'录入岗位'};
+const pageTitles={radar:'我的校招雷达',watches:'关注源',source_jobs:'来源岗位',notifications:'通知收件箱',preferences:'稍后看与忽略',closing:'截止雷达',changes:'最近变化',jobs:'校招岗位',applications:'投递进展',interviews:'面试与复盘',weak_topics:'待加强知识点',project_facts:'项目事实',agent:'求职问答',profile:'求职资料',models:'模型设置',ingest:'录入岗位'};
 function input(name,label,value='',type='text',extra='') {return `<label>${esc(label)}<input name="${esc(name)}" type="${type}" value="${esc(value)}" ${extra}></label>`;}
 function area(name,label,value='',extra='') {return `<label>${esc(label)}<textarea name="${esc(name)}" ${extra}>${esc(value)}</textarea></label>`;}
 function displayQuery(query) {
@@ -69,7 +69,7 @@ async function page(name,query='') {
   const set=html=>{if(version!==pageVersion)return false;box.innerHTML=html;return true;};
   const heading=`<h2>${pageTitles[name]}</h2>`;
   if (name==='models') {await CampusModels.page(set,heading,{api,esc,formAction,UserError});return;}
-  if(['radar','watches','notifications','preferences','closing','changes'].includes(name)){await radarPage(name,set,box,query);return;}
+  if(['radar','watches','source_jobs','notifications','preferences','closing','changes'].includes(name)){await radarPage(name,set,box,query);return;}
   if (name==='jobs') {
     const jobs=await api('/api/jobs?q='+encodeURIComponent(displayQuery(query)));
     if(!set(`${heading}<p class="meta">先核对岗位是否可投递，再结合个人条件与意向做选择。带“虚构演示”标记的公司与岗位仅用于演示。</p><form id="search" novalidate><label>岗位或公司<input name="q" placeholder="例如：后端、Go、雪松" value="${esc(query)}"></label><button>搜索岗位</button><small>最多显示 100 条，请用关键词缩小范围。</small></form><button id="refresh">刷新列表</button>${jobs.length?`<div class="table-wrap"><table><thead><tr><th>岗位</th><th>公司</th><th>工作地点</th><th>投递状态</th></tr></thead><tbody>${jobs.map(j=>`<tr><td><button data-job="${esc(j.id)}">${esc(D.text(j.title))}</button></td><td>${esc(D.text(j.company))}</td><td>${esc((j.locations||[]).map(D.text).join('、')||'地点待确认')}</td><td>${pill(j.current_status)}</td></tr>`).join('')}</tbody></table></div>`:empty('没有找到相关岗位，试试其他公司名或岗位关键词。')}`))return;

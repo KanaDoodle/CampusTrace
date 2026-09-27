@@ -151,6 +151,15 @@ func (w *Worker) handle(root context.Context, m redis.XMessage, consumers ...str
 		}
 		return
 	}
+	var sourceFailure *source.FetchError
+	if (t.Type == "WATCH_CHECK" || t.Type == "WATCH_FETCH") && errors.As(err, &sourceFailure) && sourceFailure.Category == "RATE_LIMIT" {
+		if e := w.Queue.DeferRateLimited(root, m.ID, t); e != nil {
+			slog.Error("source pace deferral failed", "task_id", t.ID)
+		} else {
+			w.Metrics.Add("retry_count", 1)
+		}
+		return
+	}
 	w.Metrics.Add("task_failures", 1)
 	if t.ID == "" {
 		t = p.NewTask("ANALYZE", "invalid-envelope")

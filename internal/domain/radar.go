@@ -11,11 +11,12 @@ type WatchInput struct {
 	SourceID      string `json:"source_id"`
 	CheckInterval int    `json:"check_interval"`
 	Keyword       string `json:"keyword"`
+	Direction     string `json:"direction,omitempty"`
 	Enabled       bool   `json:"enabled"`
 }
 
 func (v WatchInput) Validate() error {
-	if strings.TrimSpace(v.SourceID) == "" || len(v.SourceID) > 32 || v.CheckInterval < 300 || v.CheckInterval > 604800 || len(v.Keyword) > 100 {
+	if strings.TrimSpace(v.SourceID) == "" || len(v.SourceID) > 32 || v.CheckInterval < 300 || v.CheckInterval > 604800 || len(v.Keyword) > 100 || (v.Direction != "" && v.Direction != "rd" && v.Direction != "algorithm" && v.Direction != "non_tech") {
 		return errors.New("validation: watch interval must be 300..604800 seconds and keyword <=100 bytes")
 	}
 	return nil

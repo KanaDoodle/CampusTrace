@@ -60,8 +60,12 @@ func createWatchTx(ctx context.Context, tx *sql.Tx, user string, input d.WatchIn
 	if err := input.Validate(); err != nil {
 		return v, err
 	}
-	if _, err := watchSource(ctx, tx, user, input.SourceID); err != nil {
+	src, err := watchSource(ctx, tx, user, input.SourceID)
+	if err != nil {
 		return v, err
+	}
+	if src.Adapter == "xiaohongshu" && input.CheckInterval < 1800 {
+		return v, ErrValidation
 	}
 	var owner string
 	if err := tx.QueryRowContext(ctx, "SELECT id FROM users WHERE id=? FOR UPDATE", user).Scan(&owner); err != nil {
@@ -76,7 +80,7 @@ func createWatchTx(ctx context.Context, tx *sql.Tx, user string, input d.WatchIn
 	}
 	now := time.Now().UTC()
 	v = d.WatchTarget{ID: d.ID(), UserID: user, WatchInput: input, NextCheckAt: now, CreatedAt: now, UpdatedAt: now, LastOutcome: "PENDING"}
-	_, err := tx.ExecContext(ctx, "INSERT INTO watch_targets(id,user_id,source_id,enabled,next_check_at,body) VALUES(?,?,?,?,?,?)", v.ID, user, input.SourceID, input.Enabled, now, d.JSON(v))
+	_, err = tx.ExecContext(ctx, "INSERT INTO watch_targets(id,user_id,source_id,enabled,next_check_at,body) VALUES(?,?,?,?,?,?)", v.ID, user, input.SourceID, input.Enabled, now, d.JSON(v))
 	return v, err
 }
 func (s *Store) CreateWatch(ctx context.Context, user string, input d.WatchInput) (d.WatchTarget, error) {
@@ -111,8 +115,17 @@ func (s *Store) UpdateWatch(ctx context.Context, user, id string, input d.WatchI
 		if input.SourceID != v.SourceID {
 			return ErrValidation
 		}
-		if _, err = watchSource(ctx, tx, user, input.SourceID); err != nil {
+		src, err := watchSource(ctx, tx, user, input.SourceID)
+		if err != nil {
 			return err
+		}
+		if src.Adapter == "xiaohongshu" && input.CheckInterval < 1800 {
+			return ErrValidation
+		}
+		if input.Keyword != v.Keyword || input.Direction != v.Direction {
+			if _, err = tx.ExecContext(ctx, "DELETE FROM watch_postings WHERE watch_id=?", v.ID); err != nil {
+				return err
+			}
 		}
 		v.WatchInput = input
 		v.ScheduleVersion++

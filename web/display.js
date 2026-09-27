@@ -146,6 +146,9 @@
   function errorCode(code, status, path='') {
     if (code==='EMAIL_TAKEN') return '该邮箱已经注册过，请直接登录，或换一个邮箱注册。';
     if (code==='RADAR_CAPACITY') return '可见岗位已超过当前雷达容量（500 条）；请联系维护者处理。';
+    if (code==='SOURCE_URL_UNSUPPORTED') return '目前支持直接粘贴小红书校招岗位列表网址；其他公司网站需要单独适配。';
+    if (code==='SOURCE_PREVIEW_RATE_LIMIT') return '网址预览太频繁，请一分钟后再试。';
+    if (code==='SOURCE_PREVIEW_FAILED') return '招聘网站暂时无法读取，或页面接口已变化；本次没有创建关注，请稍后重试。';
     if (code==='CORPUS_CAPACITY') return '资料库超过当前 10,000 个片段的可检索容量；本次导入或检索未执行。';
     if (code==='RESUME_MODEL_UNAVAILABLE') return '尚未配置外部模型；可以继续手动维护求职资料。';
     if (code==='MODEL_CONFIG_INVALID') return '模型配置无效；请检查公开 HTTPS 接口地址、模型标识和密钥。';

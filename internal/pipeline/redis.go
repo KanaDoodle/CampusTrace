@@ -176,6 +176,18 @@ func (q *Queue) Fail(ctx context.Context, msg string, t p.Task, err error, max i
 	return retry, e
 }
 
+// DeferRateLimited returns a task to the delayed queue without spending its
+// network retry budget. A local source pace limit is not a failed fetch.
+func (q *Queue) DeferRateLimited(ctx context.Context, msg string, t p.Task) error {
+	if err := ValidateTask(t); err != nil {
+		return err
+	}
+	_, err := failScript.Run(ctx, q.R,
+		[]string{q.Stream(), q.Prefix + "retry:" + t.Type, q.Prefix + "dlq", q.Prefix + "failure-transferred:v2"},
+		msg, q.Group(), "retry", time.Now().Add(time.Minute).UnixMilli(), d.JSON(t), t.ID).Result()
+	return err
+}
+
 // Each due member is appended before removal; script errors do not roll back writes.
 var dueScript = redis.NewScript(`local t=redis.call('TIME');local now=t[1]*1000+math.floor(t[2]/1000);local xs=redis.call('ZRANGEBYSCORE',KEYS[1],'-inf',now,'LIMIT',0,100);for _,v in ipairs(xs) do redis.call('XADD',KEYS[2],'*','task',v);redis.call('ZREM',KEYS[1],v) end;return #xs`)
 

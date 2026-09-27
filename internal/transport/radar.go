@@ -1,15 +1,91 @@
 package transport
 
 import (
+	"context"
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
 	p "github.com/KanaDoodle/CampusTrace/internal/persistence"
+	"github.com/KanaDoodle/CampusTrace/internal/source"
 	"net/http"
 	"strconv"
+	"time"
 )
+
+func (a *API) campusPreview(w http.ResponseWriter, r *http.Request, raw string) (source.CampusPreview, bool) {
+	if source.RecognizeCampusURL(raw) != nil {
+		codedError(w, http.StatusBadRequest, "SOURCE_URL_UNSUPPORTED")
+		return source.CampusPreview{}, false
+	}
+	ok, err := a.Queue.Allow(r.Context(), "source-preview:"+user(r), 5, time.Minute)
+	if err != nil {
+		write(w, nil, p.ErrBackendUnavailable)
+		return source.CampusPreview{}, false
+	}
+	if !ok {
+		codedError(w, http.StatusTooManyRequests, "SOURCE_PREVIEW_RATE_LIMIT")
+		return source.CampusPreview{}, false
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
+	defer cancel()
+	v, err := (source.PublicPlatform{}).PreviewXHS(ctx, raw)
+	if err != nil {
+		codedError(w, http.StatusBadGateway, "SOURCE_PREVIEW_FAILED")
+		return source.CampusPreview{}, false
+	}
+	return v, true
+}
 
 func (a *API) radarRoutes(on func(string, http.HandlerFunc)) {
 	on("GET /api/sources", func(w http.ResponseWriter, r *http.Request) {
 		v, err := a.Store.SourcesForUser(r.Context(), user(r))
+		write(w, v, err)
+	})
+	on("POST /api/sources/preview", func(w http.ResponseWriter, r *http.Request) {
+		var in struct {
+			URL string `json:"url"`
+		}
+		if err := decode(r, &in); err != nil {
+			write(w, nil, err)
+			return
+		}
+		v, ok := a.campusPreview(w, r, in.URL)
+		if ok {
+			write(w, v, nil)
+		}
+	})
+	on("POST /api/sources/from-url", func(w http.ResponseWriter, r *http.Request) {
+		var in struct {
+			URL           string `json:"url"`
+			CheckInterval int    `json:"check_interval"`
+			Keyword       string `json:"keyword"`
+			Direction     string `json:"direction"`
+			Enabled       bool   `json:"enabled"`
+		}
+		if err := decode(r, &in); err != nil {
+			write(w, nil, err)
+			return
+		}
+		if err := (d.WatchInput{SourceID: "pending", CheckInterval: in.CheckInterval, Keyword: in.Keyword, Direction: in.Direction, Enabled: in.Enabled}).Validate(); err != nil {
+			write(w, nil, p.ErrValidation)
+			return
+		}
+		v, ok := a.campusPreview(w, r, in.URL)
+		if !ok {
+			return
+		}
+		result, err := a.Store.CreateCampusWatch(r.Context(), user(r), v.ProjectCode, v.Name, d.WatchInput{CheckInterval: in.CheckInterval, Keyword: in.Keyword, Direction: in.Direction, Enabled: in.Enabled})
+		write(w, result, err)
+	})
+	on("GET /api/sources/{id}/jobs", func(w http.ResponseWriter, r *http.Request) {
+		page := 1
+		var err error
+		if raw := r.URL.Query().Get("page"); raw != "" {
+			page, err = strconv.Atoi(raw)
+		}
+		if err != nil {
+			write(w, nil, p.ErrValidation)
+			return
+		}
+		v, err := a.Store.SourceJobsForUser(r.Context(), user(r), r.PathValue("id"), page)
 		write(w, v, err)
 	})
 	on("GET /api/watches", func(w http.ResponseWriter, r *http.Request) {
@@ -18,6 +94,10 @@ func (a *API) radarRoutes(on func(string, http.HandlerFunc)) {
 	})
 	on("GET /api/watches/{id}", func(w http.ResponseWriter, r *http.Request) {
 		v, err := a.Store.Watch(r.Context(), user(r), r.PathValue("id"))
+		write(w, v, err)
+	})
+	on("GET /api/watches/{id}/progress", func(w http.ResponseWriter, r *http.Request) {
+		v, err := a.Store.ProgressForUser(r.Context(), user(r), r.PathValue("id"))
 		write(w, v, err)
 	})
 	on("POST /api/watches", func(w http.ResponseWriter, r *http.Request) {

@@ -36,6 +36,10 @@ func (w *Worker) processWatch(ctx context.Context, t p.Task) error {
 	if t.Type == "WATCH_CHECK" {
 		refs, err := adapter.Discover(ctx, src, watch)
 		if err != nil {
+			var fetch *source.FetchError
+			if source.AsFetchError(err, &fetch) && fetch.Category == "RATE_LIMIT" {
+				return err
+			}
 			w.Metrics.Add("watch_checks_failed", 1)
 			_ = w.Store.FinishWatch(ctx, t, "DISCOVERY_FAILED")
 			return err
