@@ -14,6 +14,16 @@ type fakeModel struct {
 	output string
 }
 
+type fakeJSONModel struct {
+	fakeModel
+	structured bool
+}
+
+func (m *fakeJSONModel) CompleteJSON(ctx context.Context, messages any, tools any) (json.RawMessage, error) {
+	m.structured = true
+	return m.fakeModel.Complete(ctx, messages, tools)
+}
+
 func (m *fakeModel) Complete(_ context.Context, messages any, _ any) (json.RawMessage, error) {
 	m.called = true
 	rows := messages.([]map[string]string)
@@ -40,5 +50,12 @@ func TestSensitiveTextBlockedBeforeModelCall(t *testing.T) {
 		if _, err := Analyze(context.Background(), m, s); !errors.Is(err, ErrSensitive) || m.called {
 			t.Fatalf("text=%q err=%v called=%v", s, err, m.called)
 		}
+	}
+}
+
+func TestAnalyzeRequestsStructuredModeWhenAvailable(t *testing.T) {
+	m := &fakeJSONModel{fakeModel: fakeModel{output: `{"suggestions":[],"projects":[]}`}}
+	if _, err := Analyze(context.Background(), m, "熟悉 Go"); err != nil || !m.structured {
+		t.Fatalf("structured mode missing: %v", err)
 	}
 }

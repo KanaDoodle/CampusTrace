@@ -155,6 +155,13 @@
     if (code==='RESUME_TEXT_INVALID') return '外发文字为空、过长或格式有误；请检查脱敏预览。';
     if (code==='RESUME_PII_DETECTED') return '外发文字仍含常见联系方式或身份信息，请先移除。';
     if (code==='RESUME_DRAFT_FAILED') return '模型未返回可核对的草稿，请检查外发文字后重试。';
+    if (code==='MODEL_TIMEOUT') return '模型生成超时。请稍后重试；如果简历较长，可只保留求职资料和项目经历后再生成。';
+    if (code==='MODEL_AUTH_FAILED') return '模型密钥认证失败，请在“模型设置”检查 API 密钥。';
+    if (code==='MODEL_BALANCE_LOW') return '模型账户余额不足，请检查提供商账户。';
+    if (code==='MODEL_PROVIDER_BUSY') return '模型提供商当前繁忙或请求过于频繁，请稍后重试。';
+    if (code==='MODEL_REQUEST_INVALID') return '模型服务拒绝了本次请求，请核对接口地址和模型标识。';
+    if (code==='RESUME_DRAFT_UNVERIFIABLE') return '模型返回的草稿未通过原文摘录核对。请缩短外发文字，或分段保留项目经历后重试。';
+    if (code==='MODEL_PROVIDER_FAILED') return '暂时无法从模型服务获得草稿，请稍后重试，并核对模型设置。';
     return error(status, path);
   }
   function inputList(value) {return (Array.isArray(value)?value:[]).map(text).join('、');}

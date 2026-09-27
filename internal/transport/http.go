@@ -19,6 +19,7 @@ import (
 	"github.com/KanaDoodle/CampusTrace/web"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -50,6 +51,44 @@ func (a *API) customModel(cfg modelconfig.Config) (*analysis.ChatClient, error) 
 		client.Allow = func(ctx context.Context) (bool, error) { return a.Queue.Allow(ctx, "llm:global", 30, time.Minute) }
 	}
 	return client, nil
+}
+
+func resumeModelWithTimeout(model resume.Completer) resume.Completer {
+	client, ok := model.(*analysis.ChatClient)
+	if !ok || client.HTTP == nil {
+		return model
+	}
+	copyClient := *client
+	copyHTTP := *client.HTTP
+	copyHTTP.Timeout = 90 * time.Second
+	copyClient.HTTP = &copyHTTP
+	return &copyClient
+}
+
+func resumeDraftFailure(err error) string {
+	var status *analysis.HTTPError
+	if errors.As(err, &status) {
+		switch status.Status {
+		case 401, 403:
+			return "MODEL_AUTH_FAILED"
+		case 402:
+			return "MODEL_BALANCE_LOW"
+		case 429, 500, 503:
+			return "MODEL_PROVIDER_BUSY"
+		case 400, 422:
+			return "MODEL_REQUEST_INVALID"
+		default:
+			return "MODEL_PROVIDER_FAILED"
+		}
+	}
+	var network net.Error
+	if errors.Is(err, context.DeadlineExceeded) || (errors.As(err, &network) && network.Timeout()) {
+		return "MODEL_TIMEOUT"
+	}
+	if errors.Is(err, resume.ErrInvalid) {
+		return "RESUME_DRAFT_UNVERIFIABLE"
+	}
+	return "MODEL_PROVIDER_FAILED"
 }
 
 // codedError reports a machine-readable code so the UI can show a specific
@@ -317,9 +356,15 @@ func (a *API) Handler() http.Handler {
 			codedError(w, http.StatusTooManyRequests, "RESUME_RATE_LIMIT")
 			return
 		}
-		draft, err := resume.Analyze(r.Context(), model, v.Text)
+		draft, err := resume.Analyze(r.Context(), resumeModelWithTimeout(model), v.Text)
 		if err != nil {
-			codedError(w, http.StatusBadGateway, "RESUME_DRAFT_FAILED")
+			code := resumeDraftFailure(err)
+			slog.WarnContext(r.Context(), "resume draft failed", "category", code)
+			status := http.StatusBadGateway
+			if code == "MODEL_TIMEOUT" {
+				status = http.StatusGatewayTimeout
+			}
+			codedError(w, status, code)
 			return
 		}
 		write(w, draft, nil)

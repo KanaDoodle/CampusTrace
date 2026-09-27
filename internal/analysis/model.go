@@ -8,6 +8,7 @@ import (
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
 	"io"
 	"net/http"
+	"net/url"
 	"time"
 )
 
@@ -26,6 +27,16 @@ func NewChat(url, key, model string, n int) *ChatClient {
 	return &ChatClient{URL: url, Key: key, Model: model, HTTP: &http.Client{Timeout: 25 * time.Second}, Sem: make(chan struct{}, n)}
 }
 func (c *ChatClient) Complete(ctx context.Context, messages any, tools any) (json.RawMessage, error) {
+	return c.complete(ctx, messages, tools, false)
+}
+
+// CompleteJSON requests JSON mode only from providers whose behavior is known.
+// Other OpenAI-compatible providers keep the existing prompt-only contract.
+func (c *ChatClient) CompleteJSON(ctx context.Context, messages any, tools any) (json.RawMessage, error) {
+	return c.complete(ctx, messages, tools, true)
+}
+
+func (c *ChatClient) complete(ctx context.Context, messages any, tools any, jsonOutput bool) (json.RawMessage, error) {
 	select {
 	case c.Sem <- struct{}{}:
 		defer func() { <-c.Sem }()
@@ -42,6 +53,15 @@ func (c *ChatClient) Complete(ctx context.Context, messages any, tools any) (jso
 		}
 	}
 	body := map[string]any{"model": c.Model, "messages": messages, "temperature": 0}
+	endpoint, _ := url.Parse(c.URL)
+	if endpoint != nil && endpoint.Hostname() == "api.deepseek.com" {
+		// DeepSeek enables high-effort thinking by default. This workflow needs
+		// the final structured answer and does not retain reasoning across tools.
+		body["thinking"] = map[string]string{"type": "disabled"}
+		if jsonOutput {
+			body["response_format"] = map[string]string{"type": "json_object"}
+		}
+	}
 	if tools != nil {
 		body["tools"] = tools
 	}

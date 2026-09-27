@@ -47,6 +47,12 @@ test('服务端错误码优先于状态码兜底，注册重名不再报“必�
   assert.equal(D.errorCode('SOMETHING_ELSE',400,'/api/ingest'),D.error(400,'/api/ingest'));
   assert.match(D.errorCode(undefined,400,'/api/ingest'),/提交未成功/);
 });
+test('简历模型失败区分超时、密钥、余额与摘录核对',()=>{
+  assert.match(D.errorCode('MODEL_TIMEOUT',504),/超时/);
+  assert.match(D.errorCode('MODEL_AUTH_FAILED',502),/密钥/);
+  assert.match(D.errorCode('MODEL_BALANCE_LOW',502),/余额/);
+  assert.match(D.errorCode('RESUME_DRAFT_UNVERIFIABLE',502),/摘录核对/);
+});
 // Run the actual render helpers without a browser so nested presentation and
 // source-text escaping can be regression-tested without introducing a UI framework.
 const context={CampusDisplay:D,sessionStorage:{getItem:()=>''},document:{querySelector:()=>null},globalThis:{},Intl,Date,Number,Object,Array,JSON,String,Error};
