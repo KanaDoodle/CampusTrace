@@ -148,6 +148,7 @@
     if (code==='RADAR_CAPACITY') return '可见岗位已超过当前雷达容量（500 条）；请联系维护者处理。';
     if (code==='CORPUS_CAPACITY') return '资料库超过当前 10,000 个片段的可检索容量；本次导入或检索未执行。';
     if (code==='RESUME_MODEL_UNAVAILABLE') return '尚未配置外部模型；可以继续手动维护求职资料。';
+    if (code==='MODEL_CONFIG_INVALID') return '模型配置无效；请检查公开 HTTPS 接口地址、模型标识和密钥。';
     if (code==='RESUME_TEXT_INVALID') return '外发文字为空、过长或格式有误；请检查脱敏预览。';
     if (code==='RESUME_PII_DETECTED') return '外发文字仍含常见联系方式或身份信息，请先移除。';
     if (code==='RESUME_DRAFT_FAILED') return '模型未返回可核对的草稿，请检查外发文字后重试。';

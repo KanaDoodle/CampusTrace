@@ -53,9 +53,9 @@ $('#register').onclick=async()=>{
   if (size<10||size>72) {fail(new UserError('密码长度需为 10—72 字节；汉字通常占多个字节，建议使用字母、数字和符号组合。'));return;}
   try {await api('/auth/register','POST',data);$('#notice').textContent='账号已创建，请使用刚填写的邮箱和密码登录。';}catch(error){fail(error);}
 };
-$('#logout').onclick=()=>{pageVersion++;token='';sessionStorage.removeItem('campustrace-token');$('#content').replaceChildren();$('#notice').textContent='';show();};
+$('#logout').onclick=()=>{pageVersion++;token='';sessionStorage.removeItem('campustrace-token');CampusModels.clear();$('#content').replaceChildren();$('#notice').textContent='';show();};
 for (const b of document.querySelectorAll('[data-page]')) b.onclick=()=>page(b.dataset.page).catch(fail);
-const pageTitles={radar:'我的校招雷达',watches:'关注源',notifications:'通知收件箱',preferences:'稍后看与忽略',closing:'截止雷达',changes:'最近变化',jobs:'校招岗位',applications:'投递进展',interviews:'面试与复盘',weak_topics:'待加强知识点',project_facts:'项目事实',agent:'求职问答',profile:'求职资料',ingest:'录入岗位'};
+const pageTitles={radar:'我的校招雷达',watches:'关注源',notifications:'通知收件箱',preferences:'稍后看与忽略',closing:'截止雷达',changes:'最近变化',jobs:'校招岗位',applications:'投递进展',interviews:'面试与复盘',weak_topics:'待加强知识点',project_facts:'项目事实',agent:'求职问答',profile:'求职资料',models:'模型设置',ingest:'录入岗位'};
 function input(name,label,value='',type='text',extra='') {return `<label>${esc(label)}<input name="${esc(name)}" type="${type}" value="${esc(value)}" ${extra}></label>`;}
 function area(name,label,value='',extra='') {return `<label>${esc(label)}<textarea name="${esc(name)}" ${extra}>${esc(value)}</textarea></label>`;}
 function displayQuery(query) {
@@ -68,6 +68,7 @@ async function page(name,query='') {
   document.title=`${pageTitles[name]||'求职记录'} · CampusTrace`;
   const set=html=>{if(version!==pageVersion)return false;box.innerHTML=html;return true;};
   const heading=`<h2>${pageTitles[name]}</h2>`;
+  if (name==='models') {await CampusModels.page(set,heading,{api,esc,formAction,UserError});return;}
   if(['radar','watches','notifications','preferences','closing','changes'].includes(name)){await radarPage(name,set,box,query);return;}
   if (name==='jobs') {
     const jobs=await api('/api/jobs?q='+encodeURIComponent(displayQuery(query)));
@@ -76,11 +77,13 @@ async function page(name,query='') {
     for(const b of box.querySelectorAll('[data-job]'))b.onclick=()=>detail(b.dataset.job).catch(fail);return;
   }
   if (name==='agent') {
-    set(`${heading}<p>根据岗位证据和你的求职记录回答问题。涉及投递进展或面试复盘的修改，先展示预览，再由你确认。</p><div class="examples" aria-label="试着这样问"><span>试着这样问：</span>${['今天有什么值得处理？','最近哪些岗位关闭了？','未来三天哪些岗位截止？','我投过哪些岗位？'].map(q=>`<button type="button" data-example="${esc(q)}">${esc(q)}</button>`).join('')}</div><form id="ask" novalidate>${area('message','你的问题','','required maxlength="4000" placeholder="例如：为什么这个岗位可投递？请附上岗位编号，便于核对证据。"')}<button>查询求职记录</button></form><div id="agent-result" aria-live="polite"></div>`);
+    const capabilities=await api('/api/profile/resume/capabilities');
+    if(!set(`${heading}<p>根据岗位证据和你的求职记录回答问题。涉及投递进展或面试复盘的修改，先展示预览，再由你确认。</p><p class="meta">当前模型：${esc(CampusModels.available(capabilities)?CampusModels.label(capabilities):'离线演示模型')}。使用外部模型时，问题和查询到的相关资料会发送给所选提供商。</p><button id="agent-model-settings" type="button">选择外部模型</button><div class="examples" aria-label="试着这样问"><span>试着这样问：</span>${['今天有什么值得处理？','最近哪些岗位关闭了？','未来三天哪些岗位截止？','我投过哪些岗位？'].map(q=>`<button type="button" data-example="${esc(q)}">${esc(q)}</button>`).join('')}</div><form id="ask" novalidate>${area('message','你的问题','','required maxlength="4000" placeholder="例如：为什么这个岗位可投递？请附上岗位编号，便于核对证据。"')}<button>查询求职记录</button></form><div id="agent-result" aria-live="polite"></div>`))return;
+    $('#agent-model-settings').onclick=()=>page('models').catch(fail);
     for(const b of box.querySelectorAll('[data-example]'))b.onclick=()=>{$('#ask').elements.message.value=b.dataset.example;$('#ask').elements.message.focus();};
-    formAction('#ask',async data=>{const result=await api('/agent/decide','POST',{session_id:'web',message:data.get('message')});if(version!==pageVersion)return;renderAgent(result,$('#agent-result'));});return;
+    formAction('#ask',async data=>{const result=await api('/agent/decide','POST',{session_id:CampusModels.sessionID(capabilities),message:data.get('message'),model_config:CampusModels.requestConfig()});if(version!==pageVersion)return;renderAgent(result,$('#agent-result'));});return;
   }
-  if (name==='profile') {await CampusProfile.page(set,heading,{api,esc,D,formAction,UserError});return;}
+  if (name==='profile') {await CampusProfile.page(set,heading,{api,esc,D,formAction,UserError,navigate:page});return;}
   if(name==='ingest') {
     set(`${heading}<p>粘贴招聘说明，或填写公开招聘页面的网址。手动录入的信息需要核验；遇到登录或验证码限制时，仅记录访问情况。</p><form id="ingest" novalidate><div class="form-grid">${input('company','公司名称','','text','required')}${input('title','岗位名称','','text','required')}${input('locations','工作地点（多项用顿号分隔）','','text','required')}<label>岗位类型<select name="job_type">${options('job_type','FULL_TIME')}</select></label></div>${input('url','公开招聘页面网址（可选）','','url','placeholder="粘贴公开招聘页面的网址"')}${area('text','岗位招聘说明','','maxlength="60000" placeholder="粘贴岗位说明；如已填写网址，可留空以获取公开页面。"')}<button>保存岗位观察</button></form><div id="ingest-result"></div>`);
     formAction('#ingest',async data=>{const body=Object.fromEntries(data);body.locations=D.parseList(body.locations);if(!body.text.trim()&&!body.url)throw new UserError('请粘贴岗位说明，或填写公开招聘页面的网址。');const result=await api('/api/ingest','POST',body);if(version===pageVersion)$('#ingest-result').innerHTML=`<h3>观察记录已保存</h3><p>后续会分析证据并更新判断。获取成功不代表岗位一定可投递。</p>${translated(result)}`;});return;

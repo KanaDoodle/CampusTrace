@@ -91,7 +91,9 @@ The conservative offline parser supports explicit labels in [testdata/import.jso
 
 The **Candidate Profile** page now holds both job criteria and projects/facts. Users can add or rename projects, and add or edit facts with explicit IMPLEMENTED/LIMITATION/PLANNED and verification flags. Only verified IMPLEMENTED facts support completed-work claims in the Agent.
 
-Text-based PDF, DOCX, and TXT resumes (up to 5 MB) are extracted in the browser. The raw file and raw extracted text are never uploaded. Labeled names and common mainland Chinese mobile formats (including spaces, hyphens, and `+86`) are masked locally. For an unlabeled name, the user can enter it for local masking; that entry is neither saved nor sent to the server. The user must inspect and may edit the complete outbound preview before explicitly sending it to the configured external model. The model returns cited, unsaved drafts. Suggestions and project facts are unchecked by default, and a user selects what to persist in the existing MySQL profile/project records. Automatic masking is not exhaustive, and scanned PDFs have no OCR support. Without `LLM_URL`, manual editing remains available. This release does not add semantic role normalization or relative job-fit scoring.
+Text-based PDF, DOCX, and TXT resumes (up to 5 MB) are extracted in the browser. The raw file and raw extracted text are never uploaded. Labeled names and common mainland Chinese mobile formats (including spaces, hyphens, and `+86`) are masked locally. For an unlabeled name, the user can enter it for local masking; that entry is neither saved nor sent to the server. The user must inspect and may edit the complete outbound preview before explicitly sending it to the configured external model. The model returns cited, unsaved drafts. Suggestions and project facts are unchecked by default, and a user selects what to persist in the existing MySQL profile/project records. Automatic masking is not exhaustive, and scanned PDFs have no OCR support. Without a server default or a model selected on the Models page, manual editing remains available. This release does not add semantic role normalization or relative job-fit scoring.
+
+The Models page accepts multiple OpenAI-compatible Chat Completions endpoints with a display name, full public HTTPS URL, model ID, and API key. Users can switch among them or select the server default. Browser-added API keys live only in current-page memory and must be re-entered after refresh, closing the page, or logout; the server uses them per request without database persistence. Custom endpoints cannot resolve to private addresses or redirect. Agent questions and relevant tool context are sent to the selected provider, with separate conversations for different providers. Enter keys only on a trusted local page or an HTTPS deployment.
 
 PDF.js and JSZip are bundled locally under `web/vendor/` with version and license information.
 
@@ -132,7 +134,7 @@ The RPC wire protocol still has no early remote cancellation signal. CampusTrace
 
 ## Agent / RAG / MCP
 
-Default `DemoModel` is an explicitly deterministic offline natural-language router. Optional `LLM_URL`, `LLM_API_KEY`, `LLM_MODEL` enable an OpenAI-compatible chat endpoint; ordinary tests use scripted models and never require external credentials.
+Default `DemoModel` is an explicitly deterministic offline natural-language router. Users can select an external model on the Models page, while operators can set `LLM_URL`, `LLM_API_KEY`, and `LLM_MODEL` as the server default; ordinary tests use scripted models and never require external credentials.
 
 The model selects tools through at most 4 calls / 8 executions; deadline 35s and per-tool timeout 8s are configurable. All tool arguments are validated at runtime, including unknown fields, trailing JSON, nulls, required fields, enums, ranges and size. Last-step proposals are traced but never executed.
 

@@ -6,8 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"github.com/KanaDoodle/CampusTrace/internal/agent"
+	"github.com/KanaDoodle/CampusTrace/internal/analysis"
 	"github.com/KanaDoodle/CampusTrace/internal/auth"
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
+	"github.com/KanaDoodle/CampusTrace/internal/modelconfig"
 	"github.com/KanaDoodle/CampusTrace/internal/observability"
 	p "github.com/KanaDoodle/CampusTrace/internal/persistence"
 	"github.com/KanaDoodle/CampusTrace/internal/pipeline"
@@ -23,15 +25,31 @@ import (
 )
 
 type API struct {
-	Store           *p.Store
-	Queue           *pipeline.Queue
-	Auth            auth.Service
-	Tools           *agent.Tools
-	Agent           *agent.Runtime
-	Metrics         *observability.Metrics
-	SourceLimits    map[string]int
-	ResumeModel     resume.Completer
-	ResumeModelName string
+	Store            *p.Store
+	Queue            *pipeline.Queue
+	Auth             auth.Service
+	Tools            *agent.Tools
+	Agent            *agent.Runtime
+	Metrics          *observability.Metrics
+	SourceLimits     map[string]int
+	ResumeModel      resume.Completer
+	ResumeModelName  string
+	CustomModelSlots chan struct{}
+}
+
+func (a *API) customModel(cfg modelconfig.Config) (*analysis.ChatClient, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+	client := analysis.NewChat(cfg.URL, cfg.APIKey, cfg.Model, 1)
+	client.HTTP = modelconfig.PublicClient()
+	if a.CustomModelSlots != nil {
+		client.Sem = a.CustomModelSlots
+	}
+	if a.Queue != nil {
+		client.Allow = func(ctx context.Context) (bool, error) { return a.Queue.Allow(ctx, "llm:global", 30, time.Minute) }
+	}
+	return client, nil
 }
 
 // codedError reports a machine-readable code so the UI can show a specific
@@ -268,10 +286,6 @@ func (a *API) Handler() http.Handler {
 		write(w, map[string]any{"model_available": a.ResumeModel != nil, "model": a.ResumeModelName}, nil)
 	})
 	on("POST /api/profile/resume/draft", func(w http.ResponseWriter, r *http.Request) {
-		if a.ResumeModel == nil {
-			codedError(w, http.StatusServiceUnavailable, "RESUME_MODEL_UNAVAILABLE")
-			return
-		}
 		var v resume.Request
 		if err := decode(r, &v); err != nil {
 			codedError(w, http.StatusBadRequest, "RESUME_TEXT_INVALID")
@@ -285,12 +299,25 @@ func (a *API) Handler() http.Handler {
 			codedError(w, http.StatusBadRequest, code)
 			return
 		}
+		model := a.ResumeModel
+		if v.Model != nil {
+			client, err := a.customModel(*v.Model)
+			if err != nil {
+				codedError(w, http.StatusBadRequest, "MODEL_CONFIG_INVALID")
+				return
+			}
+			model = client
+		}
+		if model == nil {
+			codedError(w, http.StatusServiceUnavailable, "RESUME_MODEL_UNAVAILABLE")
+			return
+		}
 		ok, err := a.Queue.Allow(r.Context(), "resume:llm:"+user(r), 5, time.Minute)
 		if err != nil || !ok {
 			codedError(w, http.StatusTooManyRequests, "RESUME_RATE_LIMIT")
 			return
 		}
-		draft, err := resume.Analyze(r.Context(), a.ResumeModel, v.Text)
+		draft, err := resume.Analyze(r.Context(), model, v.Text)
 		if err != nil {
 			codedError(w, http.StatusBadGateway, "RESUME_DRAFT_FAILED")
 			return
@@ -415,8 +442,9 @@ func (a *API) Handler() http.Handler {
 		}
 		on(path, func(w http.ResponseWriter, r *http.Request) {
 			var v struct {
-				Session string `json:"session_id"`
-				Message string `json:"message"`
+				Session string              `json:"session_id"`
+				Message string              `json:"message"`
+				Model   *modelconfig.Config `json:"model_config,omitempty"`
 			}
 			if err := decode(r, &v); err != nil || v.Session == "" || v.Message == "" || len(v.Message) > 4000 || len(v.Session) > 64 {
 				write(w, nil, p.ErrValidation)
@@ -424,13 +452,24 @@ func (a *API) Handler() http.Handler {
 			}
 			start := time.Now()
 			defer a.Metrics.Since("agent_latency", start)
+			runtime := a.Agent
+			if v.Model != nil {
+				client, err := a.customModel(*v.Model)
+				if err != nil {
+					codedError(w, http.StatusBadRequest, "MODEL_CONFIG_INVALID")
+					return
+				}
+				copy := *a.Agent
+				copy.Model = agent.LiveModel{Client: client}
+				runtime = &copy
+			}
 			if !stream {
-				result := a.Agent.Run(r.Context(), user(r), v.Session, v.Message, nil)
+				result := runtime.Run(r.Context(), user(r), v.Session, v.Message, nil)
 				write(w, result, nil)
 				return
 			}
 			SSE(w, r, func(ctx context.Context, emit func(agent.Event) error) {
-				a.Agent.Run(ctx, user(r), v.Session, v.Message, emit)
+				runtime.Run(ctx, user(r), v.Session, v.Message, emit)
 			})
 		})
 	}

@@ -9,12 +9,14 @@ import (
 	"unicode/utf8"
 
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
+	"github.com/KanaDoodle/CampusTrace/internal/modelconfig"
 )
 
 // Only this reviewed text is sent to a model. Neither a file nor extracted raw
 // resume text is accepted by the API.
 type Request struct {
-	Text string `json:"text"`
+	Text  string              `json:"text"`
+	Model *modelconfig.Config `json:"model_config,omitempty"`
 }
 
 type Suggestion struct {
