@@ -1,5 +1,6 @@
 'use strict';
 const D = CampusDisplay;
+CampusUI.init();
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let token = sessionStorage.getItem('campustrace-token') || '';
@@ -41,7 +42,7 @@ function formAction(selector,action) {
     try { await action(new FormData(form),form); } catch(error) { fail(error); } finally { buttons.forEach(b=>b.disabled=false); }
   };
 }
-function show() { $('#auth').hidden=!!token;$('#workspace').hidden=!token;document.title='CampusTrace · 校招求职记录';if(token)page('radar').catch(fail); }
+function show() { $('#auth').hidden=!!token;$('#workspace').hidden=!token;document.body.classList.toggle('signed-in',!!token);document.title='CampusTrace · 校招求职工作台';if(token)page('matching').catch(fail); }
 formAction('#login',async data=>{
   token=(await api('/auth/login','POST',Object.fromEntries(data))).token;
   sessionStorage.setItem('campustrace-token',token);show();
@@ -53,9 +54,9 @@ $('#register').onclick=async()=>{
   if (size<10||size>72) {fail(new UserError('密码长度需为 10—72 字节；汉字通常占多个字节，建议使用字母、数字和符号组合。'));return;}
   try {await api('/auth/register','POST',data);$('#notice').textContent='账号已创建，请使用刚填写的邮箱和密码登录。';}catch(error){fail(error);}
 };
-$('#logout').onclick=()=>{pageVersion++;token='';sessionStorage.removeItem('campustrace-token');CampusModels.lock();CampusMatching.lock();$('#content').replaceChildren();$('#notice').textContent='';show();};
+$('#logout').onclick=()=>{CampusUI.closeAll();pageVersion++;token='';sessionStorage.removeItem('campustrace-token');CampusModels.lock();CampusMatching.lock();$('#content').replaceChildren();$('#notice').textContent='';show();};
 for (const b of document.querySelectorAll('[data-page]')) b.onclick=()=>page(b.dataset.page).catch(fail);
-const pageTitles={radar:'我的校招雷达',watches:'关注源',source_jobs:'来源岗位',notifications:'通知收件箱',preferences:'稍后看与忽略',closing:'截止雷达',changes:'最近变化',jobs:'校招岗位',matching:'岗位匹配',applications:'投递进展',interviews:'面试与复盘',weak_topics:'待加强知识点',project_facts:'项目事实',agent:'求职问答',profile:'求职资料',models:'模型设置',ingest:'录入岗位'};
+const pageTitles={radar:'我的校招雷达',watches:'关注源',source_jobs:'来源岗位',notifications:'通知收件箱',preferences:'稍后看与忽略',closing:'截止雷达',changes:'最近变化',jobs:'校招岗位',matching:'岗位库',applications:'投递进展',interviews:'面试与复盘',weak_topics:'待加强知识点',project_facts:'项目事实',agent:'求职问答',profile:'求职资料',models:'模型设置',ingest:'录入岗位'};
 function input(name,label,value='',type='text',extra='') {return `<label>${esc(label)}<input name="${esc(name)}" type="${type}" value="${esc(value)}" ${extra}></label>`;}
 function area(name,label,value='',extra='') {return `<label>${esc(label)}<textarea name="${esc(name)}" ${extra}>${esc(value)}</textarea></label>`;}
 function displayQuery(query) {
@@ -64,19 +65,20 @@ function displayQuery(query) {
 }
 async function page(name,query='') {
   if(name==='project_facts')name='profile';
+  if(name==='jobs')name='matching';
+  CampusUI.closeAll();
+  const navName=name==='source_jobs'?'watches':['closing','changes'].includes(name)?'radar':name;
+  for(const b of document.querySelectorAll('nav [data-page]')){if(b.dataset.page===navName)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');}
+  $('#crumb').textContent=pageTitles[name]||'求职记录';
+  document.querySelector('.sidebar').classList.remove('menu-open');
+  document.querySelector('#mobile-menu')?.setAttribute('aria-expanded','false');
   const version=++pageVersion;$('#notice').textContent='';const box=$('#content');box.innerHTML=empty('正在读取记录…');
   document.title=`${pageTitles[name]||'求职记录'} · CampusTrace`;
   const set=html=>{if(version!==pageVersion)return false;box.innerHTML=html;return true;};
-  const heading=`<h2>${pageTitles[name]}</h2>`;
+  const heading=CampusUI.heading(pageTitles[name]);
   if (name==='models') {await CampusModels.page(set,heading,{api,esc,formAction,UserError});return;}
-  if (name==='matching') {await CampusMatching.page(set,heading,{api,esc,D,UserError,navigate:page,active:()=>version===pageVersion});return;}
+  if (name==='matching') {await CampusMatching.page(set,heading,{api,esc,D,UserError,navigate:page,openRecord:detail,initialQuery:typeof query==='string'?query:'',active:()=>version===pageVersion});return;}
   if(['radar','watches','source_jobs','notifications','preferences','closing','changes'].includes(name)){await radarPage(name,set,box,query);return;}
-  if (name==='jobs') {
-    const jobs=await api('/api/jobs?q='+encodeURIComponent(displayQuery(query)));
-    if(!set(`${heading}<p class="meta">先核对岗位是否可投递，再结合个人条件与意向做选择。带“虚构演示”标记的公司与岗位仅用于演示。</p><form id="search" novalidate><label>岗位或公司<input name="q" placeholder="例如：后端、Go、雪松" value="${esc(query)}"></label><button>搜索岗位</button><small>最多显示 100 条，请用关键词缩小范围。</small></form><button id="refresh">刷新列表</button>${jobs.length?`<div class="table-wrap"><table><thead><tr><th>岗位</th><th>公司</th><th>工作地点</th><th>投递状态</th></tr></thead><tbody>${jobs.map(j=>`<tr><td><button data-job="${esc(j.id)}">${esc(D.text(j.title))}</button></td><td>${esc(D.text(j.company))}</td><td>${esc((j.locations||[]).map(D.text).join('、')||'地点待确认')}</td><td>${pill(j.current_status)}</td></tr>`).join('')}</tbody></table></div>`:empty('没有找到相关岗位，试试其他公司名或岗位关键词。')}`))return;
-    formAction('#search',data=>page('jobs',data.get('q')));$('#refresh').onclick=()=>page('jobs',query).catch(fail);
-    for(const b of box.querySelectorAll('[data-job]'))b.onclick=()=>detail(b.dataset.job).catch(fail);return;
-  }
   if (name==='agent') {
     const capabilities=await api('/api/profile/resume/capabilities');
     CampusModels.bindUser(capabilities.user_id);
@@ -85,7 +87,7 @@ async function page(name,query='') {
     for(const b of box.querySelectorAll('[data-example]'))b.onclick=()=>{$('#ask').elements.message.value=b.dataset.example;$('#ask').elements.message.focus();};
     formAction('#ask',async data=>{const result=await api('/agent/decide','POST',{session_id:CampusModels.sessionID(capabilities),message:data.get('message'),model_config:CampusModels.requestConfig()});if(version!==pageVersion)return;renderAgent(result,$('#agent-result'));});return;
   }
-  if (name==='profile') {await CampusProfile.page(set,heading,{api,esc,D,formAction,UserError,navigate:page});return;}
+  if (name==='profile') {await CampusProfile.page(set,heading,{api,esc,D,formAction,UserError,navigate:page,active:()=>version===pageVersion});return;}
   if(name==='ingest') {
     set(`${heading}<p>粘贴招聘说明，或填写公开招聘页面的网址。手动录入的信息需要核验；遇到登录或验证码限制时，仅记录访问情况。</p><form id="ingest" novalidate><div class="form-grid">${input('company','公司名称','','text','required')}${input('title','岗位名称','','text','required')}${input('locations','工作地点（多项用顿号分隔）','','text','required')}<label>岗位类型<select name="job_type">${options('job_type','FULL_TIME')}</select></label></div>${input('url','公开招聘页面网址（可选）','','url','placeholder="粘贴公开招聘页面的网址"')}${area('text','岗位招聘说明','','maxlength="60000" placeholder="粘贴岗位说明；如已填写网址，可留空以获取公开页面。"')}<button>保存岗位观察</button></form><div id="ingest-result"></div>`);
     formAction('#ingest',async data=>{const body=Object.fromEntries(data);body.locations=D.parseList(body.locations);if(!body.text.trim()&&!body.url)throw new UserError('请粘贴岗位说明，或填写公开招聘页面的网址。');const result=await api('/api/ingest','POST',body);if(version===pageVersion)$('#ingest-result').innerHTML=`<h3>观察记录已保存</h3><p>后续会分析证据并更新判断。获取成功不代表岗位一定可投递。</p>${translated(result)}`;});return;
@@ -131,9 +133,10 @@ function renderAgent(result,box) {
   }
 }
 async function detail(id) {
+  CampusUI.closeAll();$('#crumb').textContent='岗位核验记录';
   const version=++pageVersion;window.scrollTo(0,0);$('#notice').textContent='';$('#content').innerHTML=empty('正在核对岗位记录…');
   const v=await api('/api/jobs/'+id);if(version!==pageVersion)return;const j=v.job;document.title=`${D.text(j.title)} · 岗位详情 · CampusTrace`;
-  $('#content').innerHTML=`<button id="back">← 返回校招岗位</button><h2>${esc(D.text(j.title))} ${pill(j.current_status)}</h2><p>${esc(D.text(j.company))} · ${esc((j.locations||[]).map(D.text).join('、')||'地点待确认')} · ${esc(D.label('job_type',j.job_type))}</p><p class="meta">岗位编号：${esc(id)} · 最近更新：${esc(D.date(j.updated_at))}</p><div class="actions"><button data-pref="SAVED" data-id="${esc(id)}">稍后看</button><button data-pref="IGNORED" data-id="${esc(id)}">忽略</button><button data-apply="APPLIED" data-id="${esc(id)}">已投递</button><button id="apply">加入投递计划</button><button id="prepare">查看面试准备建议</button></div><article id="skill-match" class="card"><h3>技能与项目匹配</h3><p>正在读取匹配记录…</p></article><div class="grid"><article><h3>基础投递条件核对 ${pill(v.eligibility?.status||'UNKNOWN','eligibility')}</h3>${v.eligibility?table(v.eligibility.results,['rule','result','requirement','candidate_value','explanation']):empty('请先完善求职资料，再核对毕业届别、学历等投递要求。')}</article><article><h3>Go 技术方向匹配</h3><p>${pill(v.go_fit||'UNKNOWN','fit')}</p><h3>个人偏好匹配分：${Number.isFinite(v.ranking?.score)?v.ranking.score.toFixed(1):'暂未计算'}</h3><p class="meta">这是可解释的偏好排序分，不代表录用概率。城市、岗位类型和职位偏好使用岗位元数据；状态与资格使用证据评估。</p>${v.ranking?Object.entries(v.ranking.breakdown).map(([k,n])=>`<p>${esc(D.label('ranking',k))}：${Number(n).toFixed(1)} 分 <small>${esc(D.text(v.ranking.breakdown_sources?.[k]||'依据待核验'))}</small></p><progress aria-label="${esc(D.label('ranking',k))}" max="100" value="${Number(n)}"></progress>`).join(''):empty('完善求职资料后可查看分项得分。')}</article></div><h3>岗位观察与证据时间线</h3><p class="meta">每次访问单独留档。原文摘录保留来源语言；获取成功不等于仍可投递。</p><div class="timeline">${v.observations?.length?v.observations.map(o=>`<article><small>${esc(D.date(o.observed_at))} · ${esc(D.label('trust',o.trust))}</small><h4>${pill(o.fetch_status,'fetch')} · ${pill(o.extraction_status,'extraction')}</h4><p class="meta">页面响应码：${o.http_status||'不适用'} · 内容指纹：${esc(o.normalized_content_hash||'本次未取得内容')}</p><details><summary>查看招聘原文（保留来源语言）</summary><pre>${esc(o.text||'本次未取得可用的招聘原文。')}</pre></details>${v.evidence.filter(e=>e.observation_id===o.id).map(e=>`<div class="evidence"><p><b>${esc(D.label('evidence',e.type))}</b>：${esc(D.requirement(e.value,e.type))}</p><blockquote><small>证据原文：</small>${esc(e.excerpt)}</blockquote><p class="meta">${esc(D.label('method',e.extraction_method))} · 置信度 ${Math.round(e.confidence*100)}% · 证据编号：${esc(e.id)} · 提取版本：${esc(D.text(e.analysis_version||'历史版本未记录'))}</p></div>`).join('')||empty('本次观察尚未形成可用证据。')}</article>`).join(''):empty('暂无岗位观察记录。')}</div><h3>岗位状态判断历史</h3>${table(v.assessments,['status','rule_version','assessed_at','reason','evidence_ids'],'暂无状态判断记录，暂时无法确认是否可投递。')}<h3>岗位信息变化</h3>${table(v.changes,['type','created_at','from_observation','to_observation'],'暂未发现已分析版本之间的内容变化。')}<div id="prep"></div>`;
+  $('#content').innerHTML=`<button id="back">← 返回岗位库</button><h2>${esc(D.text(j.title))} ${pill(j.current_status)}</h2><p>${esc(D.text(j.company))} · ${esc((j.locations||[]).map(D.text).join('、')||'地点待确认')} · ${esc(D.label('job_type',j.job_type))}</p><p class="meta">岗位编号：${esc(id)} · 最近更新：${esc(D.date(j.updated_at))}</p><div class="actions"><button data-pref="SAVED" data-id="${esc(id)}">稍后看</button><button data-pref="IGNORED" data-id="${esc(id)}">忽略</button><button data-apply="APPLIED" data-id="${esc(id)}">已投递</button><button id="apply">加入投递计划</button><button id="prepare">查看面试准备建议</button></div><article id="skill-match" class="card"><h3>技能与项目匹配</h3><p>正在读取匹配记录…</p></article><div class="grid"><article><h3>基础投递条件核对 ${pill(v.eligibility?.status||'UNKNOWN','eligibility')}</h3>${v.eligibility?table(v.eligibility.results,['rule','result','requirement','candidate_value','explanation']):empty('请先完善求职资料，再核对毕业届别、学历等投递要求。')}</article><article><h3>Go 技术方向匹配</h3><p>${pill(v.go_fit||'UNKNOWN','fit')}</p><h3>个人偏好匹配分：${Number.isFinite(v.ranking?.score)?v.ranking.score.toFixed(1):'暂未计算'}</h3><p class="meta">这是可解释的偏好排序分，不代表录用概率。城市、岗位类型和职位偏好使用岗位元数据；状态与资格使用证据评估。</p>${v.ranking?Object.entries(v.ranking.breakdown).map(([k,n])=>`<p>${esc(D.label('ranking',k))}：${Number(n).toFixed(1)} 分 <small>${esc(D.text(v.ranking.breakdown_sources?.[k]||'依据待核验'))}</small></p><progress aria-label="${esc(D.label('ranking',k))}" max="100" value="${Number(n)}"></progress>`).join(''):empty('完善求职资料后可查看分项得分。')}</article></div><h3>岗位观察与证据时间线</h3><p class="meta">每次访问单独留档。原文摘录保留来源语言；获取成功不等于仍可投递。</p><div class="timeline">${v.observations?.length?v.observations.map(o=>`<article><small>${esc(D.date(o.observed_at))} · ${esc(D.label('trust',o.trust))}</small><h4>${pill(o.fetch_status,'fetch')} · ${pill(o.extraction_status,'extraction')}</h4><p class="meta">页面响应码：${o.http_status||'不适用'} · 内容指纹：${esc(o.normalized_content_hash||'本次未取得内容')}</p><details><summary>查看招聘原文（保留来源语言）</summary><pre>${esc(o.text||'本次未取得可用的招聘原文。')}</pre></details>${v.evidence.filter(e=>e.observation_id===o.id).map(e=>`<div class="evidence"><p><b>${esc(D.label('evidence',e.type))}</b>：${esc(D.requirement(e.value,e.type))}</p><blockquote><small>证据原文：</small>${esc(e.excerpt)}</blockquote><p class="meta">${esc(D.label('method',e.extraction_method))} · 置信度 ${Math.round(e.confidence*100)}% · 证据编号：${esc(e.id)} · 提取版本：${esc(D.text(e.analysis_version||'历史版本未记录'))}</p></div>`).join('')||empty('本次观察尚未形成可用证据。')}</article>`).join(''):empty('暂无岗位观察记录。')}</div><h3>岗位状态判断历史</h3>${table(v.assessments,['status','rule_version','assessed_at','reason','evidence_ids'],'暂无状态判断记录，暂时无法确认是否可投递。')}<h3>岗位信息变化</h3>${table(v.changes,['type','created_at','from_observation','to_observation'],'暂未发现已分析版本之间的内容变化。')}<div id="prep"></div>`;
   CampusMatching.showJob($('#skill-match'),id,{api,esc,D,navigate:page}).catch(error=>{if(version===pageVersion)$('#skill-match').innerHTML=`<h3>技能与项目匹配</h3><p>${esc(error.message)}</p>`;});
   bindRadar($('#content'),()=>detail(id));
   $('#back').onclick=()=>page('jobs').catch(fail);

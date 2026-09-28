@@ -70,8 +70,9 @@ test('招聘源读取失败区分网络、访问限制与接口变化',()=>{
 });
 // Run the actual render helpers without a browser so nested presentation and
 // source-text escaping can be regression-tested without introducing a UI framework.
-const context={CampusDisplay:D,sessionStorage:{getItem:()=>''},document:{querySelector:()=>null},globalThis:{},Intl,Date,Number,Object,Array,JSON,String,Error};
-vm.createContext(context);
+const context={CampusDisplay:D,sessionStorage:{getItem:()=>''},document:{querySelector:()=>null},Intl,Date,Number,Object,Array,JSON,String,Error};
+context.document.querySelectorAll=()=>[];context.document.addEventListener=()=>{};
+vm.createContext(context);vm.runInContext(fs.readFileSync(__dirname+'/ui.js','utf8'),context);
 const code=fs.readFileSync(__dirname+'/app.js','utf8');
 vm.runInContext(code.slice(0,code.indexOf("formAction('#login'")),context);
 const render=(value,key='')=>{context.fixture=value;context.fixtureKey=key;return vm.runInContext('translated(fixture,fixtureKey)',context);};

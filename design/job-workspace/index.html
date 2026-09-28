@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>岗位库 · CampusTrace 设计预览</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <a class="skip-link" href="#content">跳到主要内容</a>
+  <aside class="sidebar" aria-label="工作台导航">
+    <a class="brand" href="#jobs" aria-label="CampusTrace 岗位库">
+      <svg class="brand-mark" viewBox="0 0 36 36" fill="none" aria-hidden="true"><rect width="36" height="36" rx="10" fill="#16745B"/><circle cx="18" cy="18" r="10" stroke="white" stroke-opacity=".35"/><path d="M23 11a9 9 0 1 0 4 7" stroke="white" stroke-width="2" stroke-linecap="round"/><path d="m18 18 8-8" stroke="white" stroke-width="2" stroke-linecap="round"/><circle cx="18" cy="18" r="2.5" fill="white"/></svg>
+      <span>CampusTrace<small>我的校招工作台</small></span>
+    </a>
+    <nav>
+      <div class="nav-label">发现与行动</div>
+      <a href="#jobs" data-route="jobs"><span data-icon="briefcase"></span>岗位库<span class="nav-count">8</span></a>
+      <button data-open="sources"><span data-icon="radar"></span>关注来源</button>
+      <button data-open="applications"><span data-icon="list"></span>投递计划<span id="plan-count" class="nav-count">0</span></button>
+      <div class="nav-label nav-label-settings">个人设置</div>
+      <a href="#profile" data-route="profile"><span data-icon="person"></span>求职资料</a>
+      <a href="#models" data-route="models"><span data-icon="spark"></span>模型设置</a>
+    </nav>
+    <div class="sidebar-note"><span class="status-dot"></span><span>资料与密钥保留在本地<small>核对后，才发送分析内容</small></span></div>
+    <div class="sidebar-footer"><div class="avatar">我</div><span>个人工作台<small>CampusTrace · Job Radar</small></span></div>
+  </aside>
+  <div class="app">
+    <header class="topbar"><span class="breadcrumb">求职工作台 <span>/</span> <b id="crumb">岗位库</b></span><span class="preview-label">设计预览 · 示例数据</span></header>
+    <main id="content" tabindex="-1"></main>
+    <footer class="preview-footer">此页面用于确认交互与布局。示例分数不代表真实匹配结果；操作不会保存到产品，也不会调用模型。</footer>
+  </div>
+  <dialog id="detail" class="drawer" aria-labelledby="detail-title"></dialog>
+  <dialog id="modal" class="modal" aria-labelledby="modal-title"></dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <script src="preview.js"></script>
+</body>
+</html>
