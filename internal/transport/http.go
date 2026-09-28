@@ -21,6 +21,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -84,6 +85,17 @@ func resumeDraftFailure(err error) string {
 	var network net.Error
 	if errors.Is(err, context.DeadlineExceeded) || (errors.As(err, &network) && network.Timeout()) {
 		return "MODEL_TIMEOUT"
+	}
+	if errors.Is(err, modelconfig.ErrInvalid) {
+		return "MODEL_ENDPOINT_BLOCKED"
+	}
+	var response *analysis.ResponseError
+	if errors.As(err, &response) || errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF) {
+		return "MODEL_RESPONSE_INVALID"
+	}
+	var connection *url.Error
+	if errors.As(err, &connection) || errors.As(err, &network) {
+		return "MODEL_CONNECTION_FAILED"
 	}
 	if errors.Is(err, resume.ErrInvalid) {
 		return "RESUME_DRAFT_UNVERIFIABLE"

@@ -100,3 +100,12 @@ test('个人资料与复盘不再暴露 JSON 编辑器，所有静态表单文�
 });
 
 test('准备材料区分当前与历史，输出上限可识别',()=>{ assert.equal(D.field('current_requirements'),'当前岗位要求'); assert.equal(D.field('historical_requirements'),'历史岗位要求'); assert.match(D.label('terminal','OUTPUT_LIMIT'),/输出上限/); });
+test('matching model failures describe analysis and separate transport from evidence validation',()=>{
+  const path='/api/matching/analyze';
+  assert.ok(D.errorCode('MODEL_CONNECTION_FAILED',502,path).includes('连接失败'));
+  assert.ok(D.errorCode('MODEL_RESPONSE_INVALID',502,path).includes('无法读取'));
+  assert.ok(D.errorCode('MODEL_ENDPOINT_BLOCKED',502,path).includes('地址解析'));
+  assert.ok(D.errorCode('MODEL_TIMEOUT',502,path).includes('模型分析超时'));
+  assert.ok(!D.errorCode('MODEL_PROVIDER_FAILED',502,path).includes('草稿'));
+  assert.ok(D.errorCode('MATCH_OUTPUT_INVALID',502,path).includes('依据核对'));
+});

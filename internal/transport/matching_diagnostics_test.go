@@ -1,0 +1,63 @@
+package transport
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
+	"log/slog"
+	"net/http/httptest"
+	"net/url"
+	"strings"
+	"testing"
+
+	"github.com/KanaDoodle/CampusTrace/internal/analysis"
+	"github.com/KanaDoodle/CampusTrace/internal/matching"
+	"github.com/KanaDoodle/CampusTrace/internal/modelconfig"
+)
+
+func TestMatchingDiagnosticsExplainStageWithoutLoggingSensitiveErrors(t *testing.T) {
+	var logs bytes.Buffer
+	previous := slog.Default()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&logs, nil)))
+	t.Cleanup(func() { slog.SetDefault(previous) })
+	for _, tc := range []struct {
+		err         error
+		stage, code string
+		provider    int
+	}{
+		{&analysis.HTTPError{Status: 502}, "EXTRACT", "MODEL_PROVIDER_FAILED", 502},
+		{&url.Error{Op: "Post", URL: "https://provider.invalid/?api_key=synthetic-secret", Err: errors.New("private candidate text")}, "EXTRACT", "MODEL_CONNECTION_FAILED", 0},
+		{&url.Error{Op: "Post", URL: "https://provider.invalid/", Err: context.DeadlineExceeded}, "EXTRACT", "MODEL_TIMEOUT", 0},
+		{&analysis.ResponseError{Reason: "INVALID_JSON"}, "EXTRACT", "MODEL_RESPONSE_INVALID", 0},
+		{modelconfig.ErrInvalid, "EXTRACT", "MODEL_ENDPOINT_BLOCKED", 0},
+		{matching.ErrInvalid, "COMPARE", "MATCH_OUTPUT_INVALID", 0},
+	} {
+		w := httptest.NewRecorder()
+		w.Header().Set("X-Request-ID", "aabbccddeeff00112233445566778899")
+		matchFailure(w, tc.err, tc.stage)
+		var out struct {
+			Code       string `json:"code"`
+			Request    string `json:"request_id"`
+			Diagnostic struct {
+				Stage  string `json:"stage"`
+				Status int    `json:"provider_status"`
+			} `json:"diagnostic"`
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &out); err != nil {
+			t.Fatal(err)
+		}
+		if w.Code != 502 || out.Code != tc.code || out.Diagnostic.Stage != tc.stage || out.Diagnostic.Status != tc.provider || out.Request == "" {
+			t.Fatal(w.Body.String())
+		}
+		if strings.Contains(w.Body.String(), "synthetic-secret") || strings.Contains(w.Body.String(), "private candidate") {
+			t.Fatal("sensitive provider error returned")
+		}
+	}
+	if strings.Contains(logs.String(), "synthetic-secret") || strings.Contains(logs.String(), "private candidate") {
+		t.Fatal("sensitive error logged")
+	}
+	if !strings.Contains(logs.String(), `"stage":"EXTRACT"`) {
+		t.Fatal("missing failure stage")
+	}
+}

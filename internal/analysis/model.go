@@ -16,6 +16,11 @@ type HTTPError struct{ Status int }
 
 func (e *HTTPError) Error() string { return fmt.Sprintf("model HTTP %d", e.Status) }
 
+// Response errors contain only a fixed reason, never provider content or keys.
+type ResponseError struct{ Reason string }
+
+func (e *ResponseError) Error() string { return "model response: " + e.Reason }
+
 type ChatClient struct {
 	URL, Key, Model  string
 	HTTP             *http.Client
@@ -95,9 +100,12 @@ func (c *ChatClient) complete(ctx context.Context, messages any, tools any, json
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, &HTTPError{resp.StatusCode}
 	}
-	b, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	b, err := io.ReadAll(io.LimitReader(resp.Body, (1<<20)+1))
 	if err != nil {
 		return nil, err
+	}
+	if len(b) > 1<<20 {
+		return nil, &ResponseError{"TOO_LARGE"}
 	}
 	var v struct {
 		Choices []struct {
@@ -105,10 +113,10 @@ func (c *ChatClient) complete(ctx context.Context, messages any, tools any, json
 		} `json:"choices"`
 	}
 	if err = json.Unmarshal(b, &v); err != nil {
-		return nil, err
+		return nil, &ResponseError{"INVALID_JSON"}
 	}
 	if len(v.Choices) != 1 {
-		return nil, fmt.Errorf("schema: expected one model choice")
+		return nil, &ResponseError{"INVALID_CHOICES"}
 	}
 	return v.Choices[0].Message, nil
 }

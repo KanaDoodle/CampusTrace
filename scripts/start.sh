@@ -3,6 +3,9 @@ set -eu
 cd "$(dirname "$0")/.."
 mkdir -p bin
 if [ -f bin/api.pid ] && kill -0 "$(cat bin/api.pid)" 2>/dev/null; then echo 'CampusTrace is already running'; exit 1; fi
+for name in api worker analysis-1 analysis-2; do
+  if [ -s "bin/$name.log" ]; then mv "bin/$name.log" "bin/$name.log.previous"; fi
+done
 export JWT_SECRET="${JWT_SECRET:-local-campus-demo-secret-change-me-2027}"
 INSTANCE_ID=analysis-1 ANALYSIS_HEALTH_ADDR=127.0.0.1:19191 ANALYSIS_ADDR=127.0.0.1:19091 ./bin/analysis >bin/analysis-1.log 2>&1 & echo $! >bin/analysis-1.pid
 INSTANCE_ID=analysis-2 ANALYSIS_HEALTH_ADDR=127.0.0.1:19192 ANALYSIS_ADDR=127.0.0.1:19092 ./bin/analysis >bin/analysis-2.log 2>&1 & echo $! >bin/analysis-2.pid

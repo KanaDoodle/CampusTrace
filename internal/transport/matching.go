@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -34,23 +35,43 @@ func (a *API) matchIdentity(in matchPreviewRequest) (string, error) {
 	}
 	return matching.ModelIdentity("server-default", a.ResumeModelName), nil
 }
-func matchFailure(w http.ResponseWriter, err error) {
+func matchFailure(w http.ResponseWriter, err error, stage ...string) {
+	status, code := 502, ""
 	switch {
 	case errors.Is(err, p.ErrMatchQuota):
-		codedError(w, 429, "MATCH_DAILY_LIMIT")
+		status, code = 429, "MATCH_DAILY_LIMIT"
 	case errors.Is(err, p.ErrStaleInput):
-		codedError(w, 409, "MATCH_INPUT_CHANGED")
+		status, code = 409, "MATCH_INPUT_CHANGED"
 	case errors.Is(err, matching.ErrCapacity):
-		codedError(w, 400, "MATCH_CAPACITY")
+		status, code = 400, "MATCH_CAPACITY"
 	case errors.Is(err, matching.ErrInvalid):
-		codedError(w, 502, "MATCH_OUTPUT_INVALID")
+		code = "MATCH_OUTPUT_INVALID"
 	default:
 		if errors.Is(err, p.ErrNotFound) || errors.Is(err, p.ErrValidation) || errors.Is(err, p.ErrBackendUnavailable) {
 			write(w, nil, err)
 			return
 		}
-		codedError(w, 502, resumeDraftFailure(err))
+		code = resumeDraftFailure(err)
 	}
+	phase := "PREPARE"
+	if len(stage) > 0 && (stage[0] == "EXTRACT" || stage[0] == "COMPARE" || stage[0] == "SAVE") {
+		phase = stage[0]
+	}
+	diagnostic := map[string]any{"stage": phase}
+	var provider *analysis.HTTPError
+	if errors.As(err, &provider) {
+		diagnostic["provider_status"] = provider.Status
+	}
+	var response *analysis.ResponseError
+	if errors.As(err, &response) {
+		diagnostic["response_reason"] = response.Reason
+	}
+	requestID := w.Header().Get("X-Request-ID")
+	// Do not log err.Error(): it may embed URLs, provider text or user input.
+	slog.Warn("matching failed", "request_id", requestID, "code", code, "diagnostic", diagnostic)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(map[string]any{"error": code, "code": code, "request_id": requestID, "diagnostic": diagnostic})
 }
 
 type budgetedMatchModel struct {
@@ -250,7 +271,7 @@ func (a *API) analyzeMatches(w http.ResponseWriter, r *http.Request) {
 	if len(uncached) > 0 {
 		extracted, err := matching.Extract(ctx, budget, uncached)
 		if err != nil {
-			matchFailure(w, err)
+			matchFailure(w, err, "EXTRACT")
 			return
 		}
 		for _, job := range remaining {
@@ -260,7 +281,7 @@ func (a *API) analyzeMatches(w http.ResponseWriter, r *http.Request) {
 			reqs := extracted[representative[job.RequirementsKey]]
 			requirements[job.Job.ID] = reqs
 			if err := a.Store.SaveRequirements(ctx, user(r), job.RequirementsKey, reqs); err != nil {
-				matchFailure(w, err)
+				matchFailure(w, err, "SAVE")
 				return
 			}
 		}
@@ -292,7 +313,7 @@ func (a *API) analyzeMatches(w http.ResponseWriter, r *http.Request) {
 	for _, job := range remaining {
 		if len(requirements[job.Job.ID].Items) == 0 {
 			if err := persist(job, nil); err != nil {
-				matchFailure(w, err)
+				matchFailure(w, err, "SAVE")
 				return
 			}
 		}
@@ -312,12 +333,12 @@ func (a *API) analyzeMatches(w http.ResponseWriter, r *http.Request) {
 		group := inputs[:count]
 		comparisons, err := matching.Compare(ctx, budget, snapshot.Candidate, group)
 		if err != nil {
-			matchFailure(w, err)
+			matchFailure(w, err, "COMPARE")
 			return
 		}
 		for _, job := range group {
 			if err := persist(byID[job.ID], comparisons[job.ID]); err != nil {
-				matchFailure(w, err)
+				matchFailure(w, err, "SAVE")
 				return
 			}
 		}

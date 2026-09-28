@@ -168,13 +168,16 @@
     if (code==='RESUME_TEXT_INVALID') return '外发文字为空、过长或格式有误；请检查脱敏预览。';
     if (code==='RESUME_PII_DETECTED') return '外发文字仍含常见联系方式或身份信息，请先移除。';
     if (code==='RESUME_DRAFT_FAILED') return '模型未返回可核对的草稿，请检查外发文字后重试。';
-    if (code==='MODEL_TIMEOUT') return '模型生成超时。请稍后重试；如果简历较长，可只保留求职资料和项目经历后再生成。';
+    if (code==='MODEL_TIMEOUT') return path.includes('/api/matching/')?'模型分析超时。未完成项已保留，可稍后单独分析一个岗位。':'模型生成超时。请稍后重试；如果简历较长，可只保留求职资料和项目经历后再生成。';
+    if (code==='MODEL_CONNECTION_FAILED') return 'CampusTrace 与模型服务的连接失败或被中断，请检查运行服务的设备网络；模型结果校验尚未开始。';
+    if (code==='MODEL_ENDPOINT_BLOCKED') return '模型地址解析或连接未通过检查，请核对模型设置及设备 DNS；请勿使用内网地址或需要跳转的接口。';
+    if (code==='MODEL_RESPONSE_INVALID') return '模型服务返回了无法读取的响应或响应被中断，尚未得到可用的模型结果；可稍后单独重试。';
     if (code==='MODEL_AUTH_FAILED') return '模型密钥认证失败，请在“模型设置”检查 API 密钥。';
     if (code==='MODEL_BALANCE_LOW') return '模型账户余额不足，请检查提供商账户。';
     if (code==='MODEL_PROVIDER_BUSY') return '模型提供商当前繁忙或请求过于频繁，请稍后重试。';
     if (code==='MODEL_REQUEST_INVALID') return '模型服务拒绝了本次请求，请核对接口地址和模型标识。';
     if (code==='RESUME_DRAFT_UNVERIFIABLE') return '模型返回的草稿未通过原文摘录核对。请缩短外发文字，或分段保留项目经历后重试。';
-    if (code==='MODEL_PROVIDER_FAILED') return '暂时无法从模型服务获得草稿，请稍后重试，并核对模型设置。';
+    if (code==='MODEL_PROVIDER_FAILED') return path.includes('/api/matching/')?'模型服务未能返回分析结果，请查看失败阶段与请求编号以定位原因。':'暂时无法从模型服务获得草稿，请稍后重试，并核对模型设置。';
     return error(status, path);
   }
   function inputList(value) {return (Array.isArray(value)?value:[]).map(text).join('、');}
