@@ -25,7 +25,10 @@ func TestMatchingExportPrivateSanitizedOrderedAndWithoutModelCalls(t *testing.T)
 	legacy.PreferredCities[1] = "联系人 张小明 private-city@example.com"
 	_, err = s.DB.ExecContext(ctx, "UPDATE profiles SET body=? WHERE user_id=?", d.JSON(legacy), u)
 	must(t, err)
-	project, err := s.SaveProject(ctx, u, d.Project{Name: "private-project-name"})
+	project, err := s.SaveProject(ctx, u, d.Project{Name: "任务队列"})
+	must(t, err)
+	project.Name = "张小明的任务队列 private-project@example.com https://private-project.invalid"
+	_, err = s.DB.ExecContext(ctx, "UPDATE projects SET body=? WHERE id=? AND user_id=?", d.JSON(project), project.ID, u)
 	must(t, err)
 	fact, err := s.SaveFact(ctx, u, d.ProjectFact{ProjectID: project.ID, Kind: "IMPLEMENTED", Verified: true, Claim: "张小明实现 Go 队列"})
 	must(t, err)
@@ -64,7 +67,7 @@ func TestMatchingExportPrivateSanitizedOrderedAndWithoutModelCalls(t *testing.T)
 	if rec.Code != 200 {
 		t.Fatal(rec.Code, rec.Body.String())
 	}
-	for _, private := range []string{u, "张小明", "private-city@example.com", "private-company@example.com", "private-fact@example.com", "private-job@example.com", "private-location@example.com", "13812345678", "private-project-name", "private-project.invalid", "private-job.invalid", "private-planned-fact", "private-unverified-fact"} {
+	for _, private := range []string{u, "张小明", "private-city@example.com", "private-company@example.com", "private-fact@example.com", "private-job@example.com", "private-location@example.com", "13812345678", "private-project@example.com", "private-project.invalid", "private-job.invalid", "private-planned-fact", "private-unverified-fact"} {
 		if strings.Contains(rec.Body.String(), private) {
 			t.Fatal("export leaked private data", private)
 		}
@@ -82,6 +85,15 @@ func TestMatchingExportPrivateSanitizedOrderedAndWithoutModelCalls(t *testing.T)
 	must(t, json.Unmarshal(rec.Body.Bytes(), &out))
 	if len(out.Jobs) != len(ids) || len(out.Preferences["preferred_cities"]) != 2 {
 		t.Fatal("export lost jobs or preferences")
+	}
+	contextFound := false
+	for _, fact := range out.Candidate.Facts {
+		if fact.Kind == "IMPLEMENTED" && strings.Contains(fact.ProjectName, "任务队列") {
+			contextFound = true
+		}
+	}
+	if !contextFound {
+		t.Fatal("export lost redacted project context")
 	}
 	for i, job := range out.Jobs {
 		if job.ID != ids[i] {

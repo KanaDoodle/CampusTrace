@@ -179,12 +179,12 @@ func (a *API) analyzeMatches(w http.ResponseWriter, r *http.Request) {
 			codedError(w, 400, "MODEL_CONFIG_INVALID")
 			return
 		}
-		client.OutputTokenLimit = 8000
+		client.OutputTokenLimit = 12000
 		model = resumeModelWithTimeout(client)
 		identity = matching.ModelIdentity(in.Model.URL, in.Model.Model)
 	} else if client, ok := model.(*analysis.ChatClient); ok {
 		copyClient := *client
-		copyClient.OutputTokenLimit = 8000
+		copyClient.OutputTokenLimit = 12000
 		model = resumeModelWithTimeout(&copyClient)
 	}
 	if model == nil {
@@ -304,6 +304,7 @@ func (a *API) analyzeMatches(w http.ResponseWriter, r *http.Request) {
 		}
 		score, coverage := matching.Score(reqs, matches)
 		result := matching.Result{JobID: job.Job.ID, InputKey: job.InputKey, RequirementsKey: job.RequirementsKey, CandidateHash: snapshot.CandidateHash, Model: identity, AnalyzedAt: time.Now().UTC(), Requirements: reqs, Matches: matches, CandidateFacts: snapshot.Candidate.Facts, Score: score, Coverage: coverage, Qualifications: matching.Qualification(job.Job, snapshot.Profile, reqs, time.Now().UTC())}
+		result.Breakdown = matching.ScoreBreakdown(reqs, matches)
 		if err := a.Store.SaveMatchResult(ctx, user(r), strings.TrimSpace(in.MaskName), result); err != nil {
 			return err
 		}

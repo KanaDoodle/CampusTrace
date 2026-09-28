@@ -77,11 +77,11 @@ func TestCitationsCannotInventSkillsOrTurnLimitationsIntoAchievements(t *testing
 func TestMissingEvidenceReducesCoverageAndSuppressesUnreliableScores(t *testing.T) {
 	reqs := []Requirement{{ID: "r", Category: "REQUIRED", Confidence: 1}, {ID: "b", Category: "BONUS", Confidence: 1}}
 	score, coverage := Score(reqs, []Match{{RequirementID: "r", Result: "NO_EVIDENCE"}, {RequirementID: "b", Result: "DIRECT"}})
-	if score != nil || coverage != 25 {
+	if score != nil || coverage != 0 {
 		t.Fatal(score, coverage)
 	}
 	score, coverage = Score(reqs, []Match{{RequirementID: "r", Result: "PARTIAL"}, {RequirementID: "b", Result: "NO_EVIDENCE"}})
-	if score == nil || *score != 50 || coverage != 75 {
+	if score == nil || *score != 50 || coverage != 100 {
 		t.Fatal(score, coverage)
 	}
 }

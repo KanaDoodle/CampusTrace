@@ -198,7 +198,11 @@ func Eligibility(j d.Job, p d.Profile, es []d.Evidence, now time.Time) d.Eligibi
 		}
 		values := map[string]bool{}
 		for _, e := range ev {
-			values[e.Value] = true
+			key := e.Value
+			if typ == "LOCATION" {
+				key = d.CitySetKey(key)
+			}
+			values[key] = true
 		}
 		// Conflicting facts remain unresolved; no arbitrary source or model wins.
 		if len(values) > 1 {
@@ -253,8 +257,10 @@ func Eligibility(j d.Job, p d.Profile, es []d.Evidence, now time.Time) d.Eligibi
 				r.Explanation = "Job type differs from preference"
 			}
 		case "LOCATION":
-			if alternatives(e.Value, p.PreferredCities) {
-			} else if alternatives(e.Value, p.AcceptableCities) {
+			if len(p.PreferredCities)+len(p.AcceptableCities) == 0 {
+				unknown()
+			} else if d.CityAlternatives(e.Value, p.PreferredCities) {
+			} else if d.CityAlternatives(e.Value, p.AcceptableCities) {
 				r.Result = "CONDITIONAL"
 				r.Explanation = "Location is acceptable but not preferred"
 			} else {
@@ -353,7 +359,7 @@ func Rank(j d.Job, p d.Profile, status string, e d.Eligibility, fit string, now 
 		b["eligibility"] = w["eligibility"] * 0.5
 	}
 	for _, city := range j.Locations {
-		if contains(p.PreferredCities, city) {
+		if d.CityAlternatives(city, p.PreferredCities) {
 			b["city"] = w["city"]
 		}
 	}

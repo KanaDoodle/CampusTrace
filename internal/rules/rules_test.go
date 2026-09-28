@@ -154,6 +154,25 @@ func TestFitAndRank(t *testing.T) {
 		t.Fatal("unexplained score")
 	}
 }
+func TestEligibilityCityAliasesAndEmptyPreferences(t *testing.T) {
+	for _, tt := range []struct {
+		p    d.Profile
+		want string
+	}{{d.Profile{PreferredCities: []string{"Shanghai"}}, "PASS"}, {d.Profile{AcceptableCities: []string{"Hangzhou"}}, "CONDITIONAL"}, {d.Profile{PreferredCities: []string{"Shenzhen"}}, "CONDITIONAL"}, {d.Profile{}, "UNKNOWN"}} {
+		e := Eligibility(d.Job{}, tt.p, []d.Evidence{{Claim: d.Claim{Type: "LOCATION", Value: "北京市|上海市|杭州市", Confidence: 1}}}, time.Now())
+		for _, row := range e.Results {
+			if row.Rule == "LOCATION" && row.Result != tt.want {
+				t.Fatal(tt, row)
+			}
+		}
+	}
+	e := Eligibility(d.Job{}, d.Profile{PreferredCities: []string{"Shanghai"}}, []d.Evidence{{Claim: d.Claim{Type: "LOCATION", Value: "Shanghai|Hangzhou", Confidence: 1}}, {Claim: d.Claim{Type: "LOCATION", Value: "杭州市|上海市", Confidence: 1}}}, time.Now())
+	for _, row := range e.Results {
+		if row.Rule == "LOCATION" && row.Result != "PASS" {
+			t.Fatal("equivalent city sets became conflicting", row)
+		}
+	}
+}
 func TestCanonicalAndChanges(t *testing.T) {
 	a := Fingerprint("Company", "Go Backend", "FULL_TIME", []string{"Shanghai", "Beijing"}, "a b")
 	b := Fingerprint(" company ", "go backend", "FULL_TIME", []string{"beijing", "shanghai"}, "a b")

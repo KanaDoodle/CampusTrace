@@ -57,6 +57,23 @@ func setup(t *testing.T) (context.Context, *p.Store, *pipeline.Queue, string, st
 	must(t, err)
 	source := d.ID()
 	must(t, s.SaveSource(ctx, d.Source{ID: source, Name: "Synthetic integration official", Type: "OFFICIAL", Trust: "OFFICIAL"}))
+	// Dispatch reads the shared SQL outbox, even though each test owns a Redis
+	// prefix. Remove only this fixture's pending work so later worker tests do
+	// not consume hundreds of unrelated catalog records before their own work.
+	t.Cleanup(func() {
+		cleanup, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		for _, query := range []string{
+			`DELETE FROM outbox WHERE JSON_UNQUOTE(JSON_EXTRACT(body,'$.entity_id')) IN (SELECT o.id FROM observations o JOIN jobs j ON j.id=o.job_id JOIN postings p ON p.id=o.posting_id WHERE p.source_id=? OR j.owner_id=?)`,
+			`DELETE FROM outbox WHERE JSON_UNQUOTE(JSON_EXTRACT(body,'$.entity_id')) IN (SELECT j.id FROM jobs j JOIN postings p ON p.job_id=j.id WHERE p.source_id=? OR j.owner_id=?)`,
+			`DELETE FROM outbox WHERE JSON_UNQUOTE(JSON_EXTRACT(body,'$.watch_id')) IN (SELECT id FROM watch_targets WHERE source_id=? OR user_id=?)`,
+			`DELETE FROM watch_targets WHERE source_id=? OR user_id=?`,
+		} {
+			if _, err := s.DB.ExecContext(cleanup, query, source, u); err != nil {
+				t.Error(err)
+			}
+		}
+	})
 	return ctx, s, q, u, source
 }
 func must(t *testing.T, err error) {

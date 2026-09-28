@@ -96,7 +96,11 @@ func matchCandidate(ctx context.Context, q Queryer, user, maskName string) (d.Pr
 	if err != nil {
 		return p, matching.Candidate{}, err
 	}
-	c, err := matching.CandidateFrom(p, facts, maskName)
+	projects, err := Many[d.Project](ctx, q, "SELECT body FROM projects WHERE user_id=? ORDER BY id", user)
+	if err != nil {
+		return p, matching.Candidate{}, err
+	}
+	c, err := matching.CandidateWithProjects(p, facts, projects, maskName)
 	return p, c, err
 }
 func cleanJobText(text, maskName string) string {

@@ -46,3 +46,11 @@ test('local reasons and evidence are escaped, separate mandatory/bonus/alternati
  assert.ok(!html.includes('<script>'));assert.ok(html.includes('&lt;Go&gt;'));assert.ok(!html.includes('你不具备'));
  assert.ok(m.renderLocal(row('missing'),{esc}).includes('岗位原文尚不可用'));
 });
+test('core score, separate sections, selectable directions and project context remain visible and escaped',()=>{
+ const result={state:'ANALYZED',result:{score:75,coverage:100,model:'endpoint\nmodel',analyzed_at:'2026-09-28T00:00:00Z',requirements:[{id:'r',category:'RESPONSIBILITY',text:'建设数据安全平台',excerpt:'数据安全平台',confidence:1,group_id:'directions',group_excerpt:'参与一个或多个方向'},{id:'soft',category:'REQUIRED',aspect:'SOFT',text:'沟通顺畅',excerpt:'沟通顺畅',confidence:1}],matches:[{requirement_id:'r',result:'TRANSFERABLE',explanation:'相关机制可迁移',evidence:[{id:'f',excerpt:'实现重试'}]}],candidate_facts:[{id:'f',kind:'IMPLEMENTED',text:'实现重试',project_name:'<任务平台>'}],qualifications:{status:'UNKNOWN',results:[]},breakdown:[{category:'REQUIRED',total:2,known:2,direct:1,partial:1,transferable:0,missing:0,mismatch:0,coverage:100},{category:'RESPONSIBILITY',total:1,known:1,coverage:100},{category:'BONUS',total:3,known:0,coverage:0},{category:'SOFT',total:1,known:0,coverage:0}]}};
+ const html=m.renderResult(result,{esc,D});
+ for(const word of ['核心技术匹配度','分析摘要','直接匹配 1 项','工作内容相关性','加分项','软性要求','同组任选方向','&lt;任务平台&gt;','资格暂无法判断'])assert.ok(html.includes(word),word);
+ assert.ok(!html.includes('<任务平台>'));
+ result.state='STALE';const stale=m.renderResult(result,{esc,D});
+ assert.ok(stale.includes('查看上次分析依据（已过期）'));assert.ok(stale.includes('数据安全平台'));assert.ok(!stale.includes('75.0 / 100'));assert.ok(!stale.includes('100.0%'));
+});

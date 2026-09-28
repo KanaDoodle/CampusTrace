@@ -17,7 +17,7 @@ import (
 
 const AnalysisVersion = "claims-v3-semantics"
 const ParserVersion = "generic-v2-lines"
-const RuleVersion = "rules-v4"
+const RuleVersion = "rules-v5-cities"
 const SourceParserVersion = "public-http-v2-complete"
 
 func ID() string {

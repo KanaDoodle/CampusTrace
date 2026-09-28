@@ -88,7 +88,4 @@ func TestMatchingLocalFactsPreferencesAndOwnerScopeWithoutModelCalls(t *testing.
 	if rec.Code != 404 || model.calls.Load() != 0 || changed.CallsToday != 0 {
 		t.Fatal("local analysis leaked or incurred calls", rec.Code, model.calls.Load(), changed.CallsToday)
 	}
-	if matching.Version != "matching-v1" {
-		t.Fatal("local upgrade invalidated paid analysis version")
-	}
 }

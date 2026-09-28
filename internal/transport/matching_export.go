@@ -87,7 +87,7 @@ func (a *API) exportMatches(w http.ResponseWriter, r *http.Request) {
 		Candidate     matching.Candidate  `json:"candidate"`
 		Preferences   map[string][]string `json:"preferences"`
 		Jobs          []chatExportJob     `json:"jobs"`
-	}{"campustrace-chat-v1", time.Now().UTC(), snapshot.CandidateHash, snapshot.Candidate, map[string][]string{
+	}{"campustrace-chat-v2", time.Now().UTC(), snapshot.CandidateHash, snapshot.Candidate, map[string][]string{
 		"preferred_job_types": cleanList(snapshot.Profile.PreferredTypes),
 		"preferred_cities":    cleanList(snapshot.Profile.PreferredCities),
 		"acceptable_cities":   cleanList(snapshot.Profile.AcceptableCities),
