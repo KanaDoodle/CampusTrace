@@ -38,6 +38,8 @@ func (a *API) matchIdentity(in matchPreviewRequest) (string, error) {
 func matchFailure(w http.ResponseWriter, err error, stage ...string) {
 	status, code := 502, ""
 	switch {
+	case errors.Is(err, p.ErrMatchJobUnavailable):
+		status, code = 409, "MATCH_JOB_UNAVAILABLE"
 	case errors.Is(err, p.ErrMatchQuota):
 		status, code = 429, "MATCH_DAILY_LIMIT"
 	case errors.Is(err, p.ErrStaleInput):

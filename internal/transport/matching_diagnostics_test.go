@@ -14,6 +14,7 @@ import (
 	"github.com/KanaDoodle/CampusTrace/internal/analysis"
 	"github.com/KanaDoodle/CampusTrace/internal/matching"
 	"github.com/KanaDoodle/CampusTrace/internal/modelconfig"
+	p "github.com/KanaDoodle/CampusTrace/internal/persistence"
 )
 
 func TestMatchingDiagnosticsExplainStageWithoutLoggingSensitiveErrors(t *testing.T) {
@@ -85,5 +86,17 @@ func TestMatchingValidationDiagnosticKeepsOnlyReasonAndNumericPositions(t *testi
 	}
 	if !strings.Contains(logs.String(), "MATCH_COUNT") {
 		t.Fatal("missing safe validation reason")
+	}
+}
+
+func TestUnavailableMatchingJobPreservesCompatibilityError(t *testing.T) {
+	w := httptest.NewRecorder()
+	matchFailure(w, p.ErrMatchJobUnavailable)
+	var out map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &out); err != nil {
+		t.Fatal(err)
+	}
+	if w.Code != 409 || out["code"] != "MATCH_JOB_UNAVAILABLE" {
+		t.Fatal(w.Code, w.Body.String())
 	}
 }
