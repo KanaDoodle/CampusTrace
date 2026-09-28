@@ -1,0 +1,14 @@
+.git
+.env
+.env.*
+bin
+go.work
+go.work.sum
+.DS_Store
+.idea
+.vscode
+*.log
+*.db
+*.sqlite*
+*.prof
+*.test

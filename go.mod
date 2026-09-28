@@ -11,6 +11,7 @@ require (
 	go.etcd.io/etcd/client/v3 v3.6.7
 	golang.org/x/crypto v0.48.0
 	golang.org/x/net v0.50.0
+	golang.org/x/sys v0.41.0
 )
 
 require (
@@ -32,7 +33,6 @@ require (
 	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/oauth2 v0.35.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
-	golang.org/x/sys v0.41.0 // indirect
 	golang.org/x/text v0.34.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250303144028-a0af3efb3deb // indirect

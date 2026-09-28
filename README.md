@@ -198,7 +198,7 @@ go run ./cmd/ingest -register-source -source company-radar -name 'Company' \
 
 其他已登记 Source 仍可在折叠区选择。用户可设置标题/地点关键词和检查间隔；来源地址由维护者登记的 adapter + tenant 确定。更换 Source 需另建关注。旧版手动 URL 导入保持可用。小红书适配器通过其公开招聘接口获取项目、分页列表与岗位详情；网页本身为 JavaScript 应用，不能只抓初始 HTML。公开请求会复用连接，并在核验整个 DNS 答案后尝试其中的其他公开地址；只读查询遇到网络错误或 5xx 时最多重试一次，访问拒绝或限流不立即重试。预览错误区分网络连接、网站繁忙、访问限制和数据格式变化。接口、招聘项目或网页结构改变时会明确报错，不会把不完整列表视为抓取成功。来源本地限速会延后任务，不消耗抓取失败的重试额度。
 
-新 migration `004_job_radar.sql` 增加 Watch、抓取 receipt/进度、Preference 和 Notification 表；`make seed` 执行迁移。升级前停止旧 Worker，再迁移并启动新 API/Worker；旧 Worker 不识别新 task type，不能混跑消费同一队列。
+新 migration `004_job_radar.sql` 增加 Watch、抓取 receipt/进度、Preference 和 Notification 表，API 启动时自动执行迁移。统一入口使用 `./campustrace restart --build` 更新：先备份与构建，再停止旧应用，启动新 API 完成迁移后启动 Worker；旧 Worker 不识别新 task type，不能混跑消费同一队列。`make seed` 只用于显式创建演示数据。
 
 容量与展示：每个用户最多 100 个 Watch，每个 Watch 最多 500 个已发现/历史 posting；响应解压后最多 1 MiB，岗位正文最多 60,000 bytes。完整 Radar 聚合最多 500 个可见 Job、500 个未完成 Interview、10,000 个窗口内 change，超限明确返回 `RADAR_CAPACITY`；不提供无界扫描。摘要计数完整，岗位各展示前 5 条、变化/面试各前 10 条，并标明 `truncated`。变化 feed 和 Inbox 最近 100 条，尚未提供历史翻页。最近窗口为滚动 24h/7d，截止窗口为滚动 3/7/14 天。
 
@@ -285,30 +285,48 @@ MCP/Agent 查询复用相同输入的未过期 Assessment，或计算当前结�
 
 ## Quick Start
 
-需要 Go 1.25.9+、Git、Docker Compose，以及访问公共 Go modules 的网络。仓库名和 module path 中 **CampusTrace 的大小写必须一致**。
+从源码首次运行需要 Go 1.25.9+、Git、运行中的 Docker（含 Compose），以及下载公共依赖的网络。仓库名和 module path 中 **CampusTrace 的大小写必须一致**。
 
 ```sh
 git clone https://github.com/KanaDoodle/CampusTrace.git
 cd CampusTrace
-export GOWORK=off
-go mod download
-make deps                  # localhost: MySQL 13306 / Redis 16379 / etcd 12379
-make seed                  # migration/bootstrap + synthetic fixtures，可重复执行
-make run                   # API + Worker + Analysis x2
-# 浏览器打开 http://127.0.0.1:8080
+./campustrace start --open
 ```
 
-演示账户：`demo@campustrace.local` / `Synthetic-demo-2027`。
-
-`make run` 使用明确用于本地 demo 的 JWT secret；其他环境需配置至少 32 bytes 的 `JWT_SECRET`。日志在 `bin/`；`make stop` 仅向匹配的项目二进制发送 TERM。需要前台监督运行时：
+统一入口首次自动编译 `bin/campustrace`。CLI 启动 MySQL、Redis、etcd、API、Worker 和两个 Analysis 容器，等待全部健康后显示网页地址；普通启动复用已有应用镜像，程序更新后使用 `restart --build`。关闭终端不停止服务。网页仍为 `http://127.0.0.1:8080`，第一次使用请在网页注册账号；启动不会创建演示账号、样例岗位或覆盖求职资料。
 
 ```sh
+./campustrace status                # 所有组件状态
+./campustrace doctor                # Docker、配置及运行状态检查
+./campustrace logs api --tail 100    # 日志；加 --follow 持续查看
+./campustrace open                  # 打开正在运行的网页
+./campustrace stop                  # 仅停止应用，保留依赖与数据
+./campustrace start                 # 再次启动整套服务
+./campustrace restart --build       # 先备份、构建更新，再重启应用
+./campustrace stop --all            # 同时停止依赖；仍保留数据卷
+./campustrace backup                # 本机 SQL 备份，默认 bin/backups/
+```
+
+CLI 固定使用 `campustrace` Compose 项目名，继续复用原有 `campustrace_mysql-data`、`campustrace_redis-data` 和 `campustrace_etcd-data` 数据卷，不执行删除数据卷的命令。macOS 上由本项目原 `com.campustrace.local` 后台任务运行的服务，会在备份后由 `start` 接管；存在深度分析请求时拒绝接管，等待本轮结束后再试。端口被其他程序或手动开发服务占用时，只提示处理，不停止该进程。启停命令使用系统文件锁，避免同时启动、停止；启动失败只停止本次新启动的应用容器，保留此前运行的组件。
+
+所有子命令支持 `--dir /项目路径`；直接调用已编译的 `bin/campustrace` 时可从任意目录运行，CLI 会寻找工作目录或可执行文件附近的项目配置。`make run` / `make stop` 也调用同一入口。`start` / `restart` 的 `--timeout` 为就绪等待秒数（默认 180），`logs` 支持前后位置的选项。日志跟随命令退出后应用继续运行。应用日志由 Docker 管理，原本机日志仍保留于 `bin/`。
+
+完整部署由 `docker-compose.yml` 与 `compose.app.yml` 组合定义；基础 Compose 文件仍可单独启动开发依赖。应用镜像使用多阶段构建，运行时只含可执行程序、公开 CA 根证书和时区数据，非 root 运行。Docker 构建只复制程序所需源码，排除本机数据库、备份、环境文件和模型密钥。没有发布远程预构建镜像；首次本地镜像构建仍需网络。
+
+可在 gitignored 的 `.env` 中设置 `CAMPUS_HTTP_PORT`、`JWT_SECRET` 和可选的服务器模型配置。默认 JWT secret 与旧本机方式一致，明确用于本机演示；其他环境需设置独立、至少 32 bytes 的 `JWT_SECRET`。浏览器模型密钥与选择继续在当前浏览器维护，CLI 不读取或保存这些密钥。首次拉取 Go 构建镜像遇到网络问题时，可预先拉取可信镜像，或通过 `.env` 的 `CAMPUS_GO_IMAGE` 指定构建镜像。
+
+保留应用在本机运行的开发方式：
+
+```sh
+./campustrace stop                  # 避免与容器应用占用同一网页端口
+make deps
+make dev-run                       # 本机 API + Worker + Analysis x2
+make dev-stop
+# 若需要终端前台监督运行：
 make build && FOREGROUND=1 ./scripts/start.sh
 ```
 
-依赖单独使用 `docker compose stop` 停止，volumes 保留。Compose 只启动 MySQL/Redis/etcd，Go 服务运行于宿主机，使用已发布 KanaRPC module；没有宣称提供一体化发布镜像。
-
-各二进制可用环境变量独立启动，参见 [配置示例](configs/local.env.example)。示例是文档，DSN 含 `&` 时不能直接 shell source，应使用正确引用的 export。
+各二进制仍可用环境变量独立启动，参见 [配置示例](configs/local.env.example)。示例是文档，DSN 含 `&` 时不能直接 shell source，应使用正确引用的 export。**只有需要虚构演示数据时才显式执行 `make seed`**；演示账户为 `demo@campustrace.local` / `Synthetic-demo-2027`。
 
 手工导入与 operator 来源登记：
 

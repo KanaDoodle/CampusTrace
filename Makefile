@@ -1,5 +1,5 @@
 SHELL := /bin/sh
-.PHONY: deps build migrate seed run stop test race vet integration eval loadgen
+.PHONY: deps build cli migrate seed run stop dev-run dev-stop test race vet integration eval loadgen
 deps:
 	docker compose up -d --wait
 build:
@@ -7,9 +7,16 @@ build:
 	go build -o bin/ ./cmd/...
 seed:
 	go run ./cmd/seed
-run: build
+cli:
+	mkdir -p bin
+	GOWORK=off go build -o bin/campustrace ./cmd/campustrace
+run: cli
+	./bin/campustrace start
+stop: cli
+	./bin/campustrace stop
+dev-run: build
 	./scripts/start.sh
-stop:
+dev-stop:
 	./scripts/stop.sh
 test:
 	go test ./...

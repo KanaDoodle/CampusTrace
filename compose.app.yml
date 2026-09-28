@@ -1,0 +1,80 @@
+# Add to docker-compose.yml for the complete application. The base file remains
+# suitable for host development; project and volume names stay unchanged.
+x-app: &app
+  image: campustrace-app:local
+  build:
+    context: .
+    args:
+      GO_IMAGE: ${CAMPUS_GO_IMAGE:-golang:1.25.9-bookworm}
+  restart: unless-stopped
+  stop_grace_period: 30s
+  environment: &environment
+    MYSQL_DSN: campus:local-campus-only@tcp(mysql:3306)/campustrace?parseTime=true&loc=UTC
+    REDIS_ADDR: redis:6379
+    ETCD_ENDPOINTS: etcd:2379
+    JWT_SECRET: ${JWT_SECRET:-local-campus-demo-secret-change-me-2027}
+    LLM_URL: ${LLM_URL:-}
+    LLM_API_KEY: ${LLM_API_KEY:-}
+    LLM_MODEL: ${LLM_MODEL:-}
+    ANALYSIS_VERSION: ${ANALYSIS_VERSION:-claims-v2-semantics}
+  healthcheck: &health
+    test: ["CMD", "/app/campustrace", "probe", "--url", "http://127.0.0.1:8080/readyz"]
+    interval: 3s
+    timeout: 4s
+    retries: 30
+    start_period: 10s
+
+services:
+  api:
+    <<: *app
+    command: ["/app/api"]
+    environment:
+      <<: *environment
+      HTTP_ADDR: 0.0.0.0:8080
+    ports: ["127.0.0.1:${CAMPUS_HTTP_PORT:-8080}:8080"]
+    depends_on:
+      mysql: {condition: service_healthy}
+      redis: {condition: service_healthy}
+  analysis-1:
+    <<: *app
+    command: ["/app/analysis"]
+    environment:
+      <<: *environment
+      INSTANCE_ID: analysis-1
+      ANALYSIS_ADDR: 0.0.0.0:19091
+      ANALYSIS_ADVERTISE: analysis-1:19091
+      ANALYSIS_HEALTH_ADDR: 0.0.0.0:19191
+    healthcheck:
+      <<: *health
+      test: ["CMD", "/app/campustrace", "probe", "--url", "http://127.0.0.1:19191/readyz"]
+    depends_on:
+      redis: {condition: service_healthy}
+      etcd: {condition: service_healthy}
+  analysis-2:
+    <<: *app
+    command: ["/app/analysis"]
+    environment:
+      <<: *environment
+      INSTANCE_ID: analysis-2
+      ANALYSIS_ADDR: 0.0.0.0:19091
+      ANALYSIS_ADVERTISE: analysis-2:19091
+      ANALYSIS_HEALTH_ADDR: 0.0.0.0:19191
+    healthcheck:
+      <<: *health
+      test: ["CMD", "/app/campustrace", "probe", "--url", "http://127.0.0.1:19191/readyz"]
+    depends_on:
+      redis: {condition: service_healthy}
+      etcd: {condition: service_healthy}
+  worker:
+    <<: *app
+    command: ["/app/worker"]
+    environment:
+      <<: *environment
+      WORKER_METRICS_ADDR: 0.0.0.0:18081
+    healthcheck:
+      <<: *health
+      test: ["CMD", "/app/campustrace", "probe", "--url", "http://127.0.0.1:18081/healthz"]
+    depends_on:
+      api: {condition: service_healthy}
+      analysis-1: {condition: service_healthy}
+      analysis-2: {condition: service_healthy}

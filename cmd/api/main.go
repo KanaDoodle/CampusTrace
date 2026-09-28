@@ -38,7 +38,7 @@ func run() error {
 	// routes: every query failed and surfaced as a bare 400. Migrate is
 	// serialized by MySQL GET_LOCK and restartable, so the API can apply it.
 	if err := app.Store.Migrate(ctx); err != nil {
-		return fmt.Errorf("database migration failed; run `make seed`, then restart the API: %w", err)
+		return fmt.Errorf("database migration failed; inspect database configuration and logs before restarting: %w", err)
 	}
 	slog.Info("database schema ready")
 	slots := make(chan struct{}, app.Config.LLMConcurrency)

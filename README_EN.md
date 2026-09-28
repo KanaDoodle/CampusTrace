@@ -172,24 +172,31 @@ Official Go MCP SDK `v1.7.0`: a standalone stdio server exposes five read tools:
 
 ## Quick start
 
-Prerequisites: Go 1.25.9+, Git, Docker Compose and network access to public Go modules. The repository name and module path use **CampusTrace** with this exact capitalization. No KanaRPC sibling checkout or development workspace is needed.
+The source entry point needs Go 1.25.9+, Git, a running Docker engine with Compose, and network access for initial dependencies. No sibling KanaRPC checkout is required.
 
 ```sh
 git clone https://github.com/KanaDoodle/CampusTrace.git
 cd CampusTrace
-export GOWORK=off
-go mod download
-make deps                  # MySQL 13306, Redis 16379, etcd 12379, localhost-bound
-make seed                  # schema migration + synthetic fixtures; safe to rerun
-make run                   # API + worker + two analysis instances
-# Open http://127.0.0.1:8080
+./campustrace start --open
+./campustrace status
+./campustrace logs api --tail 100
+./campustrace doctor
+./campustrace stop
+./campustrace start
+./campustrace restart --build
+./campustrace backup
+./campustrace stop --all
 ```
 
-Demo login: `demo@campustrace.local` / `Synthetic-demo-2027`.
+The source wrapper builds `bin/campustrace` when needed. The CLI combines `docker-compose.yml` and `compose.app.yml` to run MySQL, Redis, etcd, API, worker and two analysis containers, waiting for all seven health checks. Services are detached from the terminal. Normal starts reuse the existing application image; source updates require `restart --build`. The Dockerfile uses a multi-stage Go build and an unprivileged minimal runtime with CA certificates and timezone data. No remote prebuilt application image has been published; initial local builds need network access. Private configuration, databases and backups are excluded from the build context.
 
-`make run` defaults to an explicitly local demo JWT secret; configure `JWT_SECRET` (32+ bytes) for a different environment. Processes log to `bin/`; `make stop` sends TERM only to the matching project binaries. For a supervised foreground run: `make build && FOREGROUND=1 ./scripts/start.sh`. Infrastructure is stopped separately with `docker compose stop`; volumes are retained.
+Startup applies existing migrations but never seeds accounts, jobs or profiles. Register in the web UI on a fresh database. The fixed `campustrace` Compose project preserves existing named volumes. `stop` stops only the four application services; `stop --all` also stops dependencies and never removes volumes. Backups are local SQL files created with mode 0600, refusing to overwrite files. Rebuilds during `restart --build` back up before stopping the running application. Lifecycle commands use an OS file lock; failed starts stop only application services that were not already running.
 
-Each binary also runs independently with env config from [configs/local.env.example](configs/local.env.example). The example is documentation, not shell-sourceable when its DSN contains `&`; use properly quoted exports. Only MySQL/Redis/etcd are in Compose; Go services run on the host and use the pinned published KanaRPC module. No all-in-one published image is claimed.
+On macOS, `start` backs up and takes over the legacy `com.campustrace.local` supervisor only when it belongs to this checkout and no deep matching lease exists. An unrelated occupied web port causes an error without terminating the occupying process. Every command supports `--dir`; otherwise the CLI searches its working directory and executable location. `make run` and `make stop` use the same CLI. `logs --follow` stops following on interruption while services remain running.
+
+Use ignored `.env` values for `CAMPUS_HTTP_PORT`, `JWT_SECRET`, optional server model configuration, or an alternative trusted Go build image via `CAMPUS_GO_IMAGE`. The default JWT secret remains compatible with the previous local demo setup; set a different 32+ byte secret outside local demonstrations. Browser model keys and selection remain in the browser and are not read by the CLI.
+
+Host development remains available: stop container applications, then use `make deps`, `make dev-run` and `make dev-stop`. Supervised foreground development uses `make build && FOREGROUND=1 ./scripts/start.sh`. Each binary supports environment configuration documented in [configs/local.env.example](configs/local.env.example); quote exports correctly rather than sourcing its unquoted DSN. Run `make seed` only to explicitly request synthetic demo data (demo account: `demo@campustrace.local` / `Synthetic-demo-2027`).
 
 Manual imports:
 

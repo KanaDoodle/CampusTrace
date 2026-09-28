@@ -35,3 +35,15 @@ jobs:
       # anything other than the published v0.1.0 tag.
       - name: Verify published dependency boundary
         run: ./scripts/verify-release-boundary.sh
+
+      - name: Unified CLI and complete Compose stack
+        run: |
+          go build -o bin/campustrace ./cmd/campustrace
+          trap './bin/campustrace stop --all' EXIT
+          ./bin/campustrace start --timeout 180
+          ./bin/campustrace start --timeout 180
+          ./bin/campustrace status
+          ./bin/campustrace doctor
+          ./bin/campustrace logs api --tail 3
+          ./bin/campustrace stop
+          ./bin/campustrace start --timeout 180

@@ -1,0 +1,18 @@
+#!/bin/sh
+set -eu
+task_root=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+task_cli="$task_root/bin/campustrace"
+task_build=0
+if [ ! -x "$task_cli" ]; then task_build=1; fi
+for task_source in "$task_root"/go.mod "$task_root"/go.sum "$task_root"/cmd/campustrace/*.go "$task_root"/internal/launcher/*.go; do
+  if [ "$task_source" -nt "$task_cli" ]; then task_build=1; fi
+done
+if [ "$task_build" = 1 ]; then
+  if ! command -v go >/dev/null 2>&1; then
+    echo '源码入口首次运行需要 Go 1.25.9+；请先安装 Go 或准备已编译的 bin/campustrace。' >&2
+    exit 1
+  fi
+  mkdir -p "$task_root/bin"
+  (cd "$task_root" && GOWORK=off go build -o "$task_cli" ./cmd/campustrace)
+fi
+exec "$task_cli" "$@"
