@@ -77,7 +77,11 @@ func HasSensitive(s string) bool {
 // account identifiers are never part of that input.
 func Redact(s string) string {
 	for _, pattern := range sensitive {
-		s = pattern.ReplaceAllString(s, "[已遮盖]")
+		// ReplaceAllString copies even when there is no match. Most recruiting
+		// descriptions contain no identifiers; keep their original storage.
+		if pattern.MatchString(s) {
+			s = pattern.ReplaceAllString(s, "[已遮盖]")
+		}
 	}
 	return s
 }

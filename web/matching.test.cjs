@@ -24,6 +24,12 @@ test('matching output is escaped and low coverage or stale results do not show a
  const html=m.renderResult(result,{esc,D});assert.ok(html.includes('暂无法可靠评分'));assert.ok(html.includes('暂无依据'));assert.ok(html.includes('&lt;script&gt;'));assert.ok(!html.includes('<script>'));
  result.state='STALE';assert.ok(!m.renderResult(result,{esc,D}).includes('25.0%'));
 });
+test('local refresh distinguishes current conditions from the original model analysis',()=>{
+ const v={state:'ANALYZED',result:{score:100,coverage:100,model:'fixture',analyzed_at:'2026-09-28T00:00:00Z',locally_refreshed:true,requirements:[],matches:[],candidate_facts:[],qualifications:{results:[]}}};
+ const html=m.renderResult(v,{esc,D});
+ assert.ok(html.includes('复用原有能力分析'));assert.ok(html.includes('本次没有调用模型'));assert.ok(html.includes('查看当前资料的资格核对'));
+ v.state='STALE';assert.ok(!m.renderResult(v,{esc,D}).includes('本次没有调用模型'));
+});
 test('resume progress is account, candidate and model scoped and carries no credential',()=>{
  const saved=new Map();global.sessionStorage={getItem:k=>saved.get(k)??null};
  saved.set('campustrace:match-progress:v1:alice',JSON.stringify({hash:'profile1',model:'model1',pending:['a'],failed:[]}));

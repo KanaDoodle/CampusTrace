@@ -161,17 +161,17 @@ func (a *API) matchingRoutes(on func(string, http.HandlerFunc)) {
 			return
 		}
 		id := r.PathValue("id")
-		snapshot, err := a.Store.MatchSnapshot(r.Context(), user(r), identity, strings.TrimSpace(in.MaskName), []string{id})
+		snapshot, err := a.Store.MatchDecisionSnapshot(r.Context(), user(r), identity, strings.TrimSpace(in.MaskName), []string{id}, "")
 		if err != nil {
 			matchFailure(w, err)
 			return
 		}
-		result, err := a.Store.MatchResult(r.Context(), user(r), id)
-		if errors.Is(err, p.ErrNotFound) {
+		result := snapshot.Jobs[0].Result
+		if result == nil {
 			write(w, map[string]any{"state": snapshot.Jobs[0].State, "local": snapshot.Jobs[0].Local, "excluded_reason": snapshot.Jobs[0].ExcludedReason}, nil)
 			return
 		}
-		write(w, map[string]any{"state": snapshot.Jobs[0].State, "local": snapshot.Jobs[0].Local, "excluded_reason": snapshot.Jobs[0].ExcludedReason, "result": result}, err)
+		write(w, map[string]any{"state": snapshot.Jobs[0].State, "local": snapshot.Jobs[0].Local, "excluded_reason": snapshot.Jobs[0].ExcludedReason, "result": result}, nil)
 	})
 	on("POST /api/matching/analyze", a.analyzeMatches)
 	on("POST /api/matching/export", a.exportMatches)

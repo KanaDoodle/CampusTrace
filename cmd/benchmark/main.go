@@ -15,6 +15,7 @@ import (
 	"os"
 	"regexp"
 	"runtime"
+	"runtime/pprof"
 	"sort"
 	"sync"
 	"time"
@@ -29,6 +30,8 @@ type sample struct {
 	P95         float64 `json:"p95_ms"`
 	P99         float64 `json:"p99_ms"`
 	RPS         float64 `json:"requests_per_second"`
+	Allocated   uint64  `json:"allocated_bytes_per_request"`
+	Allocs      uint64  `json:"allocations_per_request"`
 }
 
 func measure(ctx context.Context, name string, n, c int, fn func(context.Context) error) sample {
@@ -41,6 +44,8 @@ func measure(ctx context.Context, name string, n, c int, fn func(context.Context
 	jobs := make(chan int)
 	var mu sync.Mutex
 	var wg sync.WaitGroup
+	var before, after runtime.MemStats
+	runtime.ReadMemStats(&before)
 	start := time.Now()
 	for i := 0; i < c; i++ {
 		wg.Add(1)
@@ -63,6 +68,9 @@ func measure(ctx context.Context, name string, n, c int, fn func(context.Context
 	}
 	close(jobs)
 	wg.Wait()
+	runtime.ReadMemStats(&after)
+	out.Allocated = (after.TotalAlloc - before.TotalAlloc) / uint64(n)
+	out.Allocs = (after.Mallocs - before.Mallocs) / uint64(n)
 	sort.Float64s(durations)
 	percentile := func(pct float64) float64 { return durations[int(float64(n-1)*pct)] }
 	out.P50 = percentile(.50)
@@ -75,6 +83,10 @@ func run() error {
 	count := flag.Int("jobs", 1000, "synthetic jobs (100..10000)")
 	requests := flag.Int("requests", 50, "requests per scenario")
 	concurrency := flag.Int("concurrency", 4, "read concurrency")
+	uniqueText := flag.Bool("unique-text", false, "use distinct descriptions rather than a shared synthetic JD")
+	scenario := flag.String("scenario", "", "measure only the named scenario")
+	cpuPath := flag.String("cpu-profile", "", "write a CPU profile of measured scenarios to a new file")
+	heapPath := flag.String("heap-profile", "", "write a post-GC heap profile to a new file")
 	flag.Parse()
 	if *count < 100 || *count > 10000 || *requests < 10 || *requests > 500 || *concurrency < 1 || *concurrency > 16 {
 		return errors.New("benchmark bounds invalid")
@@ -132,7 +144,11 @@ func run() error {
 		if _, err = tx.ExecContext(ctx, "INSERT INTO postings(id,job_id,source_id,source_key,body) VALUES(?,?,?,?,?)", posting, id, source, id, d.JSON(d.Posting{ID: posting, JobID: id, SourceID: source})); err != nil {
 			return err
 		}
-		obs := d.Observation{ID: d.ID(), JobID: id, PostingID: posting, Text: text, Hash: d.Hash(text), ObservedAt: at, FetchStatus: "SUCCESS", Trust: "OFFICIAL"}
+		jobText := text
+		if *uniqueText {
+			jobText += fmt.Sprintf("\n内部岗位标记：%04d", i)
+		}
+		obs := d.Observation{ID: d.ID(), JobID: id, PostingID: posting, Text: jobText, Hash: d.Hash(jobText), ObservedAt: at, FetchStatus: "SUCCESS", Trust: "OFFICIAL"}
 		if _, err = tx.ExecContext(ctx, "INSERT INTO observations(id,job_id,posting_id,observed_at,body) VALUES(?,?,?,?,?)", obs.ID, id, posting, at, d.JSON(obs)); err != nil {
 			return err
 		}
@@ -173,17 +189,77 @@ func run() error {
 			return err
 		}
 	}
-	samples := []sample{measure(ctx, "selected_results_before_all_user_results", *requests, 1, resultsCase(false)), measure(ctx, "selected_results_after_3_results", *requests, 1, resultsCase(true)), measure(ctx, "company_query_json_expression", *requests, 1, sqlCase(false)), measure(ctx, "company_query_index", *requests, 1, sqlCase(true)), measure(ctx, "selected_3_jobs", *requests, *concurrency, func(ctx context.Context) error {
-		_, err := s.MatchSnapshot(ctx, u, "benchmark", "", ids[:3])
-		return err
-	}), measure(ctx, "company_comparison", *requests, *concurrency, func(ctx context.Context) error {
-		_, err := s.MatchDecisionSnapshot(ctx, u, "benchmark", "", nil, "Synthetic Company 000")
-		return err
-	}), measure(ctx, "all_jobs_local_screen", *requests, *concurrency, func(ctx context.Context) error { _, err := s.MatchSnapshot(ctx, u, "benchmark", "", nil); return err })}
+	cases := []struct {
+		name        string
+		concurrency int
+		fn          func(context.Context) error
+	}{
+		{"selected_results_before_all_user_results", 1, resultsCase(false)},
+		{"selected_results_after_3_results", 1, resultsCase(true)},
+		{"company_query_json_expression", 1, sqlCase(false)},
+		{"company_query_index", 1, sqlCase(true)},
+		{"selected_3_jobs", *concurrency, func(ctx context.Context) error {
+			_, err := s.MatchSnapshot(ctx, u, "benchmark", "", ids[:3])
+			return err
+		}}, {"company_comparison", *concurrency, func(ctx context.Context) error {
+			_, err := s.MatchDecisionSnapshot(ctx, u, "benchmark", "", nil, "Synthetic Company 000")
+			return err
+		}}, {"all_jobs_local_screen", *concurrency, func(ctx context.Context) error { _, err := s.MatchSnapshot(ctx, u, "benchmark", "", nil); return err }},
+	}
+	if *scenario != "" {
+		selected := cases[:0]
+		for _, c := range cases {
+			if c.name == *scenario {
+				selected = append(selected, c)
+			}
+		}
+		if len(selected) == 0 {
+			return errors.New("unknown benchmark scenario")
+		}
+		cases = selected
+	}
+	var cpu, heap *os.File
+	if *cpuPath != "" {
+		cpu, err = os.OpenFile(*cpuPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+		if err != nil {
+			return err
+		}
+		defer cpu.Close()
+		if err = pprof.StartCPUProfile(cpu); err != nil {
+			return err
+		}
+		defer pprof.StopCPUProfile()
+	}
+	if *heapPath != "" {
+		heap, err = os.OpenFile(*heapPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+		if err != nil {
+			return err
+		}
+		defer heap.Close()
+	}
+	samples := []sample{}
+	for _, c := range cases {
+		samples = append(samples, measure(ctx, c.name, *requests, c.concurrency, c.fn))
+	}
+	if cpu != nil {
+		pprof.StopCPUProfile()
+		if err = cpu.Close(); err != nil {
+			return err
+		}
+	}
+	if heap != nil {
+		runtime.GC()
+		if err = pprof.WriteHeapProfile(heap); err != nil {
+			return err
+		}
+		if err = heap.Close(); err != nil {
+			return err
+		}
+	}
 	stats := s.DB.Stats()
 	var mem runtime.MemStats
 	runtime.ReadMemStats(&mem)
-	return json.NewEncoder(os.Stdout).Encode(map[string]any{"jobs": *count, "go": runtime.Version(), "os": runtime.GOOS, "arch": runtime.GOARCH, "cpus": runtime.NumCPU(), "samples": samples, "db_max_connections": stats.MaxOpenConnections, "db_wait_count": stats.WaitCount, "db_wait_ms": float64(stats.WaitDuration.Microseconds()) / 1000, "heap_bytes": mem.HeapAlloc, "model_calls": 0})
+	return json.NewEncoder(os.Stdout).Encode(map[string]any{"jobs": *count, "unique_text": *uniqueText, "cpu_profile": cpu != nil, "heap_profile": heap != nil, "go": runtime.Version(), "os": runtime.GOOS, "arch": runtime.GOARCH, "cpus": runtime.NumCPU(), "samples": samples, "db_max_connections": stats.MaxOpenConnections, "db_wait_count": stats.WaitCount, "db_wait_ms": float64(stats.WaitDuration.Microseconds()) / 1000, "heap_bytes": mem.HeapAlloc, "model_calls": 0})
 }
 func main() {
 	if err := run(); err != nil {

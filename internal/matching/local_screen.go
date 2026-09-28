@@ -35,12 +35,33 @@ type LocalScreen struct {
 	ExcludedReason string       `json:"excluded_reason"`
 }
 type LocalScreener struct {
-	profile  d.Profile
-	evidence map[string][]LocalEvidence
+	profile          d.Profile
+	evidence         map[string][]LocalEvidence
+	targetRoles      []string
+	unknownTargets   []string
+	preferredCities  map[string]bool
+	acceptableCities map[string]bool
 }
 
 func NewLocalScreener(p d.Profile, candidate Candidate) *LocalScreener {
-	s := &LocalScreener{p, map[string][]LocalEvidence{}}
+	s := &LocalScreener{profile: p, evidence: map[string][]LocalEvidence{}, preferredCities: map[string]bool{}, acceptableCities: map[string]bool{}}
+	for _, target := range p.TargetRoles {
+		families := detectLocalRoles(target)
+		s.targetRoles = append(s.targetRoles, families...)
+		if len(families) == 0 && len(Normalize(target)) >= 2 {
+			s.unknownTargets = append(s.unknownTargets, target)
+		}
+	}
+	for _, city := range p.PreferredCities {
+		if norm := Normalize(city); norm != "" {
+			s.preferredCities[norm] = true
+		}
+	}
+	for _, city := range p.AcceptableCities {
+		if norm := Normalize(city); norm != "" {
+			s.acceptableCities[norm] = true
+		}
+	}
 	for _, fact := range candidate.Facts {
 		if fact.Kind != "SKILL" && fact.Kind != "LANGUAGE" && fact.Kind != "IMPLEMENTED" {
 			continue
@@ -97,15 +118,12 @@ func hasString(values []string, v string) bool {
 var backendInterface = regexp.MustCompile(`(?i)服务接口|后端接口|业务接口|接口服务|api\s*接口|rpc|grpc|restful|http\s*接口|微服务|\bapi\b|\bbackend services\b`)
 var backendStorage = regexp.MustCompile(`(?i)数据库|缓存|mysql|postgres|redis|任务队列|异步任务|消息队列|database|message queue|task queue`)
 
-func localRole(j d.Job, p d.Profile, parsed localParsed) (score float64, role, source, excerpt, reason string) {
+func (s *LocalScreener) localRole(j d.Job, parsed localParsed) (score float64, role, source, excerpt, reason string) {
 	titleRoles := detectLocalRoles(j.Title)
 	if len(titleRoles) > 0 {
 		role, source, excerpt = strings.Join(titleRoles, "、"), "TITLE", j.Title
 	}
-	targets := []string{}
-	for _, target := range p.TargetRoles {
-		targets = append(targets, detectLocalRoles(target)...)
-	}
+	targets := s.targetRoles
 	for _, family := range titleRoles {
 		if hasString(targets, family) {
 			return 30, role, source, excerpt, "岗位标题方向与意向职能一致。"
@@ -147,12 +165,12 @@ func localRole(j d.Job, p d.Profile, parsed localParsed) (score float64, role, s
 		}
 		return 8, role, source, excerpt, "职责有后端相关线索，但标题指向其他方向，需要核对岗位重心。"
 	}
-	for _, target := range p.TargetRoles {
-		if len(detectLocalRoles(target)) == 0 && len(Normalize(target)) >= 2 && strings.Contains(Normalize(j.Title), Normalize(target)) {
+	for _, target := range s.unknownTargets {
+		if strings.Contains(Normalize(j.Title), Normalize(target)) {
 			return 30, target, "TITLE", j.Title, "岗位标题包含意向职能。"
 		}
 	}
-	if len(p.TargetRoles) == 0 {
+	if len(s.profile.TargetRoles) == 0 {
 		reason = "尚未填写意向职能，未计方向优先级。"
 	} else if role == "" {
 		reason = "尚未识别岗位方向，保留供核对。"
@@ -165,25 +183,21 @@ func localRole(j d.Job, p d.Profile, parsed localParsed) (score float64, role, s
 func (s *LocalScreener) Screen(j d.Job, text string) LocalScreen {
 	parsed := localJobCache.get(text)
 	v := LocalScreen{Version: LocalVersion, Tier: "UNCERTAIN", Reasons: []string{}, Warnings: []string{}, Checks: []LocalCheck{}}
-	roleScore, role, source, excerpt, roleReason := localRole(j, s.profile, parsed)
+	roleScore, role, source, excerpt, roleReason := s.localRole(j, parsed)
 	v.Role, v.RoleSource, v.RoleExcerpt = role, source, excerpt
 	v.Reasons = append(v.Reasons, roleReason)
 	prefScore := 0.0
-	cityMatch := func(values []string) bool {
-		for _, a := range values {
-			for _, b := range j.Locations {
-				if Normalize(a) != "" && Normalize(a) == Normalize(b) {
-					return true
-				}
-			}
-		}
-		return false
+	preferred, acceptable := false, false
+	for _, city := range j.Locations {
+		norm := Normalize(city)
+		preferred = preferred || s.preferredCities[norm]
+		acceptable = acceptable || s.acceptableCities[norm]
 	}
 	switch {
-	case cityMatch(s.profile.PreferredCities):
+	case preferred:
 		prefScore += 12
 		v.Reasons = append(v.Reasons, "工作地点包含优先城市。")
-	case cityMatch(s.profile.AcceptableCities):
+	case acceptable:
 		prefScore += 8
 		v.Reasons = append(v.Reasons, "工作地点包含可接受城市。")
 	case len(j.Locations) == 0:

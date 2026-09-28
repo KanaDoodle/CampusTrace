@@ -116,10 +116,12 @@ func (a *API) executeMatchBatch(ctx context.Context, user string, in matchBatchI
 			}
 		}
 	}
-	inputs := []matching.MatchInput{}
+	inputsByScope := map[string][]matching.MatchInput{}
 	for _, job := range remaining {
-		if len(requirements[job.Job.ID].Items) > 0 {
-			inputs = append(inputs, matching.MatchInput{ID: job.Job.ID, Requirements: requirements[job.Job.ID].Items})
+		reqs := requirements[job.Job.ID].Items
+		if modelReqs := matching.ModelRequirements(reqs); len(modelReqs) > 0 {
+			scope := matching.ComparisonScope(reqs)
+			inputsByScope[scope] = append(inputsByScope[scope], matching.MatchInput{ID: job.Job.ID, Requirements: modelReqs})
 		}
 	}
 	analyzed := []string{}
@@ -137,8 +139,13 @@ func (a *API) executeMatchBatch(ctx context.Context, user string, in matchBatchI
 		if matches == nil {
 			matches = []matching.Match{}
 		}
+		matches, err := matching.AssembleMatches(snapshot.Profile, snapshot.Candidate, reqs, matches)
+		if err != nil {
+			return err
+		}
 		score, coverage := matching.Score(reqs, matches)
-		result := matching.Result{JobID: job.Job.ID, InputKey: job.InputKey, RequirementsKey: job.RequirementsKey, CandidateHash: snapshot.CandidateHash, Model: identity, AnalyzedAt: time.Now().UTC(), Requirements: reqs, Matches: matches, CandidateFacts: snapshot.Candidate.Facts, Score: score, Coverage: coverage, Qualifications: matching.Qualification(job.Job, snapshot.Profile, reqs, time.Now().UTC())}
+		scope := matching.ComparisonScope(reqs)
+		result := matching.Result{JobID: job.Job.ID, InputKey: job.InputKey, RequirementsKey: job.RequirementsKey, CandidateHash: snapshot.CandidateHash, ComparisonScope: scope, ComparisonKey: matching.ComparisonKey(job.RequirementsKey, matching.ComparisonCandidateHash(snapshot.Candidate, scope), scope), Model: identity, AnalyzedAt: time.Now().UTC(), Requirements: reqs, Matches: matches, CandidateFacts: snapshot.Candidate.Facts, Score: score, Coverage: coverage, Qualifications: matching.Qualification(job.Job, snapshot.Profile, reqs, time.Now().UTC())}
 		result.Breakdown = matching.ScoreBreakdown(reqs, matches)
 		if hook != nil {
 			if err := hook("SAVE", "", 0); err != nil {
@@ -158,7 +165,7 @@ func (a *API) executeMatchBatch(ctx context.Context, user string, in matchBatchI
 		return nil
 	}
 	for _, job := range remaining {
-		if len(requirements[job.Job.ID].Items) == 0 {
+		if len(matching.ModelRequirements(requirements[job.Job.ID].Items)) == 0 {
 			if err := persist(job, nil); err != nil {
 				return out, &MatchStageError{"SAVE", err}
 			}
@@ -166,32 +173,35 @@ func (a *API) executeMatchBatch(ctx context.Context, user string, in matchBatchI
 	}
 	// Bound output as well as input: a dense JD must not crowd out another
 	// job's requirements. Commit each completed group before reserving more calls.
-	for len(inputs) > 0 {
-		count, size := 0, 0
-		for count < len(inputs) {
-			next := len(inputs[count].Requirements)
-			if count > 0 && size+next > 24 {
-				break
+	for _, scope := range []string{matching.ComparisonAbilities, matching.ComparisonFull} {
+		inputs := inputsByScope[scope]
+		for len(inputs) > 0 {
+			count, size := 0, 0
+			for count < len(inputs) {
+				next := len(inputs[count].Requirements)
+				if count > 0 && size+next > 24 {
+					break
+				}
+				size += next
+				count++
 			}
-			size += next
-			count++
-		}
-		group := inputs[:count]
-		if hook != nil {
-			if err := hook("COMPARE", "", 0); err != nil {
-				return out, err
+			group := inputs[:count]
+			if hook != nil {
+				if err := hook("COMPARE", "", 0); err != nil {
+					return out, err
+				}
 			}
-		}
-		comparisons, err := matching.Compare(ctx, budget, snapshot.Candidate, group)
-		if err != nil {
-			return out, &MatchStageError{"COMPARE", err}
-		}
-		for _, job := range group {
-			if err := persist(byID[job.ID], comparisons[job.ID]); err != nil {
-				return out, &MatchStageError{"SAVE", err}
+			comparisons, err := matching.Compare(ctx, budget, matching.ModelCandidate(snapshot.Candidate, scope), group)
+			if err != nil {
+				return out, &MatchStageError{"COMPARE", err}
 			}
+			for _, job := range group {
+				if err := persist(byID[job.ID], comparisons[job.ID]); err != nil {
+					return out, &MatchStageError{"SAVE", err}
+				}
+			}
+			inputs = inputs[count:]
 		}
-		inputs = inputs[count:]
 	}
 	out.Analyzed, out.Reused, out.RequirementsReused, out.EvidenceReviews = analyzed, reused, requirementsReused, evidenceReviews
 	return out, nil
