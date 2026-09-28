@@ -117,4 +117,5 @@ func TestXiaohongshuLiveReadOnly(t *testing.T) {
 	if err != nil || !strings.Contains(result.Text, "任职资格") {
 		t.Fatalf("detail %+v: %v", result, err)
 	}
+	t.Logf("project=%s preview=%d discovered=%d detail=%s", preview.ProjectCode, preview.Total, len(refs), refs[0].ExternalID)
 }

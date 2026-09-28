@@ -83,7 +83,7 @@ func (a PublicPlatform) PreviewXHS(ctx context.Context, raw string) (CampusPrevi
 	if err := RecognizeCampusURL(raw); err != nil {
 		return CampusPreview{}, err
 	}
-	s := d.Source{ID: "xiaohongshu-preview", RateLimit: 30}
+	s := d.Source{ID: "xiaohongshu-preview", Adapter: "xiaohongshu", RateLimit: 30}
 	var enums xhsEnvelope[map[string][]xhsProject]
 	if err := a.post(ctx, s, "https://job.xiaohongshu.com/websiterecruit/common/findEnumList", []string{"PositionProjectEnum"}, &enums); err != nil {
 		return CampusPreview{}, err

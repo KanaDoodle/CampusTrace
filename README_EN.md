@@ -16,6 +16,8 @@ Lever (`weride`), Greenhouse (`pingcap`) and SmartRecruiters (`Ubisoft2`) are IM
 
 Migration 004 adds watch targets, run/result receipts, references, user preferences and notification uniqueness. Stop old workers before upgrading: old binaries cannot consume the new task types. The Source fetch-only API remains compatible; discovery is an additive capability. KanaRPC-Go and the Analysis RPC boundary are unchanged.
 
+Public source queries reuse connections and try alternative pinned public addresses after validating the entire DNS answer. Read-only queries retry transport errors and 5xx once; access denial and rate limits are not immediately retried. Preview errors distinguish network connectivity, upstream load, access restrictions, and schema changes.
+
 Use `./scripts/verify-radar.sh` for fresh isolated integration/migration databases and `RADAR_RACE=1 ./scripts/verify-radar.sh` for real-dependency race coverage. Explicit external verification requires `CAMPUS_LIVE_SOURCES=1 CAMPUS_INTEGRATION=1` with `go test -count=1 -run TestRadarLiveSources -v ./internal/integration`. Frontend tests: `node --test web/*.test.cjs`.
 
 Defaults are intentionally bounded: 100 watches per owner; 500 posting refs per watch; 1 MiB decompressed response and 60,000-byte posting body; 500 visible jobs per Radar aggregation. Digest totals are complete within capacity, with 5 jobs per section and 10 changes/interviews; feeds/inbox expose the latest 100 records. The Worker scans 10 notification owners per minute. Historical pagination, automatic retention, broad source coverage, source-login automation and external notifications are not implemented. See the [engineering report](PRODUCTIZATION_REPORT.md) and [Chinese setup and adapter details](README.md#job-radar-v02).

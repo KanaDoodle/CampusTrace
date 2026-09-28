@@ -31,23 +31,7 @@ type HTTPAdapter struct{ Client *http.Client }
 
 func PublicClient() *http.Client {
 	return &http.Client{Timeout: 10 * time.Second, Transport: &http.Transport{Proxy: nil, DialContext: func(ctx context.Context, network, address string) (net.Conn, error) {
-		host, port, err := net.SplitHostPort(address)
-		if err != nil {
-			return nil, err
-		}
-		ips, err := net.DefaultResolver.LookupIPAddr(ctx, host)
-		if err != nil {
-			return nil, err
-		}
-		if len(ips) == 0 {
-			return nil, errors.New("no public address")
-		}
-		for _, v := range ips {
-			if v.IP.IsPrivate() || v.IP.IsLoopback() || v.IP.IsLinkLocalUnicast() || v.IP.IsLinkLocalMulticast() || v.IP.IsUnspecified() || v.IP.IsMulticast() {
-				return nil, errors.New("only public source addresses allowed")
-			}
-		}
-		return (&net.Dialer{Timeout: 5 * time.Second}).DialContext(ctx, network, net.JoinHostPort(ips[0].IP.String(), port))
+		return dialPublicSource(ctx, network, address, net.DefaultResolver.LookupIPAddr, (&net.Dialer{}).DialContext)
 	}}, CheckRedirect: func(req *http.Request, via []*http.Request) error {
 		if len(via) > 4 {
 			return errors.New("too many redirects")
@@ -57,6 +41,41 @@ func PublicClient() *http.Client {
 		}
 		return nil
 	}}
+}
+
+// Validate the entire DNS answer before connecting, then try each pinned public
+// address. A temporarily unreachable first address must not hide a working one.
+func dialPublicSource(ctx context.Context, network, address string, lookup func(context.Context, string) ([]net.IPAddr, error), dial func(context.Context, string, string) (net.Conn, error)) (net.Conn, error) {
+	host, port, err := net.SplitHostPort(address)
+	if err != nil {
+		return nil, err
+	}
+	ips, err := lookup(ctx, host)
+	if err != nil {
+		return nil, err
+	}
+	if len(ips) == 0 {
+		return nil, errors.New("no public address")
+	}
+	for _, v := range ips {
+		if !v.IP.IsGlobalUnicast() || v.IP.IsPrivate() || v.IP.IsLoopback() || v.IP.IsLinkLocalUnicast() {
+			return nil, errors.New("only public source addresses allowed")
+		}
+	}
+	var failures []error
+	for _, v := range ips {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		attempt, cancel := context.WithTimeout(ctx, 2*time.Second)
+		conn, err := dial(attempt, network, net.JoinHostPort(v.IP.String(), port))
+		cancel()
+		if err == nil {
+			return conn, nil
+		}
+		failures = append(failures, err)
+	}
+	return nil, errors.Join(failures...)
 }
 func (a HTTPAdapter) Version() string { return d.SourceParserVersion }
 func (a HTTPAdapter) Fetch(ctx context.Context, raw string) (Result, error) {

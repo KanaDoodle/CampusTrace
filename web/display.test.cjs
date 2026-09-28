@@ -53,6 +53,13 @@ test('简历模型失败区分超时、密钥、余额与摘录核对',()=>{
   assert.match(D.errorCode('MODEL_BALANCE_LOW',502),/余额/);
   assert.match(D.errorCode('RESUME_DRAFT_UNVERIFIABLE',502),/摘录核对/);
 });
+test('招聘源读取失败区分网络、访问限制与接口变化',()=>{
+  assert.match(D.errorCode('SOURCE_PREVIEW_NETWORK',502),/网络不通/);
+  assert.doesNotMatch(D.errorCode('SOURCE_PREVIEW_NETWORK',502),/接口已变化/);
+  assert.match(D.errorCode('SOURCE_PREVIEW_BLOCKED',502),/拒绝/);
+  assert.match(D.errorCode('SOURCE_PREVIEW_BUSY',502),/繁忙/);
+  assert.match(D.errorCode('SOURCE_PREVIEW_CHANGED',502),/数据格式/);
+});
 // Run the actual render helpers without a browser so nested presentation and
 // source-text escaping can be regression-tested without introducing a UI framework.
 const context={CampusDisplay:D,sessionStorage:{getItem:()=>''},document:{querySelector:()=>null},globalThis:{},Intl,Date,Number,Object,Array,JSON,String,Error};

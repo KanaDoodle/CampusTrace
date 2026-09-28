@@ -5,6 +5,7 @@ import (
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
 	p "github.com/KanaDoodle/CampusTrace/internal/persistence"
 	"github.com/KanaDoodle/CampusTrace/internal/source"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
@@ -28,10 +29,34 @@ func (a *API) campusPreview(w http.ResponseWriter, r *http.Request, raw string) 
 	defer cancel()
 	v, err := (source.PublicPlatform{}).PreviewXHS(ctx, raw)
 	if err != nil {
-		codedError(w, http.StatusBadGateway, "SOURCE_PREVIEW_FAILED")
+		code := sourcePreviewFailure(err)
+		var fetch *source.FetchError
+		if source.AsFetchError(err, &fetch) {
+			slog.WarnContext(r.Context(), "campus source preview failed", "category", fetch.Category, "upstream_status", fetch.HTTPStatus)
+		}
+		codedError(w, http.StatusBadGateway, code)
 		return source.CampusPreview{}, false
 	}
 	return v, true
+}
+
+func sourcePreviewFailure(err error) string {
+	var fetch *source.FetchError
+	if source.AsFetchError(err, &fetch) {
+		switch fetch.Category {
+		case "TIMEOUT_OR_NETWORK":
+			return "SOURCE_PREVIEW_NETWORK"
+		case "BLOCKED":
+			return "SOURCE_PREVIEW_BLOCKED"
+		case "RATE_LIMIT":
+			return "SOURCE_PREVIEW_BUSY"
+		case "HTTP_TRANSIENT":
+			return "SOURCE_PREVIEW_BUSY"
+		case "SCHEMA_INVALID", "RESPONSE_TOO_LARGE":
+			return "SOURCE_PREVIEW_CHANGED"
+		}
+	}
+	return "SOURCE_PREVIEW_FAILED"
 }
 
 func (a *API) radarRoutes(on func(string, http.HandlerFunc)) {

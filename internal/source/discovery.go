@@ -62,6 +62,8 @@ type PublicPlatform struct {
 	Allow  func(context.Context, string, int) (bool, error)
 }
 
+var publicPlatformClient = PublicClient()
+
 func (PublicPlatform) Version() string { return "public-platforms-v2" }
 
 var tenantPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,100}$`)
@@ -89,6 +91,25 @@ func (a PublicPlatform) post(ctx context.Context, s d.Source, raw string, body a
 	return a.request(ctx, s, http.MethodPost, raw, body, dst)
 }
 func (a PublicPlatform) request(ctx context.Context, s d.Source, method, raw string, body any, dst any) error {
+	err := a.requestOnce(ctx, s, method, raw, body, dst)
+	var fetch *FetchError
+	// All platform requests are public, read-only queries, including XHS POSTs.
+	// Retry once for transport errors or 5xx, but leave rate limits and access
+	// restrictions to the existing scheduler policy.
+	if !errors.As(err, &fetch) || (fetch.Category != "TIMEOUT_OR_NETWORK" && !(fetch.Category == "HTTP_TRANSIENT" && fetch.HTTPStatus >= 500)) {
+		return err
+	}
+	timer := time.NewTimer(250 * time.Millisecond)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return err
+	case <-timer.C:
+		return a.requestOnce(ctx, s, method, raw, body, dst)
+	}
+}
+
+func (a PublicPlatform) requestOnce(ctx context.Context, s d.Source, method, raw string, body any, dst any) error {
 	if a.Allow != nil {
 		limit := s.RateLimit
 		if limit < 1 {
@@ -108,7 +129,7 @@ func (a PublicPlatform) request(ctx context.Context, s d.Source, method, raw str
 	}
 	client := a.Client
 	if client == nil {
-		client = PublicClient()
+		client = publicPlatformClient
 	}
 	var payload io.Reader
 	if body != nil {

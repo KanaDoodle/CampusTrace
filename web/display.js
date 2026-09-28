@@ -149,6 +149,10 @@
     if (code==='SOURCE_URL_UNSUPPORTED') return '目前支持直接粘贴小红书校招岗位列表网址；其他公司网站需要单独适配。';
     if (code==='SOURCE_PREVIEW_RATE_LIMIT') return '网址预览太频繁，请一分钟后再试。';
     if (code==='SOURCE_PREVIEW_FAILED') return '招聘网站暂时无法读取，或页面接口已变化；本次没有创建关注，请稍后重试。';
+    if (code==='SOURCE_PREVIEW_NETWORK') return 'CampusTrace 连接招聘网站时超时或网络不通；本次没有创建关注。请检查运行服务的设备能否访问招聘网站，再重试。';
+    if (code==='SOURCE_PREVIEW_BLOCKED') return '招聘网站拒绝了本次访问，可能需要登录或验证；本次没有创建关注。请先在浏览器中查看招聘页面。';
+    if (code==='SOURCE_PREVIEW_BUSY') return '招聘网站暂时繁忙或请求过于频繁；本次没有创建关注，请稍后重试。';
+    if (code==='SOURCE_PREVIEW_CHANGED') return '招聘网站返回的数据格式与当前适配器不一致；本次没有创建关注，需要更新网站适配。';
     if (code==='CORPUS_CAPACITY') return '资料库超过当前 10,000 个片段的可检索容量；本次导入或检索未执行。';
     if (code==='RESUME_MODEL_UNAVAILABLE') return '尚未配置外部模型；可以继续手动维护求职资料。';
     if (code==='MODEL_CONFIG_INVALID') return '模型配置无效；请检查公开 HTTPS 接口地址、模型标识和密钥。';
