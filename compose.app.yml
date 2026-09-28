@@ -9,7 +9,8 @@ x-app: &app
   restart: unless-stopped
   stop_grace_period: 30s
   environment: &environment
-    MYSQL_DSN: campus:local-campus-only@tcp(mysql:3306)/campustrace?parseTime=true&loc=UTC
+    MYSQL_DSN: campus:local-campus-only@tcp(mysql:3306)/${CAMPUS_DATABASE:-campustrace}?parseTime=true&loc=UTC
+    CAMPUS_REDIS_PREFIX: ${CAMPUS_REDIS_PREFIX:-ct:}
     REDIS_ADDR: redis:6379
     ETCD_ENDPOINTS: etcd:2379
     JWT_SECRET: ${JWT_SECRET:-local-campus-demo-secret-change-me-2027}

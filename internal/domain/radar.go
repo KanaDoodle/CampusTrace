@@ -13,6 +13,8 @@ type WatchInput struct {
 	Keyword       string `json:"keyword"`
 	Direction     string `json:"direction,omitempty"`
 	Enabled       bool   `json:"enabled"`
+	Adaptive      bool   `json:"adaptive,omitempty"`
+	Priority      bool   `json:"priority,omitempty"`
 }
 
 func (v WatchInput) Validate() error {
@@ -26,12 +28,19 @@ type WatchTarget struct {
 	ID     string `json:"id"`
 	UserID string `json:"user_id"`
 	WatchInput
-	NextCheckAt     time.Time  `json:"next_check_at"`
-	LastCheckedAt   *time.Time `json:"last_checked_at,omitempty"`
-	ScheduleVersion uint64     `json:"schedule_version"`
-	LastOutcome     string     `json:"last_outcome"`
-	CreatedAt       time.Time  `json:"created_at"`
-	UpdatedAt       time.Time  `json:"updated_at"`
+	NextCheckAt       time.Time  `json:"next_check_at"`
+	LastCheckedAt     *time.Time `json:"last_checked_at,omitempty"`
+	ScheduleVersion   uint64     `json:"schedule_version"`
+	LastOutcome       string     `json:"last_outcome"`
+	CreatedAt         time.Time  `json:"created_at"`
+	UpdatedAt         time.Time  `json:"updated_at"`
+	EffectiveInterval int        `json:"effective_interval,omitempty"`
+	ScheduleReason    string     `json:"schedule_reason,omitempty"`
+	StableRounds      int        `json:"stable_rounds,omitempty"`
+	FailureRounds     int        `json:"failure_rounds,omitempty"`
+	RoundChanged      bool       `json:"round_changed,omitempty"`
+	RoundStartedAt    time.Time  `json:"round_started_at,omitempty"`
+	DiscoveryHash     string     `json:"discovery_hash,omitempty"`
 }
 type UserJobPreference struct {
 	UserID      string `json:"user_id"`

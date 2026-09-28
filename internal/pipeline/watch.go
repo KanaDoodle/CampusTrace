@@ -16,7 +16,12 @@ func (w *Worker) sourceAdapter() source.DiscoveryAdapter {
 	if w.Source != nil {
 		return w.Source
 	}
-	return source.PublicPlatform{Allow: func(ctx context.Context, id string, n int) (bool, error) {
+	return source.PublicPlatform{CacheRead: func(ctx context.Context, id, key string) (source.HTTPEntry, error) {
+		v, e := w.Store.SourceHTTPRead(ctx, id, key)
+		return source.HTTPEntry{ETag: v.ETag, LastModified: v.LastModified, Body: v.Body}, e
+	}, CacheWrite: func(ctx context.Context, id, key string, v source.HTTPEntry) error {
+		return w.Store.SourceHTTPWrite(ctx, id, key, p.SourceHTTPEntry{ETag: v.ETag, LastModified: v.LastModified, Body: v.Body})
+	}, Allow: func(ctx context.Context, id string, n int) (bool, error) {
 		return w.Queue.Allow(ctx, "source:"+id, n, time.Minute)
 	}}
 }
@@ -70,7 +75,16 @@ func (w *Worker) processWatch(ctx context.Context, t p.Task) error {
 		for _, k := range keys {
 			rows = append(rows, inputs[k])
 		}
-		err = w.Store.QueueWatchPostings(ctx, t, rows)
+		// A disappearance changes scheduling urgency, never proves closure.
+		fingerprints := make([]string, 0, len(refs))
+		for _, ref := range refs {
+			locations := append([]string(nil), ref.Locations...)
+			sort.Strings(locations)
+			ref.Locations = locations
+			fingerprints = append(fingerprints, d.JSON(ref))
+		}
+		sort.Strings(fingerprints)
+		err = w.Store.QueueWatchPostings(ctx, t, rows, d.Hash(d.JSON(fingerprints)))
 		if errors.Is(err, p.ErrStaleWatch) {
 			return nil
 		}

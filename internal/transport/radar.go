@@ -84,6 +84,8 @@ func (a *API) radarRoutes(on func(string, http.HandlerFunc)) {
 			Keyword       string `json:"keyword"`
 			Direction     string `json:"direction"`
 			Enabled       bool   `json:"enabled"`
+			Adaptive      bool   `json:"adaptive,omitempty"`
+			Priority      bool   `json:"priority,omitempty"`
 		}
 		if err := decode(r, &in); err != nil {
 			write(w, nil, err)
@@ -97,7 +99,7 @@ func (a *API) radarRoutes(on func(string, http.HandlerFunc)) {
 		if !ok {
 			return
 		}
-		result, err := a.Store.CreateCampusWatch(r.Context(), user(r), v.ProjectCode, v.Name, d.WatchInput{CheckInterval: in.CheckInterval, Keyword: in.Keyword, Direction: in.Direction, Enabled: in.Enabled})
+		result, err := a.Store.CreateCampusWatch(r.Context(), user(r), v.ProjectCode, v.Name, d.WatchInput{CheckInterval: in.CheckInterval, Keyword: in.Keyword, Direction: in.Direction, Enabled: in.Enabled, Adaptive: in.Adaptive, Priority: in.Priority})
 		write(w, result, err)
 	})
 	on("GET /api/sources/{id}/jobs", func(w http.ResponseWriter, r *http.Request) {

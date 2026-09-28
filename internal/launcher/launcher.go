@@ -31,9 +31,10 @@ type Container struct {
 	Health  string
 }
 type manager struct {
-	root        string
-	out, errOut io.Writer
-	execute     func(context.Context, string, []string, io.Writer, io.Writer) error
+	root         string
+	out, errOut  io.Writer
+	execute      func(context.Context, string, []string, io.Writer, io.Writer) error
+	executeInput func(context.Context, string, []string, io.Reader, io.Writer, io.Writer) error
 }
 
 func command(ctx context.Context, dir string, args []string, out, errOut io.Writer) error {
@@ -393,6 +394,20 @@ func (m *manager) status(ctx context.Context) error {
 	return ready(rows)
 }
 func (m *manager) backup(ctx context.Context, destination string) (string, error) {
+	started := time.Now().UTC()
+	// The effective database can be a previously restored recovery copy.
+	database, err := m.databaseName(ctx)
+	if err != nil {
+		return "", err
+	}
+	server, err := m.adminSQL(ctx, "SELECT VERSION();")
+	if err != nil {
+		return "", err
+	}
+	collation, err := m.adminSQL(ctx, "SELECT default_collation_name FROM information_schema.schemata WHERE schema_name='"+database+"';")
+	if err != nil {
+		return "", err
+	}
 	if destination == "" {
 		destination = filepath.Join(m.root, "bin", "backups", "campustrace-"+time.Now().Format("20060102-150405.000000000")+".sql")
 	}
@@ -407,7 +422,7 @@ func (m *manager) backup(ctx context.Context, destination string) (string, error
 	if err != nil {
 		return "", errors.New("备份路径无法创建或文件已存在，本次不会覆盖旧备份")
 	}
-	args := m.compose("exec", "-T", "mysql", "sh", "-c", `exec mysqldump --default-character-set=utf8mb4 -uroot -p"$MYSQL_ROOT_PASSWORD" --single-transaction --no-tablespaces --set-gtid-purged=OFF campustrace`)
+	args := m.compose("exec", "-T", "mysql", "sh", "-c", `exec mysqldump --default-character-set=utf8mb4 -uroot -p"$MYSQL_ROOT_PASSWORD" --single-transaction --no-tablespaces --set-gtid-purged=OFF "$1"`, "dump", database)
 	err = m.execute(ctx, m.root, args, file, m.errOut)
 	closeErr := file.Close()
 	if err == nil {
@@ -416,6 +431,10 @@ func (m *manager) backup(ctx context.Context, destination string) (string, error
 	if err != nil {
 		os.Remove(path)
 		return "", errors.New("数据库备份失败，请确认 MySQL 正在运行")
+	}
+	if err = backupMetadata(path, started, server, collation); err != nil {
+		os.Remove(path)
+		return "", errors.New("备份校验文件创建失败，未保留不完整备份")
 	}
 	return path, nil
 }
@@ -460,7 +479,10 @@ const help = `CampusTrace — 统一启动入口
   status                  查看所有组件状态
   logs [组件] [--follow]   查看日志；组件为 api/worker/analysis-1/analysis-2/mysql/redis/etcd
   doctor                  检查 Docker、配置与服务状态
-  backup [--file 路径]     将数据库备份到本机，文件权限仅当前用户可读写
+  backup [--file 路径] [--verify] 备份数据库；可同时验证恢复
+  verify-backup --file 路径 将备份恢复到隔离库，验证后删除隔离库
+  restore --file 路径      验证并保留新数据库副本，不覆盖当前数据
+  retention [--days 90] [--apply] 预览历史清理；--apply 先备份再清理
   open                    打开网页
 
 通用选项：--dir 项目目录。start/restart：--timeout 秒（默认 180）。
@@ -497,7 +519,7 @@ func Run(ctx context.Context, args []string, out, errOut io.Writer) error {
 	}
 	name := args[0]
 	switch name {
-	case "start", "stop", "restart", "status", "logs", "doctor", "backup", "open", "probe":
+	case "start", "stop", "restart", "status", "logs", "doctor", "backup", "verify-backup", "restore", "retention", "open", "probe":
 	default:
 		return fmt.Errorf("未知命令 %q，运行 help 查看用法", name)
 	}
@@ -507,6 +529,8 @@ func Run(ctx context.Context, args []string, out, errOut io.Writer) error {
 	var open, rebuild, all, follow bool
 	timeout, tail := 180, 100
 	destination, address := "", ""
+	days, apply := 90, false
+	verify := false
 	if name == "start" || name == "restart" {
 		flags.BoolVar(&open, "open", false, "打开网页")
 		flags.BoolVar(&rebuild, "build", false, "重建应用镜像")
@@ -519,8 +543,15 @@ func Run(ctx context.Context, args []string, out, errOut io.Writer) error {
 		flags.BoolVar(&follow, "follow", false, "跟随日志")
 		flags.IntVar(&tail, "tail", 100, "日志行数")
 	}
-	if name == "backup" {
+	if name == "backup" || name == "verify-backup" || name == "restore" {
 		flags.StringVar(&destination, "file", "", "备份路径")
+	}
+	if name == "backup" {
+		flags.BoolVar(&verify, "verify", false, "生成备份后验证恢复")
+	}
+	if name == "retention" {
+		flags.IntVar(&days, "days", 90, "保留天数（30—3650）")
+		flags.BoolVar(&apply, "apply", false, "先备份再实际清理")
 	}
 	if name == "probe" {
 		flags.StringVar(&address, "url", "", "本机健康检查地址")
@@ -538,6 +569,12 @@ func Run(ctx context.Context, args []string, out, errOut io.Writer) error {
 		return errors.New("timeout 范围 1—600 秒，tail 范围 1—10000 行")
 	}
 	extra := flags.Args()
+	if (name == "restore" || name == "verify-backup") && destination == "" {
+		return errors.New("必须使用 --file 指定备份 SQL 文件")
+	}
+	if days < 30 || days > 3650 {
+		return errors.New("保留天数范围 30—3650")
+	}
 	if name != "logs" && len(extra) > 0 {
 		return errors.New("存在无法识别的参数，请运行 help 查看用法")
 	}
@@ -549,7 +586,7 @@ func Run(ctx context.Context, args []string, out, errOut io.Writer) error {
 		return err
 	}
 	m := &manager{root: root, out: out, errOut: errOut, execute: command}
-	if name == "start" || name == "stop" || name == "restart" {
+	if name == "start" || name == "stop" || name == "restart" || name == "backup" || name == "restore" || name == "verify-backup" || name == "retention" {
 		unlock, err := acquire(root)
 		if err != nil {
 			return err
@@ -557,6 +594,17 @@ func Run(ctx context.Context, args []string, out, errOut io.Writer) error {
 		defer unlock()
 	}
 	switch name {
+	case "restore", "verify-backup":
+		if err = m.check(ctx); err != nil {
+			return err
+		}
+		_, err = m.verifyBackup(ctx, destination, name == "restore")
+		return err
+	case "retention":
+		if err = m.check(ctx); err != nil {
+			return err
+		}
+		return m.retention(ctx, days, apply)
 	case "start":
 		return m.start(ctx, rebuild, open, timeout)
 	case "stop":
@@ -592,6 +640,9 @@ func Run(ctx context.Context, args []string, out, errOut io.Writer) error {
 		path, err := m.backup(ctx, destination)
 		if err == nil {
 			fmt.Fprintln(out, "本机备份：", path)
+			if verify {
+				_, err = m.verifyBackup(ctx, path, false)
+			}
 		}
 		return err
 	case "open":

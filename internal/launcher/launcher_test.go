@@ -58,7 +58,7 @@ func TestFailedStartOnlyStopsNewApplicationServices(t *testing.T) {
 	before := healthy()[:3]
 	before = append(before, Container{Service: "api", State: "running", Health: "healthy"})
 	states, _ := json.Marshal(before)
-	m := manager{root: t.TempDir(), out: io.Discard, errOut: io.Discard, execute: func(_ context.Context, _ string, args []string, out, _ io.Writer) error {
+	m := manager{root: t.TempDir(), out: io.Discard, errOut: io.Discard, executeInput: fakeDatabaseSQL, execute: func(_ context.Context, _ string, args []string, out, _ io.Writer) error {
 		calls = append(calls, append([]string{}, args...))
 		line := strings.Join(args, " ")
 		switch {
@@ -67,7 +67,7 @@ func TestFailedStartOnlyStopsNewApplicationServices(t *testing.T) {
 		case strings.Contains(line, "ps --all --format json"):
 			out.Write(states)
 		case strings.Contains(line, "config --format json"):
-			io.WriteString(out, `{"services":{"api":{"ports":[{"published":"`+port+`"}]}}}`)
+			io.WriteString(out, `{"services":{"api":{"environment":{"MYSQL_DSN":"campus:local-campus-only@tcp(mysql:3306)/campustrace"},"ports":[{"published":"`+port+`"}]}}}`)
 		case strings.Contains(line, "up --detach"):
 			return errors.New("simulated failure")
 		}
@@ -98,7 +98,7 @@ func TestStartUsesDetachedComposeAndExplicitProjectFromAnyDirectory(t *testing.T
 	rows, _ := json.Marshal(healthy())
 	port := unusedPort(t)
 	root := filepath.Join(t.TempDir(), "project with spaces")
-	m := manager{root: root, out: io.Discard, errOut: io.Discard, execute: func(_ context.Context, dir string, args []string, out, _ io.Writer) error {
+	m := manager{root: root, out: io.Discard, errOut: io.Discard, executeInput: fakeDatabaseSQL, execute: func(_ context.Context, dir string, args []string, out, _ io.Writer) error {
 		if dir != root {
 			t.Fatal("wrong working directory")
 		}
@@ -111,7 +111,7 @@ func TestStartUsesDetachedComposeAndExplicitProjectFromAnyDirectory(t *testing.T
 			out.Write(rows)
 		}
 		if strings.Contains(line, "config --format json") {
-			io.WriteString(out, `{"services":{"api":{"ports":[{"published":"`+port+`"}]}}}`)
+			io.WriteString(out, `{"services":{"api":{"environment":{"MYSQL_DSN":"campus:local-campus-only@tcp(mysql:3306)/campustrace"},"ports":[{"published":"`+port+`"}]}}}`)
 		}
 		return nil
 	}}
@@ -140,7 +140,7 @@ func TestRebuildQuiescesWritersOnlyAfterBackupAndSuccessfulBuild(t *testing.T) {
 			var operations []string
 			rows, _ := json.Marshal(healthy())
 			port := unusedPort(t)
-			m := manager{root: t.TempDir(), out: io.Discard, errOut: io.Discard, execute: func(_ context.Context, _ string, args []string, out, _ io.Writer) error {
+			m := manager{root: t.TempDir(), out: io.Discard, errOut: io.Discard, executeInput: fakeDatabaseSQL, execute: func(_ context.Context, _ string, args []string, out, _ io.Writer) error {
 				line := strings.Join(args, " ")
 				switch {
 				case args[0] == "launchctl":
@@ -148,7 +148,7 @@ func TestRebuildQuiescesWritersOnlyAfterBackupAndSuccessfulBuild(t *testing.T) {
 				case strings.Contains(line, "ps --all --format json"):
 					out.Write(rows)
 				case strings.Contains(line, "config --format json"):
-					io.WriteString(out, `{"services":{"api":{"ports":[{"published":"`+port+`"}]}}}`)
+					io.WriteString(out, `{"services":{"api":{"environment":{"MYSQL_DSN":"campus:local-campus-only@tcp(mysql:3306)/campustrace"},"ports":[{"published":"`+port+`"}]}}}`)
 				case strings.Contains(line, "mysqldump"):
 					operations = append(operations, "backup")
 					io.WriteString(out, "synthetic dump")
@@ -186,14 +186,14 @@ func TestPortConflictNeverBuildsOrStopsAnotherService(t *testing.T) {
 	defer listener.Close()
 	_, port, _ := net.SplitHostPort(listener.Addr().String())
 	calls := []string{}
-	m := manager{root: t.TempDir(), out: io.Discard, errOut: io.Discard, execute: func(_ context.Context, _ string, args []string, out, _ io.Writer) error {
+	m := manager{root: t.TempDir(), out: io.Discard, errOut: io.Discard, executeInput: fakeDatabaseSQL, execute: func(_ context.Context, _ string, args []string, out, _ io.Writer) error {
 		line := strings.Join(args, " ")
 		calls = append(calls, line)
 		if args[0] == "launchctl" {
 			return errors.New("no job")
 		}
 		if strings.Contains(line, "config --format json") {
-			io.WriteString(out, `{"services":{"api":{"ports":[{"published":"`+port+`"}]}}}`)
+			io.WriteString(out, `{"services":{"api":{"environment":{"MYSQL_DSN":"campus:local-campus-only@tcp(mysql:3306)/campustrace"},"ports":[{"published":"`+port+`"}]}}}`)
 		}
 		return nil
 	}}
@@ -210,7 +210,11 @@ func TestBackupNeverOverwritesAndRemovesFailedPartialDump(t *testing.T) {
 	root := t.TempDir()
 	destination := filepath.Join(root, "backup.sql")
 	var dumpCalls int
-	m := manager{root: root, out: io.Discard, errOut: io.Discard, execute: func(_ context.Context, _ string, _ []string, out, _ io.Writer) error {
+	m := manager{root: root, out: io.Discard, errOut: io.Discard, executeInput: fakeDatabaseSQL, execute: func(_ context.Context, _ string, _args []string, out, _ io.Writer) error {
+		if strings.Contains(strings.Join(_args, " "), "config --format json") {
+			io.WriteString(out, `{"services":{"api":{"environment":{"MYSQL_DSN":"campus:local-campus-only@tcp(mysql:3306)/campustrace"}}}}`)
+			return nil
+		}
 		dumpCalls++
 		io.WriteString(out, "synthetic database dump")
 		return nil
@@ -228,7 +232,11 @@ func TestBackupNeverOverwritesAndRemovesFailedPartialDump(t *testing.T) {
 	if _, err := m.backup(context.Background(), destination); err == nil || dumpCalls != 1 {
 		t.Fatal("overwrote backup")
 	}
-	m.execute = func(_ context.Context, _ string, _ []string, out, _ io.Writer) error {
+	m.execute = func(_ context.Context, _ string, _args []string, out, _ io.Writer) error {
+		if strings.Contains(strings.Join(_args, " "), "config --format json") {
+			io.WriteString(out, `{"services":{"api":{"environment":{"MYSQL_DSN":"campus:local-campus-only@tcp(mysql:3306)/campustrace"}}}}`)
+			return nil
+		}
 		io.WriteString(out, "partial")
 		return errors.New("dump failure")
 	}
@@ -243,7 +251,7 @@ func TestBackupNeverOverwritesAndRemovesFailedPartialDump(t *testing.T) {
 func TestStopRetainsDependenciesAndVolumes(t *testing.T) {
 	for _, all := range []bool{false, true} {
 		var stopped []string
-		m := manager{root: t.TempDir(), out: io.Discard, errOut: io.Discard, execute: func(_ context.Context, _ string, args []string, _, _ io.Writer) error {
+		m := manager{root: t.TempDir(), out: io.Discard, errOut: io.Discard, executeInput: fakeDatabaseSQL, execute: func(_ context.Context, _ string, args []string, _, _ io.Writer) error {
 			if args[0] == "launchctl" {
 				return errors.New("no job")
 			}
@@ -333,4 +341,17 @@ func TestLogFlagsCanFollowTheComponent(t *testing.T) {
 	if !reflect.DeepEqual(args, want) {
 		t.Fatal(args)
 	}
+}
+
+func fakeDatabaseSQL(_ context.Context, _ string, _ []string, in io.Reader, out, _ io.Writer) error {
+	raw, err := io.ReadAll(in)
+	if err != nil {
+		return err
+	}
+	value := "8.4.0"
+	if strings.Contains(string(raw), "default_collation_name") {
+		value = "utf8mb4_0900_ai_ci"
+	}
+	_, err = io.WriteString(out, value)
+	return err
 }

@@ -58,8 +58,15 @@ func fail(category string, retry bool, status int) error { return &FetchError{ca
 
 // PublicPlatform has no persistence handle. It emits only page facts and refs.
 type PublicPlatform struct {
-	Client *http.Client
-	Allow  func(context.Context, string, int) (bool, error)
+	Client     *http.Client
+	Allow      func(context.Context, string, int) (bool, error)
+	CacheRead  func(context.Context, string, string) (HTTPEntry, error)
+	CacheWrite func(context.Context, string, string, HTTPEntry) error
+}
+
+type HTTPEntry struct {
+	ETag, LastModified string
+	Body               []byte
 }
 
 var publicPlatformClient = PublicClient()
@@ -148,11 +155,36 @@ func (a PublicPlatform) requestOnce(ctx context.Context, s d.Source, method, raw
 		req.Header.Set("Content-Type", "application/json")
 	}
 	req.Header.Set("User-Agent", "CampusTrace/0.2 (public recruiting source monitoring)")
+	key := d.Hash(a.Version() + ":" + raw)
+	var cached HTTPEntry
+	if method == http.MethodGet && a.CacheRead != nil {
+		if entry, e := a.CacheRead(ctx, s.ID, key); e == nil && len(entry.Body) > 0 && len(entry.Body) <= 1<<20 && json.Valid(entry.Body) {
+			cached = entry
+			if entry.ETag != "" {
+				req.Header.Set("If-None-Match", entry.ETag)
+			}
+			if entry.LastModified != "" {
+				req.Header.Set("If-Modified-Since", entry.LastModified)
+			}
+		}
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		return fail("TIMEOUT_OR_NETWORK", true, 0)
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusNotModified {
+		if len(cached.Body) == 0 || (cached.ETag == "" && cached.LastModified == "") {
+			return fail("SCHEMA_INVALID", false, 304)
+		}
+		if err = json.Unmarshal(cached.Body, dst); err != nil {
+			return fail("SCHEMA_INVALID", false, 304)
+		}
+		if a.CacheWrite != nil {
+			_ = a.CacheWrite(ctx, s.ID, key, cached)
+		}
+		return nil
+	}
 	switch {
 	case resp.StatusCode == 429 || resp.StatusCode >= 500:
 		return fail("HTTP_TRANSIENT", true, resp.StatusCode)
@@ -175,6 +207,11 @@ func (a PublicPlatform) requestOnce(ctx context.Context, s d.Source, method, raw
 	}
 	if err = json.Unmarshal(b, dst); err != nil {
 		return fail("SCHEMA_INVALID", false, 200)
+	}
+	if method == http.MethodGet && a.CacheWrite != nil {
+		entry := HTTPEntry{ETag: resp.Header.Get("ETag"), LastModified: resp.Header.Get("Last-Modified"), Body: b}
+		// Replace even a formerly validated response whose validator was removed.
+		_ = a.CacheWrite(ctx, s.ID, key, entry)
 	}
 	return nil
 }

@@ -67,7 +67,17 @@ func (s *Store) Migrate(ctx context.Context) error {
 			}
 		}
 	}
-	return s.migrateBackend(ctx)
+	if err := s.migrateBackend(ctx); err != nil {
+		return err
+	}
+	for _, stmt := range strings.Split(migrations.LocalReliabilitySQL, ";") {
+		if strings.TrimSpace(stmt) != "" {
+			if _, err := s.DB.ExecContext(ctx, stmt); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 type Queryer interface {

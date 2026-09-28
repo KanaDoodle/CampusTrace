@@ -128,6 +128,10 @@ func (s *Store) UpdateWatch(ctx context.Context, user, id string, input d.WatchI
 			}
 		}
 		v.WatchInput = input
+		v.StableRounds, v.FailureRounds, v.EffectiveInterval = 0, 0, 0
+		v.RoundChanged = false
+		v.RoundStartedAt = time.Time{}
+		v.DiscoveryHash = ""
 		v.ScheduleVersion++
 		v.UpdatedAt = time.Now().UTC()
 		v.NextCheckAt = v.UpdatedAt
@@ -168,8 +172,26 @@ func (s *Store) ScheduleWatches(ctx context.Context, now time.Time, limit int) (
 			return err
 		}
 		for _, v := range watches {
+			if !v.RoundStartedAt.IsZero() && (v.LastOutcome == "QUEUED" || v.LastOutcome == "PROCESSING") {
+				if now.Before(v.RoundStartedAt.Add(time.Hour)) {
+					v.NextCheckAt = now.Add(5 * time.Minute)
+					if err = saveWatch(ctx, tx, v); err != nil {
+						return err
+					}
+					continue
+				}
+				v.RecordWatchRound(false)
+			}
+			interval, reason, err := watchInterval(ctx, tx, v, now)
+			if err != nil {
+				return err
+			}
 			v.ScheduleVersion++
-			v.NextCheckAt = now.Add(time.Duration(v.CheckInterval) * time.Second)
+			v.NextCheckAt = now.Add(time.Duration(interval) * time.Second)
+			v.EffectiveInterval, v.ScheduleReason = interval, reason
+			v.RoundChanged = false
+			v.RoundStartedAt = now
+			v.LastOutcome = "QUEUED"
 			v.UpdatedAt = now
 			if err = saveWatch(ctx, tx, v); err != nil {
 				return err
@@ -241,9 +263,19 @@ func (s *Store) IngestWatch(ctx context.Context, t Task, i Ingest) (d.Observatio
 		if !errors.Is(err, sql.ErrNoRows) {
 			return err
 		}
+		previous, previousErr := One[d.Observation](ctx, tx, "SELECT o.body FROM observations o JOIN postings p ON p.id=o.posting_id WHERE p.source_key=? AND JSON_UNQUOTE(JSON_EXTRACT(o.body,'$.fetch_status'))='SUCCESS' ORDER BY o.observed_at DESC,o.id DESC LIMIT 1", key)
+		if previousErr != nil && !errors.Is(previousErr, sql.ErrNoRows) {
+			return previousErr
+		}
 		o, err = s.ingestTx(ctx, tx, i)
 		if err != nil {
 			return err
+		}
+		if outcome == "SUCCESS" && (errors.Is(previousErr, sql.ErrNoRows) || previous.Hash != o.Hash) {
+			v.RoundChanged = true
+			if err = saveWatch(ctx, tx, v); err != nil {
+				return err
+			}
 		}
 		if _, err = tx.ExecContext(ctx, "INSERT INTO watch_results(watch_id,schedule_version,posting_key,outcome,observation_id) VALUES(?,?,?,?,?)", v.ID, t.ScheduleVersion, key, outcome, o.ID); err != nil {
 			return err
@@ -280,6 +312,11 @@ func (s *Store) FinishWatch(ctx context.Context, t Task, outcome string) error {
 		v.LastCheckedAt = &now
 		v.LastOutcome = outcome
 		v.UpdatedAt = now
+		if outcome == "FAILED" {
+			if err = finishWatchSchedule(ctx, tx, &v, now, false); err != nil {
+				return err
+			}
+		}
 		return saveWatch(ctx, tx, v)
 	})
 }
@@ -298,7 +335,7 @@ func (s *Store) WatchTaskDone(ctx context.Context, t Task) (bool, error) {
 
 // Discovery fan-out is one SQL transaction. Fetches use the same existing Stream,
 // each with its own bounded deadline and retry budget; no long network transaction.
-func (s *Store) QueueWatchPostings(ctx context.Context, t Task, inputs []Ingest) error {
+func (s *Store) QueueWatchPostings(ctx context.Context, t Task, inputs []Ingest, discoveryFingerprint ...string) error {
 	return s.Tx(ctx, func(tx *sql.Tx) error {
 		v, err := loadWatchTask(ctx, tx, t, " FOR UPDATE")
 		if err != nil {
@@ -310,6 +347,16 @@ func (s *Store) QueueWatchPostings(ctx context.Context, t Task, inputs []Ingest)
 		}
 		if n > 0 {
 			return nil
+		}
+		if len(discoveryFingerprint) > 1 {
+			return ErrValidation
+		}
+		if len(discoveryFingerprint) == 1 {
+			if len(discoveryFingerprint[0]) != 64 {
+				return ErrValidation
+			}
+			v.RoundChanged = v.RoundChanged || v.DiscoveryHash != discoveryFingerprint[0]
+			v.DiscoveryHash = discoveryFingerprint[0]
 		}
 		if len(inputs) > 500 {
 			return ErrValidation
@@ -325,6 +372,13 @@ func (s *Store) QueueWatchPostings(ctx context.Context, t Task, inputs []Ingest)
 			in.Text = ""
 			in.FetchStatus = ""
 			in.ObservedAt = time.Time{}
+			prior, e := One[Ingest](ctx, tx, "SELECT body FROM watch_postings WHERE watch_id=? AND posting_key=?", v.ID, SourceKey(in))
+			if e != nil && !errors.Is(e, sql.ErrNoRows) {
+				return e
+			}
+			if e != nil || prior.Title != in.Title || prior.JobType != in.JobType || d.JSON(prior.Locations) != d.JSON(in.Locations) {
+				v.RoundChanged = true
+			}
 			child := WatchTask(v)
 			child.Type = "WATCH_FETCH"
 			child.Posting = &in
@@ -343,6 +397,9 @@ func (s *Store) QueueWatchPostings(ctx context.Context, t Task, inputs []Ingest)
 			now := time.Now().UTC()
 			v.LastCheckedAt = &now
 			v.LastOutcome = "SUCCESS"
+			if err = finishWatchSchedule(ctx, tx, &v, now, true); err != nil {
+				return err
+			}
 		}
 		return saveWatch(ctx, tx, v)
 	})
@@ -379,6 +436,9 @@ func (s *Store) CompleteWatchFetch(ctx context.Context, t Task, failed bool) (bo
 			succeeded = failures == 0
 			if failures > 0 {
 				v.LastOutcome = "PARTIAL_FAILURE"
+			}
+			if err = finishWatchSchedule(ctx, tx, &v, now, failures == 0); err != nil {
+				return err
 			}
 			return saveWatch(ctx, tx, v)
 		}

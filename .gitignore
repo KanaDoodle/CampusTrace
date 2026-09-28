@@ -24,6 +24,7 @@ __debug_bin*
 !/docs/backend-upgrade.md
 !/docs/performance.md
 !/docs/operations.md
+!/docs/recovery.md
 /release-repair-report.md
 /repair-report.md
 /release-final-report.md

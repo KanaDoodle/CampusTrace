@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/KanaDoodle/CampusTrace/internal/agent"
 	"github.com/KanaDoodle/CampusTrace/internal/analysis"
 	"github.com/KanaDoodle/CampusTrace/internal/config"
@@ -16,6 +17,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"regexp"
 	"syscall"
 	"time"
 )
@@ -57,7 +59,13 @@ func Open(ctx context.Context) (*App, error) {
 		r.Close()
 		return nil, err
 	}
-	q := &pipeline.Queue{R: r, Prefix: "ct:"}
+	prefix := config.Env("CAMPUS_REDIS_PREFIX", "ct:")
+	if !regexp.MustCompile(`^[A-Za-z0-9:_-]{1,80}$`).MatchString(prefix) {
+		s.DB.Close()
+		r.Close()
+		return nil, fmt.Errorf("invalid Redis namespace")
+	}
+	q := &pipeline.Queue{R: r, Prefix: prefix}
 	rg := &rag.Service{Store: s, Sem: make(chan struct{}, c.EmbeddingConcurrency), Allow: func(ctx context.Context) (bool, error) { return q.Allow(ctx, "embedding:global", 120, time.Minute) }}
 	tools := &agent.Tools{Store: s, RAG: rg, Queue: q}
 	var model agent.Model = agent.DemoModel{}

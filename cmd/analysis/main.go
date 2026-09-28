@@ -20,7 +20,7 @@ func main() {
 	if c.LLMURL != "" {
 		r := redis.NewClient(&redis.Options{Addr: c.Redis, ContextTimeoutEnabled: true})
 		defer r.Close()
-		q := pipeline.Queue{R: r, Prefix: "ct:"}
+		q := pipeline.Queue{R: r, Prefix: config.Env("CAMPUS_REDIS_PREFIX", "ct:")}
 		client := analysis.NewChat(c.LLMURL, c.LLMKey, c.LLMModel, c.LLMConcurrency)
 		client.Allow = func(ctx context.Context) (bool, error) { return q.Allow(ctx, "llm:global", 30, time.Minute) }
 		extractor = analysis.LLMExtractor{Client: client}

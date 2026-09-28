@@ -100,3 +100,9 @@ API comparison input separates `candidate.facts` (qualification and ability fact
 - `GET /metrics/prometheus`: Prometheus histograms, safe counters and runtime/DB gauges. Existing JSON `/metrics` remains unchanged. Worker exposes the same additional metrics format.
 
 See [backend-upgrade.md](backend-upgrade.md), [performance.md](performance.md) and [operations.md](operations.md) for measured results and execution/privacy boundaries.
+
+## Adaptive source monitoring
+
+`WatchInput`（POST/PUT `/api/watches` 和 POST `/api/sources/from-url`）增加可选布尔字段 `adaptive`、`priority`，缺省均为 false。`check_interval` 是基础秒数。返回 `WatchTarget` 增加 `effective_interval`、`schedule_reason`、`stable_rounds`、`failure_rounds`、`round_changed`、`round_started_at`、`discovery_hash`。调度原因：FIXED/BASE/PRIORITY/RECENT_CHANGE/UNCHANGED_BACKOFF/FAILURE_BACKOFF。配置更新清空历史节奏、增加 generation，并立即重新排队；抓取权限和可见性约束保持。QUEUED 表示等待后台检查，RESTORED_PAUSED 表示恢复副本尚未重新启用。
+
+备份恢复与保留仅为本机 CLI 运维功能，没有暴露可导入 SQL 或清理全库的 HTTP/Agent 工具。见 `docs/recovery.md`。

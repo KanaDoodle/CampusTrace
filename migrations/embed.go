@@ -19,3 +19,6 @@ var MatchingSQL string
 
 //go:embed 006_backend_upgrade.sql
 var BackendSQL string
+
+//go:embed 007_local_reliability.sql
+var LocalReliabilitySQL string
