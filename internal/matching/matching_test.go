@@ -89,7 +89,7 @@ func TestLocalScreeningRetainsUnknownRequirementsAndNormalizesCitiesAndRoles(t *
 	p := d.Profile{GraduationYear: 2027, Degree: "MASTER", TargetRoles: []string{"后端开发"}, PreferredCities: []string{"Shanghai"}, PreferredTypes: []string{"FULL_TIME"}, Languages: []string{"Go"}}
 	j := d.Job{Title: "服务端开发工程师", Locations: []string{"上海市"}, JobType: "FULL_TIME", UpdatedAt: time.Now()}
 	score, excluded := Preliminary(j, p, "岗位要求尚不明确", time.Now())
-	if excluded != "" || score < 80 {
+	if excluded != "" || score != 50 {
 		t.Fatal(score, excluded)
 	}
 	_, excluded = Preliminary(j, p, "degree: PHD\ngraduation: 2027", time.Now())

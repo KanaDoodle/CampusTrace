@@ -400,55 +400,14 @@ func Normalize(s string) string {
 	}
 	return strings.TrimSuffix(s, "市")
 }
-func Preliminary(j d.Job, p d.Profile, text string, now time.Time) (float64, string) {
-	claims, _ := analysisClaims(text)
-	reqs := []Requirement{}
-	for _, c := range claims {
-		if c.Type == "GRADUATION_REQUIREMENT" || c.Type == "EDUCATION_REQUIREMENT" {
-			reqs = append(reqs, Requirement{ID: c.Type, ClaimType: c.Type, Value: c.Value, Confidence: c.Confidence})
-		}
+
+// Preliminary remains a compatibility entry point. Snapshot screening prepares
+// project evidence once with NewLocalScreener; time only breaks ordering ties.
+func Preliminary(j d.Job, p d.Profile, text string, _ time.Time) (float64, string) {
+	candidate, err := CandidateFrom(p, nil, "")
+	if err != nil {
+		return 0, "求职资料超出初筛容量，请精简后重试"
 	}
-	e := Qualification(j, p, reqs, now)
-	for _, r := range e.Results {
-		if r.Result == "FAIL" {
-			return 0, "明确的学历或毕业届别条件不符合"
-		}
-	}
-	score := 0.0
-	title := Normalize(j.Title)
-	for _, role := range p.TargetRoles {
-		role = Normalize(role)
-		if role != "" && (strings.Contains(title, role) || (strings.Contains(role, "后端") && strings.Contains(title, "后端"))) {
-			score += 60
-			break
-		}
-	}
-	cities := map[string]bool{}
-	for _, city := range j.Locations {
-		cities[Normalize(city)] = true
-	}
-	for _, city := range p.PreferredCities {
-		if cities[Normalize(city)] {
-			score += 10
-			break
-		}
-	}
-	for _, typ := range p.PreferredTypes {
-		if typ == j.JobType {
-			score += 10
-			break
-		}
-	}
-	skills := append(append([]string{}, p.Skills...), p.Languages...)
-	hits := 0
-	for _, skill := range skills {
-		skill = Normalize(skill)
-		if len(skill) >= 2 && strings.Contains(Normalize(text), skill) {
-			hits++
-		}
-	}
-	score += math.Min(float64(hits)*3, 15)
-	age := now.Sub(j.UpdatedAt).Hours() / 24
-	score += 5 * math.Max(0, 1-math.Max(0, age)/7)
-	return math.Round(score*10) / 10, ""
+	v := NewLocalScreener(p, candidate).Screen(j, text)
+	return v.Score, v.ExcludedReason
 }

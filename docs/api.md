@@ -15,10 +15,10 @@ API binds localhost by default. JSON requests are strict and limited to 64KiB ex
 | GET, PUT /api/profile | current user's candidate profile |
 | GET /api/profile/resume/capabilities | whether a server-default external model is configured; model name only |
 | POST /api/profile/resume/draft | accepts only user-reviewed redacted `{"text":"...","model_config":{...}}` (max 16 KiB text); optional per-request model; returns cited, unsaved profile/project drafts; rejects common direct identifiers |
-| POST /api/matching/preview | all accessible jobs and redacted candidate facts; optional model_url/model_name/mask_name; no model call |
+| POST /api/matching/preview | all accessible jobs, redacted candidate facts, and `local` version/score/tier/role/reasons/warnings/checks with source and candidate excerpts; optional model_url/model_name/mask_name; no model call |
 | PUT /api/matching/settings | round_limit 1..100, daily_calls 1..200, auto_new |
 | POST /api/matching/analyze | job_ids (1..3), candidate_hash, optional mask_name/model_config; evidence-checked cached comparison with daily quota |
-| POST /api/matching/results/{id} | optional model_url/model_name/mask_name; BASIC/ANALYZED/STALE with owner-scoped saved result |
+| POST /api/matching/results/{id} | optional model_url/model_name/mask_name; BASIC/ANALYZED/STALE, current owner-scoped `local` screening/excluded_reason and optional saved model result; no model call |
 | POST /api/matching/export | job_ids (1..1000 unique visible IDs), candidate_hash, optional model_url/model_name/mask_name; no model or quota use; ordered redacted facts/preferences/job text and metadata, max 5 MiB, Cache-Control: no-store |
 | GET, POST /api/applications | list or directly create a plan (human API path) |
 | POST /api/applications/transition | application_id, state, expected version, optional note |

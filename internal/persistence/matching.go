@@ -16,17 +16,18 @@ import (
 var ErrMatchQuota = errors.New("daily matching call limit reached")
 
 type MatchJob struct {
-	Job              d.Job    `json:"job"`
-	Text             string   `json:"-"`
-	TextBytes        int      `json:"text_bytes"`
-	RequirementsKey  string   `json:"requirements_key"`
-	InputKey         string   `json:"input_key"`
-	PreliminaryScore float64  `json:"preliminary_score"`
-	ExcludedReason   string   `json:"excluded_reason"`
-	State            string   `json:"state"`
-	Score            *float64 `json:"score"`
-	Coverage         float64  `json:"coverage"`
-	Disposition      string   `json:"disposition"`
+	Job              d.Job                 `json:"job"`
+	Text             string                `json:"-"`
+	TextBytes        int                   `json:"text_bytes"`
+	RequirementsKey  string                `json:"requirements_key"`
+	InputKey         string                `json:"input_key"`
+	PreliminaryScore float64               `json:"preliminary_score"`
+	Local            *matching.LocalScreen `json:"local,omitempty"`
+	ExcludedReason   string                `json:"excluded_reason"`
+	State            string                `json:"state"`
+	Score            *float64              `json:"score"`
+	Coverage         float64               `json:"coverage"`
+	Disposition      string                `json:"disposition"`
 }
 type MatchSnapshot struct {
 	Profile       d.Profile          `json:"-"`
@@ -129,6 +130,10 @@ func (s *Store) matchSnapshot(ctx context.Context, user, model, maskName string,
 		return v, err
 	}
 	v.CandidateHash = v.Candidate.Hash()
+	var screener *matching.LocalScreener
+	if screen {
+		screener = matching.NewLocalScreener(v.Profile, v.Candidate)
+	}
 	v.Settings, err = matchSettings(ctx, tx, user)
 	if err != nil {
 		return v, err
@@ -208,7 +213,9 @@ func (s *Store) matchSnapshot(ctx context.Context, user, model, maskName string,
 			row.RequirementsKey = matching.RequirementKey(row.Text, model)
 			row.InputKey = matching.InputKey(row.RequirementsKey, v.CandidateHash)
 			if screen {
-				row.PreliminaryScore, row.ExcludedReason = matching.Preliminary(job, v.Profile, o.Text, time.Now().UTC())
+				local := screener.Screen(job, row.Text)
+				row.Local = &local
+				row.PreliminaryScore, row.ExcludedReason = local.Score, local.ExcludedReason
 			}
 		} else {
 			row.ExcludedReason = "最近一次未取得可用岗位原文"
@@ -236,6 +243,9 @@ func (s *Store) matchSnapshot(ctx context.Context, user, model, maskName string,
 		}
 		if a.PreliminaryScore != b.PreliminaryScore {
 			return a.PreliminaryScore > b.PreliminaryScore
+		}
+		if !a.Job.UpdatedAt.Equal(b.Job.UpdatedAt) {
+			return a.Job.UpdatedAt.After(b.Job.UpdatedAt)
 		}
 		return a.Job.ID < b.Job.ID
 	})

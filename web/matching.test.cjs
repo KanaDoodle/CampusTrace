@@ -32,3 +32,17 @@ test('resume progress is account, candidate and model scoped and carries no cred
  assert.deepEqual(m.readProgress('alice','profile2','model1').pending,[]);
  assert.deepEqual(m.readProgress('alice','profile1','model2').pending,[]);
 });
+test('body-derived direction and local tiers participate in filtering without affecting analysis state',()=>{
+ const a=row('a');a.job.title='研发工程师';a.local={role:'后端开发',tier:'HIGH'};
+ const b=row('b','STALE');b.local={role:'基础架构与平台',tier:'POSSIBLE'};
+ assert.deepEqual(m.filtered([a,b],'服务端','BASIC','HIGH').map(j=>j.job.id),['a']);
+ assert.deepEqual(m.filtered([a,b],'','STALE','POSSIBLE').map(j=>j.job.id),['b']);
+ assert.equal(m.filtered([row('c')],'','','UNCERTAIN').length,1);
+});
+test('local reasons and evidence are escaped, separate mandatory/bonus/alternative clues, and missing evidence is not inability',()=>{
+ const a=row('a');a.local={score:57.5,tier:'POSSIBLE',role:'后端开发',role_source:'BODY',role_excerpt:'开发服务接口',reasons:['<script>bad</script>'],warnings:['必需项待核对'],checks:[{category:'REQUIRED',mode:'ANY',terms:['Go','Java'],excerpt:'Go / Java',result:'SIGNAL',evidence:[{kind:'IMPLEMENTED',excerpt:'实现 <Go> 服务'}]},{category:'BONUS',mode:'ALL',terms:['Redis'],excerpt:'Redis 优先',result:'NO_EVIDENCE',evidence:[]}]};
+ const html=m.renderLocal(a,{esc});
+ for(const word of ['可能相关','来自岗位职责','必需能力','加分项','任选一项','逐项核对','已确认项目事实','资料中暂无依据','57.5','更新时间仅用于同分排序'])assert.ok(html.includes(word),word);
+ assert.ok(!html.includes('<script>'));assert.ok(html.includes('&lt;Go&gt;'));assert.ok(!html.includes('你不具备'));
+ assert.ok(m.renderLocal(row('missing'),{esc}).includes('岗位原文尚不可用'));
+});

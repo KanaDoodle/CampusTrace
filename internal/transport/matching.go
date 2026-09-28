@@ -126,10 +126,10 @@ func (a *API) matchingRoutes(on func(string, http.HandlerFunc)) {
 		}
 		result, err := a.Store.MatchResult(r.Context(), user(r), id)
 		if errors.Is(err, p.ErrNotFound) {
-			write(w, map[string]any{"state": snapshot.Jobs[0].State}, nil)
+			write(w, map[string]any{"state": snapshot.Jobs[0].State, "local": snapshot.Jobs[0].Local, "excluded_reason": snapshot.Jobs[0].ExcludedReason}, nil)
 			return
 		}
-		write(w, map[string]any{"state": snapshot.Jobs[0].State, "result": result}, err)
+		write(w, map[string]any{"state": snapshot.Jobs[0].State, "local": snapshot.Jobs[0].Local, "excluded_reason": snapshot.Jobs[0].ExcludedReason, "result": result}, err)
 	})
 	on("POST /api/matching/analyze", a.analyzeMatches)
 	on("POST /api/matching/export", a.exportMatches)
