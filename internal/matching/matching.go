@@ -173,8 +173,17 @@ func complete(ctx context.Context, m resume.Completer, prompt string, input any,
 	var msg struct {
 		Content string `json:"content"`
 	}
-	if json.Unmarshal(raw, &msg) != nil || d.Strict([]byte(msg.Content), out) != nil {
-		return ErrInvalid
+	if json.Unmarshal(raw, &msg) != nil {
+		return invalid("RESPONSE_MESSAGE", 0)
+	}
+	if len(msg.Content) == 0 || len(msg.Content) > 65536 {
+		return invalid("RESPONSE_SIZE", 0)
+	}
+	if !json.Valid([]byte(msg.Content)) {
+		return invalid("RESPONSE_JSON", 0)
+	}
+	if d.Strict([]byte(msg.Content), out) != nil {
+		return invalid("RESPONSE_SCHEMA", 0)
 	}
 	return nil
 }
@@ -299,35 +308,44 @@ func Compare(ctx context.Context, m resume.Completer, c Candidate, jobs []MatchI
 		return nil, err
 	}
 	inputs := map[string][]Requirement{}
-	for _, j := range jobs {
+	positions := map[string]int{}
+	for i, j := range jobs {
+		if _, exists := inputs[j.ID]; exists {
+			return nil, invalid("INPUT_JOB_DUPLICATE", 0)
+		}
 		inputs[j.ID] = j.Requirements
+		positions[j.ID] = i + 1
 	}
 	result := map[string][]Match{}
 	for _, j := range out.Jobs {
 		reqs, ok := inputs[j.ID]
 		if !ok {
-			return nil, ErrInvalid
+			return nil, invalid("JOB_UNKNOWN", 0)
 		}
 		if _, ok = result[j.ID]; ok {
-			return nil, ErrInvalid
+			return nil, &ValidationError{Reason: "JOB_DUPLICATE", JobIndex: positions[j.ID]}
 		}
-		if err := ValidateMatches(c, reqs, j.Matches); err != nil {
-			return nil, err
-		}
+		// Ignore model judgments about location/type preferences. These are computed
+		// from the supplied saved values; validate the rewritten result afterward.
+		// Missing, unknown or duplicate requirement IDs still fail validation.
 		j.Matches = comparePreferences(c, reqs, j.Matches)
 		if err := ValidateMatches(c, reqs, j.Matches); err != nil {
+			var validation *ValidationError
+			if errors.As(err, &validation) {
+				validation.JobIndex = positions[j.ID]
+			}
 			return nil, err
 		}
 		result[j.ID] = j.Matches
 	}
 	if len(result) != len(inputs) {
-		return nil, ErrInvalid
+		return nil, &ValidationError{Reason: "JOB_COUNT", Expected: len(inputs), Actual: len(result)}
 	}
 	return result, nil
 }
 func ValidateMatches(c Candidate, reqs []Requirement, matches []Match) error {
 	if len(matches) != len(reqs) {
-		return ErrInvalid
+		return &ValidationError{Reason: "MATCH_COUNT", Expected: len(reqs), Actual: len(matches)}
 	}
 	facts := map[string]Fact{}
 	for _, f := range c.Facts {
@@ -339,25 +357,50 @@ func ValidateMatches(c Candidate, reqs []Requirement, matches []Match) error {
 		remaining[r.ID] = true
 		reqByID[r.ID] = r
 	}
-	for _, m := range matches {
-		if !remaining[m.RequirementID] || len(m.Explanation) == 0 || len(m.Explanation) > 1000 || resume.HasSensitive(m.Explanation) || len(m.Evidence) > 8 {
-			return ErrInvalid
+	for i, m := range matches {
+		item := i + 1
+		if _, known := reqByID[m.RequirementID]; !known {
+			return invalid("REQUIREMENT_UNKNOWN", item)
+		}
+		if !remaining[m.RequirementID] {
+			return invalid("REQUIREMENT_DUPLICATE", item)
 		}
 		delete(remaining, m.RequirementID)
+		if strings.TrimSpace(m.Explanation) == "" {
+			return invalid("EXPLANATION_EMPTY", item)
+		}
+		if len(m.Explanation) > 1000 {
+			return invalid("EXPLANATION_LENGTH", item)
+		}
+		if resume.HasSensitive(m.Explanation) {
+			return invalid("EXPLANATION_SENSITIVE", item)
+		}
+		if len(m.Evidence) > 8 {
+			return invalid("EVIDENCE_COUNT", item)
+		}
 		positive := m.Result == "DIRECT" || m.Result == "PARTIAL" || m.Result == "TRANSFERABLE"
 		if !positive && m.Result != "NO_EVIDENCE" && m.Result != "MISMATCH" {
-			return ErrInvalid
+			return invalid("RESULT_UNKNOWN", item)
 		}
 		if (positive || m.Result == "MISMATCH") && len(m.Evidence) == 0 {
-			return ErrInvalid
+			return invalid("EVIDENCE_REQUIRED", item)
 		}
 		for _, e := range m.Evidence {
 			f, ok := facts[e.ID]
-			if !ok || e.Excerpt == "" || len(e.Excerpt) > 600 || !strings.Contains(f.Text, e.Excerpt) {
-				return ErrInvalid
+			if !ok {
+				return invalid("FACT_UNKNOWN", item)
+			}
+			if e.Excerpt == "" {
+				return invalid("EXCERPT_EMPTY", item)
+			}
+			if len(e.Excerpt) > 600 {
+				return invalid("EXCERPT_LENGTH", item)
+			}
+			if !strings.Contains(f.Text, e.Excerpt) {
+				return invalid("EXCERPT_NOT_EXACT", item)
 			}
 			if positive && (f.Kind == "LIMITATION" || f.Kind == "ROLE" || (isPreference(f.Kind) && reqByID[m.RequirementID].Category != "QUALIFICATION")) {
-				return ErrInvalid
+				return invalid("FACT_NOT_ABILITY", item)
 			}
 		}
 	}

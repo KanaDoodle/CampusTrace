@@ -60,6 +60,20 @@ func matchFailure(w http.ResponseWriter, err error, stage ...string) {
 		phase = stage[0]
 	}
 	diagnostic := map[string]any{"stage": phase}
+	var validation *matching.ValidationError
+	if errors.As(err, &validation) {
+		diagnostic["validation_reason"] = validation.Reason
+		if validation.JobIndex > 0 {
+			diagnostic["job_index"] = validation.JobIndex
+		}
+		if validation.ItemIndex > 0 {
+			diagnostic["item_index"] = validation.ItemIndex
+		}
+		if validation.Reason == "MATCH_COUNT" || validation.Reason == "JOB_COUNT" {
+			diagnostic["expected"] = validation.Expected
+			diagnostic["actual"] = validation.Actual
+		}
+	}
 	var provider *analysis.HTTPError
 	if errors.As(err, &provider) {
 		diagnostic["provider_status"] = provider.Status

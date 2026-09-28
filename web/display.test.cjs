@@ -110,3 +110,12 @@ test('matching model failures describe analysis and separate transport from evid
   assert.ok(!D.errorCode('MODEL_PROVIDER_FAILED',502,path).includes('草稿'));
   assert.ok(D.errorCode('MATCH_OUTPUT_INVALID',502,path).includes('依据核对'));
 });
+
+test('匹配诊断按固定原因说明漏项、引用及能力错误，不显示服务返回的任意文字',()=>{
+ assert.match(D.matchingDiagnostic({validation_reason:'MATCH_COUNT',job_index:1,expected:15,actual:9}),/应有 15 项，返回 9 项/);
+ assert.match(D.matchingDiagnostic({validation_reason:'EXCERPT_NOT_EXACT',job_index:1,item_index:8}),/结果第 8 项/);
+ assert.match(D.matchingDiagnostic({validation_reason:'EXCERPT_NOT_EXACT'}),/连续原文/);
+ assert.match(D.matchingDiagnostic({validation_reason:'FACT_NOT_ABILITY'}),/当成能力证明/);
+ assert.equal(D.matchingDiagnostic({validation_reason:'private-fact-or-secret',expected:'private'}),'');
+ assert.ok(!D.matchingDiagnostic({validation_reason:'FACT_UNKNOWN',item_index:'private'}).includes('private'));
+});

@@ -181,6 +181,15 @@
     if (code==='MODEL_PROVIDER_FAILED') return path.includes('/api/matching/')?'模型服务未能返回分析结果，请查看失败阶段与请求编号以定位原因。':'暂时无法从模型服务获得草稿，请稍后重试，并核对模型设置。';
     return error(status, path);
   }
+  function matchingDiagnostic(value={}) {
+    const reasons={RESPONSE_MESSAGE:'模型服务未返回可读取的最终答案',RESPONSE_SIZE:'模型答案为空或超过结果长度上限',RESPONSE_JSON:'模型答案不是完整的 JSON，可能含格式文字或被截断',RESPONSE_SCHEMA:'模型答案不符合约定结构（多余字段、空值或类型不正确）',JOB_UNKNOWN:'模型返回了不属于本批的岗位编号',JOB_DUPLICATE:'模型重复返回了同一个岗位',JOB_COUNT:'模型遗漏了本批岗位',INPUT_JOB_DUPLICATE:'分析输入包含重复岗位',MATCH_COUNT:'模型返回的匹配项数与岗位要求数不一致',REQUIREMENT_UNKNOWN:'模型引用了不存在的岗位要求编号',REQUIREMENT_DUPLICATE:'模型重复返回了同一岗位要求',EXPLANATION_EMPTY:'模型未给出判断说明',EXPLANATION_LENGTH:'模型判断说明超过长度上限',EXPLANATION_SENSITIVE:'模型判断说明包含疑似敏感标识，已拒绝保存',EVIDENCE_COUNT:'模型引用的资料条数超过上限',RESULT_UNKNOWN:'模型返回了不支持的匹配结论',EVIDENCE_REQUIRED:'模型给出肯定或明确不符结论，却没有引用个人依据',FACT_UNKNOWN:'模型引用了不存在的个人资料或项目事实编号',EXCERPT_EMPTY:'模型引用了资料，却没有提供摘录',EXCERPT_LENGTH:'模型资料摘录超过长度上限',EXCERPT_NOT_EXACT:'模型摘录不是对应资料的连续原文，可能改写、翻译或拼接了内容',FACT_NOT_ABILITY:'模型将意向、城市偏好或项目局限当成能力证明'};
+    const reason=reasons[value.validation_reason];if(!reason)return '';
+    const integer=(n,max)=>Number.isInteger(n)&&n>=0&&n<=max;
+    let location='';if(integer(value.job_index,3)&&value.job_index>0)location+=`本批第 ${value.job_index} 个岗位`;
+    if(integer(value.item_index,1000)&&value.item_index>0)location+=(location?'，':'')+`结果第 ${value.item_index} 项`;
+    const counts=['JOB_COUNT','MATCH_COUNT'].includes(value.validation_reason)&&integer(value.expected,1000)&&integer(value.actual,1000)?`（应有 ${value.expected} 项，返回 ${value.actual} 项）`:'';
+    return ` 具体原因：${location?location+'：':''}${reason}${counts}。`;
+  }
   function inputList(value) {return (Array.isArray(value)?value:[]).map(text).join('、');}
   function parseList(value) {
     const reverse=Object.fromEntries(Object.entries(aliases).map(([en,zh])=>[zh,en]));
@@ -192,7 +201,7 @@
     if (Number.isNaN(d.getTime())) throw new Error('面试时间格式不正确，请重新填写。');
     return d.toISOString();
   }
-  const display=Object.freeze({enums,fields,label,field,text,reason,date,scalar,requirement,error,errorCode,inputList,parseList,shanghaiISO});
+  const display=Object.freeze({enums,fields,label,field,text,reason,date,scalar,requirement,error,errorCode,matchingDiagnostic,inputList,parseList,shanghaiISO});
   root.CampusDisplay=display;
   if (typeof module!=='undefined') module.exports=display;
 })(globalThis);

@@ -61,3 +61,29 @@ func TestMatchingDiagnosticsExplainStageWithoutLoggingSensitiveErrors(t *testing
 		t.Fatal("missing failure stage")
 	}
 }
+
+func TestMatchingValidationDiagnosticKeepsOnlyReasonAndNumericPositions(t *testing.T) {
+	var logs bytes.Buffer
+	previous := slog.Default()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&logs, nil)))
+	t.Cleanup(func() { slog.SetDefault(previous) })
+	err := &matching.ValidationError{Reason: "MATCH_COUNT", JobIndex: 1, ItemIndex: 2, Expected: 15, Actual: 9}
+	w := httptest.NewRecorder()
+	matchFailure(w, err, "COMPARE")
+	var out struct {
+		Code       string `json:"code"`
+		Diagnostic struct {
+			Reason   string `json:"validation_reason"`
+			Job      int    `json:"job_index"`
+			Item     int    `json:"item_index"`
+			Expected int    `json:"expected"`
+			Actual   int    `json:"actual"`
+		} `json:"diagnostic"`
+	}
+	if json.Unmarshal(w.Body.Bytes(), &out) != nil || w.Code != 502 || out.Code != "MATCH_OUTPUT_INVALID" || out.Diagnostic.Reason != "MATCH_COUNT" || out.Diagnostic.Job != 1 || out.Diagnostic.Item != 2 || out.Diagnostic.Expected != 15 || out.Diagnostic.Actual != 9 {
+		t.Fatal(w.Body.String())
+	}
+	if !strings.Contains(logs.String(), "MATCH_COUNT") {
+		t.Fatal("missing safe validation reason")
+	}
+}
