@@ -285,6 +285,7 @@ type Application struct {
 	Version       int        `json:"version"`
 	AppliedAt     *time.Time `json:"applied_at,omitempty"`
 	ResumeVersion string     `json:"resume_version"`
+	Note          string     `json:"note,omitempty"`
 	CreatedAt     time.Time  `json:"created_at"`
 	UpdatedAt     time.Time  `json:"updated_at"`
 }

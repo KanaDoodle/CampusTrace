@@ -40,8 +40,18 @@ function harness({pending=['pending-a','pending-b'],failed=['failed-a','failed-b
     throw new Error('Unexpected local test API path: '+path);
   };
   const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  return {start:()=>context.CampusMatching.page(set,'<h2>岗位匹配</h2>',{api,esc,D:{text:s=>s,date:()=>'',label:(_kind,s)=>s},active:()=>true,navigate(){}}),elements,requests,exports,decisionRequests,stored,snapshot,review:()=>elements.get('match-confirm').onclick(),html:()=>html,consent:()=>elements.get('match-consent').onchange({target:{checked:true}}),progress:()=>JSON.parse(stored.get('campustrace:match-progress:v1:alice'))};
+  return {start:(initial={})=>context.CampusMatching.page(set,'<h2>岗位匹配</h2>',{api,esc,D:{text:s=>s,date:()=>'',label:(_kind,s)=>s},active:()=>true,navigate(){},...initial}),elements,requests,exports,decisionRequests,stored,snapshot,review:()=>elements.get('match-confirm').onclick(),html:()=>html,consent:()=>elements.get('match-consent').onchange({target:{checked:true}}),progress:()=>JSON.parse(stored.get('campustrace:match-progress:v1:alice'))};
 }
+
+test('returning from evidence supplementation reviews only the target job without starting a model call',async()=>{
+  const h=harness();await h.start({initialJob:'pending-a',initialAnalyze:true});
+  assert.equal(h.elements.get('match-review-dialog').open,true);
+  assert.equal(h.elements.get('match-confirm').disabled,true);
+  assert.equal(h.exports.length,1);
+  assert.deepEqual(Array.from(h.exports[0].job_ids),['pending-a']);
+  assert.deepEqual(h.requests,[]);
+  h.consent();assert.deepEqual(h.requests,[]);
+});
 
 test('saved work opens a full outbound review before consent and an explicit start',async()=>{
   const h=harness();await h.start();

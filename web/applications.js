@@ -1,0 +1,23 @@
+'use strict';
+const CampusApplications=(function(root){
+  function officialLink(value){try{const u=new URL(value);return ['http:','https:'].includes(u.protocol)&&!u.username&&!u.password?u.href:'';}catch{return '';}}
+  function render(rows,{esc,D}){
+    if(!rows.length)return '<p class="empty">还没有投递记录。可在岗位详情中将心仪岗位加入投递计划。</p>';
+    return `<div class="application-list">${rows.map(a=>{const j=a.job,url=officialLink(a.official_url),states=a.next_states||[];return `<article class="application-record"><div class="application-head"><div><p class="application-company">${esc(j?.company||'公司信息暂不可用')}</p><h3><button class="text-btn application-title" data-application-job="${esc(a.job_id)}">${esc(j?.title||'查看岗位记录')}</button></h3><p class="meta">${esc((j?.locations||[]).join(' / '))}${j?.job_type?' · '+esc(D.label('job_type',j.job_type)):''}</p></div><span class="pill">${esc(D.label('application',a.current_state))}</span></div><dl class="application-info"><div><dt>投递时间</dt><dd>${a.applied_at?esc(D.date(a.applied_at)):'尚未记录投递'}</dd></div><div><dt>所用简历版本</dt><dd>${esc(a.resume_version||'尚未记录')}</dd></div><div><dt>最近更新</dt><dd>${esc(D.date(a.updated_at))}</dd></div></dl>${a.note?`<p class="application-note">${esc(a.note)}</p>`:''}<div class="actions">${url?`<a class="btn btn-small" href="${esc(url)}" target="_blank" rel="noopener noreferrer">查看招聘官网</a>`:''}<button class="btn btn-small" data-application-preparation="${esc(a.job_id)}">岗位准备清单</button><button class="btn btn-small" data-application-interview="${esc(a.id)}">记录面试安排</button><button class="btn btn-small" data-application-history="${esc(a.id)}">查看进展记录</button></div><details><summary>更新进展与投递资料</summary><div class="application-edit">${states.length?`<form id="application-stage-${esc(a.id)}"><h4>更新进展</h4><label>下一阶段<select name="state">${states.map(v=>`<option value="${esc(v)}">${esc(D.label('application',v))}</option>`).join('')}</select></label><label>本次进展说明（可选）<textarea name="note" maxlength="600" placeholder="例如：完成笔试，等待面试通知"></textarea></label><button class="btn">保存进展</button></form>`:'<p class="meta">这条投递已结束，仍可补充资料和查看历史记录。</p>'}<form id="application-details-${esc(a.id)}"><h4>投递资料</h4><label>所用简历版本<input name="resume_version" value="${esc(a.resume_version||'')}" maxlength="60" placeholder="例如：后端版 · 9月29日"></label><label>投递备注（可选）<textarea name="note" maxlength="600" placeholder="记录渠道、联系情况或需要跟进的事项">${esc(a.note||'')}</textarea></label><button class="btn">保存投递资料</button></form></div></details><div id="application-history-${esc(a.id)}"></div></article>`;}).join('')}</div>`;
+  }
+  async function page(set,heading,{api,esc,D,formAction,navigate,scheduleInterview,table,active=()=>true}){
+    const rows=await api('/api/applications');if(!active())return;
+    if(!set(heading+'<p class="form-note">记录实际投递与后续进展。岗位关闭不会自动结束已提交的申请。</p>'+render(rows,{esc,D})))return;
+    const q=s=>document.querySelector(s);
+    const go=(...args)=>Promise.resolve(navigate(...args)).catch(error=>root.CampusUI.notify(error.message));
+    for(const a of rows){
+      q(`[data-application-job="${a.job_id}"]`).onclick=()=>go('matching',{jobID:a.job_id});
+      q(`[data-application-preparation="${a.job_id}"]`).onclick=()=>go('matching',{jobID:a.job_id,view:'preparation'});
+      q(`[data-application-interview="${a.id}"]`).onclick=()=>scheduleInterview(a.id);
+      q(`[data-application-history="${a.id}"]`).onclick=async()=>{const box=q('#application-history-'+a.id);try{const history=await api('/api/applications/'+encodeURIComponent(a.id)+'/history');if(active())box.innerHTML='<h4>投递进展记录</h4>'+table(history,['from_state','to_state','occurred_at','note'],'暂未记录进展变化。');}catch(error){if(active())root.CampusUI.notify(error.message);}};
+      if(a.next_states?.length)formAction('#application-stage-'+a.id,async data=>{await api('/api/applications/transition','POST',{application_id:a.id,state:data.get('state'),version:a.version,note:String(data.get('note')||'').trim()});if(active()){await navigate('applications');root.CampusUI.notify('投递进展已更新。');}});
+      formAction('#application-details-'+a.id,async data=>{await api('/api/applications/'+encodeURIComponent(a.id),'PUT',{version:a.version,resume_version:String(data.get('resume_version')||'').trim(),note:String(data.get('note')||'').trim()});if(active()){await navigate('applications');root.CampusUI.notify('投递资料已保存。');}});
+    }
+  }
+  const api={render,page,officialLink};if(typeof module==='object'&&module.exports)module.exports=api;return api;
+})(typeof window==='undefined'?globalThis:window);

@@ -20,7 +20,8 @@ API binds localhost by default. JSON requests are strict and limited to 64KiB ex
 | POST /api/matching/analyze | job_ids (1..3), candidate_hash, optional mask_name/model_config; evidence-checked cached comparison with daily quota |
 | POST /api/matching/results/{id} | optional model_url/model_name/mask_name; BASIC/ANALYZED/STALE, current owner-scoped `local` screening/excluded_reason and optional saved model result; no model call |
 | POST /api/matching/export | job_ids (1..1000 unique visible IDs), candidate_hash, optional model_url/model_name/mask_name; no model or quota use; ordered redacted facts/preferences/job text and metadata, max 5 MiB, Cache-Control: no-store |
-| GET, POST /api/applications | list or directly create a plan (human API path) |
+| GET, POST /api/applications | owner-scoped records with visible job metadata, safe official URL and allowed next states; or directly create a plan (human API path) |
+| PUT /api/applications/{id} | edit owned resume_version and note with expected version; preserve state and applied_at, append metadata event |
 | POST /api/applications/transition | application_id, state, expected version, optional note |
 | GET /api/applications/{id}/history | owner-scoped events |
 | GET, POST /api/interviews | list or schedule interview |

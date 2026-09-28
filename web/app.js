@@ -77,7 +77,7 @@ async function page(name,query='') {
   const set=html=>{if(version!==pageVersion)return false;box.innerHTML=html;return true;};
   const heading=CampusUI.heading(pageTitles[name]);
   if (name==='models') {await CampusModels.page(set,heading,{api,esc,formAction,UserError});return;}
-  if (name==='matching') {await CampusMatching.page(set,heading,{api,esc,D,UserError,navigate:page,openRecord:detail,initialQuery:typeof query==='string'?query:'',initialJob:query?.jobID||'',initialView:query?.view||'overview',active:()=>version===pageVersion});return;}
+  if (name==='matching') {await CampusMatching.page(set,heading,{api,esc,D,UserError,navigate:page,openRecord:detail,initialQuery:typeof query==='string'?query:'',initialJob:query?.jobID||'',initialView:query?.view||'overview',initialAnalyze:!!query?.analyze,active:()=>version===pageVersion});return;}
   if(['radar','watches','source_jobs','notifications','preferences','closing','changes'].includes(name)){await radarPage(name,set,box,query);return;}
   if (name==='agent') {
     const capabilities=await api('/api/profile/resume/capabilities');
@@ -87,21 +87,13 @@ async function page(name,query='') {
     for(const b of box.querySelectorAll('[data-example]'))b.onclick=()=>{$('#ask').elements.message.value=b.dataset.example;$('#ask').elements.message.focus();};
     formAction('#ask',async data=>{const result=await api('/agent/decide','POST',{session_id:CampusModels.sessionID(capabilities),message:data.get('message'),model_config:CampusModels.requestConfig()});if(version!==pageVersion)return;renderAgent(result,$('#agent-result'));});return;
   }
-  if (name==='profile') {await CampusProfile.page(set,heading,{api,esc,D,formAction,UserError,navigate:page,active:()=>version===pageVersion});return;}
+  if (name==='profile') {const helpers={api,esc,D,formAction,UserError,navigate:page,active:()=>version===pageVersion};if(query?.evidence)await CampusEvidence.page(set,heading,helpers,query.evidence);else await CampusProfile.page(set,heading,helpers);return;}
+  if (name==='applications') {await CampusApplications.page(set,heading,{api,esc,D,formAction,navigate:page,scheduleInterview,table,active:()=>version===pageVersion});return;}
   if(name==='ingest') {
     set(`${heading}<p>粘贴招聘说明，或填写公开招聘页面的网址。手动录入的信息需要核验；遇到登录或验证码限制时，仅记录访问情况。</p><form id="ingest" novalidate><div class="form-grid">${input('company','公司名称','','text','required')}${input('title','岗位名称','','text','required')}${input('locations','工作地点（多项用顿号分隔）','','text','required')}<label>岗位类型<select name="job_type">${options('job_type','FULL_TIME')}</select></label></div>${input('url','公开招聘页面网址（可选）','','url','placeholder="粘贴公开招聘页面的网址"')}${area('text','岗位招聘说明','','maxlength="60000" placeholder="粘贴岗位说明；如已填写网址，可留空以获取公开页面。"')}<button>保存岗位观察</button></form><div id="ingest-result"></div>`);
     formAction('#ingest',async data=>{const body=Object.fromEntries(data);body.locations=D.parseList(body.locations);if(!body.text.trim()&&!body.url)throw new UserError('请粘贴岗位说明，或填写公开招聘页面的网址。');const result=await api('/api/ingest','POST',body);if(version===pageVersion)$('#ingest-result').innerHTML=`<h3>观察记录已保存</h3><p>后续会分析证据并更新判断。获取成功不代表岗位一定可投递。</p>${translated(result)}`;});return;
   }
   const rows=await api('/api/'+name);if(version!==pageVersion)return;
-  if(name==='applications') {
-    set(`${heading}<p>按自己的实际投递情况记录进展。岗位关闭不会自动终止已提交的申请。</p>${rows.length?rows.map(a=>`<article class="card"><h3>岗位编号：${esc(a.job_id)} ${pill(a.current_state,'application')}</h3><p class="meta">记录版本：${a.version} · 最近更新：${esc(D.date(a.updated_at))}</p><div class="actions"><button data-history="${a.id}">查看进展记录</button><label>调整到<select id="state-${a.id}">${options('application',a.current_state)}</select></label><button data-transition="${a.id}">更新投递进展</button><button data-interview="${a.id}">记录面试安排</button><button data-preparation="${a.id}">岗位准备清单</button></div><div id="history-${a.id}"></div></article>`).join(''):empty('还没有投递记录。可在岗位详情中将心仪岗位加入投递计划。')}`);
-    for(const a of rows){
-      $(`[data-history="${a.id}"]`).onclick=async()=>{try{const history=await api('/api/applications/'+a.id+'/history');if(version===pageVersion)$('#history-'+a.id).innerHTML=`<h4>投递进展记录</h4>${table(history,['from_state','to_state','occurred_at','note'],'暂未记录进展变化。')}`;}catch(error){fail(error);}};
-      $(`[data-transition="${a.id}"]`).onclick=async()=>{try{await api('/api/applications/transition','POST',{application_id:a.id,state:$('#state-'+a.id).value,version:a.version});await page('applications');}catch(error){fail(error);}};
-      $(`[data-preparation="${a.id}"]`).onclick=()=>page('matching',{jobID:a.job_id,view:'preparation'}).catch(fail);
-      $(`[data-interview="${a.id}"]`).onclick=()=>scheduleInterview(a.id);
-    }return;
-  }
   if(name==='interviews') {
     const reviews=await api('/api/reviews');if(version!==pageVersion)return;
     set(`${heading}<p>记录每轮面试的时间、结果与真实问题，把未答好的要点转成后续复习重点。时间统一显示为北京时间。</p>${rows.length?rows.map(v=>{const review=reviews.find(r=>r.interview_id===v.id);return `<article class="card"><h3>第 ${v.round} 轮面试 ${pill(v.result,'interview')}</h3><p>面试时间：${esc(D.date(v.scheduled_at))}</p><p>${esc(D.text(v.notes))}</p>${v.finished_at?`<p class="meta">完成时间：${esc(D.date(v.finished_at))}</p>`:''}${review?`<details><summary>查看本轮复盘</summary>${table([review],['actual_questions','self_evaluation','missed_points','follow_up_notes'])}</details>`:`<button data-review="${v.id}">填写本轮复盘</button>`}</article>`;}).join(''):empty('还没有面试安排。可从投递进展中记录收到的面试通知。')}`);

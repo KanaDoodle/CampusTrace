@@ -382,12 +382,26 @@ func (a *API) Handler() http.Handler {
 		}
 		write(w, draft, nil)
 	})
-	for _, table := range []string{"applications", "interviews", "reviews", "weak_topics", "projects", "project_facts", "documents"} {
+	for _, table := range []string{"interviews", "reviews", "weak_topics", "projects", "project_facts", "documents"} {
 		on("GET /api/"+table, func(w http.ResponseWriter, r *http.Request) {
 			v, err := a.Store.Owned(r.Context(), table, user(r))
 			write(w, v, err)
 		})
 	}
+	on("GET /api/applications", func(w http.ResponseWriter, r *http.Request) {
+		v, err := a.Store.ApplicationRecords(r.Context(), user(r))
+		w.Header().Set("Cache-Control", "no-store")
+		write(w, v, err)
+	})
+	on("PUT /api/applications/{id}", func(w http.ResponseWriter, r *http.Request) {
+		var in p.ApplicationDetails
+		if err := decode(r, &in); err != nil {
+			write(w, nil, err)
+			return
+		}
+		v, err := a.Store.UpdateApplicationDetails(r.Context(), user(r), r.PathValue("id"), in)
+		write(w, v, err)
+	})
 	on("GET /api/applications/{id}/history", func(w http.ResponseWriter, r *http.Request) {
 		v, err := a.Store.ApplicationHistory(r.Context(), user(r), r.PathValue("id"))
 		write(w, v, err)
