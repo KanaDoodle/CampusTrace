@@ -16,3 +16,6 @@ var RadarSQL string
 
 //go:embed 005_matching.sql
 var MatchingSQL string
+
+//go:embed 006_backend_upgrade.sql
+var BackendSQL string

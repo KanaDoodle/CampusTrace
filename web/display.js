@@ -177,6 +177,9 @@
     if (code==='MODEL_BALANCE_LOW') return '模型账户余额不足，请检查提供商账户。';
     if (code==='MODEL_PROVIDER_BUSY') return '模型提供商当前繁忙或请求过于频繁，请稍后重试。';
     if (code==='MODEL_REQUEST_INVALID') return '模型服务拒绝了本次请求，请核对接口地址和模型标识。';
+    if(code==='CAMPAIGN_LIMIT_REACHED')return '这组限投岗位的名额已被投递计划或实际投递占用。请在投递进展核对规则，或先撤回尚未投递的计划。';
+    if(code==='MATCH_RUN_UNAVAILABLE')return '分析任务暂时无法启动，请稍后重试。';
+    if(code==='MATCH_INTERRUPTED')return '任务处理已中断。成功结果已保留，请核对资料与模型设置后继续。';
     if (code==='RESUME_DRAFT_UNVERIFIABLE') return '模型返回的草稿未通过原文摘录核对。请缩短外发文字，或分段保留项目经历后重试。';
     if (code==='MODEL_PROVIDER_FAILED') return path.includes('/api/matching/')?'模型服务未能返回分析结果，请查看失败阶段与请求编号以定位原因。':'暂时无法从模型服务获得草稿，请稍后重试，并核对模型设置。';
     return error(status, path);

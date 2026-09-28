@@ -172,7 +172,7 @@ func (s *Store) matchSnapshot(ctx context.Context, user, model, maskName string,
 		query += " AND id IN (" + strings.Join(slots, ",") + ")"
 	}
 	if company != "" {
-		query += " AND JSON_UNQUOTE(JSON_EXTRACT(body,'$.company'))=?"
+		query += " AND company_name=?"
 		args = append(args, company)
 	}
 	if fullResults {
@@ -195,8 +195,11 @@ func (s *Store) matchSnapshot(ctx context.Context, user, model, maskName string,
 	}
 	resultQuery := "SELECT JSON_OBJECT('job_id',job_id,'input_key',JSON_UNQUOTE(JSON_EXTRACT(body,'$.input_key')),'model',JSON_UNQUOTE(JSON_EXTRACT(body,'$.model')),'score',JSON_EXTRACT(body,'$.score'),'coverage',JSON_EXTRACT(body,'$.coverage')) FROM job_match_results WHERE user_id=?"
 	resultArgs := []any{user}
-	if fullResults {
-		resultQuery = "SELECT body FROM job_match_results WHERE user_id=? AND job_id IN ("
+	if fullResults || len(ids) > 0 || company != "" {
+		if fullResults {
+			resultQuery = "SELECT body FROM job_match_results WHERE user_id=?"
+		}
+		resultQuery += " AND job_id IN ("
 		slots := []string{}
 		for _, j := range jobs {
 			slots = append(slots, "?")
@@ -216,7 +219,21 @@ func (s *Store) matchSnapshot(ctx context.Context, user, model, maskName string,
 	for _, r := range results {
 		resultByID[r.JobID] = r
 	}
-	prefs, err := Many[d.UserJobPreference](ctx, tx, "SELECT JSON_OBJECT('job_id',job_id,'disposition',disposition) FROM user_job_preferences WHERE user_id=?", user)
+	prefQuery := "SELECT JSON_OBJECT('job_id',job_id,'disposition',disposition) FROM user_job_preferences WHERE user_id=?"
+	prefArgs := []any{user}
+	if len(ids) > 0 || company != "" {
+		slots := []string{}
+		for _, j := range jobs {
+			slots = append(slots, "?")
+			prefArgs = append(prefArgs, j.ID)
+		}
+		if len(slots) == 0 {
+			prefQuery += " AND 1=0"
+		} else {
+			prefQuery += " AND job_id IN (" + strings.Join(slots, ",") + ")"
+		}
+	}
+	prefs, err := Many[d.UserJobPreference](ctx, tx, prefQuery, prefArgs...)
 	if err != nil {
 		return v, err
 	}
@@ -312,6 +329,9 @@ func (s *Store) SaveMatchResult(ctx context.Context, user, maskName string, r ma
 	return s.Tx(ctx, func(tx *sql.Tx) error {
 		var id string
 		if err := tx.QueryRowContext(ctx, "SELECT id FROM users WHERE id=? FOR UPDATE", user).Scan(&id); err != nil {
+			return err
+		}
+		if err := checkMatchRunGuard(ctx, tx, user, r.JobID, r.InputKey); err != nil {
 			return err
 		}
 		if err := CheckJobAccess(ctx, tx, user, r.JobID); err != nil {

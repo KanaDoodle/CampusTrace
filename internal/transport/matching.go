@@ -101,6 +101,9 @@ func (m *budgetedMatchModel) Complete(ctx context.Context, messages, tools any) 
 	return m.CompleteJSON(ctx, messages, tools)
 }
 func (m *budgetedMatchModel) CompleteJSON(ctx context.Context, messages, tools any) (json.RawMessage, error) {
+	if err := m.store.CheckMatchRunGuard(ctx, m.user); err != nil {
+		return nil, err
+	}
 	if err := m.store.ReserveMatchCall(ctx, m.user, time.Now()); err != nil {
 		return nil, err
 	}
@@ -233,137 +236,26 @@ func (a *API) analyzeMatches(w http.ResponseWriter, r *http.Request) {
 		defer done()
 		a.Queue.R.Eval(cleanup, `if redis.call('GET',KEYS[1])==ARGV[1] then return redis.call('DEL',KEYS[1]) end return 0`, []string{lockKey}, lease)
 	}()
-	snapshot, err := a.Store.MatchSnapshot(ctx, user(r), identity, strings.TrimSpace(in.MaskName), in.JobIDs)
+	runs, err := a.Store.MatchRuns(ctx, user(r))
 	if err != nil {
-		matchFailure(w, err)
+		write(w, nil, err)
 		return
 	}
-	if in.CandidateHash != snapshot.CandidateHash {
-		matchFailure(w, p.ErrStaleInput)
-		return
-	}
-	remaining := []p.MatchJob{}
-	reused := []string{}
-	total := 0
-	for _, job := range snapshot.Jobs {
-		if job.State == "ANALYZED" {
-			reused = append(reused, job.Job.ID)
-			continue
-		}
-		if job.ExcludedReason != "" {
-			codedError(w, 409, "MATCH_JOB_UNAVAILABLE")
+	for _, run := range runs {
+		if run.State == "RUNNING" || run.State == "PAUSING" {
+			codedError(w, 409, "MATCH_BUSY")
 			return
 		}
-		if job.TextBytes == 0 || job.TextBytes > matching.MaxBatchText {
-			matchFailure(w, matching.ErrCapacity)
-			return
-		}
-		total += job.TextBytes
-		remaining = append(remaining, job)
 	}
-	if total > matching.MaxBatchText {
-		matchFailure(w, matching.ErrCapacity)
-		return
-	}
-	budget := &budgetedMatchModel{model: model, store: a.Store, user: user(r)}
-	requirements := map[string]matching.Requirements{}
-	uncached := []matching.JobText{}
-	representative := map[string]string{}
-	requirementsReused := 0
-	for _, job := range remaining {
-		reqs, err := a.Store.CachedRequirements(ctx, user(r), job.RequirementsKey)
-		if err == nil {
-			requirements[job.Job.ID] = reqs
-			requirementsReused++
-			continue
-		}
-		if !errors.Is(err, p.ErrNotFound) {
+	out, err := a.executeMatchBatch(ctx, user(r), matchBatchInput{in.JobIDs, in.CandidateHash, in.MaskName}, model, identity, nil)
+	if err != nil {
+		var stage *MatchStageError
+		if errors.As(err, &stage) {
+			matchFailure(w, stage.Err, stage.Stage)
+		} else {
 			matchFailure(w, err)
-			return
 		}
-		if representative[job.RequirementsKey] == "" {
-			representative[job.RequirementsKey] = job.Job.ID
-			uncached = append(uncached, matching.JobText{ID: job.Job.ID, Text: job.Text})
-		}
+		return
 	}
-	if len(uncached) > 0 {
-		extracted, err := matching.Extract(ctx, budget, uncached)
-		if err != nil {
-			matchFailure(w, err, "EXTRACT")
-			return
-		}
-		for _, job := range remaining {
-			if _, ok := requirements[job.Job.ID]; ok {
-				continue
-			}
-			reqs := extracted[representative[job.RequirementsKey]]
-			requirements[job.Job.ID] = reqs
-			if err := a.Store.SaveRequirements(ctx, user(r), job.RequirementsKey, reqs); err != nil {
-				matchFailure(w, err, "SAVE")
-				return
-			}
-		}
-	}
-	inputs := []matching.MatchInput{}
-	for _, job := range remaining {
-		if len(requirements[job.Job.ID].Items) > 0 {
-			inputs = append(inputs, matching.MatchInput{ID: job.Job.ID, Requirements: requirements[job.Job.ID].Items})
-		}
-	}
-	analyzed := []string{}
-	evidenceReviews := 0
-	byID := map[string]p.MatchJob{}
-	for _, job := range remaining {
-		byID[job.Job.ID] = job
-	}
-	persist := func(job p.MatchJob, matches []matching.Match) error {
-		reqs := requirements[job.Job.ID].Items
-		if matches == nil {
-			matches = []matching.Match{}
-		}
-		score, coverage := matching.Score(reqs, matches)
-		result := matching.Result{JobID: job.Job.ID, InputKey: job.InputKey, RequirementsKey: job.RequirementsKey, CandidateHash: snapshot.CandidateHash, Model: identity, AnalyzedAt: time.Now().UTC(), Requirements: reqs, Matches: matches, CandidateFacts: snapshot.Candidate.Facts, Score: score, Coverage: coverage, Qualifications: matching.Qualification(job.Job, snapshot.Profile, reqs, time.Now().UTC())}
-		result.Breakdown = matching.ScoreBreakdown(reqs, matches)
-		if err := a.Store.SaveMatchResult(ctx, user(r), strings.TrimSpace(in.MaskName), result); err != nil {
-			return err
-		}
-		analyzed = append(analyzed, job.Job.ID)
-		evidenceReviews += matching.EvidenceReviewCount(matches)
-		return nil
-	}
-	for _, job := range remaining {
-		if len(requirements[job.Job.ID].Items) == 0 {
-			if err := persist(job, nil); err != nil {
-				matchFailure(w, err, "SAVE")
-				return
-			}
-		}
-	}
-	// Bound output as well as input: a dense JD must not crowd out another
-	// job's requirements. Commit each completed group before reserving more calls.
-	for len(inputs) > 0 {
-		count, size := 0, 0
-		for count < len(inputs) {
-			next := len(inputs[count].Requirements)
-			if count > 0 && size+next > 24 {
-				break
-			}
-			size += next
-			count++
-		}
-		group := inputs[:count]
-		comparisons, err := matching.Compare(ctx, budget, snapshot.Candidate, group)
-		if err != nil {
-			matchFailure(w, err, "COMPARE")
-			return
-		}
-		for _, job := range group {
-			if err := persist(byID[job.ID], comparisons[job.ID]); err != nil {
-				matchFailure(w, err, "SAVE")
-				return
-			}
-		}
-		inputs = inputs[count:]
-	}
-	write(w, map[string]any{"analyzed": analyzed, "reused": reused, "requirements_reused": requirementsReused, "calls": budget.calls, "evidence_reviews": evidenceReviews}, nil)
+	write(w, out, nil)
 }

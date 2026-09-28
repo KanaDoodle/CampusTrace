@@ -7,7 +7,8 @@ const CampusApplications=(function(root){
   }
   async function page(set,heading,{api,esc,D,formAction,navigate,scheduleInterview,table,active=()=>true}){
     const rows=await api('/api/applications');if(!active())return;
-    if(!set(heading+'<p class="form-note">记录实际投递与后续进展。岗位关闭不会自动结束已提交的申请。</p>'+render(rows,{esc,D})))return;
+    if(!set(heading+'<p class="form-note">记录实际投递与后续进展。岗位关闭不会自动结束已提交的申请。</p>'+(root.CampusCampaigns?'<section id="application-campaigns"></section>':'')+render(rows,{esc,D})))return;
+    if(root.CampusCampaigns)root.CampusCampaigns.mount(document.querySelector('#application-campaigns'),{api,esc,active,notify:message=>root.CampusUI.notify(message)}).catch(error=>{if(active())root.CampusUI.notify(error.message);});
     const q=s=>document.querySelector(s);
     const go=(...args)=>Promise.resolve(navigate(...args)).catch(error=>root.CampusUI.notify(error.message));
     for(const a of rows){

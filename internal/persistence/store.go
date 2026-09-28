@@ -67,7 +67,7 @@ func (s *Store) Migrate(ctx context.Context) error {
 			}
 		}
 	}
-	return nil
+	return s.migrateBackend(ctx)
 }
 
 type Queryer interface {

@@ -245,6 +245,9 @@ type Pending struct {
 
 func (t *Tools) Propose(ctx context.Context, user, kind string, args json.RawMessage) (Pending, error) {
 	var v Pending
+	if !IsWrite(kind) {
+		return v, p.ErrValidation
+	}
 	if err := p.ValidateAction(kind, args); err != nil {
 		return v, err
 	}

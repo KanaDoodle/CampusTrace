@@ -7,7 +7,7 @@ function bindRadar(box,refresh){
  for(const b of box.querySelectorAll('[data-pref]'))b.onclick=async()=>{b.disabled=true;try{await api('/api/jobs/'+b.dataset.id+'/preference','PUT',{disposition:b.dataset.pref});await refresh();}catch(e){fail(e);b.disabled=false;}};
  for(const b of box.querySelectorAll('[data-apply]'))b.onclick=async()=>{b.disabled=true;try{
  const apps=await api('/api/applications');let app=apps.find(a=>a.job_id===b.dataset.id);
- if(!app)app=await api('/api/applications','POST',{job_id:b.dataset.id});
+ if(!app)app=await api('/api/applications','POST',{job_id:b.dataset.id,...(b.dataset.apply==='APPLIED'?{submitted:true}:{})});
  if(b.dataset.apply==='PLANNED'&&app.current_state!=='PLANNED')throw new UserError('当前已有投递进展，请在投递进展中查看；结束的投递不能重新开启。');
  if(b.dataset.apply==='APPLIED'&&app.current_state==='PLANNED')await api('/api/applications/transition','POST',{application_id:app.id,state:'APPLIED',version:app.version});
  else if(b.dataset.apply==='APPLIED'&&app.current_state!=='APPLIED')throw new UserError('当前投递已进入后续阶段，请在投递进展中查看。');

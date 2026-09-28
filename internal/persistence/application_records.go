@@ -12,6 +12,7 @@ import (
 )
 
 type ApplicationJob struct {
+	CompanyID     string   `json:"company_id"`
 	ID            string   `json:"id"`
 	Company       string   `json:"company"`
 	Title         string   `json:"title"`

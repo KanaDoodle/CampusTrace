@@ -3,8 +3,8 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
 
-function harness({pending=['pending-a','pending-b'],failed=['failed-a','failed-b'],analyze,exportError,compare,evidenceReviews=0}={}){
-  const stored=new Map(),elements=new Map(),requests=[],exports=[],decisionRequests=[];
+function harness({pending=['pending-a','pending-b'],failed=['failed-a','failed-b'],analyze,exportError,compare,evidenceReviews=0,durable=false,taskRuns=[],taskRequest}={}){
+  const stored=new Map(),elements=new Map(),requests=[],exports=[],decisionRequests=[],taskRequests=[],timers=[];
   const model={url:'https://model.example/chat',model:'test-model',api_key:'synthetic-test-key'};
   const modelKey=JSON.stringify([model.url,model.model,'server-model']);
   stored.set('campustrace:match-progress:v1:alice',JSON.stringify({hash:'profile',model:modelKey,pending,failed:failed.map(id=>({id,message:'上次连接失败'})),done:1,calls:1}));
@@ -20,10 +20,11 @@ function harness({pending=['pending-a','pending-b'],failed=['failed-a','failed-b
     }
     return true;
   };
-  const context={document,setTimeout:()=>0,sessionStorage:{getItem:k=>stored.get(k),setItem:(k,v)=>stored.set(k,v)},CampusModels:{bindUser(){},requestConfig:()=>model,available:()=>true,label:()=> '测试模型'},CampusMatchingChat:{readSelection:()=>new Set(),selectedRows:()=>[],pruneSelection(){},storeSelection(){}},console};
-  vm.createContext(context);vm.runInContext(fs.readFileSync(__dirname+'/ui.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching_decision.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching.js','utf8'),context);
+  const context={document,setTimeout:(fn,delay)=>{timers.push({fn,delay});return 0;},crypto:{randomUUID:()=>'synthetic-task-request-00000000000'},sessionStorage:{getItem:k=>stored.get(k),setItem:(k,v)=>stored.set(k,v)},CampusModels:{bindUser(){},requestConfig:()=>model,available:()=>true,label:()=> '测试模型'},CampusMatchingChat:{readSelection:()=>new Set(),selectedRows:()=>[],pruneSelection(){},storeSelection(){}},console};
+  vm.createContext(context);vm.runInContext(fs.readFileSync(__dirname+'/ui.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching_decision.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching_tasks.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching.js','utf8'),context);
   const api=async(path,method,body)=>{
-    if(path==='/api/profile/resume/capabilities')return {user_id:'alice',model:'server-model',model_available:true};
+    if(path==='/api/profile/resume/capabilities')return {user_id:'alice',model:'server-model',model_available:true,durable_matching:durable};
+    if(path.startsWith('/api/matching/tasks')){if(!method||method==='GET'){return structuredClone(path==='/api/matching/tasks'?taskRuns:taskRuns.find(v=>v.id===path.split('/')[4]));}taskRequests.push({path,body});if(taskRequest)return taskRequest(path,body);throw new Error('unexpected mutation');}
     if(path==='/api/matching/preview')return structuredClone(snapshot);
     if(path==='/api/matching/company'){decisionRequests.push(body);if(compare)return compare(body);return {company:body.company,scope:body.scope,total:jobs.length,analyzed:0,pending:jobs.length,stale:0,recommendation:'NONE',reasons:['待分析不用于推荐'],jobs:[]};}
     if(path==='/api/matching/export'){
@@ -40,7 +41,7 @@ function harness({pending=['pending-a','pending-b'],failed=['failed-a','failed-b
     throw new Error('Unexpected local test API path: '+path);
   };
   const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  return {start:(initial={})=>context.CampusMatching.page(set,'<h2>岗位匹配</h2>',{api,esc,D:{text:s=>s,date:()=>'',label:(_kind,s)=>s},active:()=>true,navigate(){},...initial}),elements,requests,exports,decisionRequests,stored,snapshot,review:()=>elements.get('match-confirm').onclick(),html:()=>html,consent:()=>elements.get('match-consent').onchange({target:{checked:true}}),progress:()=>JSON.parse(stored.get('campustrace:match-progress:v1:alice'))};
+  return {start:(initial={})=>context.CampusMatching.page(set,'<h2>岗位匹配</h2>',{api,esc,D:{text:s=>s,date:()=>'',errorCode:s=>s,matchingDiagnostic:()=>'',label:(_kind,s)=>s},active:()=>true,navigate(){},...initial}),elements,requests,exports,decisionRequests,taskRequests,timers,stored,snapshot,review:()=>elements.get('match-confirm').onclick(),html:()=>html,consent:()=>elements.get('match-consent').onchange({target:{checked:true}}),progress:()=>JSON.parse(stored.get('campustrace:match-progress:v1:alice'))};
 }
 
 test('returning from evidence supplementation reviews only the target job without starting a model call',async()=>{
@@ -182,4 +183,13 @@ test('completed analysis surfaces withdrawn evidence without queuing another mod
  await h.elements.get('match-continue').onclick();h.consent();await h.review();
  assert.deepEqual(h.requests,[['pending-a']]);assert.deepEqual(h.progress().failed,[]);
  assert.ok(h.html().includes('2 项错误能力引用已撤销'));
+});
+
+
+test('durable recovery is read-only until full review and consent, and resumes only the chosen pending items',async()=>{
+ const task={id:'saved-run',state:'WAITING_AUTH',version:5,candidate_hash:'profile',calls:2,items:[{job_id:'pending-a',state:'INTERRUPTED',input_key:'pending-a'},{job_id:'pending-b',state:'QUEUED',input_key:'pending-b'},{job_id:'failed-a',state:'FAILED',code:'MODEL_TIMEOUT'}]};
+ const h=harness({durable:true,failed:['failed-a'],taskRuns:[task],taskRequest:(path,body)=>({...task,state:'RUNNING',version:6})});await h.start();assert.equal(h.taskRequests.length,0);assert.match(h.html(),/需要重新核对后继续/);await h.elements.get('match-continue').onclick();assert.equal(h.taskRequests.length,0);h.consent();await h.review();assert.equal(h.taskRequests.length,1);assert.equal(h.taskRequests[0].path,'/api/matching/tasks/saved-run/resume');assert.deepEqual(Array.from(h.taskRequests[0].body.job_ids),['pending-a','pending-b']);assert.equal(h.taskRequests[0].body.version,5);assert.equal(h.requests.length,0);assert.equal(h.taskRequests[0].body.model_config.api_key,'synthetic-test-key');assert.ok([...h.stored.values()].every(v=>!v.includes('synthetic-test-key')));
+});
+test('a saved active task is restored after reload and polling never submits another model request',async()=>{
+ const task={id:'active-run',state:'RUNNING',version:2,candidate_hash:'profile',calls:1,items:[{job_id:'pending-a',state:'RUNNING'}]};const runs=[task];const h=harness({durable:true,pending:['pending-a'],failed:[],taskRuns:runs});await h.start();assert.match(h.html(),/正在分析/);assert.equal(h.elements.has('match-continue'),false);assert.equal(h.taskRequests.length,0);runs[0]={...task,state:'COMPLETED',version:4,items:[{job_id:'pending-a',state:'SUCCEEDED'}]};h.snapshot.jobs[0].state='ANALYZED';await h.timers.find(t=>t.delay===5000).fn();assert.match(h.html(),/本轮已完成/);assert.equal(h.taskRequests.length,0);assert.equal(h.requests.length,0);
 });

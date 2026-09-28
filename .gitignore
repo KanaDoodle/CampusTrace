@@ -21,6 +21,9 @@ __debug_bin*
 /docs/*
 !/docs/api.md
 !/docs/dependency-audit.md
+!/docs/backend-upgrade.md
+!/docs/performance.md
+!/docs/operations.md
 /release-repair-report.md
 /repair-report.md
 /release-final-report.md

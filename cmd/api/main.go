@@ -46,6 +46,8 @@ func run() error {
 		slots = configured.Sem
 	}
 	a := &transport.API{Store: app.Store, Queue: app.Queue, Tools: app.Tools, Agent: app.Agent, Auth: auth.Service{Store: app.Store, Secret: []byte(app.Config.JWT)}, Metrics: app.Metrics, ResumeModel: app.ResumeModel, ResumeModelName: app.Config.LLMModel, CustomModelSlots: slots}
+	runner := a.StartMatchTasks(ctx, app.Config.LLMConcurrency)
+	defer runner.Close()
 	srv := &http.Server{Addr: app.Config.HTTP, Handler: a.Handler(), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second, BaseContext: func(net.Listener) context.Context { return ctx }}
 	done := make(chan error, 1)
 	go func() { done <- srv.ListenAndServe() }()

@@ -82,3 +82,21 @@ Deep matching v2 results include `breakdown` for REQUIRED / RESPONSIBILITY / BON
 
 
 API comparison input separates `candidate.facts` (qualification and ability facts) from `candidate.limitations`; preferences are resolved locally and omitted from the model input. A structurally valid positive judgment with an exact but inappropriate preference/limitation citation is withdrawn as NO_EVIDENCE with empty evidence and local `review_note=INVALID_ABILITY_EVIDENCE`. Other verified items remain; unknown IDs, forged excerpts, missing/duplicate items and schema failures still reject the output. Models cannot submit `review_note`. The analyze response includes `evidence_reviews` for newly saved withdrawn items, and preparation/company rows carry the same count when nonzero. Withdrawn items lower coverage, never count as an ability match or mismatch, and do not trigger another model call. Existing candidate hashes and requirement caches are preserved.
+
+
+## Durable matching tasks and application campaign limits
+
+`GET /api/profile/resume/capabilities` includes `durable_matching` and `application_campaigns`. Old synchronous `/api/matching/analyze` stays compatible and shares the external-call lease. New UI prefers durable tasks.
+
+- `GET /api/matching/tasks`: latest 20 owned tasks, including state, version, per-item status and safe diagnostics. Expired executions become WAITING_AUTH.
+- `POST /api/matching/tasks`: `{job_ids,input_keys,candidate_hash,request_key,mask_name?,model_config?,retry?}`, max configured round limit (at most 100). `request_key` is 16–64 ASCII alphanumeric/underscore/hyphen. Returns 202 with durable task; replay uses user/key plus stable input fingerprint. One active round per account; no key or outbound text is persisted.
+- `GET /api/matching/tasks/{id}` and `/events`: owned task and latest 200 safe stage events.
+- `POST /api/matching/tasks/{id}/control`: `{version,action:"PAUSE"|"CANCEL"}`; version conflict returns 409. Pause finishes the current batch, cancel revokes ownership immediately.
+- `POST /api/matching/tasks/{id}/resume`: `{version,job_ids,input_keys,candidate_hash,mask_name?,model_config?,retry?}`. Explicit reviewed unfinished/failed subset only. Candidate/model and each input key must match; other pending items stay paused. Never automatically resends paid work after restart.
+- `GET /api/application-campaigns` returns owned rules with planned, submitted, remaining and conflict counts. `/catalog` returns currently visible job metadata.
+- `POST /api/application-campaigns`, `PUT /api/application-campaigns/{id}`: `{company_id,name,limit,job_ids,rule_url?,confirmed:true,version?}`. Owner-scoped job assignments, one rule per user/job; 50 rules/user, 200 jobs/rule, limits 1–10. Edits require current version.
+- `DELETE /api/application-campaigns/{id}`: `{version}`. Removes only rule/assignments; application records remain.
+- `POST /api/applications` accepts optional `submitted:true` for human truthful APPLIED recording. Plain creation reserves planned quota transactionally and returns `409 CAMPAIGN_LIMIT_REACHED` if full. Actual submitted records are allowed even over quota and surfaced as conflicts. Submitted withdrawn/rejected records retain usage. Agent tools cannot call the human-only submitted-record action.
+- `GET /metrics/prometheus`: Prometheus histograms, safe counters and runtime/DB gauges. Existing JSON `/metrics` remains unchanged. Worker exposes the same additional metrics format.
+
+See [backend-upgrade.md](backend-upgrade.md), [performance.md](performance.md) and [operations.md](operations.md) for measured results and execution/privacy boundaries.

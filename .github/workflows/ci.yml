@@ -44,6 +44,7 @@ jobs:
           ./bin/campustrace start --timeout 180
           ./bin/campustrace status
           ./bin/campustrace doctor
+          RADAR_RACE=1 ./scripts/verify-radar.sh
           ./bin/campustrace logs api --tail 3
           ./bin/campustrace stop
           ./bin/campustrace start --timeout 180

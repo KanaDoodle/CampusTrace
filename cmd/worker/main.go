@@ -28,6 +28,7 @@ func main() {
 	defer rpc.Close()
 	metricsMux := http.NewServeMux()
 	metricsMux.Handle("GET /metrics", app.Metrics)
+	metricsMux.HandleFunc("GET /metrics/prometheus", func(w http.ResponseWriter, r *http.Request) { app.Metrics.Prometheus(w, r, app.Store.DB.Stats()) })
 	metricsMux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("ok")) })
 	metricsServer := &http.Server{Addr: config.Env("WORKER_METRICS_ADDR", "127.0.0.1:18081"), Handler: metricsMux, ReadHeaderTimeout: 3 * time.Second}
 	go func() {

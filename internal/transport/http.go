@@ -37,6 +37,7 @@ type API struct {
 	ResumeModel      resume.Completer
 	ResumeModelName  string
 	CustomModelSlots chan struct{}
+	MatchTasks       *MatchTaskRunner
 }
 
 func (a *API) customModel(cfg modelconfig.Config) (*analysis.ChatClient, error) {
@@ -129,6 +130,14 @@ func write(w http.ResponseWriter, v any, err error) {
 		if errors.Is(err, p.ErrBackendUnavailable) {
 			status = 503
 		}
+		if errors.Is(err, p.ErrCampaignLimit) {
+			codedError(w, 409, "CAMPAIGN_LIMIT_REACHED")
+			return
+		}
+		if errors.Is(err, p.ErrMatchRunBusy) {
+			codedError(w, 409, "MATCH_BUSY")
+			return
+		}
 		if errors.Is(err, p.ErrRadarCapacity) {
 			codedError(w, http.StatusConflict, "RADAR_CAPACITY")
 			return
@@ -179,6 +188,7 @@ func (a *API) Handler() http.Handler {
 		write(w, map[string]string{"status": "ready"}, nil)
 	})
 	mux.Handle("GET /metrics", a.Metrics)
+	mux.HandleFunc("GET /metrics/prometheus", func(w http.ResponseWriter, r *http.Request) { a.Metrics.Prometheus(w, r, a.Store.DB.Stats()) })
 	for _, route := range []string{"register", "login"} {
 		mux.HandleFunc("POST /auth/"+route, func(w http.ResponseWriter, r *http.Request) {
 			var v struct {
@@ -214,6 +224,8 @@ func (a *API) Handler() http.Handler {
 	on := func(pattern string, h http.HandlerFunc) { mux.HandleFunc(pattern, a.protected(h)) }
 	a.radarRoutes(on)
 	a.matchingRoutes(on)
+	a.matchingTaskRoutes(on)
+	a.campaignRoutes(on)
 	on("GET /api/jobs", func(w http.ResponseWriter, r *http.Request) {
 		v, err := a.Store.JobsForUser(r.Context(), user(r), r.URL.Query().Get("q"))
 		write(w, v, err)
@@ -335,7 +347,7 @@ func (a *API) Handler() http.Handler {
 		write(w, map[string]bool{"saved": true}, a.Store.SaveProfile(r.Context(), user(r), v))
 	})
 	on("GET /api/profile/resume/capabilities", func(w http.ResponseWriter, r *http.Request) {
-		write(w, map[string]any{"model_available": a.ResumeModel != nil, "model": a.ResumeModelName, "user_id": user(r)}, nil)
+		write(w, map[string]any{"model_available": a.ResumeModel != nil, "model": a.ResumeModelName, "user_id": user(r), "durable_matching": a.MatchTasks != nil, "application_campaigns": true}, nil)
 	})
 	on("POST /api/profile/resume/draft", func(w http.ResponseWriter, r *http.Request) {
 		var v resume.Request
@@ -412,7 +424,16 @@ func (a *API) Handler() http.Handler {
 			write(w, nil, err)
 			return
 		}
-		v, err := a.Store.ApplyAction(r.Context(), user(r), d.ID(), "create_application", b)
+		var in p.CreateArgs
+		if err := d.Strict(b, &in); err != nil {
+			write(w, nil, err)
+			return
+		}
+		kind := "create_application"
+		if in.Submitted {
+			kind = "record_submitted_application"
+		}
+		v, err := a.Store.ApplyAction(r.Context(), user(r), d.ID(), kind, b)
 		write(w, v, err)
 	})
 	on("POST /api/applications/transition", func(w http.ResponseWriter, r *http.Request) {
@@ -573,11 +594,19 @@ func (a *API) Handler() http.Handler {
 		ctx := observability.With(r.Context(), observability.Fields{RequestID: id})
 		rec := &recorder{ResponseWriter: w}
 		start := time.Now()
-		mux.ServeHTTP(rec, r.WithContext(ctx))
+		request := r.WithContext(ctx)
+		mux.ServeHTTP(rec, request)
+		if a.Metrics != nil {
+			a.Metrics.Observe("http_request_seconds", time.Since(start).Seconds())
+			a.Metrics.Add("http_requests_total", 1)
+			if rec.status >= 500 {
+				a.Metrics.Add("http_errors_total", 1)
+			}
+		}
 		if rec.status == 0 {
 			rec.status = http.StatusOK
 		}
-		fields := []any{"request_id", id, "method", r.Method, "path", r.URL.Path, "status", rec.status, "duration_ms", time.Since(start).Milliseconds()}
+		fields := []any{"request_id", id, "method", r.Method, "route", request.Pattern, "status", rec.status, "duration_ms", time.Since(start).Milliseconds()}
 		switch {
 		case rec.err != nil:
 			slog.ErrorContext(ctx, "http request failed", append(fields, "error", rec.err.Error())...)

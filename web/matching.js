@@ -90,7 +90,10 @@ const CampusMatching=(function(root){
     let onlySelected=false,preparing=false,exportFiles=[],exportIndex=0,exportConsent=false,exportKeys=new Map();
     const modelKey=()=>JSON.stringify([identity().model_url,identity().model_name,cap.model]);
     let progress=reconcileProgress(readProgress(cap.user_id,snapshot.candidate_hash,modelKey()),snapshot.jobs);
-    storeProgress(cap.user_id,progress);
+    const Tasks=root.CampusMatchTasks,durable=!!cap.durable_matching&&!!Tasks;
+    let taskRuns=durable?await api('/api/matching/tasks'):[],task=taskRuns.find(Tasks?.active||(()=>false))||taskRuns[0]||null;
+    function applyTask(v){task=v;const i=taskRuns.findIndex(x=>x.id===v.id);if(i>=0)taskRuns[i]=v;else taskRuns.unshift(v);taskRuns=taskRuns.slice(0,20);progress={hash:snapshot.candidate_hash,model:modelKey(),...Tasks.progress(v,D)};running=Tasks.active(v);paused=!running;}
+    if(task)applyTask(task);storeProgress(cap.user_id,progress);
     const baseline=new Map(snapshot.jobs.map(j=>[j.job.id,j.input_key]));let autoQueue=[];
     const current=()=>active();
     function ordered(data){return sort==='deep'?[...data].sort((a,b)=>(b.state==='ANALYZED'?b.score??-1:-1)-(a.state==='ANALYZED'?a.score??-1:-1)||b.preliminary_score-a.preliminary_score):data;}
@@ -110,7 +113,7 @@ const CampusMatching=(function(root){
     }
     const authorized=()=>consentHash===snapshot.candidate_hash;
     function persist(){storeProgress(cap.user_id,progress);}
-    function settingsHTML(){return `<dialog id="match-settings-dialog" class="modal" aria-labelledby="match-settings-title">${U.modalHead('match-settings-title','分析设置','预算与处理方式集中在这里维护。')}<form id="match-settings"><div class="modal-body"><div class="form-grid"><label>每轮最多分析岗位数<input name="round_limit" type="number" min="1" max="100" required value="${snapshot.settings.round_limit}"></label><label>每日岗位匹配调用上限<input name="daily_calls" type="number" min="1" max="200" required value="${snapshot.settings.daily_calls}"></label></div><label class="check"><input name="auto_new" type="checkbox" ${snapshot.settings.auto_new?'checked':''}>自动分析新增或变化岗位</label><p class="form-note">自动处理只在本页面开启、本轮资料已核对且已经确认分析后运行。缓存命中不发请求，失败或超时的尝试也计入上限。每天按北京时间重置。</p><details><summary>查看调用与暂停规则</summary><p class="form-note">顺序处理，每批最多 3 个岗位并限制文字量。暂停后当前批次完成，再停止后续请求。关闭页面后未完成项保留供之后继续。</p></details>${notice?`<p class="modal-notice" role="status">${esc(notice)}</p>`:''}</div><div class="modal-foot"><small>模型 API 独立计费</small><button class="btn btn-primary" ${running||preparing?'disabled':''}>保存设置</button></div></form></dialog>`;}
+    function settingsHTML(){return `<dialog id="match-settings-dialog" class="modal" aria-labelledby="match-settings-title">${U.modalHead('match-settings-title','分析设置','预算与处理方式集中在这里维护。')}<form id="match-settings"><div class="modal-body"><div class="form-grid"><label>每轮最多分析岗位数<input name="round_limit" type="number" min="1" max="100" required value="${snapshot.settings.round_limit}"></label><label>每日岗位匹配调用上限<input name="daily_calls" type="number" min="1" max="200" required value="${snapshot.settings.daily_calls}"></label></div><label class="check"><input name="auto_new" type="checkbox" ${snapshot.settings.auto_new?'checked':''}>自动分析新增或变化岗位</label><p class="form-note">自动处理只在本页面开启、本轮资料已核对且已经确认分析后运行。缓存命中不发请求，失败或超时的尝试也计入上限。每天按北京时间重置。</p><details><summary>查看调用与暂停规则</summary><p class="form-note">顺序处理，每批最多 3 个岗位并限制文字量。暂停后当前批次完成，再停止后续请求。关闭页面后本轮继续处理；服务中断后需要重新核对再继续。</p></details>${notice?`<p class="modal-notice" role="status">${esc(notice)}</p>`:''}</div><div class="modal-foot"><small>模型 API 独立计费</small><button class="btn btn-primary" ${running||preparing?'disabled':''}>保存设置</button></div></form></dialog>`;}
     function reviewHTML(){
       const jobs=(intent?.ids||[]).map(id=>snapshot.jobs.find(j=>j.job.id===id)).filter(Boolean);
       return `<dialog id="match-review-dialog" class="modal wide" aria-labelledby="match-review-title">${U.modalHead('match-review-title','核对本轮外发资料','检查岗位与资料，再确认发起分析。')}<div class="modal-body"><h3>本轮 ${jobs.length} 个岗位</h3><div class="review-jobs">${jobs.map(j=>`<div class="review-job"><span>${esc(D.text(j.job.title))}</span><small>${esc(D.text(j.job.company))}</small></div>`).join('')}</div><p class="form-note">当前模型：${esc(root.CampusModels.label(cap))} <button type="button" id="match-model" class="text-btn">选择模型</button></p><p class="form-note">简历文件、账号邮箱、联系方式、项目链接和密钥不进入匹配文字。仍请核对项目文字里的姓名或称呼。</p><form id="match-mask"><label>补充遮盖姓名或称呼（可选）<input name="mask_name" value="${esc(maskName)}" maxlength="60" autocomplete="off" placeholder="仅用于本轮本机脱敏"></label><button class="btn btn-small" ${reviewBusy?'disabled':''}>更新脱敏预览</button></form><details class="disclosure" open><summary>候选人资料与项目事实（${snapshot.candidate.facts.length} 条）</summary><div><ul class="match-review-facts">${snapshot.candidate.facts.map(f=>`<li><b>${f.project_name?esc(f.project_name)+' · ':''}${esc(labels[f.kind]||f.kind)}</b>：${esc(f.kind==='DEGREE'?D.label('degree',f.text):D.text(f.text))}</li>`).join('')}</ul></div></details><details class="disclosure"><summary>所选岗位的完整外发文字</summary><div>${reviewBusy?'<p>正在从本地记录准备脱敏文字…</p>':reviewError?`<p class="pending-note">${esc(reviewError)}</p>`:(reviewBundle?.jobs||[]).map(j=>`<h3>${esc(j.title)}</h3><div class="drawer-original">${esc(j.text)}</div>`).join('<hr>')}</div></details>${reviewError?`<p class="pending-note">${esc(reviewError)}</p><button id="match-review-reload" class="btn btn-small">重新准备预览</button>`:''}<div class="note-box">点击「确认并开始分析」后才会调用模型。最多按当前每轮上限处理，成功结果逐批保存，失败项可单独重试。</div><label class="check-label"><input id="match-consent" type="checkbox" ${authorized()?'checked':''} ${reviewBusy||!reviewBundle?'disabled':''}>我已核对以上全部资料与岗位文字，同意将本轮脱敏资料发送给所选模型。</label></div><div class="modal-foot"><small>今日调用 ${snapshot.calls_today} / ${snapshot.settings.daily_calls}</small><div><button type="button" class="btn" data-dialog-close>取消</button><button id="match-confirm" class="btn btn-primary" ${!authorized()||!reviewBundle||reviewBusy||!root.CampusModels.available(cap)||snapshot.calls_today>=snapshot.settings.daily_calls?'disabled':''}>确认并开始分析</button></div></div></dialog>`;
@@ -136,6 +139,7 @@ const CampusMatching=(function(root){
       panel='';await start(work.ids,work.retry,work.continuing);
     }
     function progressHTML(actions){
+      if(durable&&task)return Tasks.render(task,taskRuns,{esc,D},notice);
       const hasQueue=running||progress.pending.length||progress.failed.length;
       if(!hasQueue&&!notice)return '';
       if(!hasQueue)return `<section class="match-progress match-progress-compact" aria-label="本轮分析任务"><p role="status">${esc(notice)}</p><button id="match-dismiss-notice" class="btn btn-subtle btn-small">知道了</button></section>`;
@@ -191,7 +195,10 @@ const CampusMatching=(function(root){
       }
       on('match-continue',()=>requestAnalysis([...progress.pending],false,true));on('match-retry',()=>requestAnalysis(progress.failed.map(f=>f.id).filter(id=>availableIDs.has(id)).slice(0,snapshot.settings.round_limit),true));
       on('match-refresh',async()=>{try{await refresh();notice='岗位与分析进度已刷新。';render();}catch(err){notice=err.message;render();}});
-      on('match-pause',()=>{paused=true;notice='已暂停后续分析，当前批次完成后停止。';render();});
+      on('match-pause',async()=>{if(durable){await taskControl('PAUSE');return;}paused=true;notice='已暂停后续分析，当前批次完成后停止。';render();});
+      on('match-task-cancel',()=>taskControl('CANCEL'));
+      on('match-task-events',async()=>{const id=task?.id;try{const events=await api('/api/matching/tasks/'+encodeURIComponent(id)+'/events');if(current()&&task?.id===id)document.querySelector('#match-task-events-box').innerHTML=Tasks.traceHTML(events,{esc,D});}catch(e){notice=e.message;render();}});
+      for(const b of document.querySelectorAll('[data-match-task]'))b.onclick=()=>{applyTask(taskRuns.find(v=>v.id===b.dataset.matchTask));notice='';render();};
       on('match-prev',()=>{pageNo--;render();});on('match-next',()=>{pageNo++;render();});
       for(const b of document.querySelectorAll('[data-match-job]'))b.onclick=()=>openMatchDetail(b.dataset.matchJob);
       const dialogID={settings:'match-settings-dialog',review:'match-review-dialog',export:'match-export-review',company:'match-comparison-dialog'}[panel];
@@ -287,12 +294,32 @@ const CampusMatching=(function(root){
       snapshot=next;
       reconcileProgress(progress,snapshot.jobs);persist();
     }
+    async function taskControl(action){
+      if(!task)return;const id=task.id;
+      try{const latest=await api('/api/matching/tasks/'+encodeURIComponent(id));const v=await api('/api/matching/tasks/'+encodeURIComponent(id)+'/control','POST',{version:latest.version,action});if(!current())return;applyTask(v);notice=action==='CANCEL'?'本轮已取消，已保存结果仍可查看。':'当前批次结束后暂停后续分析。';render();}
+      catch(e){if(current()){notice=e.message;render();}}
+    }
     async function start(ids,retry=false,continuing=false){
       if(running||preparing||!authorized()||!current())return;
       if(!root.CampusModels.available(cap)){notice='请先在模型设置填写密钥并选择模型。';render();return;}
       const idSet=new Set(ids),byID=new Map(snapshot.jobs.map(j=>[j.job.id,j]));const jobs=[...idSet].map(id=>byID.get(id)).filter(j=>j&&eligible(j));
       if(!jobs.length){notice='这批岗位已经分析完成，或暂时没有可分析的岗位。';render();return;}
       const workIDs=new Set(jobs.map(j=>j.job.id));
+      if(durable){
+        running=true;notice='正在保存本轮任务…';render();
+        try{
+          const resume=(retry||continuing)&&task&&!['COMPLETED','CANCELLED'].includes(task.state)&&task.candidate_hash===snapshot.candidate_hash&&[...workIDs].every(id=>task.items.some(i=>i.job_id===id&&i.input_key===jobs.find(j=>j.job.id===id).input_key));
+          const target=resume?'/api/matching/tasks/'+encodeURIComponent(task.id)+'/resume':'/api/matching/tasks';
+          const requestKey=root.crypto.randomUUID().replaceAll('-','');
+          const body={job_ids:[...workIDs],input_keys:Object.fromEntries(jobs.map(j=>[j.job.id,j.input_key])),candidate_hash:snapshot.candidate_hash,mask_name:maskName,model_config:root.CampusModels.requestConfig(),request_key:requestKey,version:resume?task.version:0,retry};
+          let v;try{v=await api(target,'POST',body);}catch(error){
+            // Resolve an ambiguous response by reading server history, never by
+            // automatically making another paid submission.
+            if(!error.code){const runs=await api('/api/matching/tasks');const existing=runs.find(x=>resume?x.id===task.id&&Tasks.active(x):x.request_key===requestKey);if(existing)v=existing;else throw error;}else throw error;
+          }
+          if(!current())return;applyTask(v);notice='本轮任务已保存，可以离开页面；处理进度会自动更新。';
+        }catch(e){running=false;notice=e.message;}finally{if(current())render();}return;
+      }
       progress=queueWork(progress,[...workIDs],continuing);persist();
       let evidenceReviews=0;const reviewNotice=()=>evidenceReviews?` ${evidenceReviews} 项错误能力引用已撤销，请打开岗位的逐项依据核对。`:'';
       running=true;paused=false;notice='正在分析，结果会逐批保存。';render();
@@ -320,6 +347,13 @@ const CampusMatching=(function(root){
       }catch(err){notice=err.message;}finally{running=false;persist();render();}
     }
     render();
+    async function pollTask(){
+      if(!current()||!durable)return;
+      try{if(task&&Tasks.active(task)){const v=await api('/api/matching/tasks/'+encodeURIComponent(task.id));if(!current())return;const oldDone=progress.done;applyTask(v);if(progress.done!==oldDone||!Tasks.active(v)){await refresh();applyTask(v);notice=Tasks.active(v)?'成功结果已保存。':v.state==='WAITING_AUTH'?'本轮已停止，请核对设置与外发资料后继续。':'本轮进度已保存。';}if(!panel&&!document.querySelector('#job-drawer')?.open&&!['INPUT','SELECT','TEXTAREA'].includes(document.activeElement?.tagName))render();}}
+      catch(e){if(current()){notice=e.message;if(!panel)render();}}
+      if(current())setTimeout(pollTask,5000);
+    }
+    if(durable)setTimeout(pollTask,5000);
     if(initialJob&&current()){if(initialAnalyze)await requestAnalysis([initialJob]);else await openMatchDetail(initialJob,initialView);}
     async function poll(){if(!current())return;try{if(!running&&!preparing&&!panel&&!exportFiles.length&&!document.querySelector('#job-drawer')?.open&&!['INPUT','SELECT','TEXTAREA'].includes(document.activeElement?.tagName)){await refresh();render();if(snapshot.settings.auto_new&&!paused&&authorized()&&autoQueue.length){const ids=autoQueue.splice(0,snapshot.settings.round_limit);await start(ids);}}}catch(err){notice=err.message;render();}if(current())setTimeout(poll,60000);}
     setTimeout(poll,60000);

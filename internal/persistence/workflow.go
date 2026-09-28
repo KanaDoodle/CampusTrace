@@ -11,8 +11,9 @@ import (
 )
 
 type CreateArgs struct {
-	JobID  string `json:"job_id"`
-	Resume string `json:"resume_version,omitempty"`
+	JobID     string `json:"job_id"`
+	Resume    string `json:"resume_version,omitempty"`
+	Submitted bool   `json:"submitted,omitempty"`
 }
 type TransitionArgs struct {
 	ApplicationID string `json:"application_id"`
@@ -40,12 +41,12 @@ func ValidateAction(kind string, raw []byte) error {
 			return ErrValidation
 		}
 
-	case "create_application":
+	case "create_application", "record_submitted_application":
 		var a CreateArgs
 		if err := d.Strict(raw, &a); err != nil {
 			return err
 		}
-		if len(a.JobID) != 32 || len(a.Resume) > 200 {
+		if len(a.JobID) != 32 || len(a.Resume) > 200 || (kind == "create_application" && a.Submitted) {
 			return ErrValidation
 		}
 	case "transition_application":
@@ -116,13 +117,22 @@ func (s *Store) ApplyAction(ctx context.Context, user, nonce, kind string, raw [
 			err = deleteWatchTx(ctx, tx, user, a.WatchID)
 			result = []byte(d.JSON(map[string]bool{"deleted": err == nil}))
 
-		case "create_application":
+		case "create_application", "record_submitted_application":
 			var a CreateArgs
 			json.Unmarshal(raw, &a)
 			if err := CheckJobAccess(ctx, tx, user, a.JobID); err != nil {
 				return err
 			}
+			if kind == "create_application" {
+				if err := checkCampaignPlan(ctx, tx, user, a.JobID); err != nil {
+					return err
+				}
+			}
 			v := d.Application{ID: d.ID(), UserID: user, JobID: a.JobID, State: "PLANNED", Version: 1, ResumeVersion: a.Resume, CreatedAt: now, UpdatedAt: now}
+			if kind == "record_submitted_application" {
+				v.State = "APPLIED"
+				v.AppliedAt = &now
+			}
 			_, err = tx.ExecContext(ctx, "INSERT INTO applications(id,user_id,job_id,version,body) VALUES(?,?,?,?,?)", v.ID, user, v.JobID, 1, d.JSON(v))
 			if duplicate(err) {
 				return ErrConflict
@@ -130,7 +140,7 @@ func (s *Store) ApplyAction(ctx context.Context, user, nonce, kind string, raw [
 			if err != nil {
 				return err
 			}
-			event := d.ApplicationEvent{ID: d.ID(), ApplicationID: v.ID, To: "PLANNED", OccurredAt: now, Actor: user}
+			event := d.ApplicationEvent{ID: d.ID(), ApplicationID: v.ID, To: v.State, OccurredAt: now, Actor: user}
 			_, err = tx.ExecContext(ctx, "INSERT INTO application_events(id,application_id,body) VALUES(?,?,?)", event.ID, v.ID, d.JSON(event))
 			result = []byte(d.JSON(v))
 		case "transition_application":

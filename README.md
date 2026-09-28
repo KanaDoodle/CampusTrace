@@ -230,6 +230,12 @@ CAMPUS_INTEGRATION=1 CAMPUS_LIVE_SOURCES=1 GOWORK=off \
 
 详细变更与验收见 [PRODUCTIZATION_REPORT.md](PRODUCTIZATION_REPORT.md)。
 
+## 后端能力增量
+
+岗位深度分析现在以持久任务执行：关闭网页后继续处理，服务中断后保留进度，重新核对再继续或重试。投递进展可以维护同公司、同批次的显式限投规则，并在创建计划时通过事务检查名额。新增 Prometheus 指标接口和任务阶段记录，以及独立临时数据库性能测量工具。
+
+使用方式与并发/恢复边界见 [后端升级说明](docs/backend-upgrade.md)，结果及复现见 [性能验证](docs/performance.md)，指标与排障见 [监控说明](docs/operations.md)。
+
 ## Reliable Async Pipeline
 
 ```text
@@ -393,6 +399,7 @@ RADAR_RACE=1 ./scripts/verify-radar.sh # 同样覆盖真实 MySQL/Redis/etcd/Kan
 make integration           # 兼容旧命令；复用 campustrace_test，历史任务可能影响测试
 CAMPUS_INTEGRATION=1 go test -race -count=1 -v ./internal/integration
 make eval                  # 24 个 scripted runtime contract cases
+./scripts/benchmark.sh --jobs 1000 --requests 40 --concurrency 4 # 隔离库，无模型调用
 make loadgen               # 100 个 synthetic Observation，经实际 Worker/KanaRPC
 ```
 
@@ -409,7 +416,7 @@ Scripted eval 不代表真实模型准确率，synthetic loadgen 不代表线上
 - **RPC**：KanaRPC 为教育性 v0.x 框架，API 稳定性及提前远程取消存在上述限制。
 - **Agent 与检索**：自由生成事实回答被刻意限制。可选 live provider 未完成效果评估；当前没有 semantic embedding provider，也未评估其质量。弱点提取依赖经过验证的显式输入，非 LLM extractor。RAG 容量、重复导入和文档更新/删除限制见上文。
 - **会话与认证**：SSE 无 replay/reconnect；MCP 认证仅在启动时进行；没有邮箱验证、密码重置或撤销服务。Redis 故障可影响短期状态与 trace 保存。
-- **队列与运维**：没有自动队列/历史归档或 Redis Cluster 支持；DLQ 仅通过 operator CLI 管理。Redis 相关 metrics 是进程内计数，重启重置；API `/metrics`，Worker `127.0.0.1:18081/metrics`。
+- **队列与运维**：没有自动队列/历史归档或 Redis Cluster 支持；DLQ 仅通过 operator CLI 管理。Redis 相关 metrics 是进程内计数，重启重置；API 与 Worker 保留 `/metrics` JSON，新增 `/metrics/prometheus`；应用任务阶段事件保存在 MySQL，尚未安装独立监控或告警服务。
 - **UI**：中文优先，使用结构化资料与复盘表单；岗位搜索最多 100 条结果，没有使用前端框架。
 
 后续方向包括 v0.x facade 演进、更多来源 adapter、带评估的 semantic embedding provider、结构化复盘提取、历史归档和更丰富的 UI/资料表单。**这些均为计划，不是当前已实现能力。**
