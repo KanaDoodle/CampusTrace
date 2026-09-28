@@ -85,6 +85,8 @@ Assessment history is append-only. Successive successful content hashes drive co
 
 Eligibility produces eight rule results: graduation, degree, job type, location, experience, major, language and technical requirements. Missing graduation/degree/job-type evidence is critical `UNKNOWN`. Explicit hard failure wins; unresolved evidence beats preference conditions. Location and preferred job type are preferences (`CONDITIONAL`), not fabricated legal eligibility constraints. Majors/languages/experience become hard requirements when identified. Optional technology signals do not override explicit `REQUIRED:` constraints.
 
+Every comparison row includes the saved candidate value even when job evidence is missing or conflicting. Candidate cities include preferred and acceptable locations; graduation ranges are displayed as ranges. Missing job evidence and unfilled profile fields use distinct messages. A complete candidate profile does not turn missing job evidence into a passing requirement.
+
 GoFit is independent: `EXPLICIT_GO`, `LANGUAGE_FLEXIBLE`, `NO_GO_SIGNAL`, `CONFLICTING`, `UNKNOWN`. Ranking is a weighted sum with a visible breakdown; configure all weights through `RANKING_WEIGHTS`.
 
 The conservative offline parser supports explicit labels in [testdata/import.json](testdata/import.json), common `2027届`, `本科及以上`, Go/Golang and apply/closed text. It does not claim broad natural-language extraction quality.

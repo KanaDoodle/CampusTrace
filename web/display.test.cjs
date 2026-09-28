@@ -33,6 +33,14 @@ test('表单中文展示能往返为原有英文规范值，不改 API 枚举',(
   assert.equal(D.scalar('requirement','0',{rule:'EXPERIENCE_REQUIREMENT'}),'不限相关经验');
   assert.equal(D.scalar('status','UNKNOWN',{results:[]}),'资格暂无法判断');
 });
+test('核对表区分缺少岗位要求与缺少求职资料',()=>{
+  assert.equal(D.scalar('requirement','',{rule:'GRADUATION_REQUIREMENT'}),'尚未提取到明确要求');
+  assert.equal(D.scalar('candidate_value','',{rule:'GRADUATION_REQUIREMENT'}),'求职资料中尚未填写');
+  assert.equal(D.scalar('candidate_value','2027',{rule:'GRADUATION_REQUIREMENT'}),'2027 届');
+  assert.equal(D.scalar('candidate_value','2026-2027',{rule:'GRADUATION_REQUIREMENT'}),'2026—2027 届');
+  assert.equal(D.scalar('candidate_value','FULL_TIME|INTERNSHIP',{rule:'JOB_TYPE'}),'全职岗位、实习');
+  assert.equal(D.scalar('requirement','',{rule:'EDUCATION_REQUIREMENT',explanation:'Conflicting requirements require verification'}),'要求存在冲突，待核验');
+});
 test('接口错误和新增规则说明使用中文兜底',()=>{
   for(const code of [400,401,403,404,409,429,500])assert.match(D.error(code),/\p{Script=Han}/u);
   assert.match(D.error(401,'/auth/login'),/邮箱或密码/);
@@ -71,6 +79,13 @@ test('嵌套得分、投递条件和操作预览不显示英文 JSON 键或枚�
   const html=render({eligibility:{status:'UNKNOWN',results:[]},ranking:{breakdown:{status:30,city:10}},args:{state:'APPLIED'},action_type:'transition_application'});
   assert.match(html,/资格暂无法判断/);assert.match(html,/岗位可投递情况/);assert.match(html,/30.0 分/);assert.match(html,/已投递/);
   assert.doesNotMatch(html,/UNKNOWN|APPLIED|transition_application|breakdown|"status"/);
+});
+test('岗位证据缺失不会把已保存的候选人资料显示成暂未填写',()=>{
+  const html=render({rule:'GRADUATION_REQUIREMENT',result:'UNKNOWN',requirement:'',candidate_value:'2027',explanation:'No sufficiently confident evidence'});
+  assert.match(html,/2027 届/);
+  assert.match(html,/尚未提取到明确要求/);
+  assert.match(html,/可靠岗位要求/);
+  assert.doesNotMatch(html,/暂未填写/);
 });
 test('证据摘录保留来源内容并转义，不能当作界面代码执行',()=>{
   const html=render('<img src=x onerror=alert(1)> CLOSED','excerpt');

@@ -105,6 +105,8 @@ Eligibility 分别检查毕业年份、学历、岗位类型、地点、经验�
 
 地点和偏好岗位类型属于 `CONDITIONAL` 偏好，不伪装成硬性资格约束。已识别的专业、语言和经验要求可以成为硬约束；可选技术信号不能覆盖明确的 `REQUIRED:` 条件。
 
+投递条件核对中的「我的情况」始终来自已保存的求职资料，不依赖岗位要求是否提取成功。地点展示首选与可接受城市，毕业届别支持年份范围。岗位侧缺少证据时显示「尚未提取到明确要求」，个人侧确实为空时显示「求职资料中尚未填写」；缺少岗位证据仍保留 `UNKNOWN`，不会仅凭资料完整就判为满足。
+
 GoFit 独立输出 `EXPLICIT_GO`、`LANGUAGE_FLEXIBLE`、`NO_GO_SIGNAL`、`CONFLICTING` 或 `UNKNOWN`。Ranking 使用可见的加权分解，通过 `RANKING_WEIGHTS` 配置全部权重；`breakdown_sources` 区分证据判断、用户偏好和岗位/观察元数据。
 
 离线 parser 仅保守支持 [导入示例](testdata/import.json) 中的显式标签，以及常见的 `2027届`、`本科及以上`、Go/Golang 和投递/关闭文本，不代表通用自然语言提取能力。

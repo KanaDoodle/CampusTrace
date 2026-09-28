@@ -47,7 +47,7 @@
     'Recent official observation has an application action and no closure evidence':'近期官方页面仍有申请入口，且未发现结束招聘的证据。',
     'Official page lacks decisive application evidence':'官方页面缺少足以确认是否可投递的信息。',
     'Only non-official evidence is available':'目前只有非官方来源的信息，投递前建议核验官网。',
-    'No sufficiently confident evidence':'缺少可信度足够的依据。',
+    'No sufficiently confident evidence':'尚未提取到该项的可靠岗位要求，无法据此核对。',
     'Conflicting requirements require verification':'不同来源的要求不一致，需要核验。',
     'Identified requirement satisfied':'目前记录的个人情况满足这一要求。',
     'Explicit requirement is not satisfied':'目前记录的个人情况不满足这一明确要求。',
@@ -67,6 +67,7 @@
   });
   // Display aliases only for known fixtures/canonical vocabulary. Source excerpts are never rewritten.
   const aliases = Object.freeze({
+    'rules-v4':'第 4 版评估规则', 'rules-v3':'第 3 版评估规则',
     Shanghai:'上海', Hangzhou:'杭州', Beijing:'北京', Shenzhen:'深圳', Guangzhou:'广州', Chengdu:'成都', Nanjing:'南京', Wuhan:'武汉', Suzhou:'苏州', English:'英语', Chinese:'中文', 'Computer Science':'计算机科学', backend:'后端开发',
     'Synthetic Cedar':'雪松科技（虚构演示）', 'Synthetic Harbor':'港湾科技（虚构演示）', 'Synthetic Maple':'枫叶科技（虚构演示）', 'Synthetic Pine':'青松科技（虚构演示）', 'Synthetic Loadgen':'负载测试公司（虚构演示）',
     'Synthetic Import Company':'导入示例公司（虚构演示）', 'Synthetic CSV Company':'表格导入公司（虚构演示）',
@@ -97,6 +98,10 @@
     return new Intl.DateTimeFormat('zh-CN',options).format(date)+(onlyDate?'':'（北京时间）');
   }
   function scalar(key,value,context={}) {
+    if (key==='requirement'||key==='candidate_value') {
+      if(key==='requirement'&&(value==null||value==='')&&context.explanation==='Conflicting requirements require verification')return '要求存在冲突，待核验';
+      return requirement(value,context.rule||context.type,key);
+    }
     if (value == null || value === '') return '暂未填写';
     if (typeof value === 'boolean') return key==='verified'?(value?'已核验':'待核验'):(value?'是':'否');
     if (/(?:_at|_seen)$/.test(key)) return date(value);
@@ -107,7 +112,7 @@
     if (key==='status') return label(['ELIGIBLE','INELIGIBLE','CONDITIONAL'].includes(value)||context.results?'eligibility':'job',value);
     if (key==='result') return label(context.application_id?'interview':'rule',value);
     if (key==='type') return enums.evidence[value]||enums.change[value]||enums.trust[value]||'其他记录';
-    if (key==='requirement'||key==='candidate_value'||key==='value') return requirement(value,context.rule||context.type,key);
+    if (key==='value') return requirement(value,context.rule||context.type,key);
     if (key==='confidence') return `${Math.round(Number(value)*100)}%`;
     if (key==='round') return `第 ${value} 轮`;
     if (key==='error_category') return enums.fetch[value] || ({ANALYSIS_FAILED:'岗位分析失败',SCHEMA:'资料格式不符合要求',TRANSIENT:'暂时性异常',PERMANENT:'需人工处理的异常'}[value]) || '其他异常';
@@ -116,7 +121,7 @@
     return text(value);
   }
   function requirement(value,type,key='requirement') {
-    if (value == null || value==='') return '暂无明确要求';
+    if (value == null || value==='') return key==='candidate_value'?'求职资料中尚未填写':'尚未提取到明确要求';
     const s=String(value);
     if (type==='DEADLINE') return date(s,true);
     if (type==='GRADUATION_REQUIREMENT' && /^20\d{2}(-20\d{2})?$/.test(s)) return s.replace('-','—')+' 届';

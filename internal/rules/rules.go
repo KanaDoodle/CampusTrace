@@ -131,11 +131,51 @@ func alternatives(value string, choices []string) bool {
 	}
 	return false
 }
+
+// A candidate's saved profile is independent of whether a job requirement was
+// extracted or is conflicting. Always carry it into the comparison output.
+func candidateValue(p d.Profile, typ string) string {
+	switch typ {
+	case "GRADUATION_REQUIREMENT":
+		if p.GraduationYear != 0 {
+			return strconv.Itoa(p.GraduationYear)
+		}
+		if p.GraduationFrom != 0 && p.GraduationTo >= p.GraduationFrom {
+			if p.GraduationFrom == p.GraduationTo {
+				return strconv.Itoa(p.GraduationFrom)
+			}
+			return fmt.Sprintf("%d-%d", p.GraduationFrom, p.GraduationTo)
+		}
+	case "EDUCATION_REQUIREMENT":
+		return p.Degree
+	case "JOB_TYPE":
+		return strings.Join(p.PreferredTypes, "|")
+	case "LOCATION":
+		cities := append([]string{}, p.PreferredCities...)
+		for _, city := range p.AcceptableCities {
+			if !contains(cities, city) {
+				cities = append(cities, city)
+			}
+		}
+		return strings.Join(cities, "|")
+	case "EXPERIENCE_REQUIREMENT":
+		return strconv.Itoa(p.ExperienceMonths)
+	case "MAJOR_REQUIREMENT":
+		return strings.Join(p.Majors, "|")
+	case "LANGUAGE_REQUIREMENT":
+		return strings.Join(p.Languages, "|")
+	case "TECH_STACK":
+		return strings.Join(p.Skills, "|")
+	}
+	return ""
+}
+
 func Eligibility(j d.Job, p d.Profile, es []d.Evidence, now time.Time) d.Eligibility {
 	a := d.Eligibility{ID: d.ID(), JobID: j.ID, UserID: p.UserID, Status: "ELIGIBLE", RuleVersion: d.RuleVersion, AssessedAt: now, Results: []d.RuleResult{}}
 	types := []string{"GRADUATION_REQUIREMENT", "EDUCATION_REQUIREMENT", "JOB_TYPE", "LOCATION", "EXPERIENCE_REQUIREMENT", "MAJOR_REQUIREMENT", "LANGUAGE_REQUIREMENT", "TECH_STACK"}
 	critical := map[string]bool{"GRADUATION_REQUIREMENT": true, "EDUCATION_REQUIREMENT": true, "JOB_TYPE": true}
 	for _, typ := range types {
+		candidate := candidateValue(p, typ)
 		ev := byType(es, typ)
 		if typ == "TECH_STACK" {
 			hard := []d.Evidence{}
@@ -153,7 +193,7 @@ func Eligibility(j d.Job, p d.Profile, es []d.Evidence, now time.Time) d.Eligibi
 			if critical[typ] {
 				result = "UNKNOWN"
 			}
-			a.Results = append(a.Results, d.RuleResult{Rule: typ, Result: result, Explanation: "No sufficiently confident evidence", EvidenceIDs: []string{}})
+			a.Results = append(a.Results, d.RuleResult{Rule: typ, Candidate: candidate, Result: result, Explanation: "No sufficiently confident evidence", EvidenceIDs: []string{}})
 			continue
 		}
 		values := map[string]bool{}
@@ -166,11 +206,11 @@ func Eligibility(j d.Job, p d.Profile, es []d.Evidence, now time.Time) d.Eligibi
 			for _, e := range ev {
 				ids = append(ids, e.ID)
 			}
-			a.Results = append(a.Results, d.RuleResult{Rule: typ, Result: "UNKNOWN", Explanation: "Conflicting requirements require verification", EvidenceIDs: ids})
+			a.Results = append(a.Results, d.RuleResult{Rule: typ, Candidate: candidate, Result: "UNKNOWN", Explanation: "Conflicting requirements require verification", EvidenceIDs: ids})
 			continue
 		}
 		e := ev[0]
-		r := d.RuleResult{Rule: typ, Requirement: e.Value, Result: "PASS", EvidenceIDs: []string{}, Explanation: "Identified requirement satisfied"}
+		r := d.RuleResult{Rule: typ, Candidate: candidate, Requirement: e.Value, Result: "PASS", EvidenceIDs: []string{}, Explanation: "Identified requirement satisfied"}
 		for _, v := range ev {
 			r.EvidenceIDs = append(r.EvidenceIDs, v.ID)
 		}
@@ -178,7 +218,6 @@ func Eligibility(j d.Job, p d.Profile, es []d.Evidence, now time.Time) d.Eligibi
 		unknown := func() { r.Result = "UNKNOWN"; r.Explanation = "Requirement or candidate value needs clarification" }
 		switch typ {
 		case "GRADUATION_REQUIREMENT":
-			r.Candidate = fmt.Sprint(p.GraduationYear)
 			bounds := strings.Split(e.Value, "-")
 			lo, err := strconv.Atoi(bounds[0])
 			hi := lo
@@ -197,7 +236,6 @@ func Eligibility(j d.Job, p d.Profile, es []d.Evidence, now time.Time) d.Eligibi
 				unknown()
 			}
 		case "EDUCATION_REQUIREMENT":
-			r.Candidate = p.Degree
 			levels := map[string]int{"ASSOCIATE": 1, "BACHELOR": 2, "MASTER": 3, "PHD": 4}
 			want, got := levels[e.Value], levels[p.Degree]
 			if want == 0 || got == 0 {
@@ -206,7 +244,6 @@ func Eligibility(j d.Job, p d.Profile, es []d.Evidence, now time.Time) d.Eligibi
 				fail()
 			}
 		case "JOB_TYPE":
-			r.Candidate = strings.Join(p.PreferredTypes, "|")
 			if e.Value != "FULL_TIME" && e.Value != "INTERNSHIP" {
 				unknown()
 			} else if len(p.PreferredTypes) == 0 {
@@ -216,7 +253,6 @@ func Eligibility(j d.Job, p d.Profile, es []d.Evidence, now time.Time) d.Eligibi
 				r.Explanation = "Job type differs from preference"
 			}
 		case "LOCATION":
-			r.Candidate = strings.Join(p.PreferredCities, "|")
 			if alternatives(e.Value, p.PreferredCities) {
 			} else if alternatives(e.Value, p.AcceptableCities) {
 				r.Result = "CONDITIONAL"
@@ -226,7 +262,6 @@ func Eligibility(j d.Job, p d.Profile, es []d.Evidence, now time.Time) d.Eligibi
 				r.Explanation = "Relocation preference requires confirmation"
 			}
 		case "EXPERIENCE_REQUIREMENT":
-			r.Candidate = fmt.Sprint(p.ExperienceMonths)
 			n, err := strconv.Atoi(e.Value)
 			if err != nil || n < 0 {
 				unknown()
@@ -234,21 +269,18 @@ func Eligibility(j d.Job, p d.Profile, es []d.Evidence, now time.Time) d.Eligibi
 				fail()
 			}
 		case "MAJOR_REQUIREMENT":
-			r.Candidate = strings.Join(p.Majors, "|")
 			if len(p.Majors) == 0 {
 				unknown()
 			} else if !alternatives(e.Value, p.Majors) {
 				fail()
 			}
 		case "LANGUAGE_REQUIREMENT":
-			r.Candidate = strings.Join(p.Languages, "|")
 			if len(p.Languages) == 0 {
 				unknown()
 			} else if !alternatives(e.Value, p.Languages) {
 				fail()
 			}
 		case "TECH_STACK":
-			r.Candidate = strings.Join(p.Skills, "|")
 			value := strings.TrimPrefix(e.Value, "REQUIRED:")
 			if !strings.HasPrefix(e.Value, "REQUIRED:") {
 				r.Result = "NOT_APPLICABLE"

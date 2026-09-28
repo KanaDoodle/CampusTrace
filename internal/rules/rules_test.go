@@ -74,6 +74,54 @@ func TestEligibility(t *testing.T) {
 		})
 	}
 }
+
+func TestEligibilityKeepsSavedCandidateValuesWhenJobEvidenceIsMissing(t *testing.T) {
+	p := d.Profile{
+		UserID: "u", GraduationYear: 2027, Degree: "MASTER", PreferredTypes: []string{"FULL_TIME", "INTERNSHIP"},
+		PreferredCities: []string{"Shanghai"}, AcceptableCities: []string{"Shanghai", "Hangzhou"},
+		ExperienceMonths: 0, Majors: []string{"软件工程"}, Languages: []string{"Go"}, Skills: []string{"Redis"},
+	}
+	result := Eligibility(d.Job{ID: "j"}, p, nil, time.Now())
+	if result.Status != "UNKNOWN" {
+		t.Fatal("missing job evidence must still remain unknown", result)
+	}
+	want := map[string]string{
+		"GRADUATION_REQUIREMENT": "2027", "EDUCATION_REQUIREMENT": "MASTER", "JOB_TYPE": "FULL_TIME|INTERNSHIP",
+		"LOCATION": "Shanghai|Hangzhou", "EXPERIENCE_REQUIREMENT": "0", "MAJOR_REQUIREMENT": "软件工程",
+		"LANGUAGE_REQUIREMENT": "Go", "TECH_STACK": "Redis",
+	}
+	for _, row := range result.Results {
+		if row.Candidate != want[row.Rule] || row.Requirement != "" {
+			t.Fatalf("saved profile disappeared behind missing evidence: %+v", row)
+		}
+	}
+	if len(p.PreferredCities) != 1 {
+		t.Fatal("comparison mutated the saved profile")
+	}
+}
+
+func TestEligibilityKeepsProfileThroughConflictAndGraduationRanges(t *testing.T) {
+	p := d.Profile{Degree: "MASTER", GraduationFrom: 2026, GraduationTo: 2027}
+	es := []d.Evidence{
+		{ID: "e1", Claim: d.Claim{Type: "EDUCATION_REQUIREMENT", Value: "BACHELOR", Confidence: 1}},
+		{ID: "e2", Claim: d.Claim{Type: "EDUCATION_REQUIREMENT", Value: "MASTER", Confidence: 1}},
+		{ID: "g1", Claim: d.Claim{Type: "GRADUATION_REQUIREMENT", Value: "2026-2027", Confidence: 1}},
+	}
+	result := Eligibility(d.Job{}, p, es, time.Now())
+	for _, row := range result.Results {
+		if row.Rule == "EDUCATION_REQUIREMENT" && (row.Candidate != "MASTER" || row.Result != "UNKNOWN") {
+			t.Fatalf("conflicting job requirements hid the candidate: %+v", row)
+		}
+		if row.Rule == "GRADUATION_REQUIREMENT" && (row.Candidate != "2026-2027" || row.Result != "PASS") {
+			t.Fatalf("graduation range was shown as zero: %+v", row)
+		}
+	}
+	for _, row := range Eligibility(d.Job{}, d.Profile{}, nil, time.Now()).Results {
+		if row.Rule == "GRADUATION_REQUIREMENT" && row.Candidate != "" {
+			t.Fatalf("missing graduation was shown as a recorded year: %+v", row)
+		}
+	}
+}
 func TestFitAndRank(t *testing.T) {
 	now, _, es := fixture()
 	if GoFit(es) != "EXPLICIT_GO" {
