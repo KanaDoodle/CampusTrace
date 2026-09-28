@@ -132,6 +132,7 @@ func (a *API) matchingRoutes(on func(string, http.HandlerFunc)) {
 		write(w, map[string]any{"state": snapshot.Jobs[0].State, "result": result}, err)
 	})
 	on("POST /api/matching/analyze", a.analyzeMatches)
+	on("POST /api/matching/export", a.exportMatches)
 }
 
 func (a *API) analyzeMatches(w http.ResponseWriter, r *http.Request) {

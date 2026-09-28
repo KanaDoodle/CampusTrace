@@ -108,6 +108,16 @@ func cleanJobText(text, maskName string) string {
 // This catalog does not use Radar's 500-job cap or the search screen's 100-row
 // limit. All accessible jobs (up to an explicit 10,000 cap) get a local score.
 func (s *Store) MatchSnapshot(ctx context.Context, user, model, maskName string, ids []string) (MatchSnapshot, error) {
+	return s.matchSnapshot(ctx, user, model, maskName, ids, true)
+}
+
+// Manual export needs the current texts and candidate, without running the
+// preliminary rules again over potentially megabytes of selected descriptions.
+func (s *Store) MatchExportSnapshot(ctx context.Context, user, model, maskName string, ids []string) (MatchSnapshot, error) {
+	return s.matchSnapshot(ctx, user, model, maskName, ids, false)
+}
+
+func (s *Store) matchSnapshot(ctx context.Context, user, model, maskName string, ids []string, screen bool) (MatchSnapshot, error) {
 	v := MatchSnapshot{Jobs: []MatchJob{}}
 	tx, err := s.DB.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true})
 	if err != nil {
@@ -197,7 +207,9 @@ func (s *Store) MatchSnapshot(ctx context.Context, user, model, maskName string,
 			row.TextBytes = len(row.Text)
 			row.RequirementsKey = matching.RequirementKey(row.Text, model)
 			row.InputKey = matching.InputKey(row.RequirementsKey, v.CandidateHash)
-			row.PreliminaryScore, row.ExcludedReason = matching.Preliminary(job, v.Profile, o.Text, time.Now().UTC())
+			if screen {
+				row.PreliminaryScore, row.ExcludedReason = matching.Preliminary(job, v.Profile, o.Text, time.Now().UTC())
+			}
 		} else {
 			row.ExcludedReason = "最近一次未取得可用岗位原文"
 		}
