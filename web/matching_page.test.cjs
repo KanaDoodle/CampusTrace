@@ -3,7 +3,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
 
-function harness({pending=['pending-a','pending-b'],failed=['failed-a','failed-b'],analyze,exportError,compare}={}){
+function harness({pending=['pending-a','pending-b'],failed=['failed-a','failed-b'],analyze,exportError,compare,evidenceReviews=0}={}){
   const stored=new Map(),elements=new Map(),requests=[],exports=[],decisionRequests=[];
   const model={url:'https://model.example/chat',model:'test-model',api_key:'synthetic-test-key'};
   const modelKey=JSON.stringify([model.url,model.model,'server-model']);
@@ -35,7 +35,7 @@ function harness({pending=['pending-a','pending-b'],failed=['failed-a','failed-b
       snapshot.calls_today++;
       if(analyze)await analyze({ids:body.job_ids,elements});
       for(const job of snapshot.jobs)if(body.job_ids.includes(job.job.id))job.state='ANALYZED';
-      return {analyzed:body.job_ids,reused:[],calls:1};
+      return {analyzed:body.job_ids,reused:[],calls:1,evidence_reviews:evidenceReviews};
     }
     throw new Error('Unexpected local test API path: '+path);
   };
@@ -164,4 +164,12 @@ test('company comparison rejects excessive and empty selected scopes without tru
   h.elements.get('match-comparison-scope').onchange({target:{value:'SELECTED'}});
   await h.elements.get('match-comparison-form').onsubmit({preventDefault(){}});
   assert.equal(h.decisionRequests.length,0);assert.ok(h.html().includes('没有岗位'));
+});
+
+
+test('completed analysis surfaces withdrawn evidence without queuing another model request',async()=>{
+ const h=harness({pending:['pending-a'],failed:[],evidenceReviews:2});await h.start();
+ await h.elements.get('match-continue').onclick();h.consent();await h.review();
+ assert.deepEqual(h.requests,[['pending-a']]);assert.deepEqual(h.progress().failed,[]);
+ assert.ok(h.html().includes('2 项错误能力引用已撤销'));
 });

@@ -54,14 +54,14 @@ func TestComparisonResolvesPreferencesBeforeModelCitationValidationButKeepsAbili
 		t.Fatal(got, err)
 	}
 	output[1] = Match{RequirementID: "tech", Result: "DIRECT", Explanation: "错认能力", Evidence: []Citation{{ID: "city", Excerpt: "Shanghai"}}}
-	_, err = Compare(context.Background(), model, c, []MatchInput{{ID: "job", Requirements: reqs}})
-	var v *ValidationError
-	if !errors.As(err, &v) || v.Reason != "FACT_NOT_ABILITY" || v.JobIndex != 1 || v.ItemIndex != 2 {
-		t.Fatal("ability guard bypassed", err)
+	got, err = Compare(context.Background(), model, c, []MatchInput{{ID: "job", Requirements: reqs}})
+	if err != nil || got["job"][1].Result != "NO_EVIDENCE" || got["job"][1].ReviewNote != InvalidAbilityEvidence || len(got["job"][1].Evidence) != 0 || got["job"][0].Result != "DIRECT" {
+		t.Fatal("invalid ability judgment was not withdrawn independently", got, err)
 	}
 	output[0].RequirementID = "tech"
 	output[0].Result = "NO_EVIDENCE"
 	_, err = Compare(context.Background(), model, c, []MatchInput{{ID: "job", Requirements: reqs}})
+	var v *ValidationError
 	if !errors.As(err, &v) || v.Reason != "REQUIREMENT_DUPLICATE" {
 		t.Fatal("duplicate guard bypassed", err)
 	}

@@ -88,16 +88,17 @@ type PreparationTask struct {
 	Evidence              []PreparationEvidence `json:"evidence"`
 }
 type PreparationPlan struct {
-	Version     string            `json:"version"`
-	Job         d.Job             `json:"job"`
-	State       string            `json:"state"`
-	InputKey    string            `json:"input_key"`
-	AnalyzedAt  time.Time         `json:"analyzed_at"`
-	Score       *float64          `json:"score"`
-	Coverage    float64           `json:"coverage"`
-	Eligibility d.Eligibility     `json:"eligibility"`
-	Tasks       []PreparationTask `json:"tasks"`
-	Notice      string            `json:"notice"`
+	Version         string            `json:"version"`
+	Job             d.Job             `json:"job"`
+	State           string            `json:"state"`
+	InputKey        string            `json:"input_key"`
+	AnalyzedAt      time.Time         `json:"analyzed_at"`
+	Score           *float64          `json:"score"`
+	Coverage        float64           `json:"coverage"`
+	Eligibility     d.Eligibility     `json:"eligibility"`
+	Tasks           []PreparationTask `json:"tasks"`
+	Notice          string            `json:"notice"`
+	EvidenceReviews int               `json:"evidence_reviews,omitempty"`
 }
 
 func BuildPreparation(in DecisionInput, p d.Profile, now time.Time) PreparationPlan {
@@ -110,6 +111,7 @@ func BuildPreparation(in DecisionInput, p d.Profile, now time.Time) PreparationP
 		return plan
 	}
 	r := in.Result
+	plan.EvidenceReviews = EvidenceReviewCount(r.Matches)
 	plan.InputKey = r.InputKey
 	plan.AnalyzedAt = r.AnalyzedAt
 	plan.Score, plan.Coverage = Score(r.Requirements, r.Matches)
@@ -212,6 +214,7 @@ type CompanyJob struct {
 	Gaps                                          []PreparationTask `json:"gaps"`
 	Sections                                      []SectionScore    `json:"sections"`
 	AnalyzedAt                                    time.Time         `json:"analyzed_at"`
+	EvidenceReviews                               int               `json:"evidence_reviews,omitempty"`
 	roleRank, eligibilityRank, cityRank, typeRank int
 	bonusSupport                                  float64
 }
@@ -331,6 +334,7 @@ func BuildCompanyComparison(company, scope string, inputs []DecisionInput, p d.P
 		} else {
 			out.Analyzed++
 			plan := BuildPreparation(in, p, now)
+			row.EvidenceReviews = plan.EvidenceReviews
 			row.Score, row.Coverage, row.Eligibility, row.AnalyzedAt = plan.Score, plan.Coverage, plan.Eligibility.Status, plan.AnalyzedAt
 			row.Sections = ScoreBreakdown(in.Result.Requirements, in.Result.Matches)
 			for _, task := range plan.Tasks {

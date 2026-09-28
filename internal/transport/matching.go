@@ -311,6 +311,7 @@ func (a *API) analyzeMatches(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	analyzed := []string{}
+	evidenceReviews := 0
 	byID := map[string]p.MatchJob{}
 	for _, job := range remaining {
 		byID[job.Job.ID] = job
@@ -327,6 +328,7 @@ func (a *API) analyzeMatches(w http.ResponseWriter, r *http.Request) {
 			return err
 		}
 		analyzed = append(analyzed, job.Job.ID)
+		evidenceReviews += matching.EvidenceReviewCount(matches)
 		return nil
 	}
 	for _, job := range remaining {
@@ -363,5 +365,5 @@ func (a *API) analyzeMatches(w http.ResponseWriter, r *http.Request) {
 		}
 		inputs = inputs[count:]
 	}
-	write(w, map[string]any{"analyzed": analyzed, "reused": reused, "requirements_reused": requirementsReused, "calls": budget.calls}, nil)
+	write(w, map[string]any{"analyzed": analyzed, "reused": reused, "requirements_reused": requirementsReused, "calls": budget.calls, "evidence_reviews": evidenceReviews}, nil)
 }

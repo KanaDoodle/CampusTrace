@@ -29,3 +29,10 @@ test('comparison preserves multiple recommendations, scopes partial results and 
  const report={scope:'SELECTED',total:3,analyzed:2,pending:0,stale:1,recommendation:'TIED',generated_at:'2026-09-28T05:00:00Z',reasons:['仅本次范围'],jobs:[{job:{id:'1',title:'<script>岗位</script>',locations:['上海']},state:'ANALYZED',recommended:true,score:75,coverage:100,eligibility:'UNKNOWN',strengths:[task],gaps:[],sections:[]},{job:{id:'2',title:'并列岗位'},state:'ANALYZED',recommended:true,score:75,coverage:100,eligibility:'UNKNOWN',strengths:[],gaps:[],sections:[]},{job:{id:'3',title:'过期岗位'},state:'STALE',score:null,strengths:[],gaps:[],sections:[]}]};
  const html=Decision.renderCompany(report,{esc,D});assert.equal((html.match(/优先候选/g)||[]).length,2);assert.ok(html.includes('本次已选岗位'));assert.ok(html.includes('分析待更新'));assert.ok(!html.includes('<script>'));assert.ok(html.includes('不能据此认定是全公司'));
 });
+
+
+test('preparation and company comparison surface withdrawn evidence reviews',()=>{
+ const p={...plan(),evidence_reviews:2};assert.ok(Decision.renderPreparation(p,{esc,D}).includes('2 项错误能力引用已撤销'));
+ const html=Decision.renderCompany({scope:'ALL',total:1,analyzed:1,pending:0,stale:0,recommendation:'NONE',reasons:[],jobs:[{job:{id:'1',title:'测试岗位'},state:'ANALYZED',evidence_reviews:2,score:null,coverage:50,strengths:[],gaps:[],sections:[]}]},{esc,D});
+ assert.ok(html.includes('2 项错误引用已撤销'));assert.ok(html.includes('暂无可靠评分'));
+});

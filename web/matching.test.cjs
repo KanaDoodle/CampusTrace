@@ -54,3 +54,11 @@ test('core score, separate sections, selectable directions and project context r
  result.state='STALE';const stale=m.renderResult(result,{esc,D});
  assert.ok(stale.includes('查看上次分析依据（已过期）'));assert.ok(stale.includes('数据安全平台'));assert.ok(!stale.includes('75.0 / 100'));assert.ok(!stale.includes('100.0%'));
 });
+
+
+test('withdrawn capability evidence remains explicit and cannot display its former proof',()=>{
+ const v={state:'ANALYZED',result:{score:null,coverage:50,model:'fixture',analyzed_at:'2026-09-28T00:00:00Z',requirements:[{id:'r',category:'REQUIRED',text:'具体能力',excerpt:'要求原文',confidence:1}],matches:[{requirement_id:'r',result:'NO_EVIDENCE',review_note:'INVALID_ABILITY_EVIDENCE',explanation:'原结论已撤销，不代表你不会。',evidence:[]}],candidate_facts:[{id:'city',kind:'CITY_PREFERRED',text:'误用的城市事实'}],qualifications:{status:'UNKNOWN',results:[]}}};
+ const html=m.renderResult(v,{esc,D});
+ for(const word of ['1 项结论因误用偏好或项目局限已撤销','错误引用已撤销','暂无依据','暂无法可靠评分','不代表你不会'])assert.ok(html.includes(word),word);
+ assert.ok(!html.includes('误用的城市事实'));assert.ok(!html.includes('100.0 / 100'));
+});

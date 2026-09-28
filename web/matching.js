@@ -52,7 +52,7 @@ const CampusMatching=(function(root){
     const byID=new Map((r.matches||[]).map(m=>[m.requirement_id,m]));
     const candidate=new Map((r.candidate_facts||[]).map(f=>[f.id,f]));
     if(!r.requirements?.length)return '<p class="empty">模型未提取到明确要求，因此没有生成能力评分。</p>';
-    return `<div class="table-wrap"><table><thead><tr><th>岗位要求与原文</th><th>我的依据</th><th>匹配结论</th></tr></thead><tbody>${r.requirements.map(req=>{const m=byID.get(req.id);return `<tr><td><span class="pill">${esc(req.aspect==='SOFT'?'软性要求':labels[req.category])}</span>${req.group_id?'<span class="pill">同组任选方向</span>':''}<p>${esc(req.text)}</p><blockquote>${esc(req.excerpt)}</blockquote>${req.group_id?`<small>选择规则：${esc(req.group_excerpt)}；同组按最有依据的方向核对。</small>`:''}${req.confidence<.8?'<small>要求解释的置信度较低，需核对原文。</small>':''}</td><td>${m?.evidence?.length?m.evidence.map(e=>{const f=candidate.get(e.id);return `<p><small>${f?.project_name?esc(f.project_name)+' · ':''}${esc(labels[f?.kind]||'资料依据')}</small><br>${esc(e.excerpt)}</p>`;}).join(''):'资料中暂无足够依据'}</td><td><b>${esc(labels[m?.result]||'暂无依据')}</b><p>${esc(m?.explanation||'需要补充资料后核对。')}</p></td></tr>`;}).join('')}</tbody></table></div>`;
+    return `<div class="table-wrap"><table><thead><tr><th>岗位要求与原文</th><th>我的依据</th><th>匹配结论</th></tr></thead><tbody>${r.requirements.map(req=>{const m=byID.get(req.id);return `<tr><td><span class="pill">${esc(req.aspect==='SOFT'?'软性要求':labels[req.category])}</span>${req.group_id?'<span class="pill">同组任选方向</span>':''}<p>${esc(req.text)}</p><blockquote>${esc(req.excerpt)}</blockquote>${req.group_id?`<small>选择规则：${esc(req.group_excerpt)}；同组按最有依据的方向核对。</small>`:''}${req.confidence<.8?'<small>要求解释的置信度较低，需核对原文。</small>':''}</td><td>${m?.evidence?.length?m.evidence.map(e=>{const f=candidate.get(e.id);return `<p><small>${f?.project_name?esc(f.project_name)+' · ':''}${esc(labels[f?.kind]||'资料依据')}</small><br>${esc(e.excerpt)}</p>`;}).join(''):'资料中暂无足够依据'}</td><td>${m?.review_note==='INVALID_ABILITY_EVIDENCE'?'<span class="pill">错误引用已撤销</span>':''}<b>${esc(labels[m?.result]||'暂无依据')}</b><p>${esc(m?.explanation||'需要补充资料后核对。')}</p></td></tr>`;}).join('')}</tbody></table></div>`;
   }
   function renderResult(v,helpers){
     const {esc,D}=helpers;
@@ -60,12 +60,14 @@ const CampusMatching=(function(root){
       if(v.state==='STALE'&&v.result)return `<p class="pending-note">分析规则、岗位、资料或模型选择已有变化，请重新分析。</p><details><summary>查看上次分析依据（已过期）</summary><p class="meta">分析于 ${esc(D.date(v.result.analyzed_at))}；旧结论保留供核对，不参与当前评分。</p>${renderRequirements(v.result,helpers)}</details>`;
       return `<p class="empty">${v.state==='STALE'?'分析规则、岗位、资料或模型选择已有变化，请重新分析。':'尚未深度分析，可在岗位匹配中查看本地初筛并加入分析。'}</p>`;
     }
+    const reviews=(v.result.matches||[]).filter(m=>m.review_note==='INVALID_ABILITY_EVIDENCE').length;
+    const reviewNotice=reviews?`<p class="pending-note">${reviews} 项结论因误用偏好或项目局限已撤销，标为「暂无依据」，不计为已匹配或明确不符合。请在逐项依据中核对并补充资料。</p>`:'';
     const r=v.result,sections=r.breakdown||[],core=sections.find(s=>s.category==='REQUIRED');
     const sectionLabels={REQUIRED:'核心技术要求',RESPONSIBILITY:'工作内容相关性',BONUS:'加分项',SOFT:'软性要求'};
     const score=r.score==null?'暂无法可靠评分':Number(r.score).toFixed(1)+' / 100';
     const coreNote=core?core.total?`核心技术要求共 ${core.total} 项：直接匹配 ${core.direct} 项，部分匹配 ${core.partial} 项，可迁移经验 ${core.transferable} 项，暂无充分依据 ${core.missing} 项，明确不符合 ${core.mismatch} 项。`:'岗位未提取到可独立核对的核心技术要求。':'';
     const summary=sections.length?`<section class="match-result-summary"><h4>分析摘要</h4><p>${esc(coreNote)}</p><p>投递资格：${esc(D.label('eligibility',r.qualifications?.status))}。城市与岗位类型按已保存偏好核对。</p>${core?.missing?'<p class="pending-note">可补充核心要求相关的具体项目事实，再重新核对；暂无依据不代表你不会。</p>':''}<details><summary>查看各部分的依据覆盖度</summary><div class="table-wrap"><table><thead><tr><th>核对部分</th><th>有依据／总项数</th><th>依据覆盖度</th></tr></thead><tbody>${sections.map(s=>`<tr><td>${esc(sectionLabels[s.category]||s.category)}</td><td>${s.known} / ${s.total}</td><td>${s.total?Number(s.coverage).toFixed(1)+'%':'暂无条目'}</td></tr>`).join('')}</tbody></table></div></details></section>`:'';
-    return `<p class="match-score">核心技术匹配度：<strong>${esc(score)}</strong> · 核心要求依据覆盖度 ${Number(r.coverage).toFixed(1)}%</p><details><summary>评分口径与模型信息</summary><p class="meta">主分数只计算有依据的必需技术要求：直接匹配 1、部分匹配 0.5、可迁移经验 0.25、明确不符合 0。核心覆盖不足 60% 时不显示分数。工作内容、加分项、软性要求单独展示；明确任选的同组方向只计一项。分数不代表录用概率，也不改变招聘状态核验结果。</p><p class="meta">分析于 ${esc(D.date(r.analyzed_at))} · ${esc(r.model.split('\n').pop()||'所选模型')}</p></details>${summary}<details><summary>查看全部岗位要求与个人依据（${r.requirements?.length||0} 项）</summary>${renderRequirements(r,helpers)}</details><details><summary>查看本轮提取的资格核对</summary><p>根据明确条件与已保存资料计算；城市名称已归一，优先专业不作为硬门槛，要求缺失或冲突仍待核验。</p><div class="table-wrap"><table><thead><tr><th>核对项</th><th>岗位要求</th><th>我的情况</th><th>结果</th></tr></thead><tbody>${(r.qualifications?.results||[]).map(row=>`<tr><td>${esc(D.label('evidence',row.rule))}</td><td>${esc(D.requirement(row.requirement,row.rule))}</td><td>${esc(D.requirement(row.candidate_value,row.rule,'candidate_value'))}</td><td>${esc(D.label('rule',row.result))}</td></tr>`).join('')}</tbody></table></div></details>`;
+    return `<p class="match-score">核心技术匹配度：<strong>${esc(score)}</strong> · 核心要求依据覆盖度 ${Number(r.coverage).toFixed(1)}%</p><details><summary>评分口径与模型信息</summary><p class="meta">主分数只计算有依据的必需技术要求：直接匹配 1、部分匹配 0.5、可迁移经验 0.25、明确不符合 0。核心覆盖不足 60% 时不显示分数。工作内容、加分项、软性要求单独展示；明确任选的同组方向只计一项。分数不代表录用概率，也不改变招聘状态核验结果。</p><p class="meta">分析于 ${esc(D.date(r.analyzed_at))} · ${esc(r.model.split('\n').pop()||'所选模型')}</p></details>${reviewNotice}${summary}<details><summary>查看全部岗位要求与个人依据（${r.requirements?.length||0} 项）</summary>${renderRequirements(r,helpers)}</details><details><summary>查看本轮提取的资格核对</summary><p>根据明确条件与已保存资料计算；城市名称已归一，优先专业不作为硬门槛，要求缺失或冲突仍待核验。</p><div class="table-wrap"><table><thead><tr><th>核对项</th><th>岗位要求</th><th>我的情况</th><th>结果</th></tr></thead><tbody>${(r.qualifications?.results||[]).map(row=>`<tr><td>${esc(D.label('evidence',row.rule))}</td><td>${esc(D.requirement(row.requirement,row.rule))}</td><td>${esc(D.requirement(row.candidate_value,row.rule,'candidate_value'))}</td><td>${esc(D.label('rule',row.result))}</td></tr>`).join('')}</tbody></table></div></details>`;
   }
   async function showJob(box,id,helpers){
     const {api,navigate}=helpers;
@@ -288,6 +290,7 @@ const CampusMatching=(function(root){
       if(!jobs.length){notice='这批岗位已经分析完成，或暂时没有可分析的岗位。';render();return;}
       const workIDs=new Set(jobs.map(j=>j.job.id));
       progress=queueWork(progress,[...workIDs],continuing);persist();
+      let evidenceReviews=0;const reviewNotice=()=>evidenceReviews?` ${evidenceReviews} 项错误能力引用已撤销，请打开岗位的逐项依据核对。`:'';
       running=true;paused=false;notice='正在分析，结果会逐批保存。';render();
       try{
         while(progress.pending.some(id=>workIDs.has(id))&&!paused&&current()&&authorized()){
@@ -299,8 +302,8 @@ const CampusMatching=(function(root){
           try{
             const result=await api('/api/matching/analyze','POST',{job_ids:batchIDs,candidate_hash:snapshot.candidate_hash,mask_name:maskName,model_config:root.CampusModels.requestConfig()});
             const done=new Set([...(result.analyzed||[]),...(result.reused||[])]);
-            progress.pending=progress.pending.filter(id=>!done.has(id));progress.done+=done.size;progress.calls+=result.calls||0;
-            notice=`本轮完成 ${progress.done} 个岗位，调用 ${progress.calls} 次；命中缓存的岗位不重复调用。`;
+            progress.pending=progress.pending.filter(id=>!done.has(id));progress.done+=done.size;progress.calls+=result.calls||0;evidenceReviews+=result.evidence_reviews||0;
+            notice=`本轮完成 ${progress.done} 个岗位，调用 ${progress.calls} 次；命中缓存的岗位不重复调用。`+reviewNotice();
           }catch(err){
             batchFailed=true;
             if(['MATCH_DAILY_LIMIT','MATCH_BUSY','MATCH_INPUT_CHANGED','MODEL_AUTH_FAILED','MODEL_BALANCE_LOW','MODEL_PROVIDER_BUSY'].includes(err.code)){notice=err.message;paused=true;if(err.code==='MATCH_INPUT_CHANGED')consentHash='';}
@@ -309,7 +312,7 @@ const CampusMatching=(function(root){
           const priorCalls=snapshot.calls_today;persist();await refresh();
           if(batchFailed)progress.calls+=Math.max(0,snapshot.calls_today-priorCalls);persist();render();
         }
-        if(!progress.pending.length&&!progress.failed.length)notice=`本轮已完成 ${progress.done} 个岗位；可继续分析下一批。`;
+        if(!progress.pending.length&&!progress.failed.length)notice=`本轮已完成 ${progress.done} 个岗位；可继续分析下一批。`+reviewNotice();
       }catch(err){notice=err.message;}finally{running=false;persist();render();}
     }
     render();

@@ -133,6 +133,7 @@ type Match struct {
 	Result        string     `json:"result"`
 	Explanation   string     `json:"explanation"`
 	Evidence      []Citation `json:"evidence"`
+	ReviewNote    string     `json:"review_note,omitempty"`
 }
 type MatchInput struct {
 	ID           string        `json:"job_id"`
@@ -296,14 +297,14 @@ func Compare(ctx context.Context, m resume.Completer, c Candidate, jobs []MatchI
 	}
 	var out struct {
 		Jobs []struct {
-			ID      string  `json:"job_id"`
-			Matches []Match `json:"matches"`
+			ID      string            `json:"job_id"`
+			Matches []comparisonMatch `json:"matches"`
 		} `json:"jobs"`
 	}
 	err := complete(ctx, m, comparisonPrompt, struct {
-		Candidate Candidate    `json:"candidate"`
-		Jobs      []MatchInput `json:"jobs"`
-	}{c, jobs}, &out)
+		Candidate comparisonCandidate `json:"candidate"`
+		Jobs      []MatchInput        `json:"jobs"`
+	}{candidateForComparison(c), jobs}, &out)
 	if err != nil {
 		return nil, err
 	}
@@ -328,15 +329,25 @@ func Compare(ctx context.Context, m resume.Completer, c Candidate, jobs []MatchI
 		// Ignore model judgments about location/type preferences. These are computed
 		// from the supplied saved values; validate the rewritten result afterward.
 		// Missing, unknown or duplicate requirement IDs still fail validation.
-		j.Matches = comparePreferences(c, reqs, j.Matches)
-		if err := ValidateMatches(c, reqs, j.Matches); err != nil {
+		matches := make([]Match, 0, len(j.Matches))
+		for _, m := range j.Matches {
+			matches = append(matches, Match{RequirementID: m.RequirementID, Result: m.Result, Explanation: m.Explanation, Evidence: m.Evidence})
+		}
+		matches = comparePreferences(c, reqs, matches)
+		// Validate every ID, explanation and exact excerpt before withdrawing any
+		// semantic misuse, so a bad citation cannot conceal another invalid field.
+		if err := validateMatches(c, reqs, matches, false); err != nil {
 			var validation *ValidationError
 			if errors.As(err, &validation) {
 				validation.JobIndex = positions[j.ID]
 			}
 			return nil, err
 		}
-		result[j.ID] = j.Matches
+		withdrawInvalidAbilityEvidence(c, reqs, matches)
+		if err := ValidateMatches(c, reqs, matches); err != nil {
+			return nil, err
+		}
+		result[j.ID] = matches
 	}
 	if len(result) != len(inputs) {
 		return nil, &ValidationError{Reason: "JOB_COUNT", Expected: len(inputs), Actual: len(result)}
@@ -344,6 +355,10 @@ func Compare(ctx context.Context, m resume.Completer, c Candidate, jobs []MatchI
 	return result, nil
 }
 func ValidateMatches(c Candidate, reqs []Requirement, matches []Match) error {
+	return validateMatches(c, reqs, matches, true)
+}
+
+func validateMatches(c Candidate, reqs []Requirement, matches []Match, checkAbility bool) error {
 	if len(matches) != len(reqs) {
 		return &ValidationError{Reason: "MATCH_COUNT", Expected: len(reqs), Actual: len(matches)}
 	}
@@ -399,7 +414,7 @@ func ValidateMatches(c Candidate, reqs []Requirement, matches []Match) error {
 			if !strings.Contains(f.Text, e.Excerpt) {
 				return invalid("EXCERPT_NOT_EXACT", item)
 			}
-			if positive && (f.Kind == "LIMITATION" || f.Kind == "ROLE" || (isPreference(f.Kind) && reqByID[m.RequirementID].Category != "QUALIFICATION")) {
+			if checkAbility && positive && !abilityCitation(f, reqByID[m.RequirementID]) {
 				return invalid("FACT_NOT_ABILITY", item)
 			}
 		}
