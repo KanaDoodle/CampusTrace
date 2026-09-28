@@ -168,6 +168,7 @@
     if (code==='RESUME_TEXT_INVALID') return '外发文字为空、过长或格式有误；请检查脱敏预览。';
     if (code==='RESUME_PII_DETECTED') return '外发文字仍含常见联系方式或身份信息，请先移除。';
     if (code==='RESUME_DRAFT_FAILED') return '模型未返回可核对的草稿，请检查外发文字后重试。';
+    if (code==='MATCH_DECISION_CAPACITY') return '对比范围或文字量过大；单次最多 200 个岗位，请缩小筛选或选择范围后重试。';
     if (code==='MODEL_TIMEOUT') return path.includes('/api/matching/')?'模型分析超时。未完成项已保留，可稍后单独分析一个岗位。':'模型生成超时。请稍后重试；如果简历较长，可只保留求职资料和项目经历后再生成。';
     if (code==='MODEL_CONNECTION_FAILED') return 'CampusTrace 与模型服务的连接失败或被中断，请检查运行服务的设备网络；模型结果校验尚未开始。';
     if (code==='MODEL_ENDPOINT_BLOCKED') return '模型地址解析或连接未通过检查，请核对模型设置及设备 DNS；请勿使用内网地址或需要跳转的接口。';

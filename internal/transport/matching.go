@@ -42,6 +42,8 @@ func matchFailure(w http.ResponseWriter, err error, stage ...string) {
 		status, code = 429, "MATCH_DAILY_LIMIT"
 	case errors.Is(err, p.ErrStaleInput):
 		status, code = 409, "MATCH_INPUT_CHANGED"
+	case errors.Is(err, matching.ErrDecisionCapacity):
+		status, code = 400, "MATCH_DECISION_CAPACITY"
 	case errors.Is(err, matching.ErrCapacity):
 		status, code = 400, "MATCH_CAPACITY"
 	case errors.Is(err, matching.ErrInvalid):
@@ -154,6 +156,8 @@ func (a *API) matchingRoutes(on func(string, http.HandlerFunc)) {
 	})
 	on("POST /api/matching/analyze", a.analyzeMatches)
 	on("POST /api/matching/export", a.exportMatches)
+	on("POST /api/matching/company", a.compareCompany)
+	on("POST /api/matching/preparation/{id}", a.prepareMatchedJob)
 }
 
 func (a *API) analyzeMatches(w http.ResponseWriter, r *http.Request) {

@@ -3,8 +3,8 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
 
-function harness({pending=['pending-a','pending-b'],failed=['failed-a','failed-b'],analyze,exportError}={}){
-  const stored=new Map(),elements=new Map(),requests=[],exports=[];
+function harness({pending=['pending-a','pending-b'],failed=['failed-a','failed-b'],analyze,exportError,compare}={}){
+  const stored=new Map(),elements=new Map(),requests=[],exports=[],decisionRequests=[];
   const model={url:'https://model.example/chat',model:'test-model',api_key:'synthetic-test-key'};
   const modelKey=JSON.stringify([model.url,model.model,'server-model']);
   stored.set('campustrace:match-progress:v1:alice',JSON.stringify({hash:'profile',model:modelKey,pending,failed:failed.map(id=>({id,message:'上次连接失败'})),done:1,calls:1}));
@@ -21,10 +21,11 @@ function harness({pending=['pending-a','pending-b'],failed=['failed-a','failed-b
     return true;
   };
   const context={document,setTimeout:()=>0,sessionStorage:{getItem:k=>stored.get(k),setItem:(k,v)=>stored.set(k,v)},CampusModels:{bindUser(){},requestConfig:()=>model,available:()=>true,label:()=> '测试模型'},CampusMatchingChat:{readSelection:()=>new Set(),selectedRows:()=>[],pruneSelection(){},storeSelection(){}},console};
-  vm.createContext(context);vm.runInContext(fs.readFileSync(__dirname+'/ui.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching.js','utf8'),context);
+  vm.createContext(context);vm.runInContext(fs.readFileSync(__dirname+'/ui.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching_decision.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching.js','utf8'),context);
   const api=async(path,method,body)=>{
     if(path==='/api/profile/resume/capabilities')return {user_id:'alice',model:'server-model',model_available:true};
     if(path==='/api/matching/preview')return structuredClone(snapshot);
+    if(path==='/api/matching/company'){decisionRequests.push(body);if(compare)return compare(body);return {company:body.company,scope:body.scope,total:jobs.length,analyzed:0,pending:jobs.length,stale:0,recommendation:'NONE',reasons:['待分析不用于推荐'],jobs:[]};}
     if(path==='/api/matching/export'){
       exports.push(body);if(exportError)throw new Error(exportError);
       return {candidate_hash:snapshot.candidate_hash,candidate:snapshot.candidate,jobs:body.job_ids.map(id=>({job_id:id,title:id,text:'完整岗位文字 '+id}))};
@@ -39,7 +40,7 @@ function harness({pending=['pending-a','pending-b'],failed=['failed-a','failed-b
     throw new Error('Unexpected local test API path: '+path);
   };
   const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  return {start:()=>context.CampusMatching.page(set,'<h2>岗位匹配</h2>',{api,esc,D:{text:s=>s,date:()=>'',label:(_kind,s)=>s},active:()=>true,navigate(){}}),elements,requests,exports,stored,snapshot,review:()=>elements.get('match-confirm').onclick(),html:()=>html,consent:()=>elements.get('match-consent').onchange({target:{checked:true}}),progress:()=>JSON.parse(stored.get('campustrace:match-progress:v1:alice'))};
+  return {start:()=>context.CampusMatching.page(set,'<h2>岗位匹配</h2>',{api,esc,D:{text:s=>s,date:()=>'',label:(_kind,s)=>s},active:()=>true,navigate(){}}),elements,requests,exports,decisionRequests,stored,snapshot,review:()=>elements.get('match-confirm').onclick(),html:()=>html,consent:()=>elements.get('match-consent').onchange({target:{checked:true}}),progress:()=>JSON.parse(stored.get('campustrace:match-progress:v1:alice'))};
 }
 
 test('saved work opens a full outbound review before consent and an explicit start',async()=>{
@@ -134,4 +135,33 @@ test('failed local preparation never permits an external analysis request',async
   assert.equal(h.elements.get('match-confirm').disabled,true);
   h.consent();await h.review();
   assert.deepEqual(h.requests,[]);
+});
+
+
+test('company comparison is an explicit local read without keys, outbound consent or model requests',async()=>{
+  const h=harness();await h.start();h.elements.get('match-open-comparison').onclick();
+  assert.equal(h.decisionRequests.length,0);
+  await h.elements.get('match-comparison-form').onsubmit({preventDefault(){}});
+  assert.equal(h.decisionRequests.length,1);assert.equal(h.decisionRequests[0].company,'测试公司');
+  assert.equal(h.decisionRequests[0].scope,'ALL');assert.equal(h.decisionRequests[0].api_key,undefined);
+  assert.equal(JSON.stringify(h.decisionRequests).includes('synthetic-test-key'),false);
+  assert.deepEqual(h.requests,[]);assert.deepEqual(h.exports,[]);
+  assert.ok(h.html().includes('暂不能可靠推荐'));
+});
+
+test('a delayed comparison cannot reopen a canceled dialog or replace a newly chosen scope',async()=>{
+  let resolve;const h=harness({compare:()=>new Promise(r=>{resolve=r;})});await h.start();h.elements.get('match-open-comparison').onclick();
+  const request=h.elements.get('match-comparison-form').onsubmit({preventDefault(){}});
+  h.elements.get('match-comparison-dialog').close();
+  resolve({total:99,recommendation:'READY',reasons:['old-response'],jobs:[]});await request;
+  assert.ok(!h.html().includes('old-response'));assert.equal(h.elements.get('match-comparison-dialog').open,false);
+});
+
+test('company comparison rejects excessive and empty selected scopes without truncation or a request',async()=>{
+  const h=harness();h.snapshot.jobs=Array.from({length:201},(_,i)=>({job:{id:String(i),company:'测试公司',title:'服务端开发',locations:[]},state:'BASIC',local:{tier:'HIGH'},preliminary_score:50}));
+  await h.start();h.elements.get('match-open-comparison').onclick();await h.elements.get('match-comparison-form').onsubmit({preventDefault(){}});
+  assert.equal(h.decisionRequests.length,0);assert.ok(h.html().includes('对比最多 200'));
+  h.elements.get('match-comparison-scope').onchange({target:{value:'SELECTED'}});
+  await h.elements.get('match-comparison-form').onsubmit({preventDefault(){}});
+  assert.equal(h.decisionRequests.length,0);assert.ok(h.html().includes('没有岗位'));
 });

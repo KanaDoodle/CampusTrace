@@ -75,12 +75,13 @@ const CampusMatching=(function(root){
     box.innerHTML=`<h3>技能与项目匹配</h3>${renderLocal(result,helpers)}<h4>模型深度分析</h4>${renderResult(result,helpers)}<button type="button" data-open-matching>前往岗位匹配</button>`;
     box.querySelector('[data-open-matching]').onclick=()=>navigate('matching');
   }
-  async function page(set,heading,{api,esc,D,UserError,navigate,openRecord,initialQuery='',active}){
+  async function page(set,heading,{api,esc,D,UserError,navigate,openRecord,initialQuery='',initialJob='',initialView='overview',active}){
     const cap=await api('/api/profile/resume/capabilities');root.CampusModels.bindUser(cap.user_id);bindUser(cap.user_id);
     let snapshot;try{snapshot=await api('/api/matching/preview','POST',identity());}catch(error){if(error.code!=='MATCH_PROFILE_REQUIRED')throw error;const inventory=await api('/api/jobs');if(!set(root.CampusUI.heading('岗位库','完善求职资料后，可按你的条件初筛与分析。')+'<div class="note-box"><p>先保存求职条件与技能，再开启岗位匹配。</p><button id="match-create-profile" class="btn btn-primary">完善求职资料</button></div>'+inventory.map(j=>`<article class="card"><h3>${esc(D.text(j.title))}</h3><p class="meta">${esc(D.text(j.company))} · ${esc((j.locations||[]).join('、'))}</p><button data-basic-job="${esc(j.id)}" class="btn">查看核验记录</button></article>`).join('')))return;document.querySelector('#match-create-profile').onclick=()=>navigate('profile');for(const b of document.querySelectorAll('[data-basic-job]'))b.onclick=()=>openRecord(b.dataset.basicJob).catch(err=>{document.querySelector('#notice').textContent=err.message;});return;}
     let query=initialQuery,filter='',tierFilter='',sort='local',pageNo=1,running=false,paused=false,consentHash='',notice='';
-    const C=root.CampusMatchingChat,U=root.CampusUI;
+    const C=root.CampusMatchingChat,U=root.CampusUI,Decision=root.CampusDecision;
     let companyFilter='',cityFilter='',panel='',intent=null,reviewBundle=null,reviewBusy=false,reviewError='',reviewRevision=0,searchTimer;
+    let comparisonCompany='',comparisonScope='ALL',comparisonReport=null,comparisonBusy=false,comparisonError='',comparisonRevision=0;
     let reviewKeys=new Map();
     const selected=C.readSelection(cap.user_id,snapshot.jobs);
     let onlySelected=false,preparing=false,exportFiles=[],exportIndex=0,exportConsent=false,exportKeys=new Map();
@@ -97,8 +98,8 @@ const CampusMatching=(function(root){
     function clearExport(){exportFiles=[];exportIndex=0;exportConsent=false;exportKeys.clear();}
     function selectionChanged(){C.storeSelection(cap.user_id,selected);clearExport();render();}
     function selectionHTML(){
-      const jobs=chosen(),canAnalyze=shortlist(jobs,snapshot.settings.round_limit).length;
-      return `<div class="selection-bar matching-selection" ${selected.size?'':'hidden'}><div><strong>${selected.size}</strong> 个岗位已选<button id="match-clear-selection" class="btn btn-subtle btn-small" ${preparing?'disabled':''}>清空</button><button id="match-show-selection" class="btn btn-subtle btn-small">查看已选</button></div><div><button id="match-export" class="btn" ${running||preparing||!selected.size||selected.size>1000?'disabled':''}>${U.icon('download')}${preparing?'准备分析包…':'导出到 ChatGPT'}</button><button id="match-selected-run" class="btn btn-primary" ${running||preparing||!canAnalyze?'disabled':''}>${U.icon('spark')}深度分析（${canAnalyze}）</button></div></div>${selected.size>1000?'<p class="pending-note">单次导出最多 1,000 个岗位，请减少选择；API 可分轮处理。</p>':''}`;
+      const jobs=chosen(),canCompare=jobs.length>=2&&new Set(jobs.map(j=>j.job.company)).size===1,canAnalyze=shortlist(jobs,snapshot.settings.round_limit).length;
+      return `<div class="selection-bar matching-selection" ${selected.size?'':'hidden'}><div><strong>${selected.size}</strong> 个岗位已选<button id="match-clear-selection" class="btn btn-subtle btn-small" ${preparing?'disabled':''}>清空</button><button id="match-show-selection" class="btn btn-subtle btn-small">查看已选</button></div><div><button id="match-compare-selected" class="btn" ${canCompare?'':'disabled'} title="选择同一公司至少两个岗位">对比已选</button><button id="match-export" class="btn" ${running||preparing||!selected.size||selected.size>1000?'disabled':''}>${U.icon('download')}${preparing?'准备分析包…':'导出到 ChatGPT'}</button><button id="match-selected-run" class="btn btn-primary" ${running||preparing||!canAnalyze?'disabled':''}>${U.icon('spark')}深度分析（${canAnalyze}）</button></div></div>${selected.size>1000?'<p class="pending-note">单次导出最多 1,000 个岗位，请减少选择；API 可分轮处理。</p>':''}`;
     }
     function exportHTML(){
       if(!exportFiles.length)return '';
@@ -144,14 +145,22 @@ const CampusMatching=(function(root){
       const actions=analysisActions(progress,{running,preparing,authorized:true,modelAvailable:root.CampusModels.available(cap),callsToday:snapshot.calls_today,dailyCalls:snapshot.settings.daily_calls,runCount:shortlist(view,snapshot.settings.round_limit).length,pendingCount:progress.pending.filter(id=>availableIDs.has(id)).length,failedCount:progress.failed.filter(f=>availableIDs.has(f.id)).length});
       const companies=[...new Set(snapshot.jobs.map(j=>j.job.company))],cities=[...new Set(snapshot.jobs.flatMap(j=>(j.job.locations||[]).map(cityName)))].sort();
       const activeCompany=!companyFilter?'全部岗位':companyFilter;
-      const html=U.heading('岗位库','选出值得投的岗位，每个判断都有依据。',`<button id="match-source" class="btn" aria-label="关注来源">${U.icon('radar')}关注来源</button><button id="match-open-settings" class="btn" aria-label="分析设置">${U.icon('filter')}分析设置</button>`)+progressHTML(actions)+`
+      const html=U.heading('岗位库','选出值得投的岗位，每个判断都有依据。',`<button id="match-open-comparison" class="btn" aria-label="同公司对比" ${snapshot.jobs.length?'':'disabled'}>${U.icon('list')}同公司对比</button><button id="match-source" class="btn" aria-label="关注来源">${U.icon('radar')}关注来源</button><button id="match-open-settings" class="btn" aria-label="分析设置">${U.icon('filter')}分析设置</button>`)+progressHTML(actions)+`
         <section class="workspace-panel" aria-label="岗位筛选与列表"><div class="company-tabs" aria-label="按公司筛选">${['',...companies].map(c=>`<button class="company-tab" data-match-company="${esc(c)}" aria-pressed="${companyFilter===c}">${esc(c||'全部岗位')}<span class="tab-count">${c?snapshot.jobs.filter(j=>j.job.company===c).length:snapshot.jobs.length}</span></button>`).join('')}</div>
         <form id="match-filter" class="matching-filter"><div class="form-grid"><label class="search-field">${U.icon('search')}<input id="match-search" name="q" type="search" aria-label="搜索公司或岗位" placeholder="搜索公司或岗位" value="${esc(query)}"></label><label><select id="match-city" name="city" aria-label="城市筛选"><option value="">所有城市</option>${cities.map(c=>`<option ${cityFilter===c?'selected':''}>${esc(c)}</option>`).join('')}</select></label><label><select id="match-state" name="state" aria-label="分析状态筛选"><option value="">所有状态</option>${Object.entries({BASIC:'待分析',ANALYZED:'已分析',STALE:'待更新',FAILED:'失败项'}).map(([s,n])=>`<option value="${s}" ${filter===s?'selected':''}>${n}</option>`).join('')}</select></label><label><select id="match-tier" name="tier" aria-label="初筛建议"><option value="">所有初筛建议</option>${Object.entries(tiers).map(([key,n])=>`<option value="${key}" ${tierFilter===key?'selected':''}>${n}</option>`).join('')}</select></label><label><select id="match-sort" name="sort" aria-label="岗位排序"><option value="local" ${sort==='local'?'selected':''}>初筛优先</option><option value="deep" ${sort==='deep'?'selected':''}>匹配度优先</option></select></label></div><div class="list-meta" style="padding:14px 0 0"><div><span>${view.length} 个岗位</span><label class="quiet-check"><input id="match-only-selected" name="only_selected" type="checkbox" ${onlySelected?'checked':''}>只看已选</label></div><button type="button" id="match-select-top" class="btn btn-subtle btn-small" ${preparing?'disabled':''}>${U.icon('plus')}选择优先分析岗位</button></div></form>
         <div class="selection-options"><button id="match-select-page" class="btn btn-subtle btn-small" ${preparing||!slice.length?'disabled':''}>选择本页（${slice.length}）</button><button id="match-select-all" class="btn btn-subtle btn-small" ${preparing||!view.length?'disabled':''}>选择全部结果（${view.length}）</button><button id="match-run" class="btn btn-subtle btn-small" ${actions.run.disabled?'disabled':''} title="${esc(actions.run.reason)}">分析前 ${snapshot.settings.round_limit} 个待分析岗位</button></div>
         <table class="job-table"><thead><tr><th class="check-cell" scope="col">选择</th><th class="job-cell" scope="col">岗位 / 工作地点</th><th class="tier-cell" scope="col">本地初筛</th><th class="match-cell" scope="col">核心技术匹配</th><th class="state-cell" scope="col">分析状态</th></tr></thead><tbody>${slice.map(j=>`<tr class="${selected.has(j.job.id)?'is-selected':''}"><td class="check-cell"><label class="check match-row-select"><input type="checkbox" data-match-select="${esc(j.job.id)}" aria-label="${esc('选择 '+D.text(j.job.company)+' '+D.text(j.job.title))}" ${selected.has(j.job.id)?'checked':''} ${preparing?'disabled':''}></label></td><td class="job-cell"><button class="job-title" data-match-job="${esc(j.job.id)}">${esc(D.text(j.job.title))}</button><div class="job-meta">${esc(D.text(j.job.company))}<span class="company-dot"></span>${esc((j.job.locations||[]).map(D.text).join(' / '))}<span class="company-dot"></span>${esc(D.label('job_type',j.job.job_type))}</div><span class="date-note">更新 ${esc(D.date(j.job.updated_at))}</span></td><td class="tier-cell"><span class="badge badge-${j.local?.tier==='HIGH'?'green':j.local?.tier==='POSSIBLE'?'blue':'gray'}">${esc(tiers[j.local?.tier]||'信息不足')}</span><span class="tier-note">${esc(j.local?.reasons?.[0]||j.excluded_reason||'缺少可用原文')}</span></td><td class="match-cell">${j.state==='ANALYZED'?`${j.score==null?'<span class="unscored">暂无法可靠评分</span>':`<span class="score">${Number(j.score).toFixed(1)}<small>/ 100</small></span>`}<span class="coverage">依据覆盖 ${Number(j.coverage).toFixed(1)}%</span>`:`<span class="unscored">${j.state==='STALE'?'依据变化，待更新':'待深度分析'}</span><span class="coverage">初筛不等同于匹配度</span>`}</td><td class="state-cell"><span class="badge badge-${progress.failed.some(f=>f.id===j.job.id)?'amber':j.state==='ANALYZED'?'green':j.state==='STALE'?'amber':'gray'}">${progress.failed.some(f=>f.id===j.job.id)?'分析失败':esc(labels[j.state])}</span>${j.excluded_reason?`<span class="date-note">${esc(j.excluded_reason)}</span>`:''}</td></tr>`).join('')||'<tr><td colspan="5"><div class="empty-state"><h3>没有找到符合条件的岗位</h3><p>试试其他关键词，或清除筛选条件。</p><button id="match-reset" class="btn">清除筛选</button></div></td></tr>'}</tbody></table>
-        <div class="table-footer"><span>${U.icon('shield')}本地初筛无需模型 · 今日调用 ${snapshot.calls_today} / ${snapshot.settings.daily_calls}</span><span><button id="match-refresh" class="btn btn-small" ${running||preparing?'disabled':''}>刷新</button> 第 ${pageNo} / ${totalPages} 页 <button id="match-prev" class="btn btn-small" ${pageNo===1?'disabled':''}>上一页</button><button id="match-next" class="btn btn-small" ${pageNo===totalPages?'disabled':''}>下一页</button></span></div></section>${selectionHTML()}<p class="meta" style="margin:18px 0 30px">当前模型：${esc(root.CampusModels.label(cap))}。已关闭、已忽略或明确不符合的岗位保留供查看，分析时跳过。</p>${settingsHTML()}${reviewHTML()}${exportHTML()}`;
+        <div class="table-footer"><span>${U.icon('shield')}本地初筛无需模型 · 今日调用 ${snapshot.calls_today} / ${snapshot.settings.daily_calls}</span><span><button id="match-refresh" class="btn btn-small" ${running||preparing?'disabled':''}>刷新</button> 第 ${pageNo} / ${totalPages} 页 <button id="match-prev" class="btn btn-small" ${pageNo===1?'disabled':''}>上一页</button><button id="match-next" class="btn btn-small" ${pageNo===totalPages?'disabled':''}>下一页</button></span></div></section>${selectionHTML()}<p class="meta" style="margin:18px 0 30px">当前模型：${esc(root.CampusModels.label(cap))}。已关闭、已忽略或明确不符合的岗位保留供查看，分析时跳过。</p>${settingsHTML()}${reviewHTML()}${exportHTML()}${comparisonHTML()}`;
       if(!set(html))return;
       const $=s=>document.querySelector(s),on=(id,fn)=>{const el=$('#'+id);if(el)el.onclick=fn;};
+      on('match-open-comparison',()=>openComparison());on('match-compare-selected',()=>openComparison('SELECTED'));
+      if(panel==='company'){
+        $('#match-comparison-company').onchange=e=>{comparisonCompany=e.target.value;comparisonReport=null;comparisonError='';comparisonRevision++;comparisonBusy=false;render();};
+        $('#match-comparison-scope').onchange=e=>{comparisonScope=e.target.value;comparisonReport=null;comparisonError='';comparisonRevision++;comparisonBusy=false;render();};
+        $('#match-comparison-form').onsubmit=e=>{e.preventDefault();return loadComparison();};
+        for(const b of document.querySelectorAll('[data-compare-detail]'))b.onclick=()=>{document.querySelector('#match-comparison-dialog').close();openMatchDetail(b.dataset.compareDetail);};
+        for(const b of document.querySelectorAll('[data-compare-prepare]'))b.onclick=()=>{document.querySelector('#match-comparison-dialog').close();openMatchDetail(b.dataset.comparePrepare,'preparation');};
+      }
       on('match-dismiss-notice',()=>{notice='';render();});on('match-source',()=>navigate('watches'));on('match-open-settings',()=>{panel='settings';render();});
       on('match-model',()=>{paused=true;navigate('models');});
       $('#match-consent').onchange=e=>{consentHash=e.target.checked?snapshot.candidate_hash:'';paused=true;render();};
@@ -182,15 +191,17 @@ const CampusMatching=(function(root){
       on('match-pause',()=>{paused=true;notice='已暂停后续分析，当前批次完成后停止。';render();});
       on('match-prev',()=>{pageNo--;render();});on('match-next',()=>{pageNo++;render();});
       for(const b of document.querySelectorAll('[data-match-job]'))b.onclick=()=>openMatchDetail(b.dataset.matchJob);
-      const dialogID={settings:'match-settings-dialog',review:'match-review-dialog',export:'match-export-review'}[panel];
-      if(dialogID){const dialog=$('#'+dialogID);U.openDialog(dialog,()=>{if(document.querySelector('#'+dialogID)!==dialog)return;panel='';if(dialogID==='match-review-dialog'){consentHash='';paused=true;reviewRevision++;reviewBusy=false;}});}
+      const dialogID={settings:'match-settings-dialog',review:'match-review-dialog',export:'match-export-review',company:'match-comparison-dialog'}[panel];
+      if(dialogID){const dialog=$('#'+dialogID);U.openDialog(dialog,()=>{if(document.querySelector('#'+dialogID)!==dialog)return;panel='';if(dialogID==='match-comparison-dialog'){comparisonRevision++;comparisonBusy=false;}if(dialogID==='match-review-dialog'){consentHash='';paused=true;reviewRevision++;reviewBusy=false;}});}
       U.restore(saved);
     }
-    async function openMatchDetail(id){
+    async function openMatchDetail(id,initialTab='overview'){
       const row=snapshot.jobs.find(j=>j.job.id===id);if(!row)return;
-      const header=`<div class="drawer-top"><div class="drawer-topline"><span>${esc(D.text(row.job.company))}</span><button type="button" class="icon-btn" data-dialog-close aria-label="关闭岗位详情">${U.icon('close')}</button></div><h2 id="drawer-title">${esc(D.text(row.job.title))}</h2><p class="drawer-subtitle">${esc((row.job.locations||[]).map(D.text).join(' / '))} · ${esc(D.label('job_type',row.job.job_type))}</p><div class="drawer-actions"><button class="btn btn-primary" data-detail-analyze ${eligible(row)?'':'disabled'}>${U.icon('spark')}${row.state==='STALE'?'更新分析':'深度分析'}</button><button class="btn" data-detail-plan>${U.icon('plus')}加入投递计划</button></div></div>`;
+      const header=`<div class="drawer-top"><div class="drawer-topline"><span>${esc(D.text(row.job.company))}</span><button type="button" class="icon-btn" data-dialog-close aria-label="关闭岗位详情">${U.icon('close')}</button></div><h2 id="drawer-title">${esc(D.text(row.job.title))}</h2><p class="drawer-subtitle">${esc((row.job.locations||[]).map(D.text).join(' / '))} · ${esc(D.label('job_type',row.job.job_type))}</p><div class="drawer-actions"><button class="btn btn-primary" data-detail-analyze ${eligible(row)?'':'disabled'}>${U.icon('spark')}${row.state==='STALE'?'更新分析':'深度分析'}</button><button class="btn" data-detail-plan>${U.icon('plus')}加入投递计划</button><button class="btn" data-detail-preparation>准备清单</button></div></div>`;
       const opened=U.drawer(header+'<div class="drawer-loading">正在读取本地保存的结果与岗位原文…</div>');
+      let loadPreparation=null;
       const bindHeader=()=>{
+        opened.element.querySelector('[data-detail-preparation]').onclick=()=>{const tab=opened.element.querySelector('#drawer-tab-preparation');if(tab){U.activateTab(tab);loadPreparation?.();}else initialTab='preparation';};
         opened.element.querySelector('[data-detail-analyze]').onclick=()=>{opened.element.close();requestAnalysis([id]);};
         opened.element.querySelector('[data-detail-plan]').onclick=async e=>{e.target.disabled=true;try{const apps=await api('/api/applications');if(apps.some(a=>a.job_id===id)){document.querySelector('#notice').textContent='已有投递记录，可在投递进展中查看。';return;}await api('/api/applications','POST',{job_id:id});document.querySelector('#notice').textContent='已加入投递计划。';e.target.textContent='已加入投递计划';}catch(err){document.querySelector('#notice').textContent=err.message;e.target.disabled=false;}};
       };
@@ -199,11 +210,52 @@ const CampusMatching=(function(root){
         const [result,record]=await Promise.all([api('/api/matching/results/'+encodeURIComponent(id),'POST',identity()),api('/api/jobs/'+encodeURIComponent(id))]);
         if(!current()||!U.drawerCurrent(opened.revision))return;
         const observations=record.observations||[],latest=observations.find(o=>o.text)||null;
-        const tabs=[['overview','匹配概览'],['evidence','逐项依据'],['source','岗位原文']];
-        opened.element.innerHTML=header+`<div class="drawer-body"><div class="detail-tabs" role="tablist" aria-label="岗位详情视图">${tabs.map(([key,n],i)=>`<button id="drawer-tab-${key}" role="tab" aria-selected="${i===0}" aria-controls="drawer-${key}" tabindex="${i===0?0:-1}" data-view-tab>${n}</button>`).join('')}</div><div id="drawer-overview" role="tabpanel" aria-labelledby="drawer-tab-overview">${renderResult(result,{esc,D})}<details data-remember id="drawer-local"><summary>查看本地初筛依据</summary>${renderLocal(row,{esc})}</details><button class="btn btn-small" data-detail-record>查看完整岗位核验记录</button></div><div id="drawer-evidence" role="tabpanel" aria-labelledby="drawer-tab-evidence" hidden>${result.result?`${result.state==='STALE'?'<p class="pending-note">以下是过期结果，仅供核对。需要重新分析后才能用于当前判断。</p>':''}${renderRequirements(result.result,{esc})}`:'<p class="empty">尚未产生模型逐项分析，可先查看本地初筛依据。</p>'+renderLocal(row,{esc})}</div><div id="drawer-source" role="tabpanel" aria-labelledby="drawer-tab-source" hidden><p class="meta">最近可用岗位观察：${latest?esc(D.date(latest.observed_at)):'暂无记录'}。原文保留来源语言，不代表仍可投递。</p><div class="drawer-original">${esc(latest?.text||'目前没有可用的岗位原文。')}</div><button class="btn btn-small" data-detail-record>查看完整岗位核验记录</button></div></div>`;
+        const tabs=[['overview','匹配概览'],['evidence','逐项依据'],['source','岗位原文'],['preparation','准备清单']];
+        opened.element.innerHTML=header+`<div class="drawer-body"><div class="detail-tabs" role="tablist" aria-label="岗位详情视图">${tabs.map(([key,n],i)=>`<button id="drawer-tab-${key}" role="tab" aria-selected="${i===0}" aria-controls="drawer-${key}" tabindex="${i===0?0:-1}" data-view-tab>${n}</button>`).join('')}</div><div id="drawer-overview" role="tabpanel" aria-labelledby="drawer-tab-overview">${renderResult(result,{esc,D})}<details data-remember id="drawer-local"><summary>查看本地初筛依据</summary>${renderLocal(row,{esc})}</details><button class="btn btn-small" data-detail-record>查看完整岗位核验记录</button></div><div id="drawer-evidence" role="tabpanel" aria-labelledby="drawer-tab-evidence" hidden>${result.result?`${result.state==='STALE'?'<p class="pending-note">以下是过期结果，仅供核对。需要重新分析后才能用于当前判断。</p>':''}${renderRequirements(result.result,{esc})}`:'<p class="empty">尚未产生模型逐项分析，可先查看本地初筛依据。</p>'+renderLocal(row,{esc})}</div><div id="drawer-source" role="tabpanel" aria-labelledby="drawer-tab-source" hidden><p class="meta">最近可用岗位观察：${latest?esc(D.date(latest.observed_at)):'暂无记录'}。原文保留来源语言，不代表仍可投递。</p><div class="drawer-original">${esc(latest?.text||'目前没有可用的岗位原文。')}</div><button class="btn btn-small" data-detail-record>查看完整岗位核验记录</button></div><div id="drawer-preparation" role="tabpanel" aria-labelledby="drawer-tab-preparation" hidden></div></div>`;
+        let preparationLoaded=false;
+        loadPreparation=async()=>{
+          if(preparationLoaded)return;preparationLoaded=true;
+          const box=opened.element.querySelector('#drawer-preparation');box.innerHTML='<p class="empty">正在读取已保存的分析，不调用模型…</p>';
+          try{
+            const plan=await api('/api/matching/preparation/'+encodeURIComponent(id),'POST',identity());
+            if(!current()||!U.drawerCurrent(opened.revision))return;
+            const done=Decision.readProgress(cap.user_id,plan);box.innerHTML=Decision.renderPreparation(plan,{esc,D},done);
+            for(const input of box.querySelectorAll('[data-prep-task]'))input.onchange=()=>{
+              if(input.checked)done.add(input.dataset.prepTask);else done.delete(input.dataset.prepTask);
+              input.closest('.prep-task').classList.toggle('is-done',input.checked);
+              box.querySelector('[data-prep-count]').textContent=`已完成 ${done.size} / ${plan.tasks.length}`;
+              if(!Decision.saveProgress(cap.user_id,plan,done))box.querySelector('[data-prep-storage]').textContent='浏览器未允许保存，勾选仅在本次打开时有效。';
+            };
+            const analyze=box.querySelector('[data-prep-analyze]');if(analyze){analyze.disabled=!eligible(row);analyze.onclick=()=>{opened.element.close();requestAnalysis([id]);};}
+          }catch(err){if(current()&&U.drawerCurrent(opened.revision)){box.innerHTML=`<p class="pending-note">${esc(err.message)}</p><button class="btn" data-prep-retry>重试读取清单</button>`;box.querySelector('[data-prep-retry]').onclick=()=>{preparationLoaded=false;loadPreparation();};}}
+        };
+        opened.element.querySelector('#drawer-tab-preparation').addEventListener('click',loadPreparation);
+        opened.element.querySelector('.detail-tabs').addEventListener('keydown',()=>setTimeout(()=>{if(opened.element.querySelector('#drawer-tab-preparation')?.getAttribute('aria-selected')==='true')loadPreparation();},0));
+        if(initialTab==='preparation'){U.activateTab(opened.element.querySelector('#drawer-tab-preparation'));await loadPreparation();}
+        if(!current()||!U.drawerCurrent(opened.revision))return;
         bindHeader();
         for(const b of opened.element.querySelectorAll('[data-detail-record]'))b.onclick=()=>openRecord(id).catch(err=>{document.querySelector('#notice').textContent=err.message;});
       }catch(err){if(U.drawerCurrent(opened.revision)){opened.element.innerHTML=header+`<div class="drawer-body"><p class="pending-note">${esc(err.message)}</p></div>`;bindHeader();}}
+    }
+    function comparisonHTML(){
+      if(panel!=='company')return '';
+      const companies=[...new Set(snapshot.jobs.map(j=>j.job.company))];
+      return `<dialog id="match-comparison-dialog" class="modal comparison-modal" aria-labelledby="match-comparison-title">${U.modalHead('match-comparison-title','同公司岗位对比','复用分析结果，找到值得优先投递的方向。')}<div class="modal-body"><form id="match-comparison-form" class="comparison-controls"><label>公司<select id="match-comparison-company">${companies.map(c=>`<option value="${esc(c)}" ${c===comparisonCompany?'selected':''}>${esc(c)}</option>`).join('')}</select></label><label>对比范围<select id="match-comparison-scope">${[['ALL','该公司全部本地岗位'],['FILTERED','该公司当前筛选结果'],['SELECTED','该公司已选岗位']].map(([key,n])=>`<option value="${key}" ${key===comparisonScope?'selected':''}>${n}</option>`).join('')}</select></label><button class="btn btn-primary" ${comparisonBusy?'disabled':''}>${comparisonBusy?'正在读取…':comparisonReport?'刷新对比':'查看对比'}</button></form><p class="form-note">单次最多 200 个岗位。只读取本地已有分析，不增加模型调用或自动加入投递计划。</p><div aria-live="polite">${comparisonError?`<p class="pending-note">${esc(comparisonError)}</p>`:''}${comparisonReport?Decision.renderCompany(comparisonReport,{esc,D}):!comparisonBusy?'<div class="empty-state"><h3>选好范围，再查看对比</h3><p>待分析与过期岗位会一并标出，避免把局部结果当成全公司结论。</p></div>':'<p class="empty">正在读取当前资料与岗位分析…</p>'}</div></div></dialog>`;
+    }
+    function openComparison(scope){
+      const jobs=chosen(),companies=[...new Set(jobs.map(j=>j.job.company))];
+      comparisonCompany=scope==='SELECTED'&&companies.length===1?companies[0]:companyFilter||companies[0]||snapshot.jobs[0]?.job.company||'';
+      comparisonScope=scope||'ALL';comparisonReport=null;comparisonError='';comparisonBusy=false;comparisonRevision++;panel='company';render();
+    }
+    async function loadComparison(){
+      if(comparisonBusy||!current()||panel!=='company')return;
+      const jobs=(comparisonScope==='SELECTED'?chosen():rows()).filter(j=>j.job.company===comparisonCompany);
+      if(comparisonScope!=='ALL'&&!jobs.length){comparisonError='此公司在所选范围没有岗位，请更换范围或先选择岗位。';render();return;}
+      if((comparisonScope==='ALL'?snapshot.jobs.filter(j=>j.job.company===comparisonCompany):jobs).length>200){comparisonError='对比最多 200 个岗位，请用筛选或勾选缩小范围。';render();return;}
+      const revision=++comparisonRevision;comparisonBusy=true;comparisonError='';comparisonReport=null;render();
+      try{const report=await api('/api/matching/company','POST',{...identity(),company:comparisonCompany,scope:comparisonScope,...(comparisonScope==='ALL'?{}:{job_ids:jobs.map(j=>j.job.id)})});if(!current()||panel!=='company'||revision!==comparisonRevision)return;comparisonReport=report;}
+      catch(err){if(!current()||panel!=='company'||revision!==comparisonRevision)return;comparisonError=err.message;}
+      finally{if(current()&&panel==='company'&&revision===comparisonRevision){comparisonBusy=false;render();}}
     }
     async function prepareExport(){
       if(preparing||running||!current()||!selected.size)return;
@@ -261,6 +313,7 @@ const CampusMatching=(function(root){
       }catch(err){notice=err.message;}finally{running=false;persist();render();}
     }
     render();
+    if(initialJob&&current())await openMatchDetail(initialJob,initialView);
     async function poll(){if(!current())return;try{if(!running&&!preparing&&!panel&&!exportFiles.length&&!document.querySelector('#job-drawer')?.open&&!['INPUT','SELECT','TEXTAREA'].includes(document.activeElement?.tagName)){await refresh();render();if(snapshot.settings.auto_new&&!paused&&authorized()&&autoQueue.length){const ids=autoQueue.splice(0,snapshot.settings.round_limit);await start(ids);}}}catch(err){notice=err.message;render();}if(current())setTimeout(poll,60000);}
     setTimeout(poll,60000);
   }

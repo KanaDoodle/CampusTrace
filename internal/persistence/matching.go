@@ -28,6 +28,7 @@ type MatchJob struct {
 	Score            *float64              `json:"score"`
 	Coverage         float64               `json:"coverage"`
 	Disposition      string                `json:"disposition"`
+	Result           *matching.Result      `json:"-"`
 }
 type MatchSnapshot struct {
 	Profile       d.Profile          `json:"-"`
@@ -113,16 +114,25 @@ func cleanJobText(text, maskName string) string {
 // This catalog does not use Radar's 500-job cap or the search screen's 100-row
 // limit. All accessible jobs (up to an explicit 10,000 cap) get a local score.
 func (s *Store) MatchSnapshot(ctx context.Context, user, model, maskName string, ids []string) (MatchSnapshot, error) {
-	return s.matchSnapshot(ctx, user, model, maskName, ids, true)
+	return s.matchSnapshot(ctx, user, model, maskName, ids, true, "", false)
 }
 
 // Manual export needs the current texts and candidate, without running the
 // preliminary rules again over potentially megabytes of selected descriptions.
 func (s *Store) MatchExportSnapshot(ctx context.Context, user, model, maskName string, ids []string) (MatchSnapshot, error) {
-	return s.matchSnapshot(ctx, user, model, maskName, ids, false)
+	return s.matchSnapshot(ctx, user, model, maskName, ids, false, "", false)
 }
 
-func (s *Store) matchSnapshot(ctx context.Context, user, model, maskName string, ids []string, screen bool) (MatchSnapshot, error) {
+// Decision views bind full results, current texts and personal facts to one
+// read-only snapshot. No model call or durable change is made here.
+func (s *Store) MatchDecisionSnapshot(ctx context.Context, user, model, maskName string, ids []string, company string) (MatchSnapshot, error) {
+	if len(ids) > matching.MaxDecisionJobs || (company == "" && len(ids) == 0) {
+		return MatchSnapshot{}, ErrValidation
+	}
+	return s.matchSnapshot(ctx, user, model, maskName, ids, true, company, true)
+}
+
+func (s *Store) matchSnapshot(ctx context.Context, user, model, maskName string, ids []string, screen bool, company string, fullResults bool) (MatchSnapshot, error) {
 	v := MatchSnapshot{Jobs: []MatchJob{}}
 	tx, err := s.DB.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true})
 	if err != nil {
@@ -161,10 +171,21 @@ func (s *Store) matchSnapshot(ctx context.Context, user, model, maskName string,
 		}
 		query += " AND id IN (" + strings.Join(slots, ",") + ")"
 	}
-	query += " ORDER BY id LIMIT 10001"
+	if company != "" {
+		query += " AND JSON_UNQUOTE(JSON_EXTRACT(body,'$.company'))=?"
+		args = append(args, company)
+	}
+	if fullResults {
+		query += " ORDER BY id LIMIT 201"
+	} else {
+		query += " ORDER BY id LIMIT 10001"
+	}
 	jobs, err := Many[d.Job](ctx, tx, query, args...)
 	if err != nil {
 		return v, err
+	}
+	if fullResults && len(jobs) > matching.MaxDecisionJobs {
+		return v, matching.ErrDecisionCapacity
 	}
 	if len(jobs) > 10000 {
 		return v, matching.ErrCapacity
@@ -172,7 +193,22 @@ func (s *Store) matchSnapshot(ctx context.Context, user, model, maskName string,
 	if len(ids) > 0 && len(jobs) != len(ids) {
 		return v, ErrNotFound
 	}
-	results, err := Many[matching.Result](ctx, tx, "SELECT JSON_OBJECT('job_id',job_id,'input_key',JSON_UNQUOTE(JSON_EXTRACT(body,'$.input_key')),'model',JSON_UNQUOTE(JSON_EXTRACT(body,'$.model')),'score',JSON_EXTRACT(body,'$.score'),'coverage',JSON_EXTRACT(body,'$.coverage')) FROM job_match_results WHERE user_id=?", user)
+	resultQuery := "SELECT JSON_OBJECT('job_id',job_id,'input_key',JSON_UNQUOTE(JSON_EXTRACT(body,'$.input_key')),'model',JSON_UNQUOTE(JSON_EXTRACT(body,'$.model')),'score',JSON_EXTRACT(body,'$.score'),'coverage',JSON_EXTRACT(body,'$.coverage')) FROM job_match_results WHERE user_id=?"
+	resultArgs := []any{user}
+	if fullResults {
+		resultQuery = "SELECT body FROM job_match_results WHERE user_id=? AND job_id IN ("
+		slots := []string{}
+		for _, j := range jobs {
+			slots = append(slots, "?")
+			resultArgs = append(resultArgs, j.ID)
+		}
+		if len(slots) == 0 {
+			resultQuery = "SELECT body FROM job_match_results WHERE user_id=? AND 1=0"
+		} else {
+			resultQuery += strings.Join(slots, ",") + ")"
+		}
+	}
+	results, err := Many[matching.Result](ctx, tx, resultQuery, resultArgs...)
 	if err != nil {
 		return v, err
 	}
@@ -231,6 +267,10 @@ func (s *Store) matchSnapshot(ctx context.Context, user, model, maskName string,
 			row.ExcludedReason = "你已忽略这个岗位"
 		}
 		if r, ok := resultByID[job.ID]; ok {
+			if fullResults {
+				copy := r
+				row.Result = &copy
+			}
 			row.State = "STALE"
 			if r.InputKey == row.InputKey && r.Model == model {
 				row.State = "ANALYZED"

@@ -24,45 +24,11 @@ func ScoreBreakdown(reqs []Requirement, matches []Match) []SectionScore {
 	}
 	sections := []SectionScore{}
 	for _, category := range []string{"REQUIRED", "RESPONSIBILITY", "BONUS", "SOFT"} {
-		units := [][]Requirement{}
-		groups := map[string]int{}
-		for _, r := range reqs {
-			if r.Category == "QUALIFICATION" {
-				continue
-			}
-			section := r.Category
-			if r.Aspect == "SOFT" || softOnly(r) {
-				section = "SOFT"
-			}
-			if section != category {
-				continue
-			}
-			if r.GroupID != "" {
-				if index, ok := groups[r.GroupID]; ok {
-					units[index] = append(units[index], r)
-					continue
-				}
-				groups[r.GroupID] = len(units)
-			}
-			units = append(units, []Requirement{r})
-		}
+		units := requirementUnits(reqs, category)
 		s := SectionScore{Category: category, Total: len(units)}
 		points := 0.0
 		for _, unit := range units {
-			best, value, allMismatch := "NO_EVIDENCE", -1.0, true
-			for _, r := range unit {
-				m := byID[r.ID]
-				if r.Confidence < .8 || m.Result != "MISMATCH" {
-					allMismatch = false
-				}
-				v, positive := map[string]float64{"DIRECT": 1, "PARTIAL": .5, "TRANSFERABLE": .25}[m.Result]
-				if r.Confidence >= .8 && positive && v > value {
-					best, value = m.Result, v
-				}
-			}
-			if best == "NO_EVIDENCE" && allMismatch {
-				best, value = "MISMATCH", 0
-			}
+			_, _, best, value := unitComparison(unit, byID)
 			switch best {
 			case "DIRECT":
 				s.Direct++
