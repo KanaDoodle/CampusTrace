@@ -17,10 +17,11 @@ type HTTPError struct{ Status int }
 func (e *HTTPError) Error() string { return fmt.Sprintf("model HTTP %d", e.Status) }
 
 type ChatClient struct {
-	URL, Key, Model string
-	HTTP            *http.Client
-	Sem             chan struct{}
-	Allow           func(context.Context) (bool, error)
+	URL, Key, Model  string
+	HTTP             *http.Client
+	Sem              chan struct{}
+	Allow            func(context.Context) (bool, error)
+	OutputTokenLimit int
 }
 
 func NewChat(url, key, model string, n int) *ChatClient {
@@ -54,6 +55,13 @@ func (c *ChatClient) complete(ctx context.Context, messages any, tools any, json
 	}
 	body := map[string]any{"model": c.Model, "messages": messages, "temperature": 0}
 	endpoint, _ := url.Parse(c.URL)
+	if c.OutputTokenLimit > 0 {
+		if endpoint != nil && endpoint.Hostname() == "api.openai.com" {
+			body["max_completion_tokens"] = c.OutputTokenLimit
+		} else {
+			body["max_tokens"] = c.OutputTokenLimit
+		}
+	}
 	if endpoint != nil && endpoint.Hostname() == "api.deepseek.com" {
 		// DeepSeek enables high-effort thinking by default. This workflow needs
 		// the final structured answer and does not retain reasoning across tools.
@@ -66,6 +74,9 @@ func (c *ChatClient) complete(ctx context.Context, messages any, tools any, json
 		// GPT-6 Chat Completions tool calls use none reasoning effort.
 		body["reasoning_effort"] = "none"
 		delete(body, "temperature")
+	}
+	if jsonOutput && endpoint != nil && endpoint.Hostname() == "api.openai.com" {
+		body["response_format"] = map[string]string{"type": "json_object"}
 	}
 	if tools != nil {
 		body["tools"] = tools

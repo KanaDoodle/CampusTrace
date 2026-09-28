@@ -13,3 +13,6 @@ var ReleaseSQL string
 
 //go:embed 004_job_radar.sql
 var RadarSQL string
+
+//go:embed 005_matching.sql
+var MatchingSQL string

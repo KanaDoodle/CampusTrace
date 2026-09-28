@@ -149,6 +149,8 @@
   // A machine-readable code from the API wins over the status-code fallback: a
   // taken email is not a formatting mistake the user can fix by retyping.
   function errorCode(code, status, path='') {
+    const matchingErrors={MATCH_DAILY_LIMIT:'已达到每日岗位匹配调用上限，未完成项已保留，可在额度重置后继续。',MATCH_INPUT_CHANGED:'求职资料或岗位内容已变化，请刷新并重新核对外发资料。',MATCH_BUSY:'此账号已有一批岗位正在分析，请等当前批次完成后再继续。',MATCH_CAPACITY:'本批文字量超过分析上限，请缩小批次或精简过长的岗位、项目描述。',MATCH_OUTPUT_INVALID:'模型结果未通过岗位原文或项目依据核对，已保留可复用的解析结果，可单独重试。',MATCH_PROFILE_REQUIRED:'请先在求职资料中保存技能和项目事实，再使用岗位匹配。',MATCH_JOB_UNAVAILABLE:'本批包含已关闭、已忽略或原文不可用的岗位，请刷新后重新选择。'};
+    if(matchingErrors[code])return matchingErrors[code];
     if (code==='EMAIL_TAKEN') return '该邮箱已经注册过，请直接登录，或换一个邮箱注册。';
     if (code==='RADAR_CAPACITY') return '可见岗位已超过当前雷达容量（500 条）；请联系维护者处理。';
     if (code==='SOURCE_URL_UNSUPPORTED') return '目前支持直接粘贴小红书校招岗位列表网址；其他公司网站需要单独适配。';

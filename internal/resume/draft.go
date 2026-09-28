@@ -73,6 +73,15 @@ func HasSensitive(s string) bool {
 	return false
 }
 
+// Redact is also used for the structured matching preview. Raw resumes and
+// account identifiers are never part of that input.
+func Redact(s string) string {
+	for _, pattern := range sensitive {
+		s = pattern.ReplaceAllString(s, "[已遮盖]")
+	}
+	return s
+}
+
 var allowedFields = map[string]bool{
 	"graduation_year": true, "degree": true, "majors": true,
 	"technical_skills": true, "target_languages": true,

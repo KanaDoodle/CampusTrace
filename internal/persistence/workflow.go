@@ -292,6 +292,9 @@ func (s *Store) SaveFact(ctx context.Context, user string, f d.ProjectFact) (d.P
 	f.UpdatedAt = f.CreatedAt
 	err := s.Tx(ctx, func(tx *sql.Tx) error {
 		var id string
+		if err := tx.QueryRowContext(ctx, "SELECT id FROM users WHERE id=? FOR UPDATE", user).Scan(&id); err != nil {
+			return err
+		}
 		if err := tx.QueryRowContext(ctx, "SELECT id FROM projects WHERE id=? AND user_id=?", f.ProjectID, user).Scan(&id); err != nil {
 			return err
 		}
@@ -307,6 +310,10 @@ func (s *Store) UpdateFact(ctx context.Context, user, id string, incoming d.Proj
 		return updated, ErrValidation
 	}
 	err := s.Tx(ctx, func(tx *sql.Tx) error {
+		var owner string
+		if err := tx.QueryRowContext(ctx, "SELECT id FROM users WHERE id=? FOR UPDATE", user).Scan(&owner); err != nil {
+			return err
+		}
 		old, err := One[d.ProjectFact](ctx, tx, "SELECT body FROM project_facts WHERE id=? AND user_id=? FOR UPDATE", id, user)
 		if err != nil {
 			return err

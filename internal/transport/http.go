@@ -201,6 +201,7 @@ func (a *API) Handler() http.Handler {
 	}
 	on := func(pattern string, h http.HandlerFunc) { mux.HandleFunc(pattern, a.protected(h)) }
 	a.radarRoutes(on)
+	a.matchingRoutes(on)
 	on("GET /api/jobs", func(w http.ResponseWriter, r *http.Request) {
 		v, err := a.Store.JobsForUser(r.Context(), user(r), r.URL.Query().Get("q"))
 		write(w, v, err)

@@ -57,7 +57,17 @@ func (s *Store) Migrate(ctx context.Context) error {
 	if err := s.migrateRepair(ctx); err != nil {
 		return err
 	}
-	return s.migrateRadar(ctx)
+	if err := s.migrateRadar(ctx); err != nil {
+		return err
+	}
+	for _, stmt := range strings.Split(migrations.MatchingSQL, ";") {
+		if strings.TrimSpace(stmt) != "" {
+			if _, err := s.DB.ExecContext(ctx, stmt); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 type Queryer interface {
