@@ -29,6 +29,25 @@ const CampusMatching=(function(root){
     return {hash,model,pending:[],failed:[],done:0,calls:0};
   }
   function storeProgress(user,v){try{root.sessionStorage.setItem(progressKey(user),JSON.stringify(v));}catch{}}
+  function reconcileProgress(progress,jobs){
+    const byID=new Map(jobs.map(j=>[j.job.id,j])),completed=new Set();
+    const keep=id=>{const job=byID.get(id);if(job?.state==='ANALYZED')completed.add(id);return job&&job.state!=='ANALYZED';};
+    progress.pending=[...new Set(progress.pending)].filter(keep);
+    const seen=new Set(progress.pending);
+    progress.failed=progress.failed.filter(f=>{if(seen.has(f.id)||!keep(f.id))return false;seen.add(f.id);return true;});
+    progress.done=(progress.done||0)+completed.size;
+    progress.calls=progress.calls||0;
+    return progress;
+  }
+  function queueWork(progress,ids,continuing=false){
+    const requested=new Set(ids),hasWork=progress.pending.length||progress.failed.length;
+    return {...progress,pending:[...requested,...progress.pending.filter(id=>!requested.has(id))],failed:progress.failed.filter(f=>!requested.has(f.id)),done:continuing||hasWork?progress.done:0,calls:continuing||hasWork?progress.calls:0};
+  }
+  function analysisActions(progress,options){
+    const {running,preparing,authorized,modelAvailable,callsToday,dailyCalls,runCount,pendingCount,failedCount}=options;
+    const reason=running?'本轮正在分析，请等待当前批次完成或暂停后续分析。':preparing?'正在准备分析包，请等待完成。':!modelAvailable?'请先在模型设置填写密钥并选择模型。':!authorized?'请先核对上方「本轮外发资料」，并勾选同意发送。':callsToday>=dailyCalls?'今日调用已达到上限，请在北京时间次日重置后继续，或调整每日上限。':'';
+    return {reason,run:{disabled:!!reason||!runCount,reason:runCount?reason:'当前筛选结果没有待分析且可分析的岗位。'},continue:{disabled:!!reason||!pendingCount,reason:pendingCount?reason:progress.pending.length?'本轮剩余岗位暂不可分析，请核对岗位状态。':'本轮没有未完成岗位。'},retry:{disabled:!!reason||!failedCount,reason:failedCount?reason:progress.failed.length?'失败项暂不可分析，请核对岗位状态。':'本轮暂无失败项。'}};
+  }
   function renderResult(v,{esc,D}){
     if(v.state!=='ANALYZED'||!v.result)return `<p class="empty">${v.state==='STALE'?'岗位、资料或模型选择已有变化，请重新分析。':'尚未深度分析，可在岗位匹配中查看本地初筛并加入分析。'}</p>`;
     const r=v.result,byID=new Map((r.matches||[]).map(m=>[m.requirement_id,m]));
@@ -52,7 +71,8 @@ const CampusMatching=(function(root){
     const selected=C.readSelection(cap.user_id,snapshot.jobs);
     let onlySelected=false,preparing=false,exportFiles=[],exportIndex=0,exportConsent=false,exportKeys=new Map();
     const modelKey=()=>JSON.stringify([identity().model_url,identity().model_name,cap.model]);
-    let progress=readProgress(cap.user_id,snapshot.candidate_hash,modelKey());
+    let progress=reconcileProgress(readProgress(cap.user_id,snapshot.candidate_hash,modelKey()),snapshot.jobs);
+    storeProgress(cap.user_id,progress);
     const baseline=new Map(snapshot.jobs.map(j=>[j.job.id,j.input_key]));let autoQueue=[];
     const current=()=>active();
     function ordered(data){return sort==='deep'?[...data].sort((a,b)=>(b.score??-1)-(a.score??-1)||b.preliminary_score-a.preliminary_score):data;}
@@ -75,7 +95,10 @@ const CampusMatching=(function(root){
       if(!current())return;
       const view=rows(),totalPages=Math.max(1,Math.ceil(view.length/50));pageNo=Math.min(pageNo,totalPages);const slice=view.slice((pageNo-1)*50,pageNo*50);
       const analyzed=snapshot.jobs.filter(j=>j.state==='ANALYZED').length;
-      if(!set(`${heading}<p>全部岗位先在本地初筛，结合标题、岗位职责、技术要求和已确认项目事实排序。点击岗位名称查看依据，按初筛建议挑选后可用 API 或导出到 ChatGPT 分析。信息不足的岗位仍保留供核对。</p><p class="meta">当前模型：${esc(root.CampusModels.label(cap))} · ${snapshot.jobs.length} 个岗位已初筛 · ${analyzed} 个已深度分析 · 今日调用尝试 ${snapshot.calls_today} / ${snapshot.settings.daily_calls} 次（北京时间每日重置）</p><button id="match-model" ${preparing?'disabled':''}>选择模型</button><form id="match-settings"><div class="form-grid"><label>每轮最多分析岗位数<input name="round_limit" type="number" min="1" max="100" required value="${snapshot.settings.round_limit}"></label><label>每日岗位匹配调用上限<input name="daily_calls" type="number" min="1" max="200" required value="${snapshot.settings.daily_calls}"></label></div><label class="check"><input name="auto_new" type="checkbox" ${snapshot.settings.auto_new?'checked':''}> 自动分析新增或变化岗位（核对外发资料后，在此页面开启期间运行）</label><button ${running||preparing?'disabled':''}>保存分析设置</button></form><article class="card"><h3>本轮外发资料</h3><p>发送所选岗位的脱敏招聘说明，以及下面的技能、资格和已确认项目事实。简历文件、账号邮箱、联系方式和项目链接不进入匹配请求。请检查项目文字中是否还有需要遮盖的姓名。</p><form id="match-mask"><label>补充遮盖姓名或称呼（可选）<input name="mask_name" value="${esc(maskName)}" maxlength="60" placeholder="仅用于本轮本机脱敏"></label><button ${running||preparing?'disabled':''}>更新脱敏预览</button></form><details><summary>查看外发资料（${snapshot.candidate.facts.length} 条）</summary><ul>${snapshot.candidate.facts.map(f=>`<li><b>${esc(labels[f.kind]||f.kind)}</b>：${esc(f.kind==='DEGREE'?D.label('degree',f.text):D.text(f.text))}</li>`).join('')}</ul></details><label class="check"><input id="match-consent" type="checkbox" ${authorized()?'checked':''}> 我已核对以上资料，同意将本轮脱敏资料发送给所选模型</label><p class="meta">模型 API 独立计费。缓存命中不发请求；失败或超时的调用尝试也计入每日上限。按顺序处理，每批最多 3 个岗位并限制文字量。保持此页面打开；暂停后当前批次完成，再停止后续请求。</p></article><form id="match-filter"><div class="form-grid"><label>公司或岗位<input name="q" value="${esc(query)}" placeholder="例如：小红书、后端"></label><label>分析状态<select name="state"><option value="">全部</option>${['BASIC','ANALYZED','STALE'].map(s=>`<option value="${s}" ${filter===s?'selected':''}>${labels[s]}</option>`).join('')}</select></label><label>初筛建议<select name="tier"><option value="">全部</option>${Object.entries(tiers).map(([key,label])=>`<option value="${key}" ${tierFilter===key?'selected':''}>${label}</option>`).join('')}</select></label><label>排序<select name="sort"><option value="local" ${sort==='local'?'selected':''}>本地初筛优先级</option><option value="deep" ${sort==='deep'?'selected':''}>已分析能力匹配度</option></select></label></div><label class="check"><input name="only_selected" type="checkbox" ${onlySelected?'checked':''}> 只看已选岗位</label><button>筛选岗位</button></form>${selectionHTML(view,slice)}${exportHTML()}<div class="actions"><button id="match-run" ${running||preparing||!authorized()?'disabled':''}>分析筛选结果中的前 ${snapshot.settings.round_limit} 个待分析岗位</button><button id="match-continue" ${running||preparing||!authorized()||!progress.pending.length?'disabled':''}>继续未完成的本轮（${progress.pending.length}）</button><button id="match-retry" ${running||preparing||!authorized()||!progress.failed.length?'disabled':''}>重试失败项（${progress.failed.length}）</button><button id="match-pause" ${running?'':'disabled'}>暂停后续分析</button><button id="match-refresh" ${running||preparing?'disabled':''}>刷新岗位与进度</button></div><p role="status">${esc(notice||`本轮已完成 ${progress.done} 个，调用尝试 ${progress.calls} 次。`)}</p>${progress.failed.length?`<details><summary>查看失败项</summary><ul>${progress.failed.map(f=>`<li>${esc(snapshot.jobs.find(j=>j.job.id===f.id)?.job.title||'岗位')}：${esc(f.message)}</li>`).join('')}</ul></details>`:''}<p class="meta">筛选结果 ${view.length} 条 · 第 ${pageNo} / ${totalPages} 页。初筛排序只用于选择分析顺序；明确不符合、已关闭或已忽略的岗位仍保留展示。</p><div class="table-wrap"><table><thead><tr><th>选择</th><th>岗位／公司</th><th>初筛优先级</th><th>分析状态</th><th>能力匹配度／覆盖度</th><th>备注</th></tr></thead><tbody>${slice.map(j=>`<tr><td><label class="check match-row-select"><input type="checkbox" data-match-select="${esc(j.job.id)}" aria-label="${esc('选择 '+D.text(j.job.company)+' '+D.text(j.job.title))}" ${selected.has(j.job.id)?'checked':''} ${preparing?'disabled':''}></label></td><td><button data-match-job="${esc(j.job.id)}">${esc(D.text(j.job.title))}</button><p>${esc(D.text(j.job.company))} · ${esc((j.job.locations||[]).map(D.text).join('、'))}</p><small>${esc(j.local?.role||'方向待核对')} · 更新 ${esc(D.date(j.job.updated_at))}</small></td><td><span class="pill">${esc(tiers[j.local?.tier]||'信息不足')}</span><p>${j.preliminary_score.toFixed(1)} / 100</p><small>${esc(j.local?.reasons?.[0]||'缺少可用原文')}</small></td><td>${esc(labels[j.state])}</td><td>${j.state==='ANALYZED'?`${j.score==null?'暂无法可靠评分':Number(j.score).toFixed(1)+' / 100'}<br><small>依据覆盖 ${Number(j.coverage).toFixed(1)}%</small>`:'待深度分析'}</td><td>${esc(j.excluded_reason||j.local?.warnings?.[0]||'可以加入分析')}</td></tr>`).join('')||'<tr><td colspan="6">没有找到相关岗位。</td></tr>'}</tbody></table></div><div class="actions"><button id="match-prev" ${pageNo===1?'disabled':''}>上一页</button><button id="match-next" ${pageNo===totalPages?'disabled':''}>下一页</button></div><div id="match-detail"></div>`))return;
+      const availableIDs=new Set(snapshot.jobs.filter(eligible).map(j=>j.job.id));
+      const actions=analysisActions(progress,{running,preparing,authorized:authorized(),modelAvailable:root.CampusModels.available(cap),callsToday:snapshot.calls_today,dailyCalls:snapshot.settings.daily_calls,runCount:shortlist(view,snapshot.settings.round_limit).length,pendingCount:progress.pending.filter(id=>availableIDs.has(id)).length,failedCount:progress.failed.filter(f=>availableIDs.has(f.id)).length});
+      const actionAttributes=state=>`${state.disabled?'disabled':''} title="${esc(state.reason)}" aria-describedby="match-actions-help"`;
+      if(!set(`${heading}<p>全部岗位先在本地初筛，结合标题、岗位职责、技术要求和已确认项目事实排序。点击岗位名称查看依据，按初筛建议挑选后可用 API 或导出到 ChatGPT 分析。信息不足的岗位仍保留供核对。</p><p class="meta">当前模型：${esc(root.CampusModels.label(cap))} · ${snapshot.jobs.length} 个岗位已初筛 · ${analyzed} 个已深度分析 · 今日调用尝试 ${snapshot.calls_today} / ${snapshot.settings.daily_calls} 次（北京时间每日重置）</p><button id="match-model" ${preparing?'disabled':''}>选择模型</button><form id="match-settings"><div class="form-grid"><label>每轮最多分析岗位数<input name="round_limit" type="number" min="1" max="100" required value="${snapshot.settings.round_limit}"></label><label>每日岗位匹配调用上限<input name="daily_calls" type="number" min="1" max="200" required value="${snapshot.settings.daily_calls}"></label></div><label class="check"><input name="auto_new" type="checkbox" ${snapshot.settings.auto_new?'checked':''}> 自动分析新增或变化岗位（核对外发资料后，在此页面开启期间运行）</label><button ${running||preparing?'disabled':''}>保存分析设置</button></form><article class="card"><h3>本轮外发资料</h3><p>发送所选岗位的脱敏招聘说明，以及下面的技能、资格和已确认项目事实。简历文件、账号邮箱、联系方式和项目链接不进入匹配请求。请检查项目文字中是否还有需要遮盖的姓名。</p><form id="match-mask"><label>补充遮盖姓名或称呼（可选）<input name="mask_name" value="${esc(maskName)}" maxlength="60" placeholder="仅用于本轮本机脱敏"></label><button ${running||preparing?'disabled':''}>更新脱敏预览</button></form><details><summary>查看外发资料（${snapshot.candidate.facts.length} 条）</summary><ul>${snapshot.candidate.facts.map(f=>`<li><b>${esc(labels[f.kind]||f.kind)}</b>：${esc(f.kind==='DEGREE'?D.label('degree',f.text):D.text(f.text))}</li>`).join('')}</ul></details><label class="check"><input id="match-consent" type="checkbox" ${authorized()?'checked':''}> 我已核对以上资料，同意将本轮脱敏资料发送给所选模型</label><p class="meta">模型 API 独立计费。缓存命中不发请求；失败或超时的调用尝试也计入每日上限。按顺序处理，每批最多 3 个岗位并限制文字量。保持此页面打开；暂停后当前批次完成，再停止后续请求。</p></article><form id="match-filter"><div class="form-grid"><label>公司或岗位<input name="q" value="${esc(query)}" placeholder="例如：小红书、后端"></label><label>分析状态<select name="state"><option value="">全部</option>${['BASIC','ANALYZED','STALE'].map(s=>`<option value="${s}" ${filter===s?'selected':''}>${labels[s]}</option>`).join('')}</select></label><label>初筛建议<select name="tier"><option value="">全部</option>${Object.entries(tiers).map(([key,label])=>`<option value="${key}" ${tierFilter===key?'selected':''}>${label}</option>`).join('')}</select></label><label>排序<select name="sort"><option value="local" ${sort==='local'?'selected':''}>本地初筛优先级</option><option value="deep" ${sort==='deep'?'selected':''}>已分析能力匹配度</option></select></label></div><label class="check"><input name="only_selected" type="checkbox" ${onlySelected?'checked':''}> 只看已选岗位</label><button>筛选岗位</button></form>${selectionHTML(view,slice)}${exportHTML()}<div class="actions"><button id="match-run" ${actionAttributes(actions.run)}>分析筛选结果中的前 ${snapshot.settings.round_limit} 个待分析岗位</button><button id="match-continue" ${actionAttributes(actions.continue)}>继续未完成的本轮（${progress.pending.length}）</button><button id="match-retry" ${actionAttributes(actions.retry)}>重试失败项（${progress.failed.length}）</button><button id="match-pause" ${running?'':'disabled'}>暂停后续分析</button><button id="match-refresh" ${running||preparing?'disabled':''}>刷新岗位与进度</button></div><p id="match-actions-help" class="meta">${esc(actions.reason||[actions.continue.reason,actions.retry.reason].filter(Boolean).join(' '))} 继续只处理未完成项；重试只处理失败项，逐个分析，并保留其他未完成项。重新进入页面后需要再次核对外发资料并勾选同意。</p><p role="status">${esc(notice||`本轮已完成 ${progress.done} 个，调用尝试 ${progress.calls} 次。`)}</p>${progress.failed.length?`<details><summary>查看失败项</summary><ul>${progress.failed.map(f=>`<li>${esc(snapshot.jobs.find(j=>j.job.id===f.id)?.job.title||'岗位')}：${esc(f.message)}</li>`).join('')}</ul></details>`:''}<p class="meta">筛选结果 ${view.length} 条 · 第 ${pageNo} / ${totalPages} 页。初筛排序只用于选择分析顺序；明确不符合、已关闭或已忽略的岗位仍保留展示。</p><div class="table-wrap"><table><thead><tr><th>选择</th><th>岗位／公司</th><th>初筛优先级</th><th>分析状态</th><th>能力匹配度／覆盖度</th><th>备注</th></tr></thead><tbody>${slice.map(j=>`<tr><td><label class="check match-row-select"><input type="checkbox" data-match-select="${esc(j.job.id)}" aria-label="${esc('选择 '+D.text(j.job.company)+' '+D.text(j.job.title))}" ${selected.has(j.job.id)?'checked':''} ${preparing?'disabled':''}></label></td><td><button data-match-job="${esc(j.job.id)}">${esc(D.text(j.job.title))}</button><p>${esc(D.text(j.job.company))} · ${esc((j.job.locations||[]).map(D.text).join('、'))}</p><small>${esc(j.local?.role||'方向待核对')} · 更新 ${esc(D.date(j.job.updated_at))}</small></td><td><span class="pill">${esc(tiers[j.local?.tier]||'信息不足')}</span><p>${j.preliminary_score.toFixed(1)} / 100</p><small>${esc(j.local?.reasons?.[0]||'缺少可用原文')}</small></td><td>${esc(labels[j.state])}</td><td>${j.state==='ANALYZED'?`${j.score==null?'暂无法可靠评分':Number(j.score).toFixed(1)+' / 100'}<br><small>依据覆盖 ${Number(j.coverage).toFixed(1)}%</small>`:'待深度分析'}</td><td>${esc(j.excluded_reason||j.local?.warnings?.[0]||'可以加入分析')}</td></tr>`).join('')||'<tr><td colspan="6">没有找到相关岗位。</td></tr>'}</tbody></table></div><div class="actions"><button id="match-prev" ${pageNo===1?'disabled':''}>上一页</button><button id="match-next" ${pageNo===totalPages?'disabled':''}>下一页</button></div><div id="match-detail"></div>`))return;
       const $=s=>document.querySelector(s);
       $('#match-model').onclick=()=>{paused=true;navigate('models');};
       $('#match-consent').onchange=e=>{consentHash=e.target.checked?snapshot.candidate_hash:'';paused=!e.target.checked;render();};
@@ -101,7 +124,7 @@ const CampusMatching=(function(root){
         $('#match-export-copy').onclick=async()=>{if(!exportConsent)return;try{await root.navigator.clipboard.writeText(exportFiles[exportIndex].text);notice='当前分析包已复制，可以粘贴到 ChatGPT。';}catch(err){notice='此浏览器暂不能自动复制，请从预览框手动复制完整文字。';}render();};
       }
       $('#match-continue').onclick=()=>start([...progress.pending],false,true);
-      $('#match-retry').onclick=()=>start(progress.failed.map(f=>f.id).slice(0,snapshot.settings.round_limit),true);
+      $('#match-retry').onclick=()=>start(progress.failed.map(f=>f.id).filter(id=>availableIDs.has(id)).slice(0,snapshot.settings.round_limit),true);
       $('#match-pause').onclick=()=>{paused=true;notice='已暂停后续分析，当前批次完成后停止。';render();};
       $('#match-refresh').onclick=async()=>{try{await refresh();notice='岗位与分析状态已刷新。';}catch(err){notice=err.message;}render();};
       $('#match-prev').onclick=()=>{pageNo--;render();};$('#match-next').onclick=()=>{pageNo++;render();};
@@ -129,19 +152,20 @@ const CampusMatching=(function(root){
       if(next.candidate_hash!==snapshot.candidate_hash){consentHash='';paused=true;progress=readProgress(cap.user_id,next.candidate_hash,modelKey());autoQueue=[];notice='求职资料已变化，请重新核对外发资料。';}
       for(const j of next.jobs){if(baseline.has(j.job.id)&&baseline.get(j.job.id)!==j.input_key||!baseline.has(j.job.id)){if(eligible(j)&&!autoQueue.includes(j.job.id))autoQueue.push(j.job.id);}baseline.set(j.job.id,j.input_key);}
       snapshot=next;
+      reconcileProgress(progress,snapshot.jobs);persist();
     }
     async function start(ids,retry=false,continuing=false){
       if(running||preparing||!authorized()||!current())return;
       if(!root.CampusModels.available(cap)){notice='请先在模型设置填写密钥并选择模型。';render();return;}
       const idSet=new Set(ids),byID=new Map(snapshot.jobs.map(j=>[j.job.id,j]));const jobs=[...idSet].map(id=>byID.get(id)).filter(j=>j&&eligible(j));
       if(!jobs.length){notice='这批岗位已经分析完成，或暂时没有可分析的岗位。';render();return;}
-      const existingFailures=progress.failed.filter(f=>!idSet.has(f.id));
-      progress={hash:snapshot.candidate_hash,model:modelKey(),pending:jobs.map(j=>j.job.id),failed:existingFailures,done:continuing?progress.done:0,calls:continuing?progress.calls:0};persist();
+      const workIDs=new Set(jobs.map(j=>j.job.id));
+      progress=queueWork(progress,[...workIDs],continuing);persist();
       running=true;paused=false;notice='正在分析，结果会逐批保存。';render();
       try{
-        while(progress.pending.length&&!paused&&current()&&authorized()){
+        while(progress.pending.some(id=>workIDs.has(id))&&!paused&&current()&&authorized()){
           if(snapshot.calls_today>=snapshot.settings.daily_calls){notice='已达到每日岗位匹配调用上限，未完成项保留供之后继续。';paused=true;break;}
-          const byID=new Map(snapshot.jobs.map(j=>[j.job.id,j]));const pending=progress.pending.map(id=>byID.get(id)).filter(Boolean);
+          const byID=new Map(snapshot.jobs.map(j=>[j.job.id,j]));const pending=progress.pending.filter(id=>workIDs.has(id)).map(id=>byID.get(id)).filter(j=>j&&eligible(j));
           if(!pending.length)break;
           if(pending[0].text_bytes>24000||!pending[0].text_bytes){progress.failed.push({id:pending[0].job.id,message:'岗位文字过长或原文尚不可用，请检查岗位内容。'});progress.pending=progress.pending.filter(id=>id!==pending[0].job.id);persist();continue;}
           const batch=pack(pending,retry?1:3),batchIDs=batch.map(j=>j.job.id);let batchFailed=false;
@@ -156,7 +180,6 @@ const CampusMatching=(function(root){
             else{for(const id of batchIDs)progress.failed.push({id,message:err.message});progress.pending=progress.pending.filter(id=>!batchIDs.includes(id));notice='部分岗位分析失败，已保留成功结果，可单独重试失败项。';}
           }
           const priorCalls=snapshot.calls_today;persist();await refresh();
-          const nowDone=new Set(snapshot.jobs.filter(j=>j.state==='ANALYZED').map(j=>j.job.id));const completed=progress.pending.filter(id=>nowDone.has(id));progress.done+=completed.length;progress.pending=progress.pending.filter(id=>!nowDone.has(id));progress.failed=progress.failed.filter(f=>!nowDone.has(f.id));
           if(batchFailed)progress.calls+=Math.max(0,snapshot.calls_today-priorCalls);persist();render();
         }
         if(!progress.pending.length&&!progress.failed.length)notice=`本轮已完成 ${progress.done} 个岗位；可继续分析下一批。`;
@@ -166,7 +189,7 @@ const CampusMatching=(function(root){
     async function poll(){if(!current())return;try{if(!running&&!preparing&&!exportFiles.length&&!['INPUT','SELECT','TEXTAREA'].includes(document.activeElement?.tagName)){await refresh();render();if(snapshot.settings.auto_new&&!paused&&authorized()&&autoQueue.length){const ids=autoQueue.splice(0,snapshot.settings.round_limit);await start(ids);}}}catch(err){notice=err.message;render();}if(current())setTimeout(poll,60000);}
     setTimeout(poll,60000);
   }
-  const api={page,showJob,pack,shortlist,filtered,renderResult,renderLocal,readProgress,lock};
+  const api={page,showJob,pack,shortlist,filtered,renderResult,renderLocal,readProgress,reconcileProgress,queueWork,analysisActions,lock};
   if(typeof module==='object'&&module.exports)module.exports=api;
   root.CampusMatching=api;return api;
 })(typeof window==='undefined'?globalThis:window);
