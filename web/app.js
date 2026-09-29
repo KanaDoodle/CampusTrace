@@ -82,10 +82,11 @@ async function page(name,query='') {
   if (name==='agent') {
     const capabilities=await api('/api/profile/resume/capabilities');
     CampusModels.bindUser(capabilities.user_id);
-    if(!set(`${heading}<p>根据岗位证据和你的求职记录回答问题。涉及投递进展或面试复盘的修改，先展示预览，再由你确认。</p><p class="meta">当前模型：${esc(CampusModels.available(capabilities)?CampusModels.label(capabilities):'离线演示模型')}。使用外部模型时，问题和查询到的相关资料会发送给所选提供商。</p><button id="agent-model-settings" type="button">选择外部模型</button><div class="examples" aria-label="试着这样问"><span>试着这样问：</span>${['今天有什么值得处理？','最近哪些岗位关闭了？','未来三天哪些岗位截止？','我投过哪些岗位？'].map(q=>`<button type="button" data-example="${esc(q)}">${esc(q)}</button>`).join('')}</div><form id="ask" novalidate>${area('message','你的问题','','required maxlength="4000" placeholder="例如：为什么这个岗位可投递？请附上岗位编号，便于核对证据。"')}<button>查询求职记录</button></form><div id="agent-result" aria-live="polite"></div>`))return;
+    CampusMatching.bindUser(capabilities.user_id);
+    if(!set(`${heading}<p>根据岗位证据和你的求职记录回答问题。也可以查询已有深度匹配、比较同公司岗位；需要修改记录时，先展示预览供你确认。</p><p class="meta">当前模型：${esc(CampusModels.available(capabilities)?CampusModels.label(capabilities):'离线演示模型')}。使用外部模型时，问题和工具返回的相关资料会发送给所选提供商；新接入的匹配查询只返回有界脱敏摘要，查询已有分析不会重新付费分析岗位。</p><button id="agent-model-settings" type="button">选择外部模型</button><div class="examples" aria-label="试着这样问"><span>试着这样问：</span>${['今天有什么值得处理？','我最近的深度分析进度如何？','我投过哪些岗位？','未来三天哪些岗位截止？'].map(q=>`<button type="button" data-example="${esc(q)}">${esc(q)}</button>`).join('')}</div><form id="ask" novalidate>${area('message','你的问题',query?.message||'','required maxlength="4000" placeholder="例如：比较小红书的后端岗位；若指定几个岗位，请附上岗位编号。"')}<button>查询求职记录</button></form><div id="agent-result" aria-live="polite"></div>`))return;
     $('#agent-model-settings').onclick=()=>page('models').catch(fail);
     for(const b of box.querySelectorAll('[data-example]'))b.onclick=()=>{$('#ask').elements.message.value=b.dataset.example;$('#ask').elements.message.focus();};
-    formAction('#ask',async data=>{const result=await api('/agent/decide','POST',{session_id:CampusModels.sessionID(capabilities),message:data.get('message'),model_config:CampusModels.requestConfig()});if(version!==pageVersion)return;renderAgent(result,$('#agent-result'));});return;
+    formAction('#ask',async data=>{const result=await api('/agent/decide','POST',{session_id:CampusModels.sessionID(capabilities),message:data.get('message'),model_config:CampusModels.requestConfig(),mask_name:CampusMatching.matchIdentity().mask_name});if(version!==pageVersion)return;renderAgent(result,$('#agent-result'));});return;
   }
   if (name==='profile') {const helpers={api,esc,D,formAction,UserError,navigate:page,active:()=>version===pageVersion};if(query?.evidence)await CampusEvidence.page(set,heading,helpers,query.evidence);else await CampusProfile.page(set,heading,helpers);return;}
   if (name==='applications') {await CampusApplications.page(set,heading,{api,esc,D,formAction,navigate:page,scheduleInterview,table,active:()=>version===pageVersion});return;}
@@ -117,11 +118,14 @@ function renderAgent(result,box) {
   const terminal=result.terminal_reason;
   const notices={COMPLETED:'已核对本次查询所需的记录，结果与依据如下。',UNGROUNDED:'没有查到足够的可信依据，暂时无法确认。',ERROR:'本次查询未能完成，请稍后重试。',TIMEOUT:'本次查询用时较长，已停止。可缩小问题范围后再试。',CANCELLED:'本次查询已取消。',TOOL_LIMIT:'已达到本次查询上限。以下仅展示已经取得的记录，未执行的操作不会生效。',STEP_LIMIT:'已达到本次分析上限，最后提出的操作未执行。以下仅展示已经取得的依据。'};
   // Render original structured observations in Chinese; leave API answer/contract untouched.
-  box.innerHTML=`<h3>${esc(D.label('terminal',terminal))}</h3><p>${esc(notices[terminal]||'本次查询暂时无法完成，请稍后重试。')}</p><p class="meta">分析 ${Number(result.model_steps)||0} 轮 · 查询资料或生成预览 ${Number(result.executed_tool_count)||0} 次</p>`;
+  box.innerHTML=`<h3>${esc(D.label('terminal',terminal))}</h3><p>${esc(notices[terminal]||'本次查询暂时无法完成，请稍后重试。')}</p>${result.answer?`<div class="agent-answer">${esc(D.text(result.answer))}</div>`:''}<p class="meta">分析 ${Number(result.model_steps)||0} 轮 · 查询资料或生成预览 ${Number(result.executed_tool_count)||0} 次</p>`;
   for(const item of result.grounded_observations||[]) {
     const article=document.createElement('article');article.className='card';const pending=item.data?.action_id;
-    article.innerHTML=`<h4>${esc(D.label('tool',item.tool))}</h4>${pending?'<p class="pending-note">这是待确认预览，尚未修改你的求职记录。请核对内容后再确认。</p>':''}${translated(item.data)}`;
-    if(pending){const b=document.createElement('button');b.textContent='确认执行此操作';b.onclick=async()=>{b.disabled=true;try{const v=await api('/agent/actions/'+encodeURIComponent(pending)+'/confirm','POST',{confirm:true});article.querySelector('.pending-note').textContent='已确认执行，保存结果如下。';b.textContent='操作已确认';article.insertAdjacentHTML('beforeend',`<h4>保存结果</h4>${translated(v)}`);}catch(error){b.disabled=false;fail(error);}};article.append(b);}
+    const details=document.createElement('details');details.open=!!pending;
+    details.innerHTML=`<summary>${esc(D.label('tool',item.tool))} · 查看记录与依据</summary>${pending?'<p class="pending-note">这是待确认预览，尚未修改你的求职记录。请核对内容后再确认。</p>':''}${translated(item.data)}`;
+    if(pending){const b=document.createElement('button');b.textContent='确认执行此操作';b.onclick=async()=>{b.disabled=true;try{const v=await api('/agent/actions/'+encodeURIComponent(pending)+'/confirm','POST',{confirm:true});details.querySelector('.pending-note').textContent='已确认执行，保存结果如下。';b.textContent='操作已确认';details.insertAdjacentHTML('beforeend',`<h4>保存结果</h4>${translated(v)}`);}catch(error){b.disabled=false;fail(error);}};details.append(b);}
+    article.append(details);
+    if(item.tool==='get_match_result'&&/^[a-f0-9]{32}$/.test(item.data?.job_id||'')){const b=document.createElement('button');b.className='btn btn-small';b.textContent='在岗位库核对';b.onclick=()=>page('matching',{jobID:item.data.job_id}).catch(fail);article.append(b);}
     box.append(article);
   }
 }

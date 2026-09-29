@@ -21,6 +21,141 @@ func GroundedAnswer(facts []any) string {
 			continue
 		}
 		switch item.Tool {
+		case "get_match_result":
+			var v struct {
+				JobID       string       `json:"job_id"`
+				Company     string       `json:"company"`
+				Title       string       `json:"title"`
+				JobStatus   string       `json:"job_status"`
+				State       string       `json:"state"`
+				Eligibility string       `json:"eligibility"`
+				Notice      string       `json:"notice"`
+				Score       *float64     `json:"score"`
+				Coverage    float64      `json:"coverage"`
+				Strengths   []matchPoint `json:"strengths"`
+				Gaps        []matchPoint `json:"gaps"`
+			}
+			if json.Unmarshal(item.Data, &v) != nil {
+				continue
+			}
+			if v.State != "ANALYZED" {
+				lines = append(lines, fmt.Sprintf("%s · %s（Job %s）：当前没有可用的深度匹配，状态 %s。%s", v.Company, v.Title, v.JobID, matchStateLabel(v.State), v.Notice))
+				break
+			}
+			score := "暂无可靠核心评分"
+			if v.Score != nil {
+				score = fmt.Sprintf("核心匹配度 %.1f / 100", *v.Score)
+			}
+			lines = append(lines, fmt.Sprintf("%s · %s（Job %s）：%s，依据覆盖 %.1f%%；投递资格 %s，招聘状态 %s。", v.Company, v.Title, v.JobID, score, v.Coverage, eligibilityLabel(v.Eligibility), jobStatusLabel(v.JobStatus)))
+			if len(v.Strengths) > 0 {
+				lines = append(lines, "已有依据："+pointAnswer(v.Strengths[0]))
+			}
+			if len(v.Gaps) > 0 {
+				lines = append(lines, "优先核对："+pointAnswer(v.Gaps[0]))
+			}
+			if v.Notice != "" {
+				lines = append(lines, v.Notice)
+			}
+		case "compare_company_jobs":
+			var v struct {
+				Company          string   `json:"company"`
+				Scope            string   `json:"scope"`
+				Recommendation   string   `json:"recommendation"`
+				Notice           string   `json:"notice"`
+				Total            int      `json:"total"`
+				Analyzed         int      `json:"analyzed"`
+				Pending          int      `json:"pending"`
+				Stale            int      `json:"stale"`
+				Shown            int      `json:"shown"`
+				RecommendedCount int      `json:"recommended_count"`
+				Reasons          []string `json:"reasons"`
+				Jobs             []struct {
+					JobID       string       `json:"job_id"`
+					Title       string       `json:"title"`
+					State       string       `json:"state"`
+					JobStatus   string       `json:"job_status"`
+					Eligibility string       `json:"eligibility"`
+					Recommended bool         `json:"recommended"`
+					Score       *float64     `json:"score"`
+					Coverage    float64      `json:"coverage"`
+					Strengths   []matchPoint `json:"strengths"`
+					Gaps        []matchPoint `json:"gaps"`
+				} `json:"jobs"`
+			}
+			if json.Unmarshal(item.Data, &v) != nil {
+				continue
+			}
+			scope := "该公司全部本地岗位"
+			if v.Scope == "SELECTED" {
+				scope = "选中的岗位"
+			}
+			lines = append(lines, fmt.Sprintf("%s：本次%s共 %d 个岗位，已分析 %d、待分析 %d、待更新 %d。", v.Company, scope, v.Total, v.Analyzed, v.Pending, v.Stale))
+			shown := 0
+			for _, job := range v.Jobs {
+				if !job.Recommended {
+					continue
+				}
+				value := "暂无可靠评分"
+				if job.Score != nil {
+					value = fmt.Sprintf("核心匹配度 %.1f，覆盖 %.1f%%", *job.Score, job.Coverage)
+				}
+				lines = append(lines, fmt.Sprintf("优先候选：%s（Job %s）；%s；资格 %s，招聘状态 %s。", job.Title, job.JobID, value, eligibilityLabel(job.Eligibility), jobStatusLabel(job.JobStatus)))
+				if len(job.Strengths) > 0 {
+					lines = append(lines, "主要依据："+pointAnswer(job.Strengths[0]))
+				}
+				if len(job.Gaps) > 0 {
+					lines = append(lines, "待核对："+pointAnswer(job.Gaps[0]))
+				}
+				shown++
+				if shown == 3 {
+					break
+				}
+			}
+			if v.RecommendedCount == 0 && len(v.Reasons) > 0 {
+				lines = append(lines, v.Reasons[0])
+			}
+			if v.RecommendedCount > shown {
+				lines = append(lines, fmt.Sprintf("另有 %d 个并列优先候选，请展开本次依据查看。", v.RecommendedCount-shown))
+			}
+			if v.Pending+v.Stale > 0 {
+				lines = append(lines, "仍有岗位未分析或待更新，不能视为全公司最终排序。")
+			}
+			if v.Shown < v.Total {
+				lines = append(lines, fmt.Sprintf("摘要展示 %d / %d 个岗位，完整结果请在岗位库核对。", v.Shown, v.Total))
+			}
+		case "get_match_tasks":
+			var runs []struct {
+				RunID string `json:"run_id"`
+				State string `json:"state"`
+				Total int    `json:"total"`
+				Shown int    `json:"shown"`
+				Items []struct {
+					Title string `json:"title"`
+					JobID string `json:"job_id"`
+					State string `json:"state"`
+					Stage string `json:"stage"`
+					Code  string `json:"code"`
+				} `json:"items"`
+			}
+			if json.Unmarshal(item.Data, &runs) != nil {
+				continue
+			}
+			if len(runs) == 0 {
+				lines = append(lines, "最近没有深度分析任务。")
+			}
+			for _, run := range runs {
+				lines = append(lines, fmt.Sprintf("分析任务 %s：%s，共 %d 个岗位；本次摘要展示 %d 个。", run.RunID, matchStateLabel(run.State), run.Total, run.Shown))
+				for _, item := range run.Items {
+					if item.State != "FAILED" && item.State != "INTERRUPTED" {
+						continue
+					}
+					name := item.Title
+					if name == "" {
+						name = "Job " + item.JobID
+					}
+					lines = append(lines, fmt.Sprintf("%s：%s（阶段 %s，分类 %s）；可在岗位库查看原因并核对后重试。", name, matchStateLabel(item.State), item.Stage, item.Code))
+				}
+			}
 		case "get_job":
 			var v struct {
 				Job         d.Job          `json:"job"`
@@ -95,4 +230,92 @@ func GroundedAnswer(facts []any) string {
 		return "没有取得足够的可信业务数据，无法确认事实。"
 	}
 	return strings.Join(lines, "\n")
+}
+
+func pointAnswer(p matchPoint) string {
+	text := p.Requirement
+	if p.RequirementID != "" {
+		text += " [要求 " + p.RequirementID + "]"
+	}
+	if p.FactID != "" {
+		text += "；个人依据 [资料 " + p.FactID + "]"
+	}
+	if p.Result != "" {
+		text += "；" + matchResultLabel(p.Result)
+	}
+	return text
+}
+
+func matchResultLabel(v string) string {
+	switch v {
+	case "DIRECT":
+		return "直接匹配"
+	case "PARTIAL":
+		return "部分匹配"
+	case "TRANSFERABLE":
+		return "可迁移经验"
+	case "NO_EVIDENCE":
+		return "暂无依据"
+	case "MISMATCH":
+		return "明确不符合"
+	default:
+		return v
+	}
+}
+
+func matchStateLabel(v string) string {
+	switch v {
+	case "ANALYZED":
+		return "已分析"
+	case "BASIC":
+		return "仅本地初筛"
+	case "STALE":
+		return "待更新"
+	case "RUNNING":
+		return "处理中"
+	case "WAITING_AUTH":
+		return "等待重新授权"
+	case "PAUSED":
+		return "已暂停"
+	case "PAUSING":
+		return "正在暂停"
+	case "COMPLETED":
+		return "已完成"
+	case "FAILED":
+		return "失败"
+	case "INTERRUPTED":
+		return "已中断"
+	case "CANCELLED":
+		return "已取消"
+	default:
+		return v
+	}
+}
+func eligibilityLabel(v string) string {
+	switch v {
+	case "ELIGIBLE":
+		return "符合已识别条件"
+	case "INELIGIBLE":
+		return "明确不符合条件"
+	case "CONDITIONAL":
+		return "需进一步核对"
+	case "UNKNOWN":
+		return "暂无法判断"
+	default:
+		return v
+	}
+}
+func jobStatusLabel(v string) string {
+	switch v {
+	case "OPEN":
+		return "可投递"
+	case "CLOSED":
+		return "已关闭"
+	case "NEEDS_VERIFICATION":
+		return "待核验"
+	case "UNKNOWN":
+		return "暂无法确认"
+	default:
+		return v
+	}
 }

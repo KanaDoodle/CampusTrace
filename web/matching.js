@@ -105,7 +105,7 @@ const CampusMatching=(function(root){
     function selectionChanged(){C.storeSelection(cap.user_id,selected);clearExport();render();}
     function selectionHTML(){
       const jobs=chosen(),canCompare=jobs.length>=2&&new Set(jobs.map(j=>j.job.company)).size===1,canAnalyze=shortlist(jobs,snapshot.settings.round_limit).length;
-      return `<div class="selection-bar matching-selection" ${selected.size?'':'hidden'}><div><strong>${selected.size}</strong> 个岗位已选<button id="match-clear-selection" class="btn btn-subtle btn-small" ${preparing?'disabled':''}>清空</button><button id="match-show-selection" class="btn btn-subtle btn-small">查看已选</button></div><div><button id="match-compare-selected" class="btn" ${canCompare?'':'disabled'} title="选择同一公司至少两个岗位">对比已选</button><button id="match-export" class="btn" ${running||preparing||!selected.size||selected.size>1000?'disabled':''}>${U.icon('download')}${preparing?'准备分析包…':'导出到 ChatGPT'}</button><button id="match-selected-run" class="btn btn-primary" ${running||preparing||!canAnalyze?'disabled':''}>${U.icon('spark')}深度分析（${canAnalyze}）</button></div></div>${selected.size>1000?'<p class="pending-note">单次导出最多 1,000 个岗位，请减少选择；API 可分轮处理。</p>':''}`;
+      return `<div class="selection-bar matching-selection" ${selected.size?'':'hidden'}><div><strong>${selected.size}</strong> 个岗位已选<button id="match-clear-selection" class="btn btn-subtle btn-small" ${preparing?'disabled':''}>清空</button><button id="match-show-selection" class="btn btn-subtle btn-small">查看已选</button></div><div><button id="match-compare-selected" class="btn" ${canCompare?'':'disabled'} title="选择同一公司至少两个岗位">对比已选</button><button id="match-ask-selected" class="btn" ${canCompare&&jobs.length<=8?'':'disabled'} title="选择同一公司 2—8 个岗位，向求职问答询问已有分析">问 Agent</button><button id="match-export" class="btn" ${running||preparing||!selected.size||selected.size>1000?'disabled':''}>${U.icon('download')}${preparing?'准备分析包…':'导出到 ChatGPT'}</button><button id="match-selected-run" class="btn btn-primary" ${running||preparing||!canAnalyze?'disabled':''}>${U.icon('spark')}深度分析（${canAnalyze}）</button></div></div>${selected.size>1000?'<p class="pending-note">单次导出最多 1,000 个岗位，请减少选择；API 可分轮处理。</p>':''}`;
     }
     function exportHTML(){
       if(!exportFiles.length)return '';
@@ -161,6 +161,7 @@ const CampusMatching=(function(root){
       if(!set(html))return;
       const $=s=>document.querySelector(s),on=(id,fn)=>{const el=$('#'+id);if(el)el.onclick=fn;};
       on('match-open-comparison',()=>openComparison());on('match-compare-selected',()=>openComparison('SELECTED'));
+      on('match-ask-selected',()=>{const jobs=chosen();if(jobs.length<2||jobs.length>8||new Set(jobs.map(j=>j.job.company)).size!==1)return;navigate('agent',{message:`请对比 ${jobs[0].job.company} 的这些岗位，说明当前深度匹配依据、待核对项和是否存在并列：${jobs.map(j=>j.job.id).join('、')}`});});
       if(panel==='company'){
         $('#match-comparison-company').onchange=e=>{comparisonCompany=e.target.value;comparisonReport=null;comparisonError='';comparisonRevision++;comparisonBusy=false;render();};
         $('#match-comparison-scope').onchange=e=>{comparisonScope=e.target.value;comparisonReport=null;comparisonError='';comparisonRevision++;comparisonBusy=false;render();};
@@ -358,7 +359,7 @@ const CampusMatching=(function(root){
     async function poll(){if(!current())return;try{if(!running&&!preparing&&!panel&&!exportFiles.length&&!document.querySelector('#job-drawer')?.open&&!['INPUT','SELECT','TEXTAREA'].includes(document.activeElement?.tagName)){await refresh();render();if(snapshot.settings.auto_new&&!paused&&authorized()&&autoQueue.length){const ids=autoQueue.splice(0,snapshot.settings.round_limit);await start(ids);}}}catch(err){notice=err.message;render();}if(current())setTimeout(poll,60000);}
     setTimeout(poll,60000);
   }
-  const api={page,showJob,pack,shortlist,filtered,renderResult,renderLocal,readProgress,reconcileProgress,queueWork,analysisActions,lock};
+  const api={page,showJob,pack,shortlist,filtered,renderResult,renderLocal,readProgress,reconcileProgress,queueWork,analysisActions,lock,bindUser,matchIdentity:identity};
   if(typeof module==='object'&&module.exports)module.exports=api;
   root.CampusMatching=api;return api;
 })(typeof window==='undefined'?globalThis:window);

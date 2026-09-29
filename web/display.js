@@ -19,7 +19,7 @@
     terminal: {COMPLETED:'查询完成', ERROR:'查询失败', TIMEOUT:'查询超时', CANCELLED:'查询已取消', UNGROUNDED:'暂无充分依据', TOOL_LIMIT:'已达本次查询上限', STEP_LIMIT:'已达本次分析上限', OUTPUT_LIMIT:'查询内容超过本次输出上限，请缩小范围'},
     change: {JD_CONTENT_CHANGED:'岗位描述有更新', GRADUATION_CHANGED:'毕业届别要求有更新', LOCATION_CHANGED:'工作地点有更新', APPLY_SIGNAL_CHANGED:'申请入口有变化', DEADLINE_CHANGED:'截止日期有更新', TECH_REQUIREMENT_CHANGED:'技术要求有更新'},
     evidence: {GRADUATION_REQUIREMENT:'毕业届别要求', EDUCATION_REQUIREMENT:'学历要求', JOB_TYPE:'岗位类型', LOCATION:'工作地点', EXPERIENCE_REQUIREMENT:'经验要求', TECH_STACK:'技术要求', LANGUAGE_REQUIREMENT:'语言要求', MAJOR_REQUIREMENT:'专业要求', APPLY_ACTION:'申请入口', DEADLINE:'投递截止日期', OPEN_SIGNAL:'开放招聘信号', CLOSED_SIGNAL:'结束招聘信号'},
-    tool: {get_daily_digest:'查询每日雷达',get_recent_changes:'查询最近变化',get_closing_jobs:'查询截止雷达',get_watched_sources:'查询关注源',watch_source:'关注招聘来源',unwatch_source:'取消关注来源',search_jobs:'检索校招岗位', get_job:'查询岗位详情', get_job_evidence:'核对岗位证据', get_job_eligibility:'核对投递条件', list_applications:'查询投递记录', get_application_history:'查询投递进展', get_interview_history:'查询面试与复盘', get_weak_topics:'查询待加强知识点', search_knowledge:'检索复习资料', get_project_facts:'核对项目事实', get_preparation_context:'整理面试准备内容', create_application:'加入投递计划', transition_application:'更新投递进展', record_interview_review:'保存面试复盘'},
+    tool: {get_daily_digest:'查询每日雷达',get_recent_changes:'查询最近变化',get_closing_jobs:'查询截止雷达',get_watched_sources:'查询关注源',watch_source:'关注招聘来源',unwatch_source:'取消关注来源',search_jobs:'检索校招岗位', get_job:'查询岗位详情', get_job_evidence:'核对岗位证据', get_job_eligibility:'核对投递条件',get_match_result:'查看深度匹配',compare_company_jobs:'对比同公司岗位',get_match_tasks:'查询深度分析进度', list_applications:'查询投递记录', get_application_history:'查询投递进展', get_interview_history:'查询面试与复盘', get_weak_topics:'查询待加强知识点', search_knowledge:'检索复习资料', get_project_facts:'核对项目事实', get_preparation_context:'整理面试准备内容', create_application:'加入投递计划', transition_application:'更新投递进展', record_interview_review:'保存面试复盘'},
     ranking: {status:'岗位可投递情况', eligibility:'投递条件匹配', city:'意向城市匹配', type:'岗位类型偏好', go_fit:'Go 技术方向匹配', role:'意向职能匹配', freshness:'岗位信息时效'}
   });
   const fields = Object.freeze({
@@ -37,7 +37,8 @@
     project_id:'项目编号', kind:'事实类型', claim:'事实内容', verified:'是否已核验', reference:'参考依据', verified_facts:'已核验的项目事实', unverified_not_facts:'尚未核验，不能作为已确认事实', project_facts:'项目事实',
     document_id:'资料编号', index:'分块序号', embedding_version:'索引版本', cosine:'向量相似度', keyword:'关键词匹配度', knowledge:'复习资料', requirements:'岗位要求', current_requirements:'当前岗位要求', current_observations:'当前观察', input_identity:'评估输入版本', historical_requirements:'历史岗位要求', recommended_topics:'建议优先准备', priority:'复习优先级', weak_evidence:'薄弱点依据', policy:'使用说明',
     action_id:'待确认操作编号', action_type:'拟执行操作', args:'操作预览', expires_at:'确认截止时间', state:'目标进展', job:'岗位', interviews:'面试安排', reviews:'面试复盘', chunks:'资料片段', saved:'保存结果', success:'执行结果', synthetic:'演示数据', notice:'说明', error:'提示',
-    run_id:'本次查询编号', terminal_reason:'查询结果', model_steps:'分析轮次', executed_tool_count:'资料查询次数', grounded_observations:'本次查询依据'
+    run_id:'本次查询编号', terminal_reason:'查询结果', model_steps:'分析轮次', executed_tool_count:'资料查询次数', grounded_observations:'本次查询依据',
+    job_status:'招聘状态',coverage:'核心依据覆盖度',analyzed:'已分析岗位数',pending:'待分析岗位数',stale:'待更新岗位数',total:'岗位总数',shown:'摘要展示数',recommended:'优先候选',recommended_count:'优先候选数',recommendation:'对比结论',blocked_reason:'暂不可推荐原因',strengths:'已有依据',gaps:'待核对要求',requirement_id:'岗位要求编号',requirement_excerpt:'岗位原文摘录预览',fact_id:'资料依据编号',fact_excerpt:'资料依据摘录预览',scope:'对比范围',items:'岗位进度',stage:'失败阶段',code:'错误分类',locally_refreshed:'已按当前资料本地更新',evidence_reviews:'已撤销错误引用数'
   });
   const messages = Object.freeze({
     'No recent usable observation':'目前没有近期可用的观察记录。',

@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/KanaDoodle/CampusTrace/internal/agent"
 	"github.com/KanaDoodle/CampusTrace/internal/auth"
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
 	"github.com/KanaDoodle/CampusTrace/internal/matching"
@@ -55,6 +56,50 @@ func TestDecisionViewsUseCurrentOwnedResultsWithoutModelCalls(t *testing.T) {
 	if report.Total != 3 || report.Pending != 1 || report.Analyzed != 2 || len(report.RecommendedIDs) != 2 {
 		t.Fatalf("bad comparison: %+v", report)
 	}
+	agentTools := &agent.Tools{Store: s, Queue: q, MatchModel: matching.ModelIdentity("server-default", "fixture")}
+	read, err := agentTools.MatchResult(ctx, u, ids[0])
+	must(t, err)
+	current := read.(map[string]any)
+	if current["state"] != "ANALYZED" || current["score"] == nil || strings.Contains(d.JSON(current), "candidate_facts") {
+		t.Fatal("agent deep match is missing or exposes full profile", current)
+	}
+	otherModelTools := *agentTools
+	otherModelTools.MatchModel = matching.ModelIdentity("different-provider", "fixture")
+	otherModelRead, err := otherModelTools.MatchResult(ctx, u, ids[0])
+	must(t, err)
+	otherModelView := otherModelRead.(map[string]any)
+	if otherModelView["state"] != "STALE" || otherModelView["score"] != nil {
+		t.Fatal("agent exposed a result from a different selected model", otherModelView)
+	}
+	view, err := agentTools.CompareCompanyJobs(ctx, u, "Decision fixture", nil)
+	must(t, err)
+	comparison := view.(map[string]any)
+	if comparison["total"] != 3 || comparison["pending"] != 1 || comparison["recommended_count"] != 2 {
+		t.Fatal("agent company comparison differs from workspace", comparison)
+	}
+	if _, err := agentTools.CompareCompanyJobs(ctx, u, "", []string{ids[0], ids[1]}); err != nil {
+		t.Fatal("selected comparison", err)
+	}
+	chatTools := &agent.Tools{Store: s, Queue: q}
+	chat := &agent.Runtime{Model: agent.DemoModel{}, Tools: chatTools, R: q.R, Prefix: q.Prefix, MaxModels: 4, MaxTools: 8, Deadline: 8 * time.Second, ToolTimeout: 5 * time.Second}
+	chatHandler := (&transport.API{Store: s, Queue: q, Tools: chatTools, Agent: chat, Auth: authn, Metrics: observability.New(), ResumeModel: model, ResumeModelName: "fixture"}).Handler()
+	chatRec := matchingRequest(chatHandler, token, "/agent/decide", "POST", map[string]any{"session_id": "decision-test", "message": "查看岗位 " + ids[0] + " 的深度匹配"})
+	if chatRec.Code != 200 {
+		t.Fatal(chatRec.Code, chatRec.Body.String())
+	}
+	var chatAnswer agent.Result
+	must(t, json.Unmarshal(chatRec.Body.Bytes(), &chatAnswer))
+	if chatAnswer.Terminal != "COMPLETED" || !strings.Contains(chatAnswer.Answer, "核心匹配度") || !strings.Contains(chatRec.Body.String(), "get_match_result") {
+		t.Fatal("agent route did not read current matching result", chatRec.Body.String())
+	}
+	chatRec = matchingRequest(chatHandler, token, "/agent/decide", "POST", map[string]any{"session_id": "decision-test", "message": "请对比这两个岗位 " + ids[0] + " " + ids[1]})
+	if chatRec.Code != 200 || !strings.Contains(chatRec.Body.String(), "compare_company_jobs") {
+		t.Fatal("agent route did not compare selected jobs", chatRec.Code, chatRec.Body.String())
+	}
+	chatRec = matchingRequest(chatHandler, token, "/agent/decide", "POST", map[string]any{"session_id": "decision-test", "message": "请比较 Decision fixture 的后端岗位"})
+	if chatRec.Code != 200 || !strings.Contains(chatRec.Body.String(), "compare_company_jobs") || !strings.Contains(chatRec.Body.String(), "Decision fixture") {
+		t.Fatal("offline agent did not compare company jobs", chatRec.Code, chatRec.Body.String())
+	}
 	prepPath := "/api/matching/preparation/" + ids[0]
 	rec = matchingRequest(handler, token, prepPath, "POST", map[string]any{})
 	var plan matching.PreparationPlan
@@ -86,6 +131,9 @@ func TestDecisionViewsUseCurrentOwnedResultsWithoutModelCalls(t *testing.T) {
 	must(t, s.SaveProfile(ctx, other, profile))
 	otherToken, err := authn.Token(other)
 	must(t, err)
+	if _, err := agentTools.MatchResult(ctx, other, ids[0]); err == nil {
+		t.Fatal("agent read another user's private match")
+	}
 	if compare(otherToken, compareBody).Total != 0 {
 		t.Fatal("private company counts leaked")
 	}
@@ -95,6 +143,18 @@ func TestDecisionViewsUseCurrentOwnedResultsWithoutModelCalls(t *testing.T) {
 	}
 	profile.Languages = []string{"Java"}
 	must(t, s.SaveProfile(ctx, u, profile))
+	read, err = agentTools.MatchResult(ctx, u, ids[0])
+	must(t, err)
+	stale := read.(map[string]any)
+	if stale["state"] != "STALE" || stale["score"] != nil || strings.Contains(d.JSON(stale), "\"strengths\"") {
+		t.Fatal("agent exposed stale score or evidence", stale)
+	}
+	view, err = agentTools.CompareCompanyJobs(ctx, u, "Decision fixture", nil)
+	must(t, err)
+	comparison = view.(map[string]any)
+	if comparison["stale"] != 2 || comparison["recommended_count"] != 0 {
+		t.Fatal("agent recommended stale jobs", comparison)
+	}
 	report = compare(token, compareBody)
 	if report.Stale != 2 || len(report.RecommendedIDs) != 0 {
 		t.Fatal("changed profile used cached recommendation")

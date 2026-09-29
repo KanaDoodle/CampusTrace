@@ -30,6 +30,7 @@ integration:
 
 eval:
 	go run ./cmd/eval
+	go run ./cmd/eval -mode journey
 loadgen:
 	go run ./cmd/loadgen -n 100
 

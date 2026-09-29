@@ -68,12 +68,25 @@ func (DemoModel) Next(ctx context.Context, msgs []Message, defs []Definition) (R
 		return Reply{Text: "已查询本次业务数据。请查看下方 grounded_observations 中的原始证据与记录；申请写操作需要单独确认。此回复来自 deterministic demo model。"}, nil
 	}
 	q := last.Content
-	id := regexp.MustCompile(`\b[a-f0-9]{32}\b`).FindString(q)
+	ids := regexp.MustCompile(`\b[a-f0-9]{32}\b`).FindAllString(q, 9)
+	searchQuery := demoSearchQuery(q)
+	id := ""
+	if len(ids) > 0 {
+		id = ids[0]
+	}
 	calls := []Call{}
 	add := func(name string, args any) {
 		calls = append(calls, Call{ID: fmt.Sprintf("call-%d", len(calls)), Name: name, Args: []byte(d.JSON(args))})
 	}
 	switch {
+	case Has(q, "深度分析进度", "匹配任务", "分析任务") || Has(q, "深度分析") && Has(q, "失败", "进度", "还在", "完成"):
+		add("get_match_tasks", struct{}{})
+	case len(ids) >= 2 && len(ids) <= 8 && Has(q, "比较", "对比", "哪个", "选择"):
+		add("compare_company_jobs", map[string]any{"job_ids": ids})
+	case len(ids) == 0 && Has(q, "比较", "对比") && comparisonCompany(q) != "":
+		add("compare_company_jobs", map[string]string{"company": comparisonCompany(q)})
+	case id != "" && Has(q, "深度", "匹配", "分析结果"):
+		add("get_match_result", map[string]string{"job_id": id})
 	case Has(q, "今天", "今日", "daily digest", "值得处理"):
 		add("get_daily_digest", struct{}{})
 	case Has(q, "截止", "closing"):
@@ -85,6 +98,8 @@ func (DemoModel) Next(ctx context.Context, msgs []Message, defs []Definition) (R
 			days = 14
 		}
 		add("get_closing_jobs", map[string]int{"days": days})
+	case Has(q, "薄弱", "weak"):
+		add("get_weak_topics", struct{}{})
 	case Has(q, "最近", "关闭", "变化"):
 		add("get_recent_changes", map[string]int{"days": 7})
 	case Has(q, "关注源", "关注来源", "watched sources"):
@@ -94,8 +109,6 @@ func (DemoModel) Next(ctx context.Context, msgs []Message, defs []Definition) (R
 		add("list_applications", struct{}{})
 	case Has(q, "项目", "project"):
 		add("get_project_facts", struct{}{})
-	case Has(q, "薄弱", "weak"):
-		add("get_weak_topics", struct{}{})
 	case id != "" && Has(q, "创建申请", "create application"):
 		add("create_application", map[string]string{"job_id": id})
 	case id != "" && Has(q, "准备", "prepare"):
@@ -106,12 +119,33 @@ func (DemoModel) Next(ctx context.Context, msgs []Message, defs []Definition) (R
 		add("get_job_eligibility", map[string]string{"job_id": id})
 	case Has(q, "知识", "redis", "复习", "knowledge"):
 		add("search_knowledge", map[string]string{"query": q})
-	default:
-		query := strings.TrimSpace(q)
-		if Has(q, "岗位", "jobs") {
-			query = "Go"
-		}
-		add("search_jobs", map[string]string{"query": query})
+	case searchQuery != "":
+		add("search_jobs", map[string]string{"query": searchQuery})
 	}
 	return Reply{Calls: calls}, nil
+}
+
+func demoSearchQuery(question string) string {
+	if !Has(question, "岗位", "jobs") || !Has(question, "搜索", "查找", "找岗位", "找 ", "找go", "找java") {
+		return ""
+	}
+	if strings.Contains(strings.ToLower(question), "c++") {
+		return "C++"
+	}
+	if tech := regexp.MustCompile(`(?i)\b(?:go|java|python|rust)\b`).FindString(question); tech != "" {
+		return tech
+	}
+	m := regexp.MustCompile(`(?:搜索|查找|找)\s*([^，。？！?]{2,40}?)\s*岗位`).FindStringSubmatch(question)
+	if len(m) < 2 {
+		return ""
+	}
+	return strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(m[1]), "的"))
+}
+
+func comparisonCompany(question string) string {
+	m := regexp.MustCompile(`(?:比较|对比)\s*([^，。？！?]{1,80}?)\s*的(?:校招|后端|服务端|所有|全部|这些)?岗位`).FindStringSubmatch(question)
+	if len(m) < 2 {
+		return ""
+	}
+	return strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(m[1]), "一下"))
 }

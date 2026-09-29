@@ -535,9 +535,10 @@ func (a *API) Handler() http.Handler {
 		}
 		on(path, func(w http.ResponseWriter, r *http.Request) {
 			var v struct {
-				Session string              `json:"session_id"`
-				Message string              `json:"message"`
-				Model   *modelconfig.Config `json:"model_config,omitempty"`
+				Session  string              `json:"session_id"`
+				Message  string              `json:"message"`
+				Model    *modelconfig.Config `json:"model_config,omitempty"`
+				MaskName string              `json:"mask_name,omitempty"`
 			}
 			if err := decode(r, &v); err != nil || v.Session == "" || v.Message == "" || len(v.Message) > 4000 || len(v.Session) > 64 {
 				write(w, nil, p.ErrValidation)
@@ -545,17 +546,26 @@ func (a *API) Handler() http.Handler {
 			}
 			start := time.Now()
 			defer a.Metrics.Since("agent_latency", start)
-			runtime := a.Agent
+			copy := *a.Agent
+			toolCopy := *a.Tools
+			identity := matchPreviewRequest{MaskName: v.MaskName}
 			if v.Model != nil {
 				client, err := a.customModel(*v.Model)
 				if err != nil {
 					codedError(w, http.StatusBadRequest, "MODEL_CONFIG_INVALID")
 					return
 				}
-				copy := *a.Agent
 				copy.Model = agent.LiveModel{Client: client}
-				runtime = &copy
+				identity.ModelURL, identity.ModelName = client.URL, client.Model
 			}
+			matchModel, err := a.matchIdentity(identity)
+			if err != nil {
+				write(w, nil, err)
+				return
+			}
+			toolCopy.MatchModel, toolCopy.MaskName = matchModel, v.MaskName
+			copy.Tools = &toolCopy
+			runtime := &copy
 			if !stream {
 				result := runtime.Run(r.Context(), user(r), v.Session, v.Message, nil)
 				write(w, result, nil)
