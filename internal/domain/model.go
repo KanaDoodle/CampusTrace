@@ -20,6 +20,9 @@ const ParserVersion = "generic-v2-lines"
 const RuleVersion = "rules-v5-cities"
 const SourceParserVersion = "public-http-v2-complete"
 
+// Nationwide graduate roles can list more than 30 distinct cities.
+const MaxJobLocations = 300
+
 func ID() string {
 	b := make([]byte, 16)
 	if _, err := rand.Read(b); err != nil {

@@ -3,6 +3,7 @@ package integration
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"github.com/KanaDoodle/CampusTrace/internal/auth"
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
 	"github.com/KanaDoodle/CampusTrace/internal/observability"
@@ -59,6 +60,28 @@ func TestCampusSourceRegistrationAndOwnership(t *testing.T) {
 	}
 }
 
+func TestNationwideCampusCitiesArePreservedOnImport(t *testing.T) {
+	ctx, s, _, owner, _ := radarSetup(t)
+	reg, err := s.CreateCampusSource(ctx, owner, "jd", "present", "全国校招测试", d.WatchInput{CheckInterval: 3600, Enabled: true})
+	must(t, err)
+	places := []string{}
+	for i := 0; i < 39; i++ {
+		places = append(places, fmt.Sprintf("城市%d", i))
+	}
+	in := persistence.Ingest{SourceID: reg.Source.ID, ExternalID: "39", URL: "https://campus.jd.com/#/details?id=39", Company: "全国校招测试公司", Title: "全国岗位", JobType: "FULL_TIME", Locations: places, Text: "工作地点原文保留。任职要求：熟悉 Go。", FetchStatus: "SUCCESS"}
+	_, err = s.Ingest(ctx, in)
+	must(t, err)
+	page, err := s.SourceJobsForUser(ctx, owner, reg.Source.ID, 1)
+	must(t, err)
+	if page.Total != 1 || len(page.Jobs[0].Locations) != 39 || page.Jobs[0].Locations[38] != "城市38" {
+		t.Fatalf("nationwide cities truncated %+v", page)
+	}
+	in.Locations = make([]string, d.MaxJobLocations+1)
+	if _, err = s.Ingest(ctx, in); err == nil {
+		t.Fatal("accepted unbounded location list")
+	}
+}
+
 func TestCampusSourceLocalPaceDoesNotSpendRetry(t *testing.T) {
 	ctx, store, queue, owner, sourceID := radarSetup(t)
 	_, task := scheduledWatch(t, ctx, store, owner, sourceID)
@@ -83,7 +106,7 @@ func TestGraduateSourceRegistrationIsScopedPrivateAndIdempotent(t *testing.T) {
 	ctx, s, q, owner, _ := radarSetup(t)
 	other, err := s.NewUser(ctx, d.ID()+"@graduate-source.test", "unused")
 	must(t, err)
-	for adapter, tenant := range map[string]string{"baidu": "GRADUATE", "meituan": "graduate"} {
+	for adapter, tenant := range map[string]string{"baidu": "GRADUATE", "meituan": "graduate", "jd": "present", "netease": "103"} {
 		input := d.WatchInput{CheckInterval: 3600, Enabled: true, Adaptive: true}
 		reg, err := s.CreateCampusSource(ctx, owner, adapter, tenant, "校招来源测试", input)
 		must(t, err)
@@ -120,7 +143,7 @@ func TestGraduateSourceRegistrationIsScopedPrivateAndIdempotent(t *testing.T) {
 	req.Header.Set("Authorization", "Bearer "+token)
 	response := httptest.NewRecorder()
 	h.ServeHTTP(response, req)
-	if response.Code != 200 || !bytes.Contains(response.Body.Bytes(), []byte("baidu")) || !bytes.Contains(response.Body.Bytes(), []byte("meituan")) {
+	if response.Code != 200 || !bytes.Contains(response.Body.Bytes(), []byte("baidu")) || !bytes.Contains(response.Body.Bytes(), []byte("meituan")) || !bytes.Contains(response.Body.Bytes(), []byte("jd")) || !bytes.Contains(response.Body.Bytes(), []byte("netease")) {
 		t.Fatalf("catalog %d %s", response.Code, response.Body.String())
 	}
 }

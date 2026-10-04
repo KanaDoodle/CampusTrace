@@ -1,12 +1,19 @@
 package domain
 
-func SourceMinimumInterval(adapter string) int {
+func IsCampusSource(adapter string) bool {
 	switch adapter {
-	case "xiaohongshu", "baidu", "meituan":
-		return 1800
+	case "xiaohongshu", "baidu", "meituan", "jd", "netease":
+		return true
 	default:
-		return 300
+		return false
 	}
+}
+
+func SourceMinimumInterval(adapter string) int {
+	if IsCampusSource(adapter) {
+		return 1800
+	}
+	return 300
 }
 
 // WatchInterval is deliberately bounded and deterministic. Priority never

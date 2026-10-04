@@ -28,7 +28,7 @@ type Ingest struct {
 }
 
 func (i Ingest) Validate() error {
-	if len(i.SourceParserVersion) > 64 || i.Company == "" || len(i.Company) > 200 || i.Title == "" || len(i.Title) > 300 || i.SourceID == "" || len(i.Text) > 60000 || len(i.Locations) > 30 || len(i.URL) > 2000 || (i.JobType != "FULL_TIME" && i.JobType != "INTERNSHIP" && i.JobType != "UNKNOWN") {
+	if len(i.SourceParserVersion) > 64 || i.Company == "" || len(i.Company) > 200 || i.Title == "" || len(i.Title) > 300 || i.SourceID == "" || len(i.Text) > 60000 || len(i.Locations) > d.MaxJobLocations || len(i.URL) > 2000 || (i.JobType != "FULL_TIME" && i.JobType != "INTERNSHIP" && i.JobType != "UNKNOWN") {
 		return ErrValidation
 	}
 	switch i.FetchStatus {

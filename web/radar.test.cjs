@@ -9,7 +9,7 @@ test('关注源提供网址预览和分页岗位入口',async()=>{
   let html='';const box={querySelectorAll:()=>[],querySelector:()=>({addEventListener(){}})};
   context.api=async path=>path==='/api/watches'?[]:path==='/api/sources'?[]:path.includes('/jobs?page=')?{total:1,page_size:50,jobs:[{id:'a'.repeat(32),title:'<script>alert(1)</script>',company:'小红书',locations:['上海'],current_status:'UNKNOWN'}]}:null;
   await context.radarPage('watches',value=>(html=value,true),box,'');
-  assert.match(html,/source-preview/);assert.match(html,/小红书、百度和美团/);assert.match(html,/刷新进度/);
+  assert.match(html,/source-preview/);assert.match(html,/小红书、百度、美团、京东和网易互联网/);assert.match(html,/刷新进度/);
   await context.radarPage('source_jobs',value=>(html=value,true),box,{sourceID:'source',page:1});
   assert.match(html,/来源岗位/);assert.match(html,/&lt;script&gt;/);assert.doesNotMatch(html,/<script>alert/);
 });
@@ -17,12 +17,12 @@ test('关注源提供网址预览和分页岗位入口',async()=>{
 test('校招预设能选择准确范围且编辑网址会清除旧预览',async()=>{
   let html='',listener,focused=false;
   const input={value:'',addEventListener(_,fn){listener=fn;},dispatchEvent(){listener();},focus(){focused=true;}};
-  const form={elements:{url:input},addEventListener(){}},result={innerHTML:'旧来源预览'},buttons=[0,1,2].map(i=>({dataset:{campusPreset:String(i)}}));
+  const form={elements:{url:input},addEventListener(){}},result={innerHTML:'旧来源预览'},buttons=[0,1,2,3,4].map(i=>({dataset:{campusPreset:String(i)}}));
   const elements={'#source-preview':form,'#source-preview-result':result,'#refresh-watches':{},'#notice':{}};
   context.document.querySelector=s=>elements[s]||{addEventListener(){}};context.Event=Event;
-  const catalog=[{company:'小红书',scope:'当前常规应届校招项目',url:'https://job.xiaohongshu.com/campus/position'},{company:'百度',scope:'应届生校招',url:'https://talent.baidu.com/jobs/list?recruitType=GRADUATE'},{company:'美团<script>',scope:'应届生校招',url:'https://zhaopin.meituan.com/web/campus?hiringType=1_1'}];
+  const catalog=[{company:'小红书',scope:'当前常规应届校招项目',url:'https://job.xiaohongshu.com/campus/position'},{company:'百度',scope:'应届生校招',url:'https://talent.baidu.com/jobs/list?recruitType=GRADUATE'},{company:'美团<script>',scope:'应届生校招',url:'https://zhaopin.meituan.com/web/campus?hiringType=1_1'},{company:'京东',scope:'应届生项目',url:'https://campus.jd.com/#/jobs?type=present'},{company:'网易互联网',scope:'2027届校招',url:'https://campus.163.com/app/job/position?id=103'}];
   context.api=async p=>p==='/api/sources/catalog'?catalog:[];
   await context.radarPage('watches',v=>(html=v,true),{querySelectorAll:s=>s==='[data-campus-preset]'?buttons:[]},'');
   assert.match(html,/已支持的校招来源/);assert.match(html,/美团&lt;script&gt;/);assert.doesNotMatch(html,/<script>/);
-  buttons[1].onclick();assert.equal(input.value,catalog[1].url);assert.equal(result.innerHTML,'');assert.equal(focused,true);
+  for(const i of [1,3,4]){buttons[i].onclick();assert.equal(input.value,catalog[i].url);} assert.equal(result.innerHTML,'');assert.equal(focused,true);
 });

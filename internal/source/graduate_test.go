@@ -91,7 +91,10 @@ func graduateFixture(t *testing.T, adapter string, change func(int, map[string]a
 }
 
 func TestGraduateSourcesScopePaginationDetailAndPreview(t *testing.T) {
-	for _, site := range CampusSites()[1:] {
+	for _, site := range CampusSites() {
+		if site.Adapter != "baidu" && site.Adapter != "meituan" {
+			continue
+		}
 		t.Run(site.Adapter, func(t *testing.T) {
 			srv := graduateFixture(t, site.Adapter, nil)
 			defer srv.Close()
@@ -203,7 +206,10 @@ func TestGraduateLiveReadOnly(t *testing.T) {
 	if os.Getenv("CAMPUS_LIVE_SOURCES") != "1" {
 		t.Skip("explicit public website verification")
 	}
-	for _, site := range CampusSites()[1:] {
+	for _, site := range CampusSites() {
+		if site.Adapter != "baidu" && site.Adapter != "meituan" {
+			continue
+		}
 		t.Run(site.Adapter, func(t *testing.T) {
 			a := PublicPlatform{}
 			v, err := a.PreviewCampus(context.Background(), site.URL)

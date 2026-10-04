@@ -71,7 +71,7 @@ type HTTPEntry struct {
 
 var publicPlatformClient = PublicClient()
 
-func (PublicPlatform) Version() string { return "public-platforms-v3" }
+func (PublicPlatform) Version() string { return "public-platforms-v4" }
 
 var tenantPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,100}$`)
 
@@ -95,6 +95,14 @@ func PlatformURL(s d.Source) (string, error) {
 	case "meituan":
 		if s.Tenant == "graduate" {
 			return "https://zhaopin.meituan.com/api/official/job", nil
+		}
+	case "jd":
+		if s.Tenant == "present" {
+			return "https://campus.jd.com/api/wx/position", nil
+		}
+	case "netease":
+		if s.Tenant == "103" {
+			return "https://campus.163.com/api/campuspc/position", nil
 		}
 	}
 	return "", fail("UNSUPPORTED", false, 0)
@@ -131,7 +139,7 @@ func (a PublicPlatform) requestOnce(ctx context.Context, s d.Source, method, raw
 			limit = 30
 		}
 		key := s.ID
-		if s.Adapter == "xiaohongshu" || s.Adapter == "baidu" || s.Adapter == "meituan" {
+		if d.IsCampusSource(s.Adapter) {
 			key = s.Adapter + ":public-site"
 		}
 		ok, err := a.Allow(ctx, key, limit)
@@ -364,6 +372,11 @@ func (a PublicPlatform) Discover(ctx context.Context, s d.Source, w d.WatchTarge
 		if err != nil {
 			return nil, err
 		}
+	case "jd", "netease":
+		refs, err = a.discoverPortal(ctx, s, w)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if len(refs) > MaxPostings {
 		return nil, fail("CAPACITY", false, 200)
@@ -386,7 +399,7 @@ func (a PublicPlatform) Discover(ctx context.Context, s d.Source, w d.WatchTarge
 }
 func validateRef(r PostingRef) error {
 	u, err := url.Parse(r.URL)
-	if r.ExternalID == "" || len(r.ExternalID) > 200 || r.ExternalID == "0" || r.Title == "" || len(r.Title) > 300 || err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil {
+	if r.ExternalID == "" || len(r.ExternalID) > 200 || r.ExternalID == "0" || r.Title == "" || len(r.Title) > 300 || len(r.Locations) > d.MaxJobLocations || err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil {
 		return fail("SCHEMA_INVALID", false, 200)
 	}
 	return nil
@@ -449,6 +462,8 @@ func (a PublicPlatform) FetchPosting(ctx context.Context, s d.Source, r PostingR
 		text, err = a.fetchXHS(ctx, s, r)
 	case "baidu", "meituan":
 		text, err = a.fetchGraduate(ctx, s, r)
+	case "jd", "netease":
+		text, err = a.fetchPortal(ctx, s, r)
 	}
 	if err != nil {
 		res := Result{Status: "HTTP_ERROR"}

@@ -8,6 +8,8 @@ import (
 
 const BaiduCampusURL = "https://talent.baidu.com/jobs/list?recruitType=GRADUATE"
 const MeituanCampusURL = "https://zhaopin.meituan.com/web/campus?hiringType=1_1"
+const JDCampusURL = "https://campus.jd.com/#/jobs?type=present"
+const NeteaseCampusURL = "https://campus.163.com/app/job/position?id=103"
 
 // Presets describe implemented scopes, not promises about current availability.
 type CampusSite struct {
@@ -24,12 +26,14 @@ func CampusSites() []CampusSite {
 		{"xiaohongshu", "小红书", XHSURL, "当前常规应届校招项目", 1800, true},
 		{"baidu", "百度", BaiduCampusURL, "应届生校招（含 AIDU、管培生项目）", 1800, false},
 		{"meituan", "美团", MeituanCampusURL, "应届生校招", 1800, false},
+		{"jd", "京东", JDCampusURL, "应届生项目（JDS、TET、新锐之星）", 1800, false},
+		{"netease", "网易互联网", NeteaseCampusURL, "2027 届校园招聘（不含互娱、雷火）", 1800, false},
 	}
 }
 
 func campusSite(raw string) (CampusSite, error) {
 	u, err := url.Parse(raw)
-	if err != nil || u.Scheme != "https" || u.User != nil || u.Fragment != "" || u.RawPath != "" {
+	if err != nil || u.Scheme != "https" || u.User != nil || u.RawPath != "" {
 		return CampusSite{}, fail("UNSUPPORTED", false, 0)
 	}
 	query, err := url.ParseQuery(u.RawQuery)
@@ -38,6 +42,12 @@ func campusSite(raw string) (CampusSite, error) {
 	}
 	path := strings.TrimRight(u.Path, "/")
 	for _, site := range CampusSites() {
+		if site.Adapter == "jd" && u.Host == "campus.jd.com" && path == "" && u.RawQuery == "" && (u.Fragment == "" || u.Fragment == "/jobs" || u.Fragment == "/jobs?type=present") {
+			return site, nil
+		}
+		if u.Fragment != "" {
+			continue
+		}
 		switch site.Adapter {
 		case "xiaohongshu":
 			if u.Host == "job.xiaohongshu.com" && path == "/campus/position" && u.RawQuery == "" {
@@ -49,6 +59,10 @@ func campusSite(raw string) (CampusSite, error) {
 			}
 		case "meituan":
 			if u.Host == "zhaopin.meituan.com" && path == "/web/campus" && (u.RawQuery == "" || (len(query) == 1 && len(query["hiringType"]) == 1 && query.Get("hiringType") == "1_1")) {
+				return site, nil
+			}
+		case "netease":
+			if u.Host == "campus.163.com" && path == "/app/job/position" && len(query) == 1 && len(query["id"]) == 1 && query.Get("id") == "103" {
 				return site, nil
 			}
 		}
@@ -70,6 +84,8 @@ func (a PublicPlatform) PreviewCampus(ctx context.Context, raw string) (CampusPr
 	if site.Adapter == "xiaohongshu" {
 		v, err = a.PreviewXHS(ctx, raw)
 		v.Name = site.Company + " · " + v.Name
+	} else if site.Adapter == "jd" || site.Adapter == "netease" {
+		v, err = a.previewPortal(ctx, site)
 	} else {
 		v, err = a.previewGraduate(ctx, site)
 	}

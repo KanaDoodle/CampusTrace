@@ -64,7 +64,7 @@ func createWatchTx(ctx context.Context, tx *sql.Tx, user string, input d.WatchIn
 	if err != nil {
 		return v, err
 	}
-	if input.CheckInterval < d.SourceMinimumInterval(src.Adapter) || ((src.Adapter == "baidu" || src.Adapter == "meituan") && input.Direction != "") {
+	if input.CheckInterval < d.SourceMinimumInterval(src.Adapter) || (d.IsCampusSource(src.Adapter) && src.Adapter != "xiaohongshu" && input.Direction != "") {
 		return v, ErrValidation
 	}
 	var owner string
@@ -119,7 +119,7 @@ func (s *Store) UpdateWatch(ctx context.Context, user, id string, input d.WatchI
 		if err != nil {
 			return err
 		}
-		if input.CheckInterval < d.SourceMinimumInterval(src.Adapter) || ((src.Adapter == "baidu" || src.Adapter == "meituan") && input.Direction != "") {
+		if input.CheckInterval < d.SourceMinimumInterval(src.Adapter) || (d.IsCampusSource(src.Adapter) && src.Adapter != "xiaohongshu" && input.Direction != "") {
 			return ErrValidation
 		}
 		if input.Keyword != v.Keyword || input.Direction != v.Direction {

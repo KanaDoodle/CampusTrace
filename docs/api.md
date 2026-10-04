@@ -121,6 +121,8 @@ See [backend-upgrade.md](backend-upgrade.md), [performance.md](performance.md) a
 
 ## 校招来源扩展
 
-`POST /api/sources/preview` 和 `POST /api/sources/from-url` 支持小红书、百度 GRADUATE、美团应届生三个固定范围。预览增加 `adapter`、`company`、`minimum_interval`（1800 秒）、`supports_direction`，原 `url/name/project_code/total/samples` 保留。创建来源只使用服务端预览解析出的 adapter 和项目，调用方不能自行注入 adapter、tenant 或官方可信度。用户来源仍为 PRIVATE/MANUAL，按账号+adapter+项目去重。
+`POST /api/sources/preview` 和 `POST /api/sources/from-url` 支持小红书、百度 GRADUATE、美团应届生、京东 present、网易互联网 2027 届（103）五个固定范围。预览增加 `adapter`、`company`、`minimum_interval`（1800 秒）、`supports_direction`，原 `url/name/project_code/total/samples` 保留。创建来源只使用服务端预览解析出的 adapter 和项目，调用方不能自行注入 adapter、tenant 或官方可信度。用户来源仍为 PRIVATE/MANUAL，按账号+adapter+项目去重。
 
-非支持范围、带其他筛选或内推参数的 URL 返回 `SOURCE_URL_UNSUPPORTED`；源超容量返回 `SOURCE_PREVIEW_CAPACITY`，不创建关注。百度和美团不支持 `direction`，非空值在创建/修改时拒绝；标题/地点 `keyword` 使用完整列表的本地筛选。每个公司站点的预览与后台抓取共用来源限速，预览自身仍每账号每分钟 5 次。网络不可达返回 `SOURCE_PREVIEW_NETWORK`，不会以部分扫描代替成功。美团当前本机直连验证未通过，详见 campus-sources.md。
+非支持范围、带其他筛选或内推参数的 URL 返回 `SOURCE_URL_UNSUPPORTED`；源超容量返回 `SOURCE_PREVIEW_CAPACITY`，不创建关注。百度、美团、京东和网易互联网不支持 `direction`，非空值在创建/修改时拒绝；标题/地点 `keyword` 使用完整列表的本地筛选。每个公司站点的预览与后台抓取共用来源限速，预览自身仍每账号每分钟 5 次。网络不可达返回 `SOURCE_PREVIEW_NETWORK`，不会以部分扫描代替成功。美团当前本机直连验证未通过，详见 campus-sources.md。
+
+京东首页或 `#/jobs` 会归一到应届生 `#/jobs?type=present`；实习/TGT 与其他筛选片段拒绝。网易只接收 `/app/job/position?id=103`，主页不自动推断招聘项目。导入岗位地点上限扩展为 300，超限仍拒绝；完整公司来源上限仍为 500 岗。
