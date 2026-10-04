@@ -14,7 +14,7 @@ function bindRadar(box,refresh){
  await refresh();$('#notice').textContent=b.dataset.apply==='APPLIED'?'已记录投递。':'已加入投递计划。';
  }catch(e){fail(e);b.disabled=false;}};
 }
-async function radarPage(name,set,box,query){
+async function radarPage(name,set,box,query,{active=()=>true}={}){
  if(name==='radar'){
  const v=await api('/api/radar/digest');const metrics=[['今日新增',v.counts.new_jobs],['优先投递',v.counts.recommended_jobs],['7 天内截止',v.counts.closing_soon],['状态变化',v.counts.status_changes],['本周面试',v.counts.upcoming_interviews]];
  if(!set(`<div class="radar-hero"><div><p class="eyebrow">CampusTrace · Job Radar</p><h1>我的校招雷达</h1><p>招聘发生了什么，今天从这里开始。</p><small>更新于 ${esc(D.date(v.as_of))} · 新增与变化统计过去 24 小时${v.truncated?' · 首页展示前 5 个岗位，更多请进入分类查看':''}</small></div><div class="actions"><button data-go="watches">关注源</button><button data-go="notifications">通知收件箱</button></div></div><div class="radar-metrics">${metrics.map(([label,n])=>`<div><span>${esc(label)}</span><strong>${n}</strong></div>`).join('')}</div><div class="section-heading"><h2>今天最值得投</h2><button data-go="jobs">查看岗位库 →</button></div><p class="meta">按当前资格与可解释评分排序；已投递、忽略及终态记录不进入推荐。</p><div class="radar-grid">${radarCards(v.recommended_jobs.slice(0,6))}</div><div class="radar-columns"><section><div class="section-heading"><h2>最近变化</h2><button data-go="changes">过去 7 天 →</button></div>${radarChanges(v.recent_changes.slice(0,8))}</section><section><div class="section-heading"><h2>即将截止</h2><button data-go="closing">查看截止雷达 →</button></div>${radarCards(v.closing_soon.slice(0,3))}</section></div><h2>本周安排</h2>${v.upcoming_interviews.length?table(v.upcoming_interviews,['round','scheduled_at','result','notes']):empty('未来 7 天暂无面试安排。')}<h2>今日新发现</h2><div class="radar-grid">${radarCards(v.new_jobs.slice(0,6))}</div>`))return;
@@ -26,29 +26,56 @@ async function radarPage(name,set,box,query){
  for(const b of box.querySelectorAll('[data-days]'))b.onclick=()=>page(name,b.dataset.days).catch(fail);bindRadar(box,()=>page(name,days));return;
  }
  if(name==='watches'){
- const [watches,sources]=await Promise.all([api('/api/watches'),api('/api/sources')]);
+ let watches=[],sources=[],previewMarkup='',busy=false;
+ const drafts=globalThis.CampusNavigation?.forms(document,{retainMissing:true});
+ async function reload(){
+   drafts?.capture();const latest=await Promise.all([api('/api/watches'),api('/api/sources')]);if(!active())return;
+   [watches,sources]=latest;await draw();
+ }
+ async function draw(){
  const supported=sources.filter(s=>s.adapter),sourceOf=id=>sources.find(s=>s.id===id);
  const directionSelect=(selected='')=>`<label>岗位方向<select name="direction"><option value="">全部方向</option>${[['rd','研发'],['algorithm','算法'],['non_tech','非技术']].map(([value,label])=>`<option value="${value}" ${selected===value?'selected':''}>${label}</option>`).join('')}</select></label>`;
  const watchForm=(v={})=>`<div class="form-grid">${v.id?`<input type="hidden" name="source_id" value="${esc(v.source_id)}">`:`<label>招聘来源<select name="source_id" required>${supported.map(s=>`<option value="${esc(s.id)}">${esc(s.name)} · ${esc(s.adapter)}</option>`).join('')}</select></label>`}${input('check_interval','基础检查间隔（分钟）',(v.check_interval||3600)/60,'number',`required min="${v.id&&sourceOf(v.source_id)?.adapter==='xiaohongshu'?30:5}" max="10080"`)}${input('keyword','标题或地点包含（可选）',v.keyword||'','text','maxlength="100"')}${v.id&&sourceOf(v.source_id)?.adapter==='xiaohongshu'?directionSelect(v.direction):''}</div><label class="check"><input type="checkbox" name="enabled" ${v.enabled===false?'':'checked'}>启用周期检查</label><label class="check"><input type="checkbox" name="adaptive" ${v.adaptive?'checked':''}>自动调整检查频率（无变化放缓，有变化加快）</label><label class="check"><input type="checkbox" name="priority" ${v.priority?'checked':''}>重点关注（自动调整时优先检查）</label><button>${v.id?'保存关注设置':'开始关注'}</button>`;
  const scheduleReasons={FIXED:'固定间隔',BASE:'基础间隔',PRIORITY:'重点关注或临近截止',RECENT_CHANGE:'近期有变化',UNCHANGED_BACKOFF:'连续无变化，降低频率',FAILURE_BACKOFF:'连续失败，等待恢复'};
  const outcomes={RESTORED_PAUSED:'恢复副本中的关注已暂停，请核对后重新启用',QUEUED:'等待后台检查',PENDING:'等待检查',PROCESSING:'正在核验岗位',SUCCESS:'检查完成',PARTIAL_FAILURE:'部分岗位获取失败',DISCOVERY_FAILED:'来源暂时无法读取',FAILED:'本次检查失败'};
  const progresses=await Promise.all(watches.map(v=>v.last_outcome==='PROCESSING'?api('/api/watches/'+encodeURIComponent(v.id)+'/progress').catch(()=>null):Promise.resolve(null)));
- if(!set(`<h2>关注源</h2><p>输入公司校招网址，先确认招聘项目与岗位数量，再选择大致方向开始关注。当前直接支持小红书校招；其他网站需要逐站适配。</p><form id="source-preview" novalidate><label>公司校招网址<input name="url" type="url" required placeholder="https://job.xiaohongshu.com/campus/position"></label><button>预览岗位源</button></form><div id="source-preview-result"></div>${supported.length?`<details><summary>使用已登记的招聘来源</summary><form id="watch-create" novalidate>${watchForm()}</form></details>`:''}<div class="section-heading"><h3>我的关注</h3><button id="refresh-watches">刷新进度</button></div>${watches.length?watches.map((v,i)=>`<article class="card"><h3>${esc(sourceOf(v.source_id)?.name||v.source_id)} <span class="meta">${v.enabled?'已启用':'已暂停'}</span></h3><p>${esc(outcomes[v.last_outcome]||'状态待确认')}${progresses[i]?.expected?` · 已处理 ${progresses[i].completed}/${progresses[i].expected}${progresses[i].failed?`，失败 ${progresses[i].failed}`:''}`:''}</p><p class="meta">上次检查：${v.last_checked_at?esc(D.date(v.last_checked_at)):'尚未检查'} · 下次检查：${v.enabled?esc(D.date(v.next_check_at)):'已暂停'}${v.effective_interval?` · 当前间隔 ${Math.round(v.effective_interval/60)} 分钟（${esc(scheduleReasons[v.schedule_reason]||'等待检查')}）`:''}</p><div class="actions"><button data-source-jobs="${esc(v.source_id)}">查看已导入岗位</button><button data-delete-watch="${esc(v.id)}">删除关注</button></div><form id="watch-${esc(v.id)}" novalidate>${watchForm(v)}</form></article>`).join(''):empty('还没有关注来源。先输入公司校招网址，预览后即可开始关注。')}`))return;
- $('#refresh-watches').onclick=()=>page('watches').catch(fail);
+ if(!active())return;drafts?.capture();
+ if(!set(`<h2>关注源</h2><p>输入公司校招网址，先确认招聘项目与岗位数量，再选择大致方向开始关注。当前直接支持小红书校招；其他网站需要逐站适配。</p><form id="source-preview" novalidate><label>公司校招网址<input name="url" type="url" required placeholder="https://job.xiaohongshu.com/campus/position"></label><button>预览岗位源</button></form><div id="source-preview-result">${previewMarkup}</div>${supported.length?`<details><summary>使用已登记的招聘来源</summary><form id="watch-create" novalidate>${watchForm()}</form></details>`:''}<div class="section-heading"><h3>我的关注</h3><button id="refresh-watches">刷新进度</button></div>${watches.length?watches.map((v,i)=>`<article class="card"><h3>${esc(sourceOf(v.source_id)?.name||v.source_id)} <span class="meta">${v.enabled?'已启用':'已暂停'}</span></h3><p>${esc(outcomes[v.last_outcome]||'状态待确认')}${progresses[i]?.expected?` · 已处理 ${progresses[i].completed}/${progresses[i].expected}${progresses[i].failed?`，失败 ${progresses[i].failed}`:''}`:''}</p><p class="meta">上次检查：${v.last_checked_at?esc(D.date(v.last_checked_at)):'尚未检查'} · 下次检查：${v.enabled?esc(D.date(v.next_check_at)):'已暂停'}${v.effective_interval?` · 当前间隔 ${Math.round(v.effective_interval/60)} 分钟（${esc(scheduleReasons[v.schedule_reason]||'等待检查')}）`:''}</p><div class="actions"><button data-source-jobs="${esc(v.source_id)}">查看已导入岗位</button><button data-delete-watch="${esc(v.id)}">删除关注</button></div><form id="watch-${esc(v.id)}" novalidate>${watchForm(v)}</form></article>`).join(''):empty('还没有关注来源。先输入公司校招网址，预览后即可开始关注。')}`))return;
+
+ if(!active())return;
+ drafts?.restore();globalThis.CampusNavigation?.register({active,dirty:()=>busy||drafts?.dirty()});
+ $('#refresh-watches').onclick=()=>{if(!busy)reload().catch(fail);};
  formAction('#source-preview',async data=>{
- const preview=await api('/api/sources/preview','POST',{url:String(data.get('url')).trim()});
- $('#source-preview-result').innerHTML=`<article class="card"><h3>${esc(preview.name)} · ${Number(preview.total)} 个岗位</h3><p class="meta">样例：${preview.samples.map(s=>esc(s.title)).join('、')||'暂无岗位'}。岗位数据来自招聘网站，首次导入需要一些时间。</p><form id="source-create" novalidate><input type="hidden" name="url" value="${esc(preview.url)}"><div class="form-grid">${directionSelect()}${input('keyword','标题或地点包含（可选）','','text','maxlength="100"')}${input('check_interval','基础检查间隔（分钟）',360,'number','required min="30" max="10080"')}</div><label class="check"><input type="checkbox" name="enabled" checked>启用周期检查</label><label class="check"><input type="checkbox" name="adaptive" checked>自动调整检查频率</label><label class="check"><input type="checkbox" name="priority">重点关注</label><button>开始关注并导入</button></form></article>`;
- formAction('#source-create',async values=>{
- const result=await api('/api/sources/from-url','POST',{url:values.get('url'),direction:values.get('direction'),keyword:values.get('keyword'),check_interval:Number(values.get('check_interval'))*60,enabled:values.has('enabled'),adaptive:values.has('adaptive'),priority:values.has('priority')});
- await page('watches');$('#notice').textContent=result.existing?'此前已关注这个招聘项目。':'已创建关注。岗位将在后台逐步导入。';
+   const preview=await api('/api/sources/preview','POST',{url:String(data.get('url')).trim()});if(!active())return;
+   drafts?.capture();drafts?.forget('#source-create');previewMarkup=`<article class="card"><h3>${esc(preview.name)} · ${Number(preview.total)} 个岗位</h3><p class="meta">样例：${preview.samples.map(s=>esc(s.title)).join('、')||'暂无岗位'}。岗位数据来自招聘网站，首次导入需要一些时间。</p><form id="source-create" novalidate><input type="hidden" name="url" value="${esc(preview.url)}"><div class="form-grid">${directionSelect()}${input('keyword','标题或地点包含（可选）','','text','maxlength="100"')}${input('check_interval','基础检查间隔（分钟）',360,'number','required min="30" max="10080"')}</div><label class="check"><input type="checkbox" name="enabled" checked>启用周期检查</label><label class="check"><input type="checkbox" name="adaptive" checked>自动调整检查频率</label><label class="check"><input type="checkbox" name="priority">重点关注</label><button>开始关注并导入</button></form></article>`;
+   await draw();
  });
+ if(previewMarkup)formAction('#source-create',async values=>{
+   if(busy)return;busy=true;const point=drafts?.savepoint('#source-create'),urlPoint=drafts?.savepoint('#source-preview');
+   try{const result=await api('/api/sources/from-url','POST',{url:values.get('url'),direction:values.get('direction'),keyword:values.get('keyword'),check_interval:Number(values.get('check_interval'))*60,enabled:values.has('enabled'),adaptive:values.has('adaptive'),priority:values.has('priority')});if(!active())return;
+     drafts?.saved('#source-create',point);drafts?.saved('#source-preview',urlPoint);
+     await refreshAfterSave(result.existing?'此前已关注这个招聘项目。':'已创建关注。岗位将在后台逐步导入。');
+   }finally{busy=false;}
  });
- const save=async(data,id)=>{await api('/api/watches'+(id?'/'+id:''),id?'PUT':'POST',{source_id:data.get('source_id'),check_interval:Number(data.get('check_interval'))*60,keyword:data.get('keyword'),direction:data.get('direction')||'',enabled:data.has('enabled'),adaptive:data.has('adaptive'),priority:data.has('priority')});await page('watches');};
+ const save=async(data,id)=>{
+   if(busy)return;busy=true;const selector=id?'#watch-'+id:'#watch-create',point=drafts?.savepoint(selector);
+   try{await api('/api/watches'+(id?'/'+id:''),id?'PUT':'POST',{source_id:data.get('source_id'),check_interval:Number(data.get('check_interval'))*60,keyword:data.get('keyword'),direction:data.get('direction')||'',enabled:data.has('enabled'),adaptive:data.has('adaptive'),priority:data.has('priority')});if(!active())return;
+     drafts?.saved(selector,point);await refreshAfterSave(id?'关注设置已保存。':'已创建关注。');
+   }finally{busy=false;}
+ };
  if(supported.length)formAction('#watch-create',data=>save(data));
  for(const v of watches)formAction('#watch-'+v.id,data=>save(data,v.id));
- for(const b of box.querySelectorAll('[data-delete-watch]'))b.onclick=async()=>{try{await api('/api/watches/'+b.dataset.deleteWatch,'DELETE');await page('watches');}catch(e){fail(e);}};
+ for(const b of box.querySelectorAll('[data-delete-watch]'))b.onclick=async()=>{
+   if(busy)return;busy=true;
+   try{await api('/api/watches/'+b.dataset.deleteWatch,'DELETE');if(!active())return;drafts?.forget('#watch-'+b.dataset.deleteWatch);await refreshAfterSave('已删除关注。');}catch(e){fail(e);}finally{busy=false;}
+ };
  for(const b of box.querySelectorAll('[data-source-jobs]'))b.onclick=()=>page('source_jobs',{sourceID:b.dataset.sourceJobs,page:1}).catch(fail);
- return;
+ }
+ async function refreshAfterSave(message){
+   try{await reload();}catch{message+=' 刷新进度失败，请稍后点击“刷新进度”。';}
+   if(active())$('#notice').textContent=message;
+ }
+ await reload();return;
  }
  if(name==='source_jobs'){
  const sourceID=query?.sourceID,pageNumber=Number(query?.page)||1;

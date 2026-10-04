@@ -41,3 +41,14 @@ test('the in-page leave dialog keeps canceled edits and allows only one pending 
   const first=N.leave();assert.equal(dialog.open,true);assert.equal(await N.leave(),false);buttons.stay.onclick();assert.equal(await first,false);assert.equal(N.dirty(),true);assert.equal(trigger.focused,true);assert.equal(captured,0);
   const second=N.leave();buttons.leave.onclick();assert.equal(await second,true);assert.equal(captured,1);assert.equal(N.dirty(),false);
 });
+test('filtering hides edits without discarding them, and saving an earlier submission keeps later typing dirty',()=>{
+  const h=harness();let forms=[{id:'application-a',elements:[{name:'note',type:'textarea',value:'已投递'}]}];
+  const doc={querySelectorAll:()=>forms,querySelector:s=>forms.find(form=>form.id===s.slice(1))},tracker=h.N.forms(doc,{selector:'#records form',retainMissing:true});tracker.restore();
+  forms[0].elements[0].value='等待笔试';const submitted=tracker.savepoint('#application-a');tracker.capture();forms=[];tracker.restore();
+  assert.equal(tracker.dirty(),true);forms=[{id:'application-a',elements:[{name:'note',type:'textarea',value:'已投递'}]}];tracker.restore();assert.equal(forms[0].elements[0].value,'等待笔试');
+  forms[0].elements[0].value='补充新收到的通知';tracker.saved('#application-a',submitted);tracker.capture();forms=[{id:'application-a',elements:[{name:'note',type:'textarea',value:'等待笔试'}]}];tracker.restore();
+  assert.equal(forms[0].elements[0].value,'补充新收到的通知');assert.equal(tracker.dirty(),true);tracker.forget('#application-a');tracker.restore();assert.equal(tracker.dirty(),false);assert.equal(h.stored.size,0);
+});
+test('discard confirmation leaves the page guard active and blocks competing navigation while prompting',async()=>{
+  const h=harness();h.N.register({dirty:()=>true});assert.equal(await h.N.confirmDiscard(),false);assert.equal(h.N.dirty(),true);h.approve();assert.equal(await h.N.confirmDiscard(),true);assert.equal(h.N.dirty(),true);
+});

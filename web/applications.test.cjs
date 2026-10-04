@@ -10,3 +10,8 @@ test('official links reject executable schemes, credential URLs and malformed va
  for(const u of ['javascript:alert(1)','data:text/html,hi','https://secret:pass@example.invalid/','not-url',undefined])assert.equal(App.officialLink(u),'');
  assert.equal(App.officialLink('https://careers.example.invalid/'),'https://careers.example.invalid/');
 });
+test('application filters combine company, title and stage without treating offer as ongoing',()=>{
+ const rows=[{id:'a',job:{company:'甲公司',title:'Go 服务端开发'},current_state:'APPLIED'},{id:'b',job:{company:'甲公司',title:'Go 平台开发'},current_state:'OFFER'},{id:'c',job:{company:'乙公司',title:'Go 服务端开发'},current_state:'REJECTED'},{id:'d',current_state:'WITHDRAWN'}];
+ assert.deepEqual(App.filtered(rows,{query:' go ',company:'甲公司',stage:'APPLIED'}).map(a=>a.id),['a']);assert.deepEqual(rows.filter(App.ended).map(a=>a.id),['b','c','d']);assert.equal(App.filtered(rows,{query:'不存在'}).length,0);assert.equal(App.filtered(rows).length,4);
+ const many=Array.from({length:51},(_,i)=>({id:String(i)}));assert.equal(App.pageSlice(many,2).rows[0].id,'25');assert.equal(App.pageSlice(many,100).page,3);assert.equal(App.pageSlice(many,3).rows.length,1);
+});

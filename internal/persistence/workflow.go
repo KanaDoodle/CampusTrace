@@ -235,6 +235,12 @@ func (s *Store) SaveInterview(ctx context.Context, user string, v d.Interview) (
 	if v.ApplicationID == "" || v.Round < 1 || v.Round > 20 || v.ScheduledAt.IsZero() || len(v.Notes) > 8000 {
 		return v, ErrValidation
 	}
+	if v.Result == "" {
+		v.Result = "PENDING"
+	}
+	if v.Result != "PASS" && v.Result != "FAIL" && v.Result != "PENDING" {
+		return v, ErrValidation
+	}
 	v.ID = d.ID()
 	err := s.Tx(ctx, func(tx *sql.Tx) error {
 		var id string
@@ -248,7 +254,7 @@ func (s *Store) SaveInterview(ctx context.Context, user string, v d.Interview) (
 }
 func (s *Store) FinishInterview(ctx context.Context, user, id, result, notes string) (d.Interview, error) {
 	var v d.Interview
-	if result != "PASS" && result != "FAIL" && result != "PENDING" {
+	if (result != "PASS" && result != "FAIL" && result != "PENDING") || len(notes) > 8000 {
 		return v, ErrValidation
 	}
 	err := s.Tx(ctx, func(tx *sql.Tx) error {
@@ -257,8 +263,10 @@ func (s *Store) FinishInterview(ctx context.Context, user, id, result, notes str
 		if err != nil {
 			return err
 		}
-		now := time.Now().UTC()
-		v.FinishedAt = &now
+		if v.FinishedAt == nil {
+			now := time.Now().UTC()
+			v.FinishedAt = &now
+		}
 		v.Result = result
 		v.Notes = notes
 		_, err = tx.ExecContext(ctx, "UPDATE interviews SET body=? WHERE id=? AND user_id=?", d.JSON(v), id, user)
