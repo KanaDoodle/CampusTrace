@@ -11,8 +11,12 @@ services:
     ports: ["127.0.0.1:13306:3306"]
     volumes: ["mysql-data:/var/lib/mysql"]
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      # The initialization server accepts socket connections before the real
+      # TCP server or application database is ready. Check the application's
+      # actual connection and credentials before starting dependent services.
+      test: ["CMD-SHELL", 'MYSQL_PWD="$$MYSQL_PASSWORD" mysql --protocol=TCP --connect-timeout=2 -h127.0.0.1 -u"$$MYSQL_USER" "$$MYSQL_DATABASE" -e "SELECT 1" >/dev/null']
       interval: 3s
+      timeout: 3s
       retries: 40
   redis:
     image: redis:7.4-alpine

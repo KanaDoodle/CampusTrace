@@ -39,12 +39,35 @@ jobs:
       - name: Unified CLI and complete Compose stack
         run: |
           go build -o bin/campustrace ./cmd/campustrace
-          trap './bin/campustrace stop --all' EXIT
+          finish() {
+            result=$?
+            set +e
+            mkdir -p bin/ci
+            docker compose -f docker-compose.yml -f compose.app.yml logs --no-color --tail 200 > bin/ci/services.log 2>&1
+            docker compose -f docker-compose.yml -f compose.app.yml ps --all > bin/ci/services.txt 2>&1
+            for container in $(docker compose -f docker-compose.yml -f compose.app.yml ps --all --quiet); do
+              docker inspect --format '{{.Name}} {{json .State}}' "$container" >> bin/ci/container-health.txt 2>&1
+            done
+            ./bin/campustrace stop --all
+            cleanup_result=$?
+            if [ "$result" -eq 0 ]; then result=$cleanup_result; fi
+            exit "$result"
+          }
+          trap finish EXIT
           ./bin/campustrace start --timeout 180
           ./bin/campustrace start --timeout 180
           ./bin/campustrace status
           ./bin/campustrace doctor
-          RADAR_RACE=1 ./scripts/verify-radar.sh
+          RADAR_RACE=1 RADAR_VERIFY_LOGS="$PWD/bin/ci/integration" ./scripts/verify-radar.sh
           ./bin/campustrace logs api --tail 3
           ./bin/campustrace stop
           ./bin/campustrace start --timeout 180
+
+      - name: Retain failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-diagnostics
+          path: bin/ci/
+          if-no-files-found: ignore
+          retention-days: 7
