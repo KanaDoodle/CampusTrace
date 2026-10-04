@@ -1,6 +1,6 @@
 # 校招来源扩展与验证
 
-本轮增加百度和美团的应届生来源适配，以及关注源页面的三个公司预设。入口为“选择公司 → 预览范围和样例 → 设置关键词与周期 → 开始关注并导入”。选择及预览只读，周期导入不调用大模型。
+来源扩展已覆盖小红书、百度、美团、京东、网易互联网与阿里巴巴六个公司预设。入口为“选择公司 → 预览范围和样例 → 设置关键词与周期 → 开始关注并导入”。选择及预览只读，周期导入不调用大模型。
 
 ## 读取范围
 
@@ -12,7 +12,7 @@
 
 ## 账号与抓取边界
 
-用户创建的来源仍为 PRIVATE/MANUAL。服务端根据已识别网址推导 adapter 和 tenant；存储按账号、adapter、tenant 去重，创建关注和来源在同一事务完成。百度和美团不支持方向筛选，接口明确拒绝非空 direction。五个公司最低检查周期为 30 分钟，调度和页面使用相同下限；同一公司所有账号的预览、发现和详情共用每分钟 30 次限速。
+用户创建的来源仍为 PRIVATE/MANUAL。服务端根据已识别网址推导 adapter 和 tenant；存储按账号、adapter、tenant 去重，创建关注和来源在同一事务完成。百度和美团不支持方向筛选，接口明确拒绝非空 direction。六个公司最低检查周期为 30 分钟，调度和页面使用相同下限；同一公司所有账号的预览、发现和详情共用每分钟 30 次限速。
 
 新增适配复用公共 DNS 验证、固定公网地址连接、限速退让、失败冷却、一次网络/5xx 重试、响应大小上限、GET 条件缓存及原有 watch receipt。没有登录、上传简历或发送候选人信息，未改动代理限制与访问控制。
 
@@ -46,3 +46,19 @@ CAMPUS_LIVE_SOURCES=1 GOWORK=off go test -count=1 -run '^TestPortalCampusLiveRea
 来源官网：[京东](https://campus.jd.com/)、[网易互联网](https://campus.163.com/app/job/position?id=103)。固定数据测试覆盖项目变更、实习混入、总数缺失/漂移、漏页、重复编号、详情身份错误、访问限制与严格 URL 范围。
 
 本轮暂缓：小米官网校招查询返回 1059 岗，超过当前单来源容量；华为公开岗位请求在本机返回 403；不把可打开首页等同于可稳定导入。以上是本机验证时的快照，不代表企业没有校招岗位。
+
+## 第三轮：阿里巴巴；Bilibili 暂缓
+
+阿里巴巴预设为 `https://campus-talent.alibaba.com/campus/position?batchId=100000760001`，限定“阿里巴巴2027届应届生”。普通访问者打开官网页面即可获发匿名 Cookie 和 CSRF 令牌，随后调用该官网发布的 POST `/searchCondition/listBatch`、`/position/search`、`/position/detail` 只读查询。不是登录，也不使用用户浏览器会话；每个预览、发现、详情操作独立创建内存 CookieJar，操作结束不保留，不写入数据库、响应缓存或日志。只允许同源 HTTPS 重定向，沿用公网 DNS 与代理禁用边界。启动页不缓存，岗位查询均为 POST；启动页和查询都计入同一公司每分钟 30 次限速。
+
+从 graduate 分类核对固定批次的编号、名称与 type；列表和详情核对 batchId、batchName、categoryType=freshman、status=recruit 与原岗位编号。列表接口接受每页 50 条，1-based 分页；校验实际 pageSize/currentPage、必需 totalCount、每页行数、总数一致与重复编号，单源上限仍为 500。468 个岗位一次完整发现需要 12 个请求（启动页、批次、10 页列表），关键词在完整扫描后过滤。官网列出的一个或多个业务集团保留在来源原文，不猜测多个集团中的实际雇主；保留职责、要求与明确公开的毕业时间范围。仍在列表中不等于已核实投递时间。
+
+2026-10-05 的正式 PublicPlatform/PublicClient 只读外网验证：完整列出 468 岗，首岗 `199907740040`、尾岗 `199907720007` 的独立详情原文均通过核验，全部元数据符合导入校验。计数仅为验证快照，没有创建用户关注或向用户数据库批量导入。普通 CI 使用固定数据，覆盖分页截断、总数变化、重复岗位、实习混入、详情身份/范围错误、空原文、会话访问限制、越域重定向与令牌不持久化。
+
+```sh
+CAMPUS_LIVE_SOURCES=1 GOWORK=off go test -count=1 -run '^TestAlibabaLiveReadOnly$' -v ./internal/source
+```
+
+Bilibili 官网 `https://jobs.bilibili.com/campus/positions` 与官网客户端发布的匿名会话接口 `/api/auth/v1/csrf/token` 在本机返回 HTTP 412；未能完成可靠公开读取验证，暂不添加适配器或宣称可以自动导入。没有尝试登录、复制个人 Cookie 或绕过访问限制。原有手动导入流程仍可使用，动态网页可能需要手动粘贴原文。
+
+来源官网：[阿里巴巴](https://campus-talent.alibaba.com/campus/position?batchId=100000760001)、[Bilibili](https://jobs.bilibili.com/campus/positions)。

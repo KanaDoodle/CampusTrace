@@ -157,7 +157,7 @@
     if (code==='EMAIL_TAKEN') return '该邮箱已经注册过，请直接登录，或换一个邮箱注册。';
     if (code==='TODO_CAPACITY') return '待办相关记录超过汇总容量，请进入投递进展、面试与复盘或岗位库查看；本页没有展示不完整的总数。';
     if (code==='RADAR_CAPACITY') return '可见岗位已超过当前雷达容量（500 条）；请联系维护者处理。';
-    if (code==='SOURCE_URL_UNSUPPORTED') return '目前支持小红书、百度、美团、京东和网易互联网的校招列表网址。请使用页面预设入口；带有其他筛选或内推参数的网址需先移除这些参数。';
+    if (code==='SOURCE_URL_UNSUPPORTED') return '目前支持小红书、百度、美团、京东、网易互联网和阿里巴巴的校招列表网址。请使用页面预设入口；带有其他筛选或内推参数的网址需先移除这些参数。';
     if (code==='SOURCE_PREVIEW_CAPACITY') return '此招聘项目超过当前单来源 500 个岗位的容量，本次没有创建关注。';
     if (code==='SOURCE_PREVIEW_RATE_LIMIT') return '网址预览太频繁，请一分钟后再试。';
     if (code==='SOURCE_PREVIEW_FAILED') return '招聘网站暂时无法读取，或页面接口已变化；本次没有创建关注，请稍后重试。';

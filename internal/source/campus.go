@@ -10,6 +10,7 @@ const BaiduCampusURL = "https://talent.baidu.com/jobs/list?recruitType=GRADUATE"
 const MeituanCampusURL = "https://zhaopin.meituan.com/web/campus?hiringType=1_1"
 const JDCampusURL = "https://campus.jd.com/#/jobs?type=present"
 const NeteaseCampusURL = "https://campus.163.com/app/job/position?id=103"
+const AlibabaCampusURL = "https://campus-talent.alibaba.com/campus/position?batchId=100000760001"
 
 // Presets describe implemented scopes, not promises about current availability.
 type CampusSite struct {
@@ -28,6 +29,7 @@ func CampusSites() []CampusSite {
 		{"meituan", "美团", MeituanCampusURL, "应届生校招", 1800, false},
 		{"jd", "京东", JDCampusURL, "应届生项目（JDS、TET、新锐之星）", 1800, false},
 		{"netease", "网易互联网", NeteaseCampusURL, "2027 届校园招聘（不含互娱、雷火）", 1800, false},
+		{"alibaba", "阿里巴巴", AlibabaCampusURL, "2027 届应届生（官网当前公开业务集团）", 1800, false},
 	}
 }
 
@@ -65,6 +67,10 @@ func campusSite(raw string) (CampusSite, error) {
 			if u.Host == "campus.163.com" && path == "/app/job/position" && len(query) == 1 && len(query["id"]) == 1 && query.Get("id") == "103" {
 				return site, nil
 			}
+		case "alibaba":
+			if u.Host == "campus-talent.alibaba.com" && path == "/campus/position" && len(query) == 1 && len(query["batchId"]) == 1 && query.Get("batchId") == "100000760001" {
+				return site, nil
+			}
 		}
 	}
 	return CampusSite{}, fail("UNSUPPORTED", false, 0)
@@ -84,6 +90,8 @@ func (a PublicPlatform) PreviewCampus(ctx context.Context, raw string) (CampusPr
 	if site.Adapter == "xiaohongshu" {
 		v, err = a.PreviewXHS(ctx, raw)
 		v.Name = site.Company + " · " + v.Name
+	} else if site.Adapter == "alibaba" {
+		v, err = a.previewAlibaba(ctx, site)
 	} else if site.Adapter == "jd" || site.Adapter == "netease" {
 		v, err = a.previewPortal(ctx, site)
 	} else {

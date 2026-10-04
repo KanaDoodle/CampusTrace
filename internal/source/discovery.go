@@ -71,7 +71,7 @@ type HTTPEntry struct {
 
 var publicPlatformClient = PublicClient()
 
-func (PublicPlatform) Version() string { return "public-platforms-v4" }
+func (PublicPlatform) Version() string { return "public-platforms-v5" }
 
 var tenantPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,100}$`)
 
@@ -104,6 +104,10 @@ func PlatformURL(s d.Source) (string, error) {
 		if s.Tenant == "103" {
 			return "https://campus.163.com/api/campuspc/position", nil
 		}
+	case "alibaba":
+		if s.Tenant == "100000760001" {
+			return "https://campus-talent.alibaba.com/position", nil
+		}
 	}
 	return "", fail("UNSUPPORTED", false, 0)
 }
@@ -132,7 +136,7 @@ func (a PublicPlatform) request(ctx context.Context, s d.Source, method, raw str
 	}
 }
 
-func (a PublicPlatform) requestOnce(ctx context.Context, s d.Source, method, raw string, body any, dst any) error {
+func (a PublicPlatform) allowRequest(ctx context.Context, s d.Source) error {
 	if a.Allow != nil {
 		limit := s.RateLimit
 		if limit < 1 {
@@ -149,6 +153,13 @@ func (a PublicPlatform) requestOnce(ctx context.Context, s d.Source, method, raw
 		if !ok {
 			return fail("RATE_LIMIT", true, 429)
 		}
+	}
+	return nil
+}
+
+func (a PublicPlatform) requestOnce(ctx context.Context, s d.Source, method, raw string, body any, dst any) error {
+	if err := a.allowRequest(ctx, s); err != nil {
+		return err
 	}
 	client := a.Client
 	if client == nil {
@@ -377,6 +388,11 @@ func (a PublicPlatform) Discover(ctx context.Context, s d.Source, w d.WatchTarge
 		if err != nil {
 			return nil, err
 		}
+	case "alibaba":
+		refs, err = a.discoverAlibaba(ctx, s, w)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if len(refs) > MaxPostings {
 		return nil, fail("CAPACITY", false, 200)
@@ -464,6 +480,8 @@ func (a PublicPlatform) FetchPosting(ctx context.Context, s d.Source, r PostingR
 		text, err = a.fetchGraduate(ctx, s, r)
 	case "jd", "netease":
 		text, err = a.fetchPortal(ctx, s, r)
+	case "alibaba":
+		text, err = a.fetchAlibaba(ctx, s, r)
 	}
 	if err != nil {
 		res := Result{Status: "HTTP_ERROR"}
