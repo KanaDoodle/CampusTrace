@@ -26,7 +26,7 @@ func (s *Store) CreateCampusWatch(ctx context.Context, user, projectCode, projec
 
 func (s *Store) CreateCampusSource(ctx context.Context, user, adapter, projectCode, name string, input d.WatchInput) (CampusRegistration, error) {
 	var out CampusRegistration
-	validScope := adapter == "xiaohongshu" || (adapter == "baidu" && projectCode == "GRADUATE") || (adapter == "meituan" && projectCode == "graduate") || (adapter == "jd" && projectCode == "present") || (adapter == "netease" && projectCode == "103") || (adapter == "alibaba" && projectCode == "100000760001")
+	validScope := adapter == "xiaohongshu" || (adapter == "baidu" && projectCode == "GRADUATE") || (adapter == "meituan" && projectCode == "graduate") || (adapter == "jd" && projectCode == "present") || (adapter == "netease" && projectCode == "103") || (adapter == "alibaba" && projectCode == "100000760001") || (adapter == "bilibili" && projectCode == "freshmen")
 	if user == "" || projectCode == "" || len(projectCode) > 100 || len(name) == 0 || len(name) > 160 || strings.ContainsAny(projectCode, "/:?@#") || !validScope {
 		return out, ErrValidation
 	}

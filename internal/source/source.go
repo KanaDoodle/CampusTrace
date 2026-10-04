@@ -43,8 +43,9 @@ func PublicClient() *http.Client {
 	}}
 }
 
-// Validate the entire DNS answer before connecting, then try each pinned public
-// address. A temporarily unreachable first address must not hide a working one.
+// Validate the entire DNS answer before connecting, then try pinned addresses
+// with at most two concurrent TCP attempts. Slow/unreachable address clusters
+// must not exhaust the whole request deadline before another address is tried.
 func dialPublicSource(ctx context.Context, network, address string, lookup func(context.Context, string) ([]net.IPAddr, error), dial func(context.Context, string, string) (net.Conn, error)) (net.Conn, error) {
 	host, port, err := net.SplitHostPort(address)
 	if err != nil {
@@ -62,18 +63,63 @@ func dialPublicSource(ctx context.Context, network, address string, lookup func(
 			return nil, errors.New("only public source addresses allowed")
 		}
 	}
+	work, stop := context.WithCancel(ctx)
+	defer stop()
+	addresses := make(chan net.IPAddr, len(ips))
+	for _, ip := range ips {
+		addresses <- ip
+	}
+	close(addresses)
+	type outcome struct {
+		conn net.Conn
+		err  error
+	}
+	results := make(chan outcome)
+	for range min(2, len(ips)) {
+		go func() {
+			for ip := range addresses {
+				if work.Err() != nil {
+					return
+				}
+				attempt, cancel := context.WithTimeout(work, 2*time.Second)
+				conn, err := dial(attempt, network, net.JoinHostPort(ip.IP.String(), port))
+				cancel()
+				if conn == nil && err == nil {
+					err = errors.New("no connection returned")
+				}
+				if conn != nil && err != nil {
+					_ = conn.Close()
+					conn = nil
+				}
+				select {
+				case results <- outcome{conn, err}:
+					if err == nil {
+						return
+					}
+				case <-work.Done():
+					if conn != nil {
+						_ = conn.Close()
+					}
+					return
+				}
+			}
+		}()
+	}
 	var failures []error
-	for _, v := range ips {
-		if err := ctx.Err(); err != nil {
-			return nil, err
+	for range ips {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case result := <-results:
+			if result.err == nil {
+				if err := ctx.Err(); err != nil {
+					_ = result.conn.Close()
+					return nil, err
+				}
+				return result.conn, nil
+			}
+			failures = append(failures, result.err)
 		}
-		attempt, cancel := context.WithTimeout(ctx, 2*time.Second)
-		conn, err := dial(attempt, network, net.JoinHostPort(v.IP.String(), port))
-		cancel()
-		if err == nil {
-			return conn, nil
-		}
-		failures = append(failures, err)
 	}
 	return nil, errors.Join(failures...)
 }

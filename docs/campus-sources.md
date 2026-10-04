@@ -1,6 +1,6 @@
 # 校招来源扩展与验证
 
-来源扩展已覆盖小红书、百度、美团、京东、网易互联网与阿里巴巴六个公司预设。入口为“选择公司 → 预览范围和样例 → 设置关键词与周期 → 开始关注并导入”。选择及预览只读，周期导入不调用大模型。
+来源扩展已覆盖小红书、百度、美团、京东、网易互联网、阿里巴巴与哔哩哔哩七个公司预设。入口为“选择公司 → 预览范围和样例 → 设置关键词与周期 → 开始关注并导入”。选择及预览只读，周期导入不调用大模型。
 
 ## 读取范围
 
@@ -12,7 +12,7 @@
 
 ## 账号与抓取边界
 
-用户创建的来源仍为 PRIVATE/MANUAL。服务端根据已识别网址推导 adapter 和 tenant；存储按账号、adapter、tenant 去重，创建关注和来源在同一事务完成。百度和美团不支持方向筛选，接口明确拒绝非空 direction。六个公司最低检查周期为 30 分钟，调度和页面使用相同下限；同一公司所有账号的预览、发现和详情共用每分钟 30 次限速。
+用户创建的来源仍为 PRIVATE/MANUAL。服务端根据已识别网址推导 adapter 和 tenant；存储按账号、adapter、tenant 去重，创建关注和来源在同一事务完成。百度和美团不支持方向筛选，接口明确拒绝非空 direction。七个公司最低检查周期为 30 分钟，调度和页面使用相同下限；同一公司所有账号的预览、发现和详情共用每分钟 30 次限速。
 
 新增适配复用公共 DNS 验证、固定公网地址连接、限速退让、失败冷却、一次网络/5xx 重试、响应大小上限、GET 条件缓存及原有 watch receipt。没有登录、上传简历或发送候选人信息，未改动代理限制与访问控制。
 
@@ -47,7 +47,7 @@ CAMPUS_LIVE_SOURCES=1 GOWORK=off go test -count=1 -run '^TestPortalCampusLiveRea
 
 本轮暂缓：小米官网校招查询返回 1059 岗，超过当前单来源容量；华为公开岗位请求在本机返回 403；不把可打开首页等同于可稳定导入。以上是本机验证时的快照，不代表企业没有校招岗位。
 
-## 第三轮：阿里巴巴；Bilibili 暂缓
+## 第三轮：阿里巴巴；Bilibili 初次核验受阻
 
 阿里巴巴预设为 `https://campus-talent.alibaba.com/campus/position?batchId=100000760001`，限定“阿里巴巴2027届应届生”。普通访问者打开官网页面即可获发匿名 Cookie 和 CSRF 令牌，随后调用该官网发布的 POST `/searchCondition/listBatch`、`/position/search`、`/position/detail` 只读查询。不是登录，也不使用用户浏览器会话；每个预览、发现、详情操作独立创建内存 CookieJar，操作结束不保留，不写入数据库、响应缓存或日志。只允许同源 HTTPS 重定向，沿用公网 DNS 与代理禁用边界。启动页不缓存，岗位查询均为 POST；启动页和查询都计入同一公司每分钟 30 次限速。
 
@@ -59,6 +59,24 @@ CAMPUS_LIVE_SOURCES=1 GOWORK=off go test -count=1 -run '^TestPortalCampusLiveRea
 CAMPUS_LIVE_SOURCES=1 GOWORK=off go test -count=1 -run '^TestAlibabaLiveReadOnly$' -v ./internal/source
 ```
 
-Bilibili 官网 `https://jobs.bilibili.com/campus/positions` 与官网客户端发布的匿名会话接口 `/api/auth/v1/csrf/token` 在本机返回 HTTP 412；未能完成可靠公开读取验证，暂不添加适配器或宣称可以自动导入。没有尝试登录、复制个人 Cookie 或绕过访问限制。原有手动导入流程仍可使用，动态网页可能需要手动粘贴原文。
+初次探测 Bilibili 官网和匿名会话接口时出现 HTTP 412、连接超时及缺少 ajSessionId 的响应，当时未将其加入预设。第四轮已查明公开请求初始化差异并完成接入，当前状态以以下记录为准。
 
 来源官网：[阿里巴巴](https://campus-talent.alibaba.com/campus/position?batchId=100000760001)、[Bilibili](https://jobs.bilibili.com/campus/positions)。
+
+## 第四轮：哔哩哔哩已接入
+
+官网页面无需登录即可显示应届生岗位。公开客户端先以 X-UserType=2、X-AppKey=ops.ehr-api.auth 调用 GET `/api/auth/v1/csrf/token`，将返回的匿名令牌作为后续 X-CSRF 请求头。以上初始化常量来自官网公开客户端，不是个人密钥。每个预览、发现或详情操作复制客户端并创建独立内存 CookieJar，不读取浏览器登录信息，令牌端点禁止持久化与条件缓存，令牌不进入结构化日志。限制为 jobs.bilibili.com 同源 HTTPS 请求与跳转；不改变代理禁用、公网 DNS 整体核验和响应大小边界。
+
+预设 `https://jobs.bilibili.com/campus/positions?type=3`，接受该路径无查询参数的官网入口。Freshmen=3、Intern=0 是官网发布的枚举；POST `/api/campus/position/positionList` 同时限定 recruitType=1、workTypeList=["3"]、positionTypeList=["3"]，仅处理列表公开应届生范围，不扩展到单独的 B-STAR/其他专项页面。元数据核验正编号、校招项目、recruitType=1 与“全职”类型；官网主动隐藏的标记名拒绝导入。独立 GET `/api/campus/position/detail/{id}` 核验原编号、positionType=3 和 recruitType=1，保留岗位描述（职责与要求）、公开的网申开始/截止日期与毕业范围，不推定页面存在即仍可投递。
+
+固定每页 10 条，完整扫描后按标题/地点关键词筛选。官网最后一页目前返回 total=89、size=9、pages=10，因为它根据本页行数计算页数；适配器根据总数和请求大小推导 9 页，核验每页确切行数、总数一致与重复编号，不能依赖不稳定的 pages/size。缺页、范围变化与容量超过 500 均使整次发现失败，不把部分扫描当成成功导入。
+
+网络探测发现某些 DNS 结果包含 8 个不可达公网地址，顺序尝试每个 2 秒会耗尽请求/任务时限。正式传输层仍先核验全部 DNS 答案，再最多两个并行 TCP 尝试；每个尝试仍限制 2 秒，连接仍固定在已验证的 IP，选出成功连接后取消并关闭其他连接。不增加并发 HTTP 查询或重试次数。测试覆盖整个 DNS 答案包含私网时零连接、不可达首地址、并发上限、失败汇总、取消与落败连接关闭。
+
+2026-10-05 正式 PublicPlatform/PublicClient 验证：默认网络策略、每个操作 15 秒任务时限内，完整列出 89 岗，首岗 `30712`、尾岗 `29370` 的独立详情均成功；全部元数据通过导入校验。本机与应用 Docker 网络中的独立只读探针均取得相同结果。快照计数会变化。没有向用户数据库创建关注或批量录入岗位，也没有模型调用。普通 CI 使用固定数据并覆盖匿名会话隔离、令牌不缓存、访问限制、实习混入、总数漂移、分页截断、重复编号、详情身份/范围错误与跨域拒绝。
+
+```sh
+CAMPUS_LIVE_SOURCES=1 GOWORK=off go test -count=1 -run '^TestBilibiliLiveReadOnly$' -v ./internal/source
+```
+
+来源官网：[哔哩哔哩应届生招聘](https://jobs.bilibili.com/campus/positions?type=3)。

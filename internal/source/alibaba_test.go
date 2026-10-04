@@ -175,7 +175,7 @@ func TestAlibabaRejectPartialScopeAndIdentityErrors(t *testing.T) {
 			s := d.Source{ID: "fixture", Adapter: "alibaba", Tenant: "100000760001"}
 			var err error
 			if strings.HasPrefix(scenario, "wrong_detail") || scenario == "wrong_id" || scenario == "empty_text" {
-				_, err = a.FetchPosting(context.Background(), s, PostingRef{ExternalID: "51", URL: alibabaOrigin + "/campus/position/51"})
+				_, err = a.FetchPosting(context.Background(), s, PostingRef{ExternalID: "51", Title: "Go 后端开发 51", URL: alibabaOrigin + "/campus/position/51"})
 			} else {
 				_, err = a.Discover(context.Background(), s, d.WatchTarget{})
 			}
@@ -197,7 +197,7 @@ func TestAlibabaStrictURLAndForgedRefBeforeRequest(t *testing.T) {
 	calls := 0
 	a := PublicPlatform{Client: &http.Client{Transport: queryTransport(func(*http.Request) (*http.Response, error) { calls++; return nil, fmt.Errorf("unexpected request") })}}
 	for _, s := range []d.Source{{Adapter: "alibaba", Tenant: "intern"}, {Adapter: "alibaba", Tenant: "100000760001"}} {
-		_, err := a.FetchPosting(context.Background(), s, PostingRef{ExternalID: "51", URL: alibabaOrigin + "/campus/position/52"})
+		_, err := a.FetchPosting(context.Background(), s, PostingRef{ExternalID: "51", Title: "Go 后端开发 51", URL: alibabaOrigin + "/campus/position/52"})
 		if err == nil {
 			t.Fatal("forged ref accepted")
 		}

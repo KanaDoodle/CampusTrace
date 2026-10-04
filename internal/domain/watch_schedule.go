@@ -2,7 +2,7 @@ package domain
 
 func IsCampusSource(adapter string) bool {
 	switch adapter {
-	case "xiaohongshu", "baidu", "meituan", "jd", "netease", "alibaba":
+	case "xiaohongshu", "baidu", "meituan", "jd", "netease", "alibaba", "bilibili":
 		return true
 	default:
 		return false
