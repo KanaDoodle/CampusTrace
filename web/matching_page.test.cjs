@@ -16,12 +16,12 @@ function harness({pending=['pending-a','pending-b'],failed=['failed-a','failed-b
     html=value;elements.clear();
     for(const match of value.matchAll(/<([a-z][\w:-]*)\b([^>]*\bid="([^"]+)"[^>]*)>/gi)){
       const [,tag,attributes,id]=match;
-      elements.set(id,{tagName:tag.toUpperCase(),disabled:/\sdisabled(?:\s|>|$)/.test(attributes),checked:/\schecked(?:\s|>|$)/.test(attributes),isConnected:true,innerHTML:'',dataset:{},getClientRects:()=>[],showModal(){this.open=true;},close(){this.open=false;this.onclose?.();}});
+      elements.set(id,{tagName:tag.toUpperCase(),disabled:/\sdisabled(?:\s|>|$)/.test(attributes),checked:/\schecked(?:\s|>|$)/.test(attributes),value:attributes.match(/\bvalue="([^"]*)"/)?.[1]||'',isConnected:true,innerHTML:'',dataset:{},getClientRects:()=>[],showModal(){this.open=true;},close(){this.open=false;this.onclose?.();}});
     }
     return true;
   };
-  const context={document,setTimeout:(fn,delay)=>{timers.push({fn,delay});return 0;},crypto:{randomUUID:()=>'synthetic-task-request-00000000000'},sessionStorage:{getItem:k=>stored.get(k),setItem:(k,v)=>stored.set(k,v)},CampusModels:{bindUser(){},requestConfig:()=>model,available:()=>true,label:()=> '测试模型'},CampusMatchingChat:{readSelection:()=>new Set(),selectedRows:()=>[],pruneSelection(){},storeSelection(){}},console};
-  vm.createContext(context);vm.runInContext(fs.readFileSync(__dirname+'/ui.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching_decision.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching_tasks.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching.js','utf8'),context);
+  const context={document,setTimeout:(fn,delay)=>{timers.push({fn,delay});return timers.length;},FormData:class{get(k){return elements.get({q:'match-search',state:'match-state',tier:'match-tier',city:'match-city',sort:'match-sort'}[k])?.value||'';}},clearTimeout:id=>{if(timers[id-1])timers[id-1].canceled=true;},crypto:{randomUUID:()=>'synthetic-task-request-00000000000'},sessionStorage:{getItem:k=>stored.get(k),setItem:(k,v)=>stored.set(k,v)},CampusModels:{bindUser(){},requestConfig:()=>model,available:()=>true,label:()=> '测试模型'},CampusMatchingChat:{readSelection:()=>new Set(),selectedRows:()=>[],pruneSelection(){},storeSelection(){}},console};
+  vm.createContext(context);vm.runInContext(fs.readFileSync(__dirname+'/ui.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/navigation.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching_decision.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching_tasks.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching.js','utf8'),context);
   const api=async(path,method,body)=>{
     if(path==='/api/profile/resume/capabilities')return {user_id:'alice',model:'server-model',model_available:true,durable_matching:durable};
     if(path.startsWith('/api/matching/tasks')){if(!method||method==='GET'){return structuredClone(path==='/api/matching/tasks'?taskRuns:taskRuns.find(v=>v.id===path.split('/')[4]));}taskRequests.push({path,body});if(taskRequest)return taskRequest(path,body);throw new Error('unexpected mutation');}
@@ -41,7 +41,7 @@ function harness({pending=['pending-a','pending-b'],failed=['failed-a','failed-b
     throw new Error('Unexpected local test API path: '+path);
   };
   const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  return {start:(initial={})=>context.CampusMatching.page(set,'<h2>岗位匹配</h2>',{api,esc,D:{text:s=>s,date:()=>'',errorCode:s=>s,matchingDiagnostic:()=>'',label:(_kind,s)=>s},active:()=>true,navigate(){},...initial}),elements,requests,exports,decisionRequests,taskRequests,timers,stored,snapshot,review:()=>elements.get('match-confirm').onclick(),html:()=>html,consent:()=>elements.get('match-consent').onchange({target:{checked:true}}),progress:()=>JSON.parse(stored.get('campustrace:match-progress:v1:alice'))};
+  return {navigation:context.CampusNavigation,start:(initial={})=>context.CampusMatching.page(set,'<h2>岗位匹配</h2>',{api,esc,D:{text:s=>s,date:()=>'',errorCode:s=>s,matchingDiagnostic:()=>'',label:(_kind,s)=>s},active:()=>true,navigate(){},...initial}),elements,requests,exports,decisionRequests,taskRequests,timers,stored,snapshot,review:()=>elements.get('match-confirm').onclick(),html:()=>html,consent:()=>elements.get('match-consent').onchange({target:{checked:true}}),progress:()=>JSON.parse(stored.get('campustrace:match-progress:v1:alice'))};
 }
 
 test('returning from evidence supplementation reviews only the target job without starting a model call',async()=>{
@@ -192,4 +192,27 @@ test('durable recovery is read-only until full review and consent, and resumes o
 });
 test('a saved active task is restored after reload and polling never submits another model request',async()=>{
  const task={id:'active-run',state:'RUNNING',version:2,candidate_hash:'profile',calls:1,items:[{job_id:'pending-a',state:'RUNNING'}]};const runs=[task];const h=harness({durable:true,pending:['pending-a'],failed:[],taskRuns:runs});await h.start();assert.match(h.html(),/正在分析/);assert.equal(h.elements.has('match-continue'),false);assert.equal(h.taskRequests.length,0);runs[0]={...task,state:'COMPLETED',version:4,items:[{job_id:'pending-a',state:'SUCCEEDED'}]};h.snapshot.jobs[0].state='ANALYZED';await h.timers.find(t=>t.delay===5000).fn();assert.match(h.html(),/本轮已完成/);assert.equal(h.taskRequests.length,0);assert.equal(h.requests.length,0);
+});
+
+test('returning to the job library restores filters, ordering and page without authorizing model work',async()=>{
+  const h=harness();h.snapshot.jobs=Array.from({length:120},(_,i)=>({job:{id:'job-'+i,title:'Go 服务端 '+i,company:'测试公司',locations:['上海市']},state:'BASIC',local:{tier:'HIGH'},preliminary_score:50,text_bytes:1000,input_key:'job-'+i,excluded_reason:''}));
+  h.navigation.storeBrowse('alice',{query:'Go',filter:'BASIC',tier:'HIGH',company:'测试公司',city:'上海',sort:'deep',page:2,lastJob:'job-70',lastTab:'source'});
+  await h.start();assert.match(h.html(),/value="Go"/);assert.match(h.html(),/value="deep" selected/);assert.match(h.html(),/第 2 \/ 3 页/);assert.match(h.html(),/上次查看/);assert.match(h.html(),/Go 服务端 70/);assert.deepEqual(h.requests,[]);assert.equal(h.exports.length,0);
+  h.elements.get('match-next').onclick();assert.equal(h.navigation.readBrowse('alice').page,3);
+  await h.start();assert.match(h.html(),/第 3 \/ 3 页/);assert.deepEqual(h.requests,[]);
+});
+test('missing companies, cities and jobs clear stale browsing and removed rows clamp pagination',async()=>{
+  const h=harness();h.navigation.storeBrowse('alice',{company:'已移除公司',city:'已移除城市',page:9,lastJob:'deleted',drawerOpen:true});await h.start();
+  const saved=h.navigation.readBrowse('alice');assert.equal(saved.company,'');assert.equal(saved.city,'');assert.equal(saved.lastJob,'');assert.equal(saved.drawerOpen,false);assert.equal(saved.page,1);assert.match(h.html(),/第 1 \/ 1 页/);assert.deepEqual(h.requests,[]);
+});
+test('an explicit search overrides saved narrowing filters and clear filters keeps the latest job',async()=>{
+  const h=harness();h.navigation.storeBrowse('alice',{query:'旧关键词',filter:'ANALYZED',tier:'LOW',company:'测试公司',page:5,lastJob:'pending-a'});await h.start({initialQuery:'pending'});assert.match(h.html(),/value="pending"/);assert.equal(h.navigation.readBrowse('alice').filter,'');
+  h.elements.get('match-clear-filters').onclick();const saved=h.navigation.readBrowse('alice');assert.equal(saved.query,'');assert.equal(saved.lastJob,'pending-a');assert.equal(saved.page,1);
+});
+
+test('a pending search cannot reset a later filter change and page selection',async()=>{
+  const h=harness();h.snapshot.jobs=Array.from({length:56},(_,i)=>({job:{id:'job-'+i,title:'Go '+i,company:'测试公司'},state:'BASIC',preliminary_score:50,text_bytes:10,input_key:'job-'+i,excluded_reason:''}));await h.start();
+  h.elements.get('match-search').value='Go';h.elements.get('match-search').oninput();h.elements.get('match-filter').onchange();h.elements.get('match-next').onclick();
+  for(const timer of h.timers.filter(t=>t.delay===240&&!t.canceled))timer.fn();
+  assert.equal(h.navigation.readBrowse('alice').page,2);assert.match(h.html(),/第 2 \/ 2 页/);
 });

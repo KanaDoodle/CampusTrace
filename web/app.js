@@ -54,7 +54,7 @@ $('#register').onclick=async()=>{
   if (size<10||size>72) {fail(new UserError('密码长度需为 10—72 字节；汉字通常占多个字节，建议使用字母、数字和符号组合。'));return;}
   try {await api('/auth/register','POST',data);$('#notice').textContent='账号已创建，请使用刚填写的邮箱和密码登录。';}catch(error){fail(error);}
 };
-$('#logout').onclick=()=>{CampusUI.closeAll();pageVersion++;token='';sessionStorage.removeItem('campustrace-token');CampusModels.lock();CampusMatching.lock();$('#content').replaceChildren();$('#notice').textContent='';show();};
+$('#logout').onclick=async()=>{if(!await CampusNavigation.leave())return;CampusUI.closeAll();pageVersion++;token='';sessionStorage.removeItem('campustrace-token');CampusModels.lock();CampusMatching.lock();$('#content').replaceChildren();$('#notice').textContent='';show();};
 for (const b of document.querySelectorAll('[data-page]')) b.onclick=()=>page(b.dataset.page).catch(fail);
 const pageTitles={radar:'我的校招雷达',watches:'关注源',source_jobs:'来源岗位',notifications:'通知收件箱',preferences:'稍后看与忽略',closing:'截止雷达',changes:'最近变化',jobs:'校招岗位',matching:'岗位库',applications:'投递进展',interviews:'面试与复盘',weak_topics:'待加强知识点',project_facts:'项目事实',agent:'求职问答',profile:'求职资料',models:'模型设置',ingest:'录入岗位'};
 function input(name,label,value='',type='text',extra='') {return `<label>${esc(label)}<input name="${esc(name)}" type="${type}" value="${esc(value)}" ${extra}></label>`;}
@@ -64,6 +64,7 @@ function displayQuery(query) {
   return samples[query.trim()]||query;
 }
 async function page(name,query='') {
+  if(!await CampusNavigation.leave())return;
   if(name==='project_facts')name='profile';
   if(name==='jobs')name='matching';
   CampusUI.closeAll();
@@ -89,7 +90,7 @@ async function page(name,query='') {
     formAction('#ask',async data=>{const result=await api('/agent/decide','POST',{session_id:CampusModels.sessionID(capabilities),message:data.get('message'),model_config:CampusModels.requestConfig(),mask_name:CampusMatching.matchIdentity().mask_name});if(version!==pageVersion)return;renderAgent(result,$('#agent-result'));});return;
   }
   if (name==='profile') {const helpers={api,esc,D,formAction,UserError,navigate:page,active:()=>version===pageVersion};if(query?.evidence)await CampusEvidence.page(set,heading,helpers,query.evidence);else await CampusProfile.page(set,heading,helpers);return;}
-  if (name==='applications') {await CampusApplications.page(set,heading,{api,esc,D,formAction,navigate:page,scheduleInterview,table,active:()=>version===pageVersion});return;}
+  if (name==='applications') {await CampusApplications.page(set,heading,{api,esc,D,formAction,navigate:page,scheduleInterview,table,initialApplication:query?.applicationID||'',active:()=>version===pageVersion});return;}
   if(name==='ingest') {
     set(`${heading}<p>粘贴招聘说明，或填写公开招聘页面的网址。手动录入的信息需要核验；遇到登录或验证码限制时，仅记录访问情况。</p><form id="ingest" novalidate><div class="form-grid">${input('company','公司名称','','text','required')}${input('title','岗位名称','','text','required')}${input('locations','工作地点（多项用顿号分隔）','','text','required')}<label>岗位类型<select name="job_type">${options('job_type','FULL_TIME')}</select></label></div>${input('url','公开招聘页面网址（可选）','','url','placeholder="粘贴公开招聘页面的网址"')}${area('text','岗位招聘说明','','maxlength="60000" placeholder="粘贴岗位说明；如已填写网址，可留空以获取公开页面。"')}<button>保存岗位观察</button></form><div id="ingest-result"></div>`);
     formAction('#ingest',async data=>{const body=Object.fromEntries(data);body.locations=D.parseList(body.locations);if(!body.text.trim()&&!body.url)throw new UserError('请粘贴岗位说明，或填写公开招聘页面的网址。');const result=await api('/api/ingest','POST',body);if(version===pageVersion)$('#ingest-result').innerHTML=`<h3>观察记录已保存</h3><p>后续会分析证据并更新判断。获取成功不代表岗位一定可投递。</p>${translated(result)}`;});return;
@@ -103,12 +104,14 @@ async function page(name,query='') {
   if(name==='weak_topics') {set(`${heading}<p>根据面试复盘累计，帮助你找到反复卡住的知识点。加强程度越高，越值得优先复习。</p>${table(rows,['topic','weight','occurrence_count','first_seen','last_seen','evidence_sources'],'还没有待加强知识点。完成面试复盘后，在这里查看需要重点补齐的内容。')}`);return;}
   if(name==='project_facts') {set(`${heading}<p>面试中只把已核验、已实现的内容当作项目成果。局限和计划会单独标注，避免把设想说成经历。</p>${rows.length?rows.map(f=>`<article class="card"><h3>${pill(f.kind,'fact')} · ${f.verified?'已核验':'待核验'}</h3><p>${esc(D.text(f.claim))}</p><p class="meta">项目编号：${esc(f.project_id)} · 更新于 ${esc(D.date(f.updated_at))}</p>${f.reference?`<p>依据：${esc(D.text(f.reference))}</p>`:''}</article>`).join(''):empty('还没有项目事实。添加并核验项目内容后，可用于面试准备。')}`);}
 }
-function scheduleInterview(applicationID) {
+async function scheduleInterview(applicationID) {
+  if(!await CampusNavigation.leave())return;
   ++pageVersion;document.title='记录面试安排 · CampusTrace';$('#content').innerHTML=`<button id="back-app">返回投递进展</button><h2>记录面试安排</h2><p>按收到的面试通知填写，时间使用北京时间。</p><form id="schedule" novalidate>${input('round','第几轮面试',1,'number','required min="1" max="20"')}${input('scheduled_at','面试时间（北京时间）','','datetime-local','required')}${area('notes','面试备注（可选）')}<button>保存面试安排</button></form>`;
   $('#back-app').onclick=()=>page('applications').catch(fail);
   formAction('#schedule',async data=>{let scheduled;try{scheduled=D.shanghaiISO(data.get('scheduled_at'));}catch(e){throw new UserError(e.message);}await api('/api/interviews','POST',{application_id:applicationID,round:Number(data.get('round')),scheduled_at:scheduled,result:'PENDING',notes:data.get('notes')});await page('interviews');});
 }
-function reviewInterview(interviewID) {
+async function reviewInterview(interviewID) {
+  if(!await CampusNavigation.leave())return;
   ++pageVersion;document.title='填写面试复盘 · CampusTrace';$('#content').innerHTML=`<button id="back-interviews">返回面试与复盘</button><h2>填写本轮面试复盘</h2><p>记录真实被问到的问题和自己的表现，不补写未发生的经历。问题和未答好的要点请每行填写一项。</p><form id="review" novalidate>${area('actual_questions','实际被问到的问题','','required placeholder="例如：如何恢复任务队列中尚未确认的消息？"')}${area('self_evaluation','自我复盘','','required placeholder="哪些部分回答清楚了？哪里还不熟悉？"')}${area('missed_points','未答好的要点')}${area('follow_up_notes','后续复习计划')}<fieldset><legend>待加强知识点（可选）</legend><p>每条知识点都要有本轮复盘依据；依据请摘自上方的问题、自我复盘或未答好的要点。</p><div id="topic-rows"></div><button type="button" id="add-topic">添加知识点</button></fieldset><button>保存本轮复盘</button></form>`;
   $('#back-interviews').onclick=()=>page('interviews').catch(fail);
   $('#add-topic').onclick=()=>{const row=document.createElement('div');row.className='topic-row';row.innerHTML=`${input('topic','知识点名称','','text','required maxlength="120"')}${input('weight','加强程度（1 较轻，5 需重点加强）',3,'number','required min="1" max="5"')}${input('evidence','本轮复盘依据（摘录原句）','','text','required')}<button type="button">移除此知识点</button>`;row.querySelector('button').onclick=()=>row.remove();$('#topic-rows').append(row);};
@@ -130,6 +133,7 @@ function renderAgent(result,box) {
   }
 }
 async function detail(id) {
+  if(!await CampusNavigation.leave())return;
   CampusUI.closeAll();$('#crumb').textContent='岗位核验记录';
   const version=++pageVersion;window.scrollTo(0,0);$('#notice').textContent='';$('#content').innerHTML=empty('正在核对岗位记录…');
   const v=await api('/api/jobs/'+id);if(version!==pageVersion)return;const j=v.job;document.title=`${D.text(j.title)} · 岗位详情 · CampusTrace`;

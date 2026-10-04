@@ -9,7 +9,7 @@ API binds localhost by default. JSON requests are strict and limited to 64KiB ex
 | GET /healthz, /readyz | process health; MySQL+Redis readiness |
 | GET /metrics | process-local counters and latency sums/counts |
 | GET /api/jobs?q=Go | up to 100 shared canonical jobs |
-| GET /api/jobs/{id} | job, observation/evidence/change/assessment history, current user eligibility/ranking |
+| GET /api/jobs/{id} | job, observation/evidence/change/assessment history, current user eligibility/ranking, `official_url` from a visible official posting (empty if absent or unsafe) |
 | POST /api/ingest | manual text or public URL, forced manual trust |
 | POST /api/import | JSON array or text/csv; per-row results, not an all-or-nothing batch |
 | GET, PUT /api/profile | current user's candidate profile |

@@ -4,11 +4,13 @@ function harness({readFile}={}){
   let html='',profile={revision:1,graduation_year:2027,degree:'MASTER',experience_months:3,majors:['Computer Science'],preferred_cities:['Shanghai'],acceptable_cities:['Hangzhou'],target_roles:['后端开发'],technical_skills:['MySQL','Redis'],target_languages:['Go'],preferred_job_types:['FULLTIME']};
   const fields=new Map(Object.entries({...profile,graduation_from:0,graduation_to:0,preferred_job_types:['FULL_TIME']}));
   class FormDataFixture{get(k){const v=fields.get(k);return Array.isArray(v)?D.inputList(v):String(v??'');}getAll(k){return fields.get(k)||[];}}
-  const document={querySelector:s=>elements.get(s.slice(1)),querySelectorAll:()=>[],getElementById:id=>elements.get(id)};
-  const context={document,FormData:FormDataFixture,CampusProfileLocal:{readFile},CampusModels:{bindUser(){},available:()=>false,label:()=>''},console};
-  vm.createContext(context);for(const file of ['ui.js','profile.js'])vm.runInContext(fs.readFileSync(__dirname+'/'+file,'utf8'),context);
+  let approveLeave=false;
+  const controls=()=>[...fields].flatMap(([name,value])=>name==='preferred_job_types'?value.map(v=>({name,type:'checkbox',value:v,checked:true})):name==='revision'?[]:[{name,type:name==='degree'?'select-one':'text',value:Array.isArray(value)?D.inputList(value):String(value??'')}]);
+  const document={querySelector:s=>elements.get(s.slice(1)),querySelectorAll:s=>s==='#content form'?[elements.get('save-profile')].filter(Boolean):[],getElementById:id=>elements.get(id)};
+  const context={document,FormData:FormDataFixture,CampusProfileLocal:{readFile},CampusModels:{bindUser(){},available:()=>false,label:()=>''},confirm:()=>approveLeave,console};
+  vm.createContext(context);for(const file of ['ui.js','navigation.js','profile.js'])vm.runInContext(fs.readFileSync(__dirname+'/'+file,'utf8'),context);
   vm.runInContext('this.testProfile=CampusProfile',context);
-  const set=value=>{html=value;elements.clear();for(const m of value.matchAll(/\bid="([^"]+)"/g))elements.set(m[1],{id:m[1],getClientRects:()=>[],showModal(){this.open=true;},close(){this.open=false;this.onclose?.();}});elements.set('notice',{textContent:''});return true;};
+  const set=value=>{html=value;elements.clear();for(const m of value.matchAll(/\bid="([^"]+)"/g))elements.set(m[1],{id:m[1],getClientRects:()=>[],showModal(){this.open=true;},close(){this.open=false;this.onclose?.();}});Object.defineProperty(elements.get('save-profile'),'elements',{get:controls});elements.set('notice',{textContent:''});return true;};
   const api=async(path,method,body)=>{
     if(path==='/api/profile'){if(method==='PUT'){writes.push(body);profile={...body,revision:profile.revision+1};}return structuredClone(profile);}
     if(path==='/api/projects')return method==='POST'?{id:'new-project',name:body.name}:[];
@@ -16,7 +18,7 @@ function harness({readFile}={}){
     if(path==='/api/profile/resume/capabilities')return {user_id:'qa',model_available:false};
     throw new Error(path);
   };
-  return {fields,elements,writes,html:()=>html,actions,start:()=>context.testProfile.page(set,'',{api,esc:context.CampusUI.esc,D,formAction:(id,action)=>actions.set(id,action),UserError:Error,navigate(){}}),data:()=>new FormDataFixture()};
+  return {navigation:context.CampusNavigation,approve:()=>approveLeave=true,fields,elements,writes,html:()=>html,actions,start:()=>context.testProfile.page(set,'',{api,esc:context.CampusUI.esc,D,formAction:(id,action)=>actions.set(id,action),UserError:Error,navigate(){}}),data:()=>new FormDataFixture()};
 }
 test('profile keeps every matching field in a single form across hidden sections and recognizes legacy full-time preferences',async()=>{
   const h=harness();await h.start();
@@ -53,4 +55,12 @@ test('a slow local file read cannot overwrite a newer manual outbound preview',a
   assert.equal(preview.value,'新的手动脱敏文字');
   assert.equal(h.elements.get('analyze-resume').disabled,true);
   assert.equal(h.writes.length,0);
+});
+
+test('profile registers a leave guard that retains canceled edits and clears after a successful save',async()=>{
+  const h=harness();await h.start();assert.equal(h.navigation.dirty(),false);h.fields.set('target_roles',['后端开发','平台研发']);assert.equal(await h.navigation.leave(),false);assert.equal(h.navigation.dirty(),true);assert.equal(h.fields.get('target_roles')[1],'平台研发');assert.equal(h.writes.length,0);
+  await h.actions.get('#save-profile')(h.data());assert.equal(h.navigation.dirty(),false);assert.equal(await h.navigation.leave(),true);
+});
+test('unsaved local resume text requires a leave warning and never becomes saved profile data',async()=>{
+  const h=harness();await h.start();const preview=h.elements.get('resume-preview');preview.value='已脱敏的简历草稿';preview.oninput();assert.equal(await h.navigation.leave(),false);assert.equal(h.writes.length,0);h.approve();assert.equal(await h.navigation.leave(),true);
 });

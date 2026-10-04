@@ -258,7 +258,12 @@ func (a *API) Handler() http.Handler {
 			return
 		}
 		e, rank, fit, eErr := a.Store.Evaluate(r.Context(), user(r), id)
-		result := map[string]any{"job": j, "observations": os, "evidence": es, "assessments": as, "changes": changes, "go_fit": fit}
+		officialURL, err := a.Store.OfficialJobURL(r.Context(), user(r), id)
+		if err != nil {
+			write(w, nil, err)
+			return
+		}
+		result := map[string]any{"job": j, "observations": os, "evidence": es, "assessments": as, "changes": changes, "go_fit": fit, "official_url": officialURL}
 		if eErr == nil {
 			result["eligibility"] = e
 			result["ranking"] = rank
