@@ -14,11 +14,20 @@ function bindRadar(box,refresh){
  await refresh();$('#notice').textContent=b.dataset.apply==='APPLIED'?'已记录投递。':'已加入投递计划。';
  }catch(e){fail(e);b.disabled=false;}};
 }
-async function radarPage(name,set,box,query,{active=()=>true}={}){
+async function radarPage(name,set,box,query,{active=()=>true,reviewInterview}={}){
  if(name==='radar'){
- const v=await api('/api/radar/digest');const metrics=[['今日新增',v.counts.new_jobs],['优先投递',v.counts.recommended_jobs],['7 天内截止',v.counts.closing_soon],['状态变化',v.counts.status_changes],['本周面试',v.counts.upcoming_interviews]];
- if(!set(`<div class="radar-hero"><div><p class="eyebrow">CampusTrace · Job Radar</p><h1>我的校招雷达</h1><p>招聘发生了什么，今天从这里开始。</p><small>更新于 ${esc(D.date(v.as_of))} · 新增与变化统计过去 24 小时${v.truncated?' · 首页展示前 5 个岗位，更多请进入分类查看':''}</small></div><div class="actions"><button data-go="watches">关注源</button><button data-go="notifications">通知收件箱</button></div></div><div class="radar-metrics">${metrics.map(([label,n])=>`<div><span>${esc(label)}</span><strong>${n}</strong></div>`).join('')}</div><div class="section-heading"><h2>今天最值得投</h2><button data-go="jobs">查看岗位库 →</button></div><p class="meta">按当前资格与可解释评分排序；已投递、忽略及终态记录不进入推荐。</p><div class="radar-grid">${radarCards(v.recommended_jobs.slice(0,6))}</div><div class="radar-columns"><section><div class="section-heading"><h2>最近变化</h2><button data-go="changes">过去 7 天 →</button></div>${radarChanges(v.recent_changes.slice(0,8))}</section><section><div class="section-heading"><h2>即将截止</h2><button data-go="closing">查看截止雷达 →</button></div>${radarCards(v.closing_soon.slice(0,3))}</section></div><h2>本周安排</h2>${v.upcoming_interviews.length?table(v.upcoming_interviews,['round','scheduled_at','result','notes']):empty('未来 7 天暂无面试安排。')}<h2>今日新发现</h2><div class="radar-grid">${radarCards(v.new_jobs.slice(0,6))}</div>`))return;
- for(const b of box.querySelectorAll('[data-go]'))b.onclick=()=>page(b.dataset.go).catch(fail);bindRadar(box,()=>page('radar'));return;
+ const [todoResult,digestResult]=await Promise.allSettled([api('/api/radar/todos'),api('/api/radar/digest')]);if(!active())return;
+ const todoHTML=todoResult.status==='fulfilled'?'<div id="today-todos"></div>':`<section class="today-panel"><h2>今日待办</h2><p class="pending-note">${esc(todoResult.reason.message)}</p><button data-reload-radar class="btn">重新读取</button></section>`;
+ let discoveries='';
+ if(digestResult.status==='fulfilled'){
+  const v=digestResult.value,metrics=[['今日新增',v.counts.new_jobs],['优先投递',v.counts.recommended_jobs],['7 天内截止',v.counts.closing_soon],['状态变化',v.counts.status_changes],['本周面试',v.counts.upcoming_interviews]];
+  discoveries=`<details class="radar-discoveries"><summary>岗位发现与变化 <span>新增 ${v.counts.new_jobs} · 7 天内截止 ${v.counts.closing_soon}</span></summary><div class="radar-metrics">${metrics.map(([label,n])=>`<div><span>${esc(label)}</span><strong>${n}</strong></div>`).join('')}</div><p class="meta">更新于 ${esc(D.date(v.as_of))} · 新增与变化统计过去 24 小时${v.truncated?' · 岗位分类展示前 5 条，更多请进入分类查看':''}</p><div class="section-heading"><h2>今天最值得投</h2><button data-go="jobs">查看岗位库</button></div><p class="meta">按当前资格与可解释评分排序；已投递、忽略及终态记录不进入推荐。</p><div class="radar-grid">${radarCards(v.recommended_jobs)}</div><div class="radar-columns"><section><div class="section-heading"><h2>最近变化</h2><button data-go="changes">过去 7 天</button></div>${radarChanges(v.recent_changes)}</section><section><div class="section-heading"><h2>即将截止</h2><button data-go="closing">查看截止雷达</button></div>${radarCards(v.closing_soon)}</section></div><h2>今日新发现</h2><div class="radar-grid">${radarCards(v.new_jobs)}</div></details>`;
+ }else discoveries=`<section class="note-box"><p>岗位动态暂不可用：${esc(digestResult.reason.message)}</p><button data-go="matching" class="btn btn-small">查看岗位库</button></section>`;
+ if(!set(CampusUI.heading('我的雷达','把今天需要处理的事情放在一起。',`<button data-go="watches" class="btn" aria-label="关注来源">${CampusUI.icon('radar')}关注来源</button><button data-go="notifications" class="btn" aria-label="通知收件箱">${CampusUI.icon('bell')}通知收件箱</button>`)+todoHTML+discoveries))return;
+ if(todoResult.status==='fulfilled')CampusTodos.mount(box.querySelector('#today-todos'),todoResult.value,{api,esc,D,navigate:page,reviewInterview,active,notify:message=>CampusUI.notify(message)});
+ for(const b of box.querySelectorAll('[data-go]'))b.onclick=()=>page(b.dataset.go).catch(fail);
+ for(const b of box.querySelectorAll('[data-reload-radar]'))b.onclick=()=>page('radar').catch(fail);
+ bindRadar(box,()=>page('radar'));return;
  }
  if(name==='changes'||name==='closing'){
  const days=Number(query)||(name==='changes'?7:7),values=name==='changes'?[1,7]:[3,7,14];const rows=await api('/api/radar/'+name+'?days='+days);

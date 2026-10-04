@@ -23,8 +23,10 @@ API binds localhost by default. JSON requests are strict and limited to 64KiB ex
 | GET, POST /api/applications | latest 500 owner-scoped records with visible job metadata, safe official URL and allowed next states; or directly create a plan (human API path) |
 | PUT /api/applications/{id} | edit owned resume_version and note with expected version; preserve state and applied_at, append metadata event |
 | POST /api/applications/transition | application_id, state, expected version, optional note |
+| GET /api/applications/{id} | One owned record with visible job metadata, safe official URL and allowed next states; supports direct navigation beyond the latest list, Cache-Control: no-store |
 | GET /api/applications/{id}/history | owner-scoped events |
 | GET, POST /api/interviews | latest 500 owned interviews with currently visible job metadata and the owner's review, Cache-Control: no-store; or schedule an owned application's interview with result defaulting to PENDING |
+| GET /api/interviews/{id} | One owned interview with currently visible job and same-owner review, Cache-Control: no-store |
 | POST /api/interviews/{id}/finish | result PASS/FAIL/PENDING and notes (max 8000 bytes); PENDING also records completion while awaiting feedback; later updates preserve the first finished_at; does not automatically change application state |
 | GET, POST /api/reviews | owner reviews; one validated review per interview |
 | GET /api/weak_topics | accumulated review-backed topics |
@@ -63,6 +65,7 @@ All `/api/*` routes use the existing JWT owner scope; there is no body/query own
 | GET /api/sources | Visible operator-registered source catalog, up to 100 |
 | GET, POST /api/watches | Owner list / create; `source_id`, `check_interval` in seconds (300..604800), `keyword` (0..100 bytes), `enabled` |
 | GET, PUT, DELETE /api/watches/{id} | Owner read / replace settings / delete; PUT retains source_id; enabling/disabling uses the enabled field |
+| GET /api/radar/todos | Owner-only read snapshot; `as_of`, complete bounded `counts`, at most 5 `items` per kind, per-kind `truncated`; PLANNED_CLOSING / INTERVIEW_UPCOMING / REVIEW_PENDING / ANALYSIS_FAILED; no model or quota use, Cache-Control: no-store |
 | GET /api/radar/digest | Current SQL snapshot; `counts`, `as_of`, new/recommended/closing jobs, status/recent changes, upcoming interviews, explicit `truncated` |
 | GET /api/radar/changes?days=1 | days = 1 or 7; latest 100 visible, non-ignored change events |
 | GET /api/radar/closing?days=7 | days = 3, 7 or 14; current status/evidence timezone/eligibility/ranking/application/preference |
@@ -108,3 +111,9 @@ See [backend-upgrade.md](backend-upgrade.md), [performance.md](performance.md) a
 `WatchInput`（POST/PUT `/api/watches` 和 POST `/api/sources/from-url`）增加可选布尔字段 `adaptive`、`priority`，缺省均为 false。`check_interval` 是基础秒数。返回 `WatchTarget` 增加 `effective_interval`、`schedule_reason`、`stable_rounds`、`failure_rounds`、`round_changed`、`round_started_at`、`discovery_hash`。调度原因：FIXED/BASE/PRIORITY/RECENT_CHANGE/UNCHANGED_BACKOFF/FAILURE_BACKOFF。配置更新清空历史节奏、增加 generation，并立即重新排队；抓取权限和可见性约束保持。QUEUED 表示等待后台检查，RESTORED_PAUSED 表示恢复副本尚未重新启用。
 
 备份恢复与保留仅为本机 CLI 运维功能，没有暴露可导入 SQL 或清理全库的 HTTP/Agent 工具。见 `docs/recovery.md`。
+
+## Today actions and inventory workflow projection
+
+`POST /api/matching/preview` adds optional `jobs[].application` with `id`, `job_id`, `current_state`, `version` and optional `applied_at`. This is joined from the authenticated owner's applications in the same read transaction and restricted to currently visible jobs. No notes, resume names or owner ID are included. Workflow and preference changes do not alter candidate hashes, comparison identities or the paid analysis cache.
+
+`GET /api/radar/todos` reads a consistent SQL snapshot independently of the 500-job global Radar bound. Closing plans require current confident deadline evidence within the next 7 days and exclude ignored, closed, already-submitted or terminal applications. Upcoming interviews cover the next 7 days, exclude completed interviews and terminal applications; completed PENDING interviews can instead enter REVIEW_PENDING, including reviews of ended applications. Only the owner's latest attempt per job can produce a failed item; active/cancelled/superseded tasks, ignored/closed/inaccessible jobs and failures resolved by later synchronous successful analysis are excluded. No task recovery or external call is performed by this projection. It returns exact counts within capacities of 500 visible non-ignored plans, 1000 owned interviews and 500 latest failed candidates; overflow returns HTTP 409 `TODO_CAPACITY`, never a partial count presented as complete. Each category returns its first 5 items with `truncated` set when more exist. Items contain only safe job context, navigation IDs, round and the relevant timestamp; no candidate content, application notes or raw model diagnostics.

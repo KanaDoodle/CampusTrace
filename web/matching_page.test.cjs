@@ -20,7 +20,7 @@ function harness({pending=['pending-a','pending-b'],failed=['failed-a','failed-b
     }
     return true;
   };
-  const context={document,setTimeout:(fn,delay)=>{timers.push({fn,delay});return timers.length;},FormData:class{get(k){return elements.get({q:'match-search',state:'match-state',tier:'match-tier',city:'match-city',sort:'match-sort'}[k])?.value||'';}},clearTimeout:id=>{if(timers[id-1])timers[id-1].canceled=true;},crypto:{randomUUID:()=>'synthetic-task-request-00000000000'},sessionStorage:{getItem:k=>stored.get(k),setItem:(k,v)=>stored.set(k,v)},CampusModels:{bindUser(){},requestConfig:()=>model,available:()=>true,label:()=> '测试模型'},CampusMatchingChat:{readSelection:()=>new Set(),selectedRows:()=>[],pruneSelection(){},storeSelection(){}},console};
+  const context={document,setTimeout:(fn,delay)=>{timers.push({fn,delay});return timers.length;},FormData:class{get(k){return elements.get({q:'match-search',state:'match-state',tier:'match-tier',workflow:'match-workflow',city:'match-city',sort:'match-sort'}[k])?.value||'';}},clearTimeout:id=>{if(timers[id-1])timers[id-1].canceled=true;},crypto:{randomUUID:()=>'synthetic-task-request-00000000000'},sessionStorage:{getItem:k=>stored.get(k),setItem:(k,v)=>stored.set(k,v)},CampusModels:{bindUser(){},requestConfig:()=>model,available:()=>true,label:()=> '测试模型'},CampusMatchingChat:{readSelection:()=>new Set(),selectedRows:()=>[],pruneSelection(){},storeSelection(){}},console};
   vm.createContext(context);vm.runInContext(fs.readFileSync(__dirname+'/ui.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/navigation.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching_decision.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching_tasks.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching.js','utf8'),context);
   const api=async(path,method,body)=>{
     if(path==='/api/profile/resume/capabilities')return {user_id:'alice',model:'server-model',model_available:true,durable_matching:durable};
@@ -215,4 +215,16 @@ test('a pending search cannot reset a later filter change and page selection',as
   h.elements.get('match-search').value='Go';h.elements.get('match-search').oninput();h.elements.get('match-filter').onchange();h.elements.get('match-next').onclick();
   for(const timer of h.timers.filter(t=>t.delay===240&&!t.canceled))timer.fn();
   assert.equal(h.navigation.readBrowse('alice').page,2);assert.match(h.html(),/第 2 \/ 2 页/);
+});
+
+test('操作状态筛选可以与分析状态组合，并在返回岗位库时恢复',async()=>{
+ const h=harness({pending:['unhandled','planned'],failed:['submitted']});h.snapshot.jobs.find(j=>j.job.id==='planned').application={id:'a',current_state:'PLANNED'};h.snapshot.jobs.find(j=>j.job.id==='submitted').application={id:'b',current_state:'REJECTED',applied_at:'2026-10-04T00:00:00Z'};
+ await h.start({initialWorkflow:'APPLIED'});assert.ok(h.html().includes('data-match-job="submitted"'));assert.ok(!h.html().includes('data-match-job="planned"'));assert.ok(!h.html().includes('data-match-job="unhandled"'));
+ h.elements.get('match-workflow').value='PLANNED';h.elements.get('match-filter').onchange();assert.ok(h.html().includes('data-match-job="planned"'));assert.ok(!h.html().includes('data-match-job="submitted"'));
+ const stored=JSON.parse(h.stored.get('campustrace:job-browse:v1:alice'));assert.equal(stored.workflow,'PLANNED');await h.start();assert.ok(h.html().includes('data-match-job="planned"'));assert.deepEqual(h.requests,[]);
+});
+
+test('从今日待办打开指定失败任务，不会自动重试或沿用上次打开的岗位抽屉',async()=>{
+ const task={id:'selected-task',state:'COMPLETED_WITH_ERRORS',created_at:'2026-10-04T08:00:00Z',calls:1,items:[{job_id:'failed-a',state:'FAILED',code:'MODEL_TIMEOUT'}]},other={id:'other-task',state:'COMPLETED',created_at:'2026-10-05T08:00:00Z',calls:0,items:[]};
+ const h=harness({durable:true,taskRuns:[other,task]});await h.start({initialTask:'selected-task'});assert.ok(h.html().includes('已完成，部分失败'));assert.ok(h.html().includes('核对并重试失败项'));assert.deepEqual(h.taskRequests,[]);assert.deepEqual(h.requests,[]);
 });

@@ -78,8 +78,8 @@ async function page(name,query='') {
   const set=html=>{if(version!==pageVersion)return false;box.innerHTML=html;return true;};
   const heading=CampusUI.heading(pageTitles[name]);
   if (name==='models') {await CampusModels.page(set,heading,{api,esc,formAction,UserError});return;}
-  if (name==='matching') {await CampusMatching.page(set,heading,{api,esc,D,UserError,navigate:page,openRecord:detail,initialQuery:typeof query==='string'?query:'',initialJob:query?.jobID||'',initialView:query?.view||'overview',initialAnalyze:!!query?.analyze,active:()=>version===pageVersion});return;}
-  if(['radar','watches','source_jobs','notifications','preferences','closing','changes'].includes(name)){await radarPage(name,set,box,query,{active:()=>version===pageVersion});return;}
+  if (name==='matching') {await CampusMatching.page(set,heading,{api,esc,D,UserError,navigate:page,openRecord:detail,initialQuery:typeof query==='string'?query:'',initialJob:query?.jobID||'',initialView:query?.view||'overview',initialAnalyze:!!query?.analyze,initialTask:query?.taskID||'',initialWorkflow:query?.workflow||'',active:()=>version===pageVersion});return;}
+  if(['radar','watches','source_jobs','notifications','preferences','closing','changes'].includes(name)){await radarPage(name,set,box,query,{active:()=>version===pageVersion,reviewInterview});return;}
   if (name==='agent') {
     const capabilities=await api('/api/profile/resume/capabilities');
     CampusModels.bindUser(capabilities.user_id);
@@ -90,7 +90,7 @@ async function page(name,query='') {
     formAction('#ask',async data=>{const result=await api('/agent/decide','POST',{session_id:CampusModels.sessionID(capabilities),message:data.get('message'),model_config:CampusModels.requestConfig(),mask_name:CampusMatching.matchIdentity().mask_name});if(version!==pageVersion)return;renderAgent(result,$('#agent-result'));});return;
   }
   if (name==='profile') {const helpers={api,esc,D,formAction,UserError,navigate:page,active:()=>version===pageVersion};if(query?.evidence)await CampusEvidence.page(set,heading,helpers,query.evidence);else await CampusProfile.page(set,heading,helpers);return;}
-  if (name==='interviews') {await CampusInterviews.page(set,heading,{api,esc,D,formAction,navigate:page,reviewInterview,active:()=>version===pageVersion});return;}
+  if (name==='interviews') {await CampusInterviews.page(set,heading,{api,esc,D,formAction,navigate:page,reviewInterview,initialInterview:query?.interviewID||'',initialView:query?.view||'all',active:()=>version===pageVersion});return;}
   if (name==='applications') {await CampusApplications.page(set,heading,{api,esc,D,formAction,navigate:page,scheduleInterview,table,initialApplication:query?.applicationID||'',active:()=>version===pageVersion});return;}
   if(name==='ingest') {
     set(`${heading}<p>粘贴招聘说明，或填写公开招聘页面的网址。手动录入的信息需要核验；遇到登录或验证码限制时，仅记录访问情况。</p><form id="ingest" novalidate><div class="form-grid">${input('company','公司名称','','text','required')}${input('title','岗位名称','','text','required')}${input('locations','工作地点（多项用顿号分隔）','','text','required')}<label>岗位类型<select name="job_type">${options('job_type','FULL_TIME')}</select></label></div>${input('url','公开招聘页面网址（可选）','','url','placeholder="粘贴公开招聘页面的网址"')}${area('text','岗位招聘说明','','maxlength="60000" placeholder="粘贴岗位说明；如已填写网址，可留空以获取公开页面。"')}<button>保存岗位观察</button></form><div id="ingest-result"></div>`);
@@ -106,7 +106,7 @@ function protectEditor(selector,version) {
 async function scheduleInterview(applicationID) {
   if(!await CampusNavigation.leave())return;
   const version=++pageVersion;document.title='记录面试安排 · CampusTrace';$('#crumb').textContent='面试安排';$('#content').innerHTML=empty('正在读取投递记录…');
-  const application=(await api('/api/applications')).find(row=>row.id===applicationID);if(version!==pageVersion)return;const job=application?.job;
+  const application=await api('/api/applications/'+encodeURIComponent(applicationID));if(version!==pageVersion)return;const job=application?.job;
   $('#content').innerHTML=`<button id="back-app">返回投递进展</button><h2>记录面试安排</h2>${job?`<p class="workflow-context">${esc(job.company)} · ${esc(job.title)}</p>`:''}<p>按收到的面试通知填写，时间使用北京时间。</p><form id="schedule" novalidate>${input('round','第几轮面试',1,'number','required min="1" max="20"')}${input('scheduled_at','面试时间（北京时间）','','datetime-local','required')}${area('notes','面试备注（可选）')}<button>保存面试安排</button></form>`;
   const drafts=protectEditor('#schedule',version);
   $('#back-app').onclick=()=>page('applications',{applicationID}).catch(fail);
@@ -115,7 +115,7 @@ async function scheduleInterview(applicationID) {
 async function reviewInterview(interviewID) {
   if(!await CampusNavigation.leave())return;
   const version=++pageVersion;document.title='填写面试复盘 · CampusTrace';$('#crumb').textContent='面试复盘';$('#content').innerHTML=empty('正在读取面试记录…');
-  const interview=(await api('/api/interviews')).find(row=>row.id===interviewID);if(version!==pageVersion)return;const job=interview?.job;
+  const interview=await api('/api/interviews/'+encodeURIComponent(interviewID));if(version!==pageVersion)return;const job=interview?.job;
   $('#content').innerHTML=`<button id="back-interviews">返回面试与复盘</button><h2>填写本轮面试复盘</h2>${job?`<p class="workflow-context">${esc(job.company)} · ${esc(job.title)} · 第 ${Number(interview.round)} 轮</p>`:''}<p>记录真实被问到的问题和自己的表现，不补写未发生的经历。问题和未答好的要点请每行填写一项。</p><form id="review" novalidate>${area('actual_questions','实际被问到的问题','','required placeholder="例如：如何恢复任务队列中尚未确认的消息？"')}${area('self_evaluation','自我复盘','','required placeholder="哪些部分回答清楚了？哪里还不熟悉？"')}${area('missed_points','未答好的要点')}${area('follow_up_notes','后续复习计划')}<fieldset><legend>待加强知识点（可选）</legend><p>每条知识点都要有本轮复盘依据；依据请摘自上方的问题、自我复盘或未答好的要点。</p><div id="topic-rows"></div><button type="button" id="add-topic">添加知识点</button></fieldset><button>保存本轮复盘</button></form>`;
   const drafts=protectEditor('#review',version);
   $('#back-interviews').onclick=()=>page('interviews').catch(fail);

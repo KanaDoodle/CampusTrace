@@ -31,14 +31,24 @@ type ApplicationRecord struct {
 // Join only visible jobs and official sources. Application ownership never
 // permits reading another user's private job/source metadata.
 func (s *Store) ApplicationRecords(ctx context.Context, user string) ([]ApplicationRecord, error) {
-	rows, err := s.DB.QueryContext(ctx, `SELECT a.body,j.body,
+	return applicationRecords(ctx, s.DB, user, "")
+}
+func applicationRecords(ctx context.Context, q Queryer, user, id string) ([]ApplicationRecord, error) {
+	query := `SELECT a.body,j.body,
  (SELECT JSON_UNQUOTE(JSON_EXTRACT(p.body,'$.url')) FROM postings p JOIN sources src ON src.id=p.source_id
   WHERE p.job_id=j.id AND JSON_UNQUOTE(JSON_EXTRACT(src.body,'$.trust'))='OFFICIAL'
   AND (JSON_UNQUOTE(JSON_EXTRACT(src.body,'$.visibility'))='GLOBAL' OR
        (JSON_UNQUOTE(JSON_EXTRACT(src.body,'$.visibility'))='PRIVATE' AND JSON_UNQUOTE(JSON_EXTRACT(src.body,'$.owner_id'))=?))
   AND JSON_UNQUOTE(JSON_EXTRACT(p.body,'$.url'))<>'' ORDER BY JSON_UNQUOTE(JSON_EXTRACT(p.body,'$.last_seen_at')) DESC,p.id LIMIT 1)
  FROM applications a LEFT JOIN jobs j ON j.id=a.job_id AND (j.visibility='GLOBAL' OR (j.visibility='PRIVATE' AND j.owner_id=?))
- WHERE a.user_id=? ORDER BY JSON_UNQUOTE(JSON_EXTRACT(a.body,'$.updated_at')) DESC,a.id LIMIT 500`, user, user, user)
+ WHERE a.user_id=?`
+	args := []any{user, user, user}
+	if id != "" {
+		query += " AND a.id=?"
+		args = append(args, id)
+	}
+	query += " ORDER BY JSON_UNQUOTE(JSON_EXTRACT(a.body,'$.updated_at')) DESC,a.id LIMIT 500"
+	rows, err := q.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -111,4 +121,18 @@ func (s *Store) UpdateApplicationDetails(ctx context.Context, user, id string, i
 		return err
 	})
 	return v, err
+}
+
+func (s *Store) ApplicationRecord(ctx context.Context, user, id string) (ApplicationRecord, error) {
+	if len(id) != 32 {
+		return ApplicationRecord{}, ErrValidation
+	}
+	rows, err := applicationRecords(ctx, s.DB, user, id)
+	if err != nil {
+		return ApplicationRecord{}, err
+	}
+	if len(rows) == 0 {
+		return ApplicationRecord{}, ErrNotFound
+	}
+	return rows[0], nil
 }

@@ -13,6 +13,9 @@ const CampusApplications=(function(root){
   function pageSlice(rows,page=1,size=25){const pages=Math.max(1,Math.ceil(rows.length/size)),current=Math.max(1,Math.min(pages,page));return {rows:rows.slice((current-1)*size,current*size),page:current,pages};}
   async function page(set,heading,{api,esc,D,formAction,navigate,scheduleInterview,table,initialApplication='',active=()=>true}){
     let rows=await api('/api/applications');if(!active())return;
+    let initialNotice='';
+    if(initialApplication&&!rows.some(row=>row.id===initialApplication)){try{rows.push(await api('/api/applications/'+encodeURIComponent(initialApplication)));}catch(error){initialNotice=error.message;}}
+    if(!active())return;
     let query='',company='',stage='',openEnded=false,ongoingPage=1,endedPage=1,busy=false,campaigns=null;
     const editors=new Set(),drafts=root.CampusNavigation?.forms(document,{selector:'#application-records form',retainMissing:true});
     const companies=[...new Set(rows.map(a=>a.job?.company).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'zh'));
@@ -59,6 +62,7 @@ const CampusApplications=(function(root){
     q('#application-reset').onclick=()=>{q('#application-search').value=q('#application-company').value=q('#application-stage').value='';applyFilters();};
     if(initialApplication){const a=rows.find(a=>a.id===initialApplication);if(a){const group=rows.filter(row=>ended(row)===ended(a));if(ended(a)){openEnded=true;endedPage=Math.floor(group.indexOf(a)/25)+1;}else ongoingPage=Math.floor(group.indexOf(a)/25)+1;}}
     draw();
+    if(initialNotice)notify(initialNotice);
     if(initialApplication){const article=q(`[data-application-id="${initialApplication}"]`);if(article){article.classList.add('application-current');article.scrollIntoView({block:'center',behavior:'instant'});article.querySelector('[data-application-job]').focus({preventScroll:true});}}
     if(root.CampusCampaigns)root.CampusCampaigns.mount(q('#application-campaigns'),{api,esc,active,notify}).then(controller=>{if(active())campaigns=controller;}).catch(error=>{if(active())notify(error.message);});
   }

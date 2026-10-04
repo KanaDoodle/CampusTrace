@@ -410,6 +410,16 @@ func (a *API) Handler() http.Handler {
 		w.Header().Set("Cache-Control", "no-store")
 		write(w, v, err)
 	})
+	on("GET /api/interviews/{id}", func(w http.ResponseWriter, r *http.Request) {
+		v, err := a.Store.InterviewRecord(r.Context(), user(r), r.PathValue("id"))
+		w.Header().Set("Cache-Control", "no-store")
+		write(w, v, err)
+	})
+	on("GET /api/applications/{id}", func(w http.ResponseWriter, r *http.Request) {
+		v, err := a.Store.ApplicationRecord(r.Context(), user(r), r.PathValue("id"))
+		w.Header().Set("Cache-Control", "no-store")
+		write(w, v, err)
+	})
 	on("GET /api/applications", func(w http.ResponseWriter, r *http.Request) {
 		v, err := a.Store.ApplicationRecords(r.Context(), user(r))
 		w.Header().Set("Cache-Control", "no-store")

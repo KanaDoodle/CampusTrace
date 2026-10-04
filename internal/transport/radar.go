@@ -2,6 +2,7 @@ package transport
 
 import (
 	"context"
+	"errors"
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
 	p "github.com/KanaDoodle/CampusTrace/internal/persistence"
 	"github.com/KanaDoodle/CampusTrace/internal/source"
@@ -60,6 +61,15 @@ func sourcePreviewFailure(err error) string {
 }
 
 func (a *API) radarRoutes(on func(string, http.HandlerFunc)) {
+	on("GET /api/radar/todos", func(w http.ResponseWriter, r *http.Request) {
+		v, err := a.Store.Todos(r.Context(), user(r))
+		w.Header().Set("Cache-Control", "no-store")
+		if errors.Is(err, p.ErrTodoCapacity) {
+			codedError(w, http.StatusConflict, "TODO_CAPACITY")
+			return
+		}
+		write(w, v, err)
+	})
 	on("GET /api/sources", func(w http.ResponseWriter, r *http.Request) {
 		v, err := a.Store.SourcesForUser(r.Context(), user(r))
 		write(w, v, err)

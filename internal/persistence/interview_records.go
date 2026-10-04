@@ -16,11 +16,23 @@ type InterviewRecord struct {
 // Owning an interview does not grant access to a job that is now private to
 // someone else. Reviews are joined under the same owner as the interview.
 func (s *Store) InterviewRecords(ctx context.Context, user string) ([]InterviewRecord, error) {
-	rows, err := s.DB.QueryContext(ctx, `SELECT i.body,j.body,r.body
+	return interviewRecords(ctx, s.DB, user, 500)
+}
+
+func interviewRecords(ctx context.Context, q Queryer, user string, limit int, ids ...string) ([]InterviewRecord, error) {
+	query := `SELECT i.body,j.body,r.body
  FROM interviews i JOIN applications a ON a.id=i.application_id AND a.user_id=i.user_id
  LEFT JOIN jobs j ON j.id=a.job_id AND (j.visibility='GLOBAL' OR (j.visibility='PRIVATE' AND j.owner_id=?))
  LEFT JOIN reviews r ON r.interview_id=i.id AND r.user_id=i.user_id
- WHERE i.user_id=? ORDER BY JSON_UNQUOTE(JSON_EXTRACT(i.body,'$.scheduled_at')) DESC,i.id LIMIT 500`, user, user)
+ WHERE i.user_id=?`
+	args := []any{user, user}
+	if len(ids) > 0 {
+		query += " AND i.id=?"
+		args = append(args, ids[0])
+	}
+	query += " ORDER BY JSON_UNQUOTE(JSON_EXTRACT(i.body,'$.scheduled_at')) DESC,i.id LIMIT ?"
+	args = append(args, limit)
+	rows, err := q.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -50,4 +62,18 @@ func (s *Store) InterviewRecords(ctx context.Context, user string) ([]InterviewR
 		out = append(out, v)
 	}
 	return out, rows.Err()
+}
+
+func (s *Store) InterviewRecord(ctx context.Context, user, id string) (InterviewRecord, error) {
+	if len(id) != 32 {
+		return InterviewRecord{}, ErrValidation
+	}
+	rows, err := interviewRecords(ctx, s.DB, user, 1, id)
+	if err != nil {
+		return InterviewRecord{}, err
+	}
+	if len(rows) == 0 {
+		return InterviewRecord{}, ErrNotFound
+	}
+	return rows[0], nil
 }

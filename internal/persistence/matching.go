@@ -36,7 +36,17 @@ type MatchJob struct {
 	Score            *float64              `json:"score"`
 	Coverage         float64               `json:"coverage"`
 	Disposition      string                `json:"disposition"`
+	Application      *MatchApplication     `json:"application,omitempty"`
 	Result           *matching.Result      `json:"-"`
+}
+
+// The inventory needs workflow context, never application notes or resume names.
+type MatchApplication struct {
+	ID        string     `json:"id"`
+	JobID     string     `json:"job_id"`
+	State     string     `json:"current_state"`
+	Version   int        `json:"version"`
+	AppliedAt *time.Time `json:"applied_at,omitempty"`
 }
 type MatchSnapshot struct {
 	Profile       d.Profile          `json:"-"`
@@ -262,6 +272,17 @@ func (s *Store) matchSnapshot(ctx context.Context, user, model, maskName string,
 	for _, p := range prefs {
 		prefByID[p.JobID] = p.Disposition
 	}
+	applications, err := Many[MatchApplication](ctx, tx, `SELECT JSON_OBJECT('id',a.id,'job_id',a.job_id,
+ 'current_state',JSON_EXTRACT(a.body,'$.current_state'),'version',a.version,
+ 'applied_at',JSON_EXTRACT(a.body,'$.applied_at')) FROM applications a JOIN jobs j ON j.id=a.job_id
+ WHERE a.user_id=? AND (j.visibility='GLOBAL' OR (j.visibility='PRIVATE' AND j.owner_id=?))`, user, user)
+	if err != nil {
+		return v, err
+	}
+	applicationByID := make(map[string]*MatchApplication, len(applications))
+	for i := range applications {
+		applicationByID[applications[i].JobID] = &applications[i]
+	}
 	// Read only the fields required by this snapshot. The latest FAILED row
 	// still wins; never fall back to an older successful text.
 	type matchObservation struct{ Text, FetchStatus string }
@@ -304,7 +325,7 @@ func (s *Store) matchSnapshot(ctx context.Context, user, model, maskName string,
 	cleaned := map[string]cleanInput{}
 	memoBytes := 0
 	for _, job := range jobs {
-		row := MatchJob{Job: job, State: "BASIC", Disposition: prefByID[job.ID]}
+		row := MatchJob{Job: job, State: "BASIC", Disposition: prefByID[job.ID], Application: applicationByID[job.ID]}
 		o, exists := latest[job.ID]
 		if exists && o.FetchStatus == "SUCCESS" {
 			input, hit := cleaned[o.Text]

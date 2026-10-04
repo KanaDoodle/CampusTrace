@@ -68,3 +68,8 @@ test('withdrawn capability evidence remains explicit and cannot display its form
  for(const word of ['1 项结论因误用偏好或项目局限已撤销','错误引用已撤销','暂无依据','暂无法可靠评分','不代表你不会'])assert.ok(html.includes(word),word);
  assert.ok(!html.includes('误用的城市事实'));assert.ok(!html.includes('100.0 / 100'));
 });
+
+test('操作状态与分析状态独立，拒绝和撤回保留真实投递历史，忽略可以与计划并存',()=>{
+ const planned={disposition:'IGNORED',application:{id:'a',current_state:'PLANNED'}},submitted={disposition:'SAVED',application:{id:'b',current_state:'REJECTED',applied_at:'2026-10-04T00:00:00Z'}},withdrawnPlan={application:{current_state:'WITHDRAWN'}};
+ assert.equal(m.workflowMatch(planned,'PLANNED'),true);assert.equal(m.workflowMatch(planned,'IGNORED'),true);assert.equal(m.workflowMatch(planned,'APPLIED'),false);assert.equal(m.workflowMatch(submitted,'APPLIED'),true);assert.equal(m.workflowMatch(submitted,'SAVED'),true);assert.equal(m.workflowMatch(submitted,'ENDED'),true);assert.equal(m.workflowMatch(withdrawnPlan,'APPLIED'),false);assert.equal(m.workflowMatch(withdrawnPlan,'ENDED'),true);assert.equal(m.workflowMatch({},'UNHANDLED'),true);assert.equal(m.workflowMatch({disposition:'SAVED'},'UNHANDLED'),false);assert.equal(m.workflowMatch({},'invalid'),false);
+});
