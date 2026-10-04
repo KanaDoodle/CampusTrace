@@ -18,8 +18,20 @@ type CampusRegistration struct {
 // its schedule in the same transaction. The caller has already resolved the
 // supported public URL to a project code through the source adapter.
 func (s *Store) CreateCampusWatch(ctx context.Context, user, projectCode, projectName string, input d.WatchInput) (CampusRegistration, error) {
+	if projectName == "" {
+		return CampusRegistration{}, ErrValidation
+	}
+	return s.CreateCampusSource(ctx, user, "xiaohongshu", projectCode, "小红书 · "+projectName, input)
+}
+
+func (s *Store) CreateCampusSource(ctx context.Context, user, adapter, projectCode, name string, input d.WatchInput) (CampusRegistration, error) {
 	var out CampusRegistration
-	if user == "" || projectCode == "" || len(projectCode) > 100 || len(projectName) == 0 || len(projectName) > 160 || strings.ContainsAny(projectCode, "/:?@#") {
+	if user == "" || projectCode == "" || len(projectCode) > 100 || len(name) == 0 || len(name) > 160 || strings.ContainsAny(projectCode, "/:?@#") || (adapter != "xiaohongshu" && adapter != "baidu" && adapter != "meituan") || (adapter == "baidu" && projectCode != "GRADUATE") || (adapter == "meituan" && projectCode != "graduate") {
+		return out, ErrValidation
+	}
+	checked := input
+	checked.SourceID = "pending"
+	if checked.Validate() != nil || input.CheckInterval < d.SourceMinimumInterval(adapter) || (adapter != "xiaohongshu" && input.Direction != "") {
 		return out, ErrValidation
 	}
 	err := s.Tx(ctx, func(tx *sql.Tx) error {
@@ -27,9 +39,9 @@ func (s *Store) CreateCampusWatch(ctx context.Context, user, projectCode, projec
 		if err := tx.QueryRowContext(ctx, "SELECT id FROM users WHERE id=? FOR UPDATE", user).Scan(&owner); err != nil {
 			return err
 		}
-		src, err := One[d.Source](ctx, tx, "SELECT body FROM sources WHERE JSON_UNQUOTE(JSON_EXTRACT(body,'$.owner_id'))=? AND JSON_UNQUOTE(JSON_EXTRACT(body,'$.adapter'))='xiaohongshu' AND JSON_UNQUOTE(JSON_EXTRACT(body,'$.tenant'))=? LIMIT 1", user, projectCode)
+		src, err := One[d.Source](ctx, tx, "SELECT body FROM sources WHERE JSON_UNQUOTE(JSON_EXTRACT(body,'$.owner_id'))=? AND JSON_UNQUOTE(JSON_EXTRACT(body,'$.adapter'))=? AND JSON_UNQUOTE(JSON_EXTRACT(body,'$.tenant'))=? LIMIT 1", user, adapter, projectCode)
 		if errors.Is(err, sql.ErrNoRows) {
-			src = d.Source{ID: d.ID(), Name: "小红书 · " + projectName, Adapter: "xiaohongshu", Tenant: projectCode, RateLimit: 30, OwnerID: user, Visibility: "PRIVATE", Type: "MANUAL", Trust: "MANUAL", Timezone: "Asia/Shanghai"}
+			src = d.Source{ID: d.ID(), Name: name, Adapter: adapter, Tenant: projectCode, RateLimit: 30, OwnerID: user, Visibility: "PRIVATE", Type: "MANUAL", Trust: "MANUAL", Timezone: "Asia/Shanghai"}
 			if _, err = tx.ExecContext(ctx, "INSERT INTO sources(id,body) VALUES(?,?)", src.ID, d.JSON(src)); err != nil {
 				return err
 			}

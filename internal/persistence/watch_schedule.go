@@ -9,14 +9,11 @@ import (
 )
 
 func watchInterval(ctx context.Context, q Queryer, v d.WatchTarget, now time.Time) (int, string, error) {
-	minimum := 300
 	src, err := One[d.Source](ctx, q, "SELECT body FROM sources WHERE id=?", v.SourceID)
 	if err != nil {
 		return 0, "", err
 	}
-	if src.Adapter == "xiaohongshu" {
-		minimum = 1800
-	}
+	minimum := d.SourceMinimumInterval(src.Adapter)
 	urgent := false
 	if v.Adaptive && v.FailureRounds == 0 && !v.Priority {
 		// Inspect only this watch's tracked postings and the newest actual observation.

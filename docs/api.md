@@ -62,6 +62,7 @@ All `/api/*` routes use the existing JWT owner scope; there is no body/query own
 
 | Endpoint | Contract |
 | --- | --- |
+| GET /api/sources/catalog | Implemented campus presets (company, canonical URL, scope, minimum_interval, supports_direction); no external call or source creation |
 | GET /api/sources | Visible operator-registered source catalog, up to 100 |
 | GET, POST /api/watches | Owner list / create; `source_id`, `check_interval` in seconds (300..604800), `keyword` (0..100 bytes), `enabled` |
 | GET, PUT, DELETE /api/watches/{id} | Owner read / replace settings / delete; PUT retains source_id; enabling/disabling uses the enabled field |
@@ -117,3 +118,9 @@ See [backend-upgrade.md](backend-upgrade.md), [performance.md](performance.md) a
 `POST /api/matching/preview` adds optional `jobs[].application` with `id`, `job_id`, `current_state`, `version` and optional `applied_at`. This is joined from the authenticated owner's applications in the same read transaction and restricted to currently visible jobs. No notes, resume names or owner ID are included. Workflow and preference changes do not alter candidate hashes, comparison identities or the paid analysis cache.
 
 `GET /api/radar/todos` reads a consistent SQL snapshot independently of the 500-job global Radar bound. Closing plans require current confident deadline evidence within the next 7 days and exclude ignored, closed, already-submitted or terminal applications. Upcoming interviews cover the next 7 days, exclude completed interviews and terminal applications; completed PENDING interviews can instead enter REVIEW_PENDING, including reviews of ended applications. Only the owner's latest attempt per job can produce a failed item; active/cancelled/superseded tasks, ignored/closed/inaccessible jobs and failures resolved by later synchronous successful analysis are excluded. No task recovery or external call is performed by this projection. It returns exact counts within capacities of 500 visible non-ignored plans, 1000 owned interviews and 500 latest failed candidates; overflow returns HTTP 409 `TODO_CAPACITY`, never a partial count presented as complete. Each category returns its first 5 items with `truncated` set when more exist. Items contain only safe job context, navigation IDs, round and the relevant timestamp; no candidate content, application notes or raw model diagnostics.
+
+## 校招来源扩展
+
+`POST /api/sources/preview` 和 `POST /api/sources/from-url` 支持小红书、百度 GRADUATE、美团应届生三个固定范围。预览增加 `adapter`、`company`、`minimum_interval`（1800 秒）、`supports_direction`，原 `url/name/project_code/total/samples` 保留。创建来源只使用服务端预览解析出的 adapter 和项目，调用方不能自行注入 adapter、tenant 或官方可信度。用户来源仍为 PRIVATE/MANUAL，按账号+adapter+项目去重。
+
+非支持范围、带其他筛选或内推参数的 URL 返回 `SOURCE_URL_UNSUPPORTED`；源超容量返回 `SOURCE_PREVIEW_CAPACITY`，不创建关注。百度和美团不支持 `direction`，非空值在创建/修改时拒绝；标题/地点 `keyword` 使用完整列表的本地筛选。每个公司站点的预览与后台抓取共用来源限速，预览自身仍每账号每分钟 5 次。网络不可达返回 `SOURCE_PREVIEW_NETWORK`，不会以部分扫描代替成功。美团当前本机直连验证未通过，详见 campus-sources.md。

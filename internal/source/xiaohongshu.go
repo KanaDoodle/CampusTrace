@@ -16,19 +16,15 @@ const xhsBase = "https://job.xiaohongshu.com/websiterecruit/position"
 var xhsID = regexp.MustCompile(`^[1-9][0-9]{0,18}$`)
 
 type CampusPreview struct {
-	URL         string       `json:"url"`
-	Name        string       `json:"name"`
-	ProjectCode string       `json:"project_code"`
-	Total       int          `json:"total"`
-	Samples     []PostingRef `json:"samples"`
-}
-
-func RecognizeCampusURL(raw string) error {
-	u, err := url.Parse(raw)
-	if err != nil || u.Scheme != "https" || u.Host != "job.xiaohongshu.com" || strings.TrimRight(u.Path, "/") != "/campus/position" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
-		return fail("UNSUPPORTED", false, 0)
-	}
-	return nil
+	URL               string       `json:"url"`
+	Name              string       `json:"name"`
+	ProjectCode       string       `json:"project_code"`
+	Total             int          `json:"total"`
+	Samples           []PostingRef `json:"samples"`
+	Adapter           string       `json:"adapter"`
+	Company           string       `json:"company"`
+	MinimumInterval   int          `json:"minimum_interval"`
+	SupportsDirection bool         `json:"supports_direction"`
 }
 
 type xhsEnvelope[T any] struct {
@@ -80,8 +76,8 @@ func (a PublicPlatform) xhsPage(ctx context.Context, s d.Source, page int) (xhsP
 }
 
 func (a PublicPlatform) PreviewXHS(ctx context.Context, raw string) (CampusPreview, error) {
-	if err := RecognizeCampusURL(raw); err != nil {
-		return CampusPreview{}, err
+	if site, err := campusSite(raw); err != nil || site.Adapter != "xiaohongshu" {
+		return CampusPreview{}, fail("UNSUPPORTED", false, 0)
 	}
 	s := d.Source{ID: "xiaohongshu-preview", Adapter: "xiaohongshu", RateLimit: 30}
 	var enums xhsEnvelope[map[string][]xhsProject]

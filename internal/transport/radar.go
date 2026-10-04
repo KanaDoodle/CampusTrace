@@ -28,7 +28,9 @@ func (a *API) campusPreview(w http.ResponseWriter, r *http.Request, raw string) 
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
 	defer cancel()
-	v, err := (source.PublicPlatform{}).PreviewXHS(ctx, raw)
+	v, err := (source.PublicPlatform{Allow: func(ctx context.Context, key string, limit int) (bool, error) {
+		return a.Queue.Allow(ctx, "source:"+key, limit, time.Minute)
+	}}).PreviewCampus(ctx, raw)
 	if err != nil {
 		code := sourcePreviewFailure(err)
 		var fetch *source.FetchError
@@ -55,12 +57,15 @@ func sourcePreviewFailure(err error) string {
 			return "SOURCE_PREVIEW_BUSY"
 		case "SCHEMA_INVALID", "RESPONSE_TOO_LARGE":
 			return "SOURCE_PREVIEW_CHANGED"
+		case "CAPACITY":
+			return "SOURCE_PREVIEW_CAPACITY"
 		}
 	}
 	return "SOURCE_PREVIEW_FAILED"
 }
 
 func (a *API) radarRoutes(on func(string, http.HandlerFunc)) {
+	on("GET /api/sources/catalog", func(w http.ResponseWriter, r *http.Request) { write(w, source.CampusSites(), nil) })
 	on("GET /api/radar/todos", func(w http.ResponseWriter, r *http.Request) {
 		v, err := a.Store.Todos(r.Context(), user(r))
 		w.Header().Set("Cache-Control", "no-store")
@@ -109,7 +114,11 @@ func (a *API) radarRoutes(on func(string, http.HandlerFunc)) {
 		if !ok {
 			return
 		}
-		result, err := a.Store.CreateCampusWatch(r.Context(), user(r), v.ProjectCode, v.Name, d.WatchInput{CheckInterval: in.CheckInterval, Keyword: in.Keyword, Direction: in.Direction, Enabled: in.Enabled, Adaptive: in.Adaptive, Priority: in.Priority})
+		if (!v.SupportsDirection && in.Direction != "") || in.CheckInterval < v.MinimumInterval {
+			write(w, nil, p.ErrValidation)
+			return
+		}
+		result, err := a.Store.CreateCampusSource(r.Context(), user(r), v.Adapter, v.ProjectCode, v.Name, d.WatchInput{CheckInterval: in.CheckInterval, Keyword: in.Keyword, Direction: in.Direction, Enabled: in.Enabled, Adaptive: in.Adaptive, Priority: in.Priority})
 		write(w, result, err)
 	})
 	on("GET /api/sources/{id}/jobs", func(w http.ResponseWriter, r *http.Request) {

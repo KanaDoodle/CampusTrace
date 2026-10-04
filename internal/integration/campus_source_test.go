@@ -78,3 +78,49 @@ func TestCampusSourceLocalPaceDoesNotSpendRetry(t *testing.T) {
 		t.Fatalf("pace changed retry identity: %+v", deferred)
 	}
 }
+
+func TestGraduateSourceRegistrationIsScopedPrivateAndIdempotent(t *testing.T) {
+	ctx, s, q, owner, _ := radarSetup(t)
+	other, err := s.NewUser(ctx, d.ID()+"@graduate-source.test", "unused")
+	must(t, err)
+	for adapter, tenant := range map[string]string{"baidu": "GRADUATE", "meituan": "graduate"} {
+		input := d.WatchInput{CheckInterval: 3600, Enabled: true, Adaptive: true}
+		reg, err := s.CreateCampusSource(ctx, owner, adapter, tenant, "校招来源测试", input)
+		must(t, err)
+		if reg.Existing || reg.Source.Adapter != adapter || reg.Source.Visibility != "PRIVATE" || reg.Source.OwnerID != owner || reg.Source.Trust != "MANUAL" {
+			t.Fatalf("unexpected registration %+v", reg)
+		}
+		again, err := s.CreateCampusSource(ctx, owner, adapter, tenant, "校招来源测试", input)
+		must(t, err)
+		if !again.Existing || again.Watch.ID != reg.Watch.ID || again.Source.ID != reg.Source.ID {
+			t.Fatalf("duplicate source %+v", again)
+		}
+		if _, err := s.SourceJobsForUser(ctx, other, reg.Source.ID, 1); err == nil {
+			t.Fatal("private source leaked")
+		}
+		input.SourceID = reg.Source.ID
+		input.CheckInterval = 300
+		if _, err := s.UpdateWatch(ctx, owner, reg.Watch.ID, input); err == nil {
+			t.Fatal("accepted interval below source floor")
+		}
+		input.CheckInterval = 3600
+		input.Direction = "rd"
+		if _, err := s.UpdateWatch(ctx, owner, reg.Watch.ID, input); err == nil {
+			t.Fatal("accepted unimplemented direction filter")
+		}
+		if _, err := s.CreateCampusSource(ctx, owner, adapter, "intern", "错误范围", input); err == nil {
+			t.Fatal("accepted internship source")
+		}
+	}
+	authn := auth.Service{Store: s, Secret: []byte("graduate-catalog-fixture-secret-32")}
+	token, err := authn.Token(owner)
+	must(t, err)
+	h := (&transport.API{Store: s, Queue: q, Auth: authn, Metrics: observability.New()}).Handler()
+	req := httptest.NewRequest("GET", "/api/sources/catalog", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	response := httptest.NewRecorder()
+	h.ServeHTTP(response, req)
+	if response.Code != 200 || !bytes.Contains(response.Body.Bytes(), []byte("baidu")) || !bytes.Contains(response.Body.Bytes(), []byte("meituan")) {
+		t.Fatalf("catalog %d %s", response.Code, response.Body.String())
+	}
+}

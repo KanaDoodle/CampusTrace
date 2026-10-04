@@ -1,5 +1,5 @@
 const test=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs'),D=require('./display.js');
-const context={CampusDisplay:D,sessionStorage:{getItem:()=>''},document:{querySelector:()=>({addEventListener(){}})},console};context.document.querySelectorAll=()=>[];context.document.addEventListener=()=>{};
+const context={CampusDisplay:D,sessionStorage:{getItem:()=>''},document:{querySelector:()=>({addEventListener(){}})},console};context.document.querySelector=()=>({elements:{url:{value:'',addEventListener(){}}},addEventListener(){}});context.document.querySelectorAll=()=>[];context.document.addEventListener=()=>{};
 vm.createContext(context);vm.runInContext(fs.readFileSync(__dirname+'/ui.js','utf8'),context);
 const app=fs.readFileSync(__dirname+'/app.js','utf8');vm.runInContext(app.slice(0,app.indexOf("formAction('#login'")),context);vm.runInContext(fs.readFileSync(__dirname+'/radar.js','utf8'),context);
 test('雷达卡片保留来源转义与四个快捷操作',()=>{context.rows=[{job:{id:'a'.repeat(32),company:'<img onerror=x>',title:'后端',current_status:'UNKNOWN',locations:['上海']},eligibility:'UNKNOWN',ranking:{}}];const html=vm.runInContext('radarCards(rows)',context);assert.match(html,/&lt;img/);assert.doesNotMatch(html,/<img/);for(const label of ['稍后看','忽略','准备投递','已投递','暂无法确认'])assert.ok(html.includes(label));});
@@ -9,7 +9,20 @@ test('关注源提供网址预览和分页岗位入口',async()=>{
   let html='';const box={querySelectorAll:()=>[],querySelector:()=>({addEventListener(){}})};
   context.api=async path=>path==='/api/watches'?[]:path==='/api/sources'?[]:path.includes('/jobs?page=')?{total:1,page_size:50,jobs:[{id:'a'.repeat(32),title:'<script>alert(1)</script>',company:'小红书',locations:['上海'],current_status:'UNKNOWN'}]}:null;
   await context.radarPage('watches',value=>(html=value,true),box,'');
-  assert.match(html,/source-preview/);assert.match(html,/小红书校招/);assert.match(html,/刷新进度/);
+  assert.match(html,/source-preview/);assert.match(html,/小红书、百度和美团/);assert.match(html,/刷新进度/);
   await context.radarPage('source_jobs',value=>(html=value,true),box,{sourceID:'source',page:1});
   assert.match(html,/来源岗位/);assert.match(html,/&lt;script&gt;/);assert.doesNotMatch(html,/<script>alert/);
+});
+
+test('校招预设能选择准确范围且编辑网址会清除旧预览',async()=>{
+  let html='',listener,focused=false;
+  const input={value:'',addEventListener(_,fn){listener=fn;},dispatchEvent(){listener();},focus(){focused=true;}};
+  const form={elements:{url:input},addEventListener(){}},result={innerHTML:'旧来源预览'},buttons=[0,1,2].map(i=>({dataset:{campusPreset:String(i)}}));
+  const elements={'#source-preview':form,'#source-preview-result':result,'#refresh-watches':{},'#notice':{}};
+  context.document.querySelector=s=>elements[s]||{addEventListener(){}};context.Event=Event;
+  const catalog=[{company:'小红书',scope:'当前常规应届校招项目',url:'https://job.xiaohongshu.com/campus/position'},{company:'百度',scope:'应届生校招',url:'https://talent.baidu.com/jobs/list?recruitType=GRADUATE'},{company:'美团<script>',scope:'应届生校招',url:'https://zhaopin.meituan.com/web/campus?hiringType=1_1'}];
+  context.api=async p=>p==='/api/sources/catalog'?catalog:[];
+  await context.radarPage('watches',v=>(html=v,true),{querySelectorAll:s=>s==='[data-campus-preset]'?buttons:[]},'');
+  assert.match(html,/已支持的校招来源/);assert.match(html,/美团&lt;script&gt;/);assert.doesNotMatch(html,/<script>/);
+  buttons[1].onclick();assert.equal(input.value,catalog[1].url);assert.equal(result.innerHTML,'');assert.equal(focused,true);
 });

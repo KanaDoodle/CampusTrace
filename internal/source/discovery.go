@@ -71,7 +71,7 @@ type HTTPEntry struct {
 
 var publicPlatformClient = PublicClient()
 
-func (PublicPlatform) Version() string { return "public-platforms-v2" }
+func (PublicPlatform) Version() string { return "public-platforms-v3" }
 
 var tenantPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,100}$`)
 
@@ -88,6 +88,14 @@ func PlatformURL(s d.Source) (string, error) {
 		return "https://api.smartrecruiters.com/v1/companies/" + s.Tenant + "/postings", nil
 	case "xiaohongshu":
 		return "https://job.xiaohongshu.com/websiterecruit/position", nil
+	case "baidu":
+		if s.Tenant == "GRADUATE" {
+			return "https://talent.baidu.com/httservice", nil
+		}
+	case "meituan":
+		if s.Tenant == "graduate" {
+			return "https://zhaopin.meituan.com/api/official/job", nil
+		}
 	}
 	return "", fail("UNSUPPORTED", false, 0)
 }
@@ -123,8 +131,8 @@ func (a PublicPlatform) requestOnce(ctx context.Context, s d.Source, method, raw
 			limit = 30
 		}
 		key := s.ID
-		if s.Adapter == "xiaohongshu" {
-			key = "xiaohongshu:public-site"
+		if s.Adapter == "xiaohongshu" || s.Adapter == "baidu" || s.Adapter == "meituan" {
+			key = s.Adapter + ":public-site"
 		}
 		ok, err := a.Allow(ctx, key, limit)
 		if err != nil {
@@ -139,12 +147,18 @@ func (a PublicPlatform) requestOnce(ctx context.Context, s d.Source, method, raw
 		client = publicPlatformClient
 	}
 	var payload io.Reader
+	contentType := "application/json"
 	if body != nil {
-		b, err := json.Marshal(body)
-		if err != nil {
-			return fail("SCHEMA_INVALID", false, 0)
+		if form, ok := body.(url.Values); ok {
+			payload = strings.NewReader(form.Encode())
+			contentType = "application/x-www-form-urlencoded"
+		} else {
+			b, err := json.Marshal(body)
+			if err != nil {
+				return fail("SCHEMA_INVALID", false, 0)
+			}
+			payload = bytes.NewReader(b)
 		}
-		payload = bytes.NewReader(b)
 	}
 	req, err := http.NewRequestWithContext(ctx, method, raw, payload)
 	if err != nil {
@@ -152,7 +166,14 @@ func (a PublicPlatform) requestOnce(ctx context.Context, s d.Source, method, raw
 	}
 	req.Header.Set("Accept", "application/json")
 	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Content-Type", contentType)
+	}
+	// These public queries use the same non-personal origin as the official UI.
+	if s.Adapter == "baidu" {
+		req.Header.Set("Referer", BaiduCampusURL)
+	}
+	if s.Adapter == "meituan" {
+		req.Header.Set("Referer", MeituanCampusURL)
 	}
 	req.Header.Set("User-Agent", "CampusTrace/0.2 (public recruiting source monitoring)")
 	key := d.Hash(a.Version() + ":" + raw)
@@ -338,6 +359,11 @@ func (a PublicPlatform) Discover(ctx context.Context, s d.Source, w d.WatchTarge
 		if err != nil {
 			return nil, err
 		}
+	case "baidu", "meituan":
+		refs, err = a.discoverGraduate(ctx, s, w)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if len(refs) > MaxPostings {
 		return nil, fail("CAPACITY", false, 200)
@@ -421,6 +447,8 @@ func (a PublicPlatform) FetchPosting(ctx context.Context, s d.Source, r PostingR
 		}
 	case "xiaohongshu":
 		text, err = a.fetchXHS(ctx, s, r)
+	case "baidu", "meituan":
+		text, err = a.fetchGraduate(ctx, s, r)
 	}
 	if err != nil {
 		res := Result{Status: "HTTP_ERROR"}

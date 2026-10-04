@@ -1,5 +1,14 @@
 package domain
 
+func SourceMinimumInterval(adapter string) int {
+	switch adapter {
+	case "xiaohongshu", "baidu", "meituan":
+		return 1800
+	default:
+		return 300
+	}
+}
+
 // WatchInterval is deliberately bounded and deterministic. Priority never
 // bypasses a source's minimum interval or the failure cooldown.
 func WatchInterval(w WatchTarget, minimum int, urgent bool) (int, string) {
