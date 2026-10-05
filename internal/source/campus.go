@@ -12,6 +12,7 @@ const JDCampusURL = "https://campus.jd.com/#/jobs?type=present"
 const NeteaseCampusURL = "https://campus.163.com/app/job/position?id=103"
 const AlibabaCampusURL = "https://campus-talent.alibaba.com/campus/position?batchId=100000760001"
 const BilibiliCampusURL = "https://jobs.bilibili.com/campus/positions?type=3"
+const KuaishouCampusURL = "https://campus.kuaishou.cn/recruit/campus/e/#/campus/jobs?recruitSubProjectCodes=20271779425607"
 
 // Presets describe implemented scopes, not promises about current availability.
 type CampusSite struct {
@@ -32,6 +33,7 @@ func CampusSites() []CampusSite {
 		{"netease", "网易互联网", NeteaseCampusURL, "2027 届校园招聘（不含互娱、雷火）", 1800, false},
 		{"alibaba", "阿里巴巴", AlibabaCampusURL, "2027 届应届生（官网当前公开业务集团）", 1800, false},
 		{"bilibili", "哔哩哔哩", BilibiliCampusURL, "官网公开应届生岗位（不含实习）", 1800, false},
+		{"kuaishou", "快手", KuaishouCampusURL, "2027 届应届生（不含留用、日常实习）", 1800, false},
 	}
 }
 
@@ -46,6 +48,9 @@ func campusSite(raw string) (CampusSite, error) {
 	}
 	path := strings.TrimRight(u.Path, "/")
 	for _, site := range CampusSites() {
+		if site.Adapter == "kuaishou" && u.Host == "campus.kuaishou.cn" && path == "/recruit/campus/e" && u.RawQuery == "" && u.RawFragment == "" && (u.Fragment == "" || u.Fragment == "/campus/index" || u.Fragment == "/campus/jobs" || u.Fragment == "/campus/jobs?recruitSubProjectCodes="+kuaishouProjectCode) {
+			return site, nil
+		}
 		if site.Adapter == "jd" && u.Host == "campus.jd.com" && path == "" && u.RawQuery == "" && (u.Fragment == "" || u.Fragment == "/jobs" || u.Fragment == "/jobs?type=present") {
 			return site, nil
 		}
@@ -100,6 +105,8 @@ func (a PublicPlatform) PreviewCampus(ctx context.Context, raw string) (CampusPr
 		v, err = a.previewAlibaba(ctx, site)
 	} else if site.Adapter == "bilibili" {
 		v, err = a.previewBilibili(ctx, site)
+	} else if site.Adapter == "kuaishou" {
+		v, err = a.previewKuaishou(ctx, site)
 	} else if site.Adapter == "jd" || site.Adapter == "netease" {
 		v, err = a.previewPortal(ctx, site)
 	} else {

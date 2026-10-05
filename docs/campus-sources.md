@@ -1,6 +1,6 @@
 # 校招来源扩展与验证
 
-来源扩展已覆盖小红书、百度、美团、京东、网易互联网、阿里巴巴与哔哩哔哩七个公司预设。入口为“选择公司 → 预览范围和样例 → 设置关键词与周期 → 开始关注并导入”。选择及预览只读，周期导入不调用大模型。
+来源扩展已覆盖小红书、百度、美团、京东、网易互联网、阿里巴巴、哔哩哔哩与快手八个公司预设。入口为“选择公司 → 预览范围和样例 → 设置关键词与周期 → 开始关注并导入”。选择及预览只读，周期导入不调用大模型。
 
 ## 读取范围
 
@@ -12,7 +12,7 @@
 
 ## 账号与抓取边界
 
-用户创建的来源仍为 PRIVATE/MANUAL。服务端根据已识别网址推导 adapter 和 tenant；存储按账号、adapter、tenant 去重，创建关注和来源在同一事务完成。百度和美团不支持方向筛选，接口明确拒绝非空 direction。七个公司最低检查周期为 30 分钟，调度和页面使用相同下限；同一公司所有账号的预览、发现和详情共用每分钟 30 次限速。
+用户创建的来源仍为 PRIVATE/MANUAL。服务端根据已识别网址推导 adapter 和 tenant；存储按账号、adapter、tenant 去重，创建关注和来源在同一事务完成。百度和美团不支持方向筛选，接口明确拒绝非空 direction。八个公司最低检查周期为 30 分钟，调度和页面使用相同下限；同一公司所有账号的预览、发现和详情共用每分钟 30 次限速。
 
 新增适配复用公共 DNS 验证、固定公网地址连接、限速退让、失败冷却、一次网络/5xx 重试、响应大小上限、GET 条件缓存及原有 watch receipt。没有登录、上传简历或发送候选人信息，未改动代理限制与访问控制。
 
@@ -80,3 +80,21 @@ CAMPUS_LIVE_SOURCES=1 GOWORK=off go test -count=1 -run '^TestBilibiliLiveReadOnl
 ```
 
 来源官网：[哔哩哔哩应届生招聘](https://jobs.bilibili.com/campus/positions?type=3)。
+
+## 第五轮：快手 2027 届应届生
+
+预设 `https://campus.kuaishou.cn/recruit/campus/e/#/campus/jobs?recruitSubProjectCodes=20271779425607`，可从同路径首页归一。官网应届生与留用实习采用独立项目编号：应届生 20271779425607、留用实习 20271772783534。只处理已核验的应届生范围，首页、无条件岗位页均归一到该预设，其他筛选、内推参数和专项入口拒绝；不把标题含有“校招”当作范围依据。
+
+先 GET `/recruit/campus/e/api/v1/open/sub-project/findByCode?code=20271779425607`，核对 code、name=2027应届生、year=2027、projectType=fulltime 和 active=true；项目停用或范围变化时明确失败。POST `/recruit/campus/e/api/v1/open/positions/simple` 只传项目数组、pageNum 和 pageSize，每行核验 schoolr、对应项目、fulltime、Release 和 ifShowRecruitWebsite=true。完整分页后才按标题/地点关键词筛选。独立 GET `/recruit/campus/e/api/v1/open/positions/find?id={id}` 核验原编号与同一范围，保存职责 description、要求 positionDemand、公开地点；再按公开 positionId 参数读取该岗位的毕业时间范围。缺少可读职责或要求时不当作成功详情。
+
+官网客户端的 pageSize 可由查询参数设置，实测支持每页 50 条。279 岗只需 6 次列表请求，项目核验另计 1 次；相较默认每页 10 条的 28 次列表请求，减少限速与任务超时压力。核对每页页号、页大小、页数、精确行数与总数，重复编号、缺页、总数漂移、实习混入或超过单源 500 岗均使完整发现失败。所有请求沿用同一公开传输层的连接复用、公网 DNS 校验、响应大小限制与错误退让；不增加站点限速，不扩大任务时限。
+
+这些公开查询不要求登录、Cookie 或令牌。按操作复制 HTTP 客户端并禁用 CookieJar，连接池仍复用；限制同源 HTTPS 请求与跳转，不读取用户会话、简历或模型设置。来源仍为账号私有 MANUAL，重复创建复用原关注，最低检查周期 30 分钟，同站点全部账号共用每分钟 30 次来源限速，周期检查不自动调用模型。没有公开投递截止时间时保留未知状态，不把 Release、项目开始时间或岗位发布日期作为仍可投递的依据。
+
+2026-10-05 正式 PublicPlatform/PublicClient 验证：每个操作使用 15 秒任务时限，完整读取 279 岗，首岗 13991、尾岗 12778 的独立详情及公开毕业范围成功；所有岗位元数据通过导入校验。本机与应用 Docker 网络中的只读探针结果一致。数量为本次快照，没有向真实账号创建关注或批量录入岗位。固定数据测试覆盖项目错配、停用、实习与社招混入、展示标识缺失、截断、分页不一致、总数漂移、重复编号、容量、职责/要求缺失、限速时不返回部分结果、无凭据查询与严格 URL 范围；SQL 测试验证私有来源、去重与调度下限。
+
+```sh
+CAMPUS_LIVE_SOURCES=1 GOWORK=off go test -count=1 -run '^TestKuaishouLiveReadOnly$' -v ./internal/source
+```
+
+来源官网：[快手校园招聘](https://campus.kuaishou.cn/recruit/campus/e/)。

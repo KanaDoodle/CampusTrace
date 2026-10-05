@@ -72,7 +72,7 @@ type HTTPEntry struct {
 
 var publicPlatformClient = PublicClient()
 
-func (PublicPlatform) Version() string { return "public-platforms-v6" }
+func (PublicPlatform) Version() string { return "public-platforms-v7" }
 
 var tenantPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,100}$`)
 
@@ -112,6 +112,10 @@ func PlatformURL(s d.Source) (string, error) {
 	case "bilibili":
 		if s.Tenant == "freshmen" {
 			return "https://jobs.bilibili.com/api/campus/position", nil
+		}
+	case "kuaishou":
+		if s.Tenant == kuaishouProjectCode {
+			return kuaishouBase + "/api/v1/open/positions", nil
 		}
 	}
 	return "", fail("UNSUPPORTED", false, 0)
@@ -198,6 +202,12 @@ func (a PublicPlatform) requestOnce(ctx context.Context, s d.Source, method, raw
 	}
 	if s.Adapter == "meituan" {
 		req.Header.Set("Referer", MeituanCampusURL)
+	}
+	if s.Adapter == "kuaishou" {
+		if req.URL.Scheme != "https" || req.URL.Host != "campus.kuaishou.cn" {
+			return fail("UNSUPPORTED", false, 0)
+		}
+		req.Header.Set("Referer", KuaishouCampusURL)
 	}
 	if s.Adapter == "bilibili" {
 		if req.URL.Scheme != "https" || req.URL.Host != "jobs.bilibili.com" {
@@ -416,6 +426,11 @@ func (a PublicPlatform) Discover(ctx context.Context, s d.Source, w d.WatchTarge
 		if err != nil {
 			return nil, err
 		}
+	case "kuaishou":
+		refs, err = a.discoverKuaishou(ctx, s, w)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if len(refs) > MaxPostings {
 		return nil, fail("CAPACITY", false, 200)
@@ -507,6 +522,8 @@ func (a PublicPlatform) FetchPosting(ctx context.Context, s d.Source, r PostingR
 		text, err = a.fetchAlibaba(ctx, s, r)
 	case "bilibili":
 		text, err = a.fetchBilibili(ctx, s, r)
+	case "kuaishou":
+		text, err = a.fetchKuaishou(ctx, s, r)
 	}
 	if err != nil {
 		res := Result{Status: "HTTP_ERROR"}

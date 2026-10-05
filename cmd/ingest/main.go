@@ -25,7 +25,7 @@ func main() {
 	limit := flag.Int("rate", 6, "source requests per minute")
 	owner := flag.String("owner", "", "owner user ID for private manual ingestion")
 	timezone := flag.String("timezone", "Asia/Shanghai", "source IANA timezone for date-only deadlines")
-	adapter := flag.String("adapter", "", "public discovery adapter: lever, greenhouse, smartrecruiters, xiaohongshu, baidu, meituan, jd, netease, alibaba, bilibili")
+	adapter := flag.String("adapter", "", "public discovery adapter: lever, greenhouse, smartrecruiters, xiaohongshu, baidu, meituan, jd, netease, alibaba, bilibili, kuaishou")
 	tenant := flag.String("tenant", "", "public platform tenant identifier")
 	flag.Parse()
 	ctx, cancel := bootstrap.Root()
