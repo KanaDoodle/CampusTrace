@@ -19,6 +19,15 @@ func radarWatch(t *testing.T, ctx context.Context, s *p.Store, user, src string)
 	must(t, err)
 	w, err := s.CreateWatch(ctx, user, d.WatchInput{SourceID: src, CheckInterval: 3600, Enabled: true})
 	must(t, err)
+	// Some tests explicitly delete the watch before fixture cleanup. Its late
+	// tasks remain valid stale-task tests, but must not leak into another worker.
+	t.Cleanup(func() {
+		cleanup, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if _, err := s.DB.ExecContext(cleanup, `DELETE FROM outbox WHERE JSON_UNQUOTE(JSON_EXTRACT(body,'$.watch_id'))=?`, w.ID); err != nil {
+			t.Error(err)
+		}
+	})
 	return w
 }
 func TestRadarScheduleAndIngestionReceipts(t *testing.T) {

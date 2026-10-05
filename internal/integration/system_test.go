@@ -2,6 +2,7 @@ package integration
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"github.com/KanaDoodle/CampusTrace/internal/agent"
@@ -57,24 +58,83 @@ func setup(t *testing.T) (context.Context, *p.Store, *pipeline.Queue, string, st
 	must(t, err)
 	source := d.ID()
 	must(t, s.SaveSource(ctx, d.Source{ID: source, Name: "Synthetic integration official", Type: "OFFICIAL", Trust: "OFFICIAL"}))
-	// Dispatch reads the shared SQL outbox, even though each test owns a Redis
-	// prefix. Remove only this fixture's pending work so later worker tests do
-	// not consume hundreds of unrelated catalog records before their own work.
+	// Both Dispatch and EnqueueFreshness read shared SQL tables despite each
+	// fixture's private Redis prefix. Remove the fixture's jobs and dependent
+	// records as well as pending tasks, so a later freshness tick cannot recreate
+	// hundreds of tasks from already-finished catalog tests.
 	t.Cleanup(func() {
 		cleanup, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		for _, query := range []string{
-			`DELETE FROM outbox WHERE JSON_UNQUOTE(JSON_EXTRACT(body,'$.entity_id')) IN (SELECT o.id FROM observations o JOIN jobs j ON j.id=o.job_id JOIN postings p ON p.id=o.posting_id WHERE p.source_id=? OR j.owner_id=?)`,
-			`DELETE FROM outbox WHERE JSON_UNQUOTE(JSON_EXTRACT(body,'$.entity_id')) IN (SELECT j.id FROM jobs j JOIN postings p ON p.job_id=j.id WHERE p.source_id=? OR j.owner_id=?)`,
-			`DELETE FROM outbox WHERE JSON_UNQUOTE(JSON_EXTRACT(body,'$.watch_id')) IN (SELECT id FROM watch_targets WHERE source_id=? OR user_id=?)`,
-			`DELETE FROM watch_targets WHERE source_id=? OR user_id=?`,
-		} {
-			if _, err := s.DB.ExecContext(cleanup, query, source, u); err != nil {
-				t.Error(err)
-			}
+		if err := cleanupFixture(cleanup, s, u, source); err != nil {
+			t.Error(err)
 		}
 	})
 	return ctx, s, q, u, source
+}
+
+func cleanupFixture(ctx context.Context, s *p.Store, owner, source string) error {
+	return s.Tx(ctx, func(tx *sql.Tx) error {
+		for _, query := range []string{
+			`DELETE FROM outbox WHERE JSON_UNQUOTE(JSON_EXTRACT(body,'$.entity_id')) IN (SELECT o.id FROM observations o JOIN jobs j ON j.id=o.job_id WHERE EXISTS (SELECT 1 FROM postings p WHERE p.job_id=j.id AND p.source_id=?) OR j.owner_id=?)`,
+			`DELETE FROM outbox WHERE JSON_UNQUOTE(JSON_EXTRACT(body,'$.entity_id')) IN (SELECT j.id FROM jobs j WHERE EXISTS (SELECT 1 FROM postings p WHERE p.job_id=j.id AND p.source_id=?) OR j.owner_id=?)`,
+			`DELETE FROM outbox WHERE JSON_UNQUOTE(JSON_EXTRACT(body,'$.watch_id')) IN (SELECT id FROM watch_targets WHERE source_id=? OR user_id=?)`,
+			`DELETE FROM watch_targets WHERE source_id=? OR user_id=?`,
+		} {
+			if _, err := tx.ExecContext(ctx, query, source, owner); err != nil {
+				return err
+			}
+		}
+		rows, err := tx.QueryContext(ctx, `SELECT id FROM jobs WHERE owner_id=? OR id IN (SELECT job_id FROM postings WHERE source_id=?)`, owner, source)
+		if err != nil {
+			return err
+		}
+		var ids []any
+		for rows.Next() {
+			var id string
+			if err = rows.Scan(&id); err != nil {
+				break
+			}
+			ids = append(ids, id)
+		}
+		rowErr := rows.Err()
+		rows.Close()
+		if err != nil {
+			return err
+		}
+		if rowErr != nil {
+			return rowErr
+		}
+		if len(ids) > 0 {
+			// Delete children before parents with FK checks enabled. IDs come only
+			// from this fixture's owner/source, never from the complete catalog.
+			in := "(" + strings.TrimSuffix(strings.Repeat("?,", len(ids)), ",") + ")"
+			for _, query := range []string{
+				`DELETE FROM reviews WHERE interview_id IN (SELECT i.id FROM interviews i JOIN applications a ON a.id=i.application_id WHERE a.job_id IN ` + in + `)`,
+				`DELETE FROM interviews WHERE application_id IN (SELECT id FROM applications WHERE job_id IN ` + in + `)`,
+				`DELETE FROM application_events WHERE application_id IN (SELECT id FROM applications WHERE job_id IN ` + in + `)`,
+				`DELETE FROM applications WHERE job_id IN ` + in,
+				`DELETE FROM application_campaign_jobs WHERE job_id IN ` + in,
+				`DELETE FROM job_match_results WHERE job_id IN ` + in,
+				`DELETE FROM user_job_preferences WHERE job_id IN ` + in,
+				`DELETE FROM eligibilities WHERE job_id IN ` + in,
+				`DELETE FROM rankings WHERE job_id IN ` + in,
+				`DELETE FROM changes WHERE job_id IN ` + in,
+				`DELETE FROM assessments WHERE job_id IN ` + in,
+				`DELETE FROM watch_results WHERE observation_id IN (SELECT id FROM observations WHERE job_id IN ` + in + `)`,
+				`DELETE FROM evidence WHERE job_id IN ` + in,
+				`DELETE FROM analysis_results WHERE observation_id IN (SELECT id FROM observations WHERE job_id IN ` + in + `)`,
+				`DELETE FROM observations WHERE job_id IN ` + in,
+				`DELETE FROM postings WHERE job_id IN ` + in,
+				`DELETE FROM jobs WHERE id IN ` + in,
+			} {
+				if _, err = tx.ExecContext(ctx, query, ids...); err != nil {
+					return err
+				}
+			}
+		}
+		_, err = tx.ExecContext(ctx, "DELETE FROM profiles WHERE user_id=?", owner)
+		return err
+	})
 }
 func must(t *testing.T, err error) {
 	t.Helper()
