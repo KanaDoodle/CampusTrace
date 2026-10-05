@@ -72,7 +72,7 @@ type HTTPEntry struct {
 
 var publicPlatformClient = PublicClient()
 
-func (PublicPlatform) Version() string { return "public-platforms-v7" }
+func (PublicPlatform) Version() string { return "public-platforms-v8" }
 
 var tenantPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,100}$`)
 
@@ -112,6 +112,18 @@ func PlatformURL(s d.Source) (string, error) {
 	case "bilibili":
 		if s.Tenant == "freshmen" {
 			return "https://jobs.bilibili.com/api/campus/position", nil
+		}
+	case "siemens":
+		if s.Tenant == siemensScope {
+			return siemensOrigin + "/siemens/position", nil
+		}
+	case "haier":
+		if s.Tenant == haierProjectCode {
+			return haierOrigin + "/client/campusmobile", nil
+		}
+	case "oppo":
+		if s.Tenant == oppoProjectCode {
+			return oppoOrigin + "/openapi/position", nil
 		}
 	case "kuaishou":
 		if s.Tenant == kuaishouProjectCode {
@@ -193,6 +205,9 @@ func (a PublicPlatform) requestOnce(ctx context.Context, s d.Source, method, raw
 		return fail("UNSUPPORTED", false, 0)
 	}
 	req.Header.Set("Accept", "application/json")
+	if _, ok := dst.(*htmlDocument); ok {
+		req.Header.Set("Accept", "text/html")
+	}
 	if body != nil {
 		req.Header.Set("Content-Type", contentType)
 	}
@@ -202,6 +217,27 @@ func (a PublicPlatform) requestOnce(ctx context.Context, s d.Source, method, raw
 	}
 	if s.Adapter == "meituan" {
 		req.Header.Set("Referer", MeituanCampusURL)
+	}
+	if s.Adapter == "siemens" || s.Adapter == "haier" {
+		origin, referer := siemensOrigin, SiemensCampusURL
+		if s.Adapter == "haier" {
+			origin, referer = haierOrigin, HaierCampusURL
+		}
+		u, _ := url.Parse(origin)
+		if req.URL.Scheme != "https" || req.URL.Host != u.Host {
+			return fail("UNSUPPORTED", false, 0)
+		}
+		req.Header.Set("Referer", referer)
+		if body != nil {
+			req.Header.Set("X-Requested-With", "XMLHttpRequest")
+		}
+	}
+	if s.Adapter == "oppo" {
+		if req.URL.Scheme != "https" || req.URL.Host != "careers.oppo.com" {
+			return fail("UNSUPPORTED", false, 0)
+		}
+		req.Header.Set("Tenant-Id", "1000")
+		req.Header.Set("Referer", OPPOCampusURL)
 	}
 	if s.Adapter == "kuaishou" {
 		if req.URL.Scheme != "https" || req.URL.Host != "campus.kuaishou.cn" {
@@ -226,7 +262,7 @@ func (a PublicPlatform) requestOnce(ctx context.Context, s d.Source, method, raw
 	key := d.Hash(a.Version() + ":" + raw)
 	var cached HTTPEntry
 	if method == http.MethodGet && a.CacheRead != nil {
-		if entry, e := a.CacheRead(ctx, s.ID, key); e == nil && len(entry.Body) > 0 && len(entry.Body) <= 1<<20 && json.Valid(entry.Body) {
+		if entry, e := a.CacheRead(ctx, s.ID, key); e == nil && len(entry.Body) > 0 && len(entry.Body) <= 1<<20 && validPlatformBody(entry.Body, dst) {
 			cached = entry
 			if entry.ETag != "" {
 				req.Header.Set("If-None-Match", entry.ETag)
@@ -245,7 +281,7 @@ func (a PublicPlatform) requestOnce(ctx context.Context, s d.Source, method, raw
 		if len(cached.Body) == 0 || (cached.ETag == "" && cached.LastModified == "") {
 			return fail("SCHEMA_INVALID", false, 304)
 		}
-		if err = json.Unmarshal(cached.Body, dst); err != nil {
+		if err = decodePlatformBody(cached.Body, dst); err != nil {
 			return fail("SCHEMA_INVALID", false, 304)
 		}
 		if a.CacheWrite != nil {
@@ -262,7 +298,12 @@ func (a PublicPlatform) requestOnce(ctx context.Context, s d.Source, method, raw
 		return fail("HTTP_ERROR", false, resp.StatusCode)
 	}
 	media, _, err := mime.ParseMediaType(resp.Header.Get("Content-Type"))
-	if err != nil || !(media == "application/json" || strings.HasSuffix(media, "+json")) {
+	_, isHTML := dst.(*htmlDocument)
+	validMedia := media == "application/json" || strings.HasSuffix(media, "+json")
+	if isHTML {
+		validMedia = media == "text/html" || media == "application/xhtml+xml"
+	}
+	if err != nil || !validMedia {
 		return fail("SCHEMA_INVALID", false, 200)
 	}
 	// Go's public transport transparently decompresses gzip before this bound.
@@ -273,7 +314,7 @@ func (a PublicPlatform) requestOnce(ctx context.Context, s d.Source, method, raw
 	if len(b) > 1<<20 {
 		return fail("RESPONSE_TOO_LARGE", false, 200)
 	}
-	if err = json.Unmarshal(b, dst); err != nil {
+	if err = decodePlatformBody(b, dst); err != nil {
 		return fail("SCHEMA_INVALID", false, 200)
 	}
 	if method == http.MethodGet && a.CacheWrite != nil {
@@ -426,6 +467,21 @@ func (a PublicPlatform) Discover(ctx context.Context, s d.Source, w d.WatchTarge
 		if err != nil {
 			return nil, err
 		}
+	case "siemens":
+		refs, err = a.discoverSiemens(ctx, s, w)
+		if err != nil {
+			return nil, err
+		}
+	case "haier":
+		refs, err = a.discoverHaier(ctx, s, w)
+		if err != nil {
+			return nil, err
+		}
+	case "oppo":
+		refs, err = a.discoverOPPO(ctx, s, w)
+		if err != nil {
+			return nil, err
+		}
 	case "kuaishou":
 		refs, err = a.discoverKuaishou(ctx, s, w)
 		if err != nil {
@@ -522,6 +578,12 @@ func (a PublicPlatform) FetchPosting(ctx context.Context, s d.Source, r PostingR
 		text, err = a.fetchAlibaba(ctx, s, r)
 	case "bilibili":
 		text, err = a.fetchBilibili(ctx, s, r)
+	case "siemens":
+		text, err = a.fetchSiemens(ctx, s, r)
+	case "haier":
+		text, err = a.fetchHaier(ctx, s, r)
+	case "oppo":
+		text, err = a.fetchOPPO(ctx, s, r)
 	case "kuaishou":
 		text, err = a.fetchKuaishou(ctx, s, r)
 	}

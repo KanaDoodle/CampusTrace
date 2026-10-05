@@ -1,6 +1,6 @@
 # 校招来源扩展与验证
 
-来源扩展已覆盖小红书、百度、美团、京东、网易互联网、阿里巴巴、哔哩哔哩与快手八个公司预设。入口为“选择公司 → 预览范围和样例 → 设置关键词与周期 → 开始关注并导入”。选择及预览只读，周期导入不调用大模型。
+来源扩展已覆盖小红书、百度、美团、京东、网易互联网、阿里巴巴、哔哩哔哩、快手、OPPO、西门子与海尔集团十一个公司预设。入口为“选择公司 → 预览范围和样例 → 设置关键词与周期 → 开始关注并导入”。选择及预览只读，周期导入不调用大模型。
 
 ## 读取范围
 
@@ -12,7 +12,7 @@
 
 ## 账号与抓取边界
 
-用户创建的来源仍为 PRIVATE/MANUAL。服务端根据已识别网址推导 adapter 和 tenant；存储按账号、adapter、tenant 去重，创建关注和来源在同一事务完成。百度和美团不支持方向筛选，接口明确拒绝非空 direction。八个公司最低检查周期为 30 分钟，调度和页面使用相同下限；同一公司所有账号的预览、发现和详情共用每分钟 30 次限速。
+用户创建的来源仍为 PRIVATE/MANUAL。服务端根据已识别网址推导 adapter 和 tenant；存储按账号、adapter、tenant 去重，创建关注和来源在同一事务完成。百度和美团不支持方向筛选，接口明确拒绝非空 direction。十一个公司最低检查周期为 30 分钟，调度和页面使用相同下限；同一公司所有账号的预览、发现和详情共用每分钟 30 次限速。
 
 新增适配复用公共 DNS 验证、固定公网地址连接、限速退让、失败冷却、一次网络/5xx 重试、响应大小上限、GET 条件缓存及原有 watch receipt。没有登录、上传简历或发送候选人信息，未改动代理限制与访问控制。
 
@@ -98,3 +98,30 @@ CAMPUS_LIVE_SOURCES=1 GOWORK=off go test -count=1 -run '^TestKuaishouLiveReadOnl
 ```
 
 来源官网：[快手校园招聘](https://campus.kuaishou.cn/recruit/campus/e/)。
+
+
+## 第六轮：OPPO、外企与制造业
+
+2026-10-05 新增三个正式适配器，均已用项目 PublicPlatform/PublicClient 在本机完整扫描并独立核验首尾原文：
+
+| 公司 | 招聘范围 | 完整列表快照 | 首尾岗位编号 |
+| --- | --- | ---: | --- |
+| OPPO | 项目 30：2027届应届生校园招聘 | 118 | 1769 / 1777 |
+| 西门子 | 中国官网 CAMPUSRECRUITMENT 校招分类 | 42 | 6a9fde107280da28da0796c0 / 6aa78fc17280da28da079b27 |
+| 海尔集团 | 项目 68：海尔集团2027校园招聘 | 102 | 246 / 311 |
+
+OPPO 每页 50 条，先核对公开项目枚举；原文包含 positionDesc、positionRequire、knowledgeSkill、aiCapabilityLevelDesc、bonusItem，以及区别大陆和海外高校的完整毕业要求。使用 public idRecruitPosition，不混用 ATS 编号；仅发送官网公开的 Tenant-Id=1000，不读取候选人身份。实习项目 29 和博士专项 31 不在范围内。
+
+西门子官网无需运行脚本即可返回职位列表和内容。遵循官网发布的 nextPageList 表单，每页 15 条，核验列表总数、当前页、总页数、每页行数和 CAMPUSRECRUITMENT 分类。详情按原岗位编号查询，核验 PUBLISHING 和公开 detailRecruitmentType。只抽取岗位内容，完整保留中英文职责、学历、经验、英语等要求；校招分类不等于统一 2027 届资格。
+
+海尔使用证书有效的 maker.haier.net 公开移动端，项目首页核对活动名，列表每页 50 条。maxPage 是结束标记，没有 total，预览同样扫描到该标记才显示总数；activity_stop 是布尔值。非末页必须满页、标记必须存在、每行详情链接必须属于项目 68，重复编号或超过 500 岗整次失败。因为没有官网总数/快照令牌，无法证明扫描期间发生的所有等量替换；不将该协议描述为事务一致的快照。公开 deliverfirst 内容页保留职责、要求、地点与招聘部门，读取不登录、不执行投递或收藏。
+
+Docker 应用网络内也使用同一正式抓取器完成三家完整扫描与首尾详情核验，计数与本机一致；不是通过代理访问的替代结果。全项目 SQL/队列集成测试使用独立临时库，未向用户数据库导入这些岗位。
+
+三个来源继续使用 PRIVATE/MANUAL 登记、最低 30 分钟周期、站点共享每分钟 30 次限速、完整列表后的关键词筛选和手动授权深度分析。HTML 响应也经过 1 MiB、媒体类型、同源跳转限制、条件缓存和既有重试流程。普通 CI 使用固定数据覆盖混入其他项目、分页截断/漂移、重复编号、总数或终止标记缺失、详情身份错误、空原文、跨域跳转、访问限制、缓存再验证与限速中断不返回部分列表。
+
+```sh
+CAMPUS_LIVE_SOURCES=1 GOWORK=off go test -count=1 -run '^TestExpandedCampusLiveReadOnly$' -v ./internal/source
+```
+
+官网：[OPPO](https://careers.oppo.com/university/oppo/campus/post?recruitType=Graduate)、[西门子](https://jobs.siemens.com.cn/siemens/position/index?recruitmentType=CAMPUSRECRUITMENT)、[海尔集团](https://maker.haier.net/client/campusmobile/activity/id/68/fid.html)。更多公司入口和本轮核验结果见 [公司招聘来源清单](campus-source-inventory.md)，候选清单与正式预设分开。

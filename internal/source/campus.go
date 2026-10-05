@@ -12,6 +12,9 @@ const JDCampusURL = "https://campus.jd.com/#/jobs?type=present"
 const NeteaseCampusURL = "https://campus.163.com/app/job/position?id=103"
 const AlibabaCampusURL = "https://campus-talent.alibaba.com/campus/position?batchId=100000760001"
 const BilibiliCampusURL = "https://jobs.bilibili.com/campus/positions?type=3"
+const SiemensCampusURL = "https://jobs.siemens.com.cn/siemens/position/index?recruitmentType=CAMPUSRECRUITMENT"
+const HaierCampusURL = "https://maker.haier.net/client/campusmobile/activity/id/68/fid.html"
+const OPPOCampusURL = "https://careers.oppo.com/university/oppo/campus/post?recruitType=Graduate"
 const KuaishouCampusURL = "https://campus.kuaishou.cn/recruit/campus/e/#/campus/jobs?recruitSubProjectCodes=20271779425607"
 
 // Presets describe implemented scopes, not promises about current availability.
@@ -33,6 +36,9 @@ func CampusSites() []CampusSite {
 		{"netease", "网易互联网", NeteaseCampusURL, "2027 届校园招聘（不含互娱、雷火）", 1800, false},
 		{"alibaba", "阿里巴巴", AlibabaCampusURL, "2027 届应届生（官网当前公开业务集团）", 1800, false},
 		{"bilibili", "哔哩哔哩", BilibiliCampusURL, "官网公开应届生岗位（不含实习）", 1800, false},
+		{"siemens", "西门子", SiemensCampusURL, "中国官网校招分类（不含实习、社招）", 1800, false},
+		{"haier", "海尔集团", HaierCampusURL, "2027 校园招聘项目", 1800, false},
+		{"oppo", "OPPO", OPPOCampusURL, "2027 届应届生（不含实习、博士专项）", 1800, false},
 		{"kuaishou", "快手", KuaishouCampusURL, "2027 届应届生（不含留用、日常实习）", 1800, false},
 	}
 }
@@ -78,6 +84,18 @@ func campusSite(raw string) (CampusSite, error) {
 			if u.Host == "campus-talent.alibaba.com" && path == "/campus/position" && len(query) == 1 && len(query["batchId"]) == 1 && query.Get("batchId") == "100000760001" {
 				return site, nil
 			}
+		case "siemens":
+			if u.Host == "jobs.siemens.com.cn" && path == "/siemens/position/index" && len(query) == 1 && len(query["recruitmentType"]) == 1 && query.Get("recruitmentType") == siemensScope {
+				return site, nil
+			}
+		case "haier":
+			if u.Host == "maker.haier.net" && path == "/client/campusmobile/activity/id/68/fid.html" && u.RawQuery == "" {
+				return site, nil
+			}
+		case "oppo":
+			if u.Host == "careers.oppo.com" && path == "/university/oppo/campus/post" && (u.RawQuery == "" || (len(query) == 1 && len(query["recruitType"]) == 1 && query.Get("recruitType") == "Graduate")) {
+				return site, nil
+			}
 		case "bilibili":
 			if u.Host == "jobs.bilibili.com" && path == "/campus/positions" && (u.RawQuery == "" || (len(query) == 1 && len(query["type"]) == 1 && query.Get("type") == "3")) {
 				return site, nil
@@ -105,6 +123,12 @@ func (a PublicPlatform) PreviewCampus(ctx context.Context, raw string) (CampusPr
 		v, err = a.previewAlibaba(ctx, site)
 	} else if site.Adapter == "bilibili" {
 		v, err = a.previewBilibili(ctx, site)
+	} else if site.Adapter == "siemens" {
+		v, err = a.previewSiemens(ctx, site)
+	} else if site.Adapter == "haier" {
+		v, err = a.previewHaier(ctx, site)
+	} else if site.Adapter == "oppo" {
+		v, err = a.previewOPPO(ctx, site)
 	} else if site.Adapter == "kuaishou" {
 		v, err = a.previewKuaishou(ctx, site)
 	} else if site.Adapter == "jd" || site.Adapter == "netease" {

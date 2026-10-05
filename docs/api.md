@@ -121,9 +121,9 @@ See [backend-upgrade.md](backend-upgrade.md), [performance.md](performance.md) a
 
 ## 校招来源扩展
 
-`POST /api/sources/preview` 和 `POST /api/sources/from-url` 支持小红书、百度 GRADUATE、美团应届生、京东 present、网易互联网 2027 届（103）、阿里巴巴 2027 届应届生（100000760001）、哔哩哔哩应届生（freshmen）、快手 2027 届应届生（20271779425607）八个固定范围。预览增加 `adapter`、`company`、`minimum_interval`（1800 秒）、`supports_direction`，原 `url/name/project_code/total/samples` 保留。创建来源只使用服务端预览解析出的 adapter 和项目，调用方不能自行注入 adapter、tenant 或官方可信度。用户来源仍为 PRIVATE/MANUAL，按账号+adapter+项目去重。
+`POST /api/sources/preview` 和 `POST /api/sources/from-url` 支持小红书、百度 GRADUATE、美团应届生、京东 present、网易互联网 2027 届（103）、阿里巴巴 2027 届应届生（100000760001）、哔哩哔哩应届生（freshmen）、快手 2027 届应届生（20271779425607）、OPPO 2027 应届生（30）、西门子中国官网校招分类（CAMPUSRECRUITMENT）、海尔集团2027校招（68）十一个固定范围。预览增加 `adapter`、`company`、`minimum_interval`（1800 秒）、`supports_direction`，原 `url/name/project_code/total/samples` 保留。创建来源只使用服务端预览解析出的 adapter 和项目，调用方不能自行注入 adapter、tenant 或官方可信度。用户来源仍为 PRIVATE/MANUAL，按账号+adapter+项目去重。
 
-非支持范围、带其他筛选或内推参数的 URL 返回 `SOURCE_URL_UNSUPPORTED`；源超容量返回 `SOURCE_PREVIEW_CAPACITY`，不创建关注。百度、美团、京东、网易互联网、阿里巴巴、哔哩哔哩和快手不支持 `direction`，非空值在创建/修改时拒绝；标题/地点 `keyword` 使用完整列表的本地筛选。每个公司站点的预览与后台抓取共用来源限速，预览自身仍每账号每分钟 5 次。网络不可达返回 `SOURCE_PREVIEW_NETWORK`，不会以部分扫描代替成功。美团当前本机直连验证未通过，详见 campus-sources.md。
+非支持范围、带其他筛选或内推参数的 URL 返回 `SOURCE_URL_UNSUPPORTED`；源超容量返回 `SOURCE_PREVIEW_CAPACITY`，不创建关注。百度、美团、京东、网易互联网、阿里巴巴、哔哩哔哩、快手、OPPO、西门子和海尔集团不支持 `direction`，非空值在创建/修改时拒绝；标题/地点 `keyword` 使用完整列表的本地筛选。每个公司站点的预览与后台抓取共用来源限速，预览自身仍每账号每分钟 5 次。网络不可达返回 `SOURCE_PREVIEW_NETWORK`，不会以部分扫描代替成功。美团当前本机直连验证未通过，详见 campus-sources.md。
 
 京东首页或 `#/jobs` 会归一到应届生 `#/jobs?type=present`；实习/TGT 与其他筛选片段拒绝。网易只接收 `/app/job/position?id=103`，主页不自动推断招聘项目。导入岗位地点上限扩展为 300，超限仍拒绝；完整公司来源上限仍为 500 岗。
 
@@ -132,3 +132,12 @@ See [backend-upgrade.md](backend-upgrade.md), [performance.md](performance.md) a
 哔哩哔哩仅接收 `https://jobs.bilibili.com/campus/positions`，可带唯一 `type=3` 参数，归一到应届生预设；实习 type=0、其他专项/筛选/内推参数、凭据与异常域名拒绝。预览先按官网公开流程获取匿名令牌，再查询应届生列表；元数据核验 recruitType=1 与全职类型，详情还核验 positionType=3 和原编号。令牌端点禁止响应缓存；令牌、匿名会话按操作隔离并不持久化。响应 412 或匿名会话失效归类为访问限制，不立即重试访问拒绝。最低检查周期、共享站点限速、私有 MANUAL 来源与去重规则沿用。
 
 快手仅接收 `https://campus.kuaishou.cn/recruit/campus/e/` 的首页（无片段或 `#/campus/index`）、`#/campus/jobs` 或带唯一 `recruitSubProjectCodes=20271779425607` 的岗位列表片段，并归一到 2027 应届生预设。其他项目、实习、快Star 专项页面、额外筛选、页码或内推参数拒绝。预览核对公开项目名称、年份、fulltime 类型和启用状态；列表及详情核验 schoolr、固定项目、fulltime、Release 和官网展示标识。每页 50 条并核验页号、页大小、页数、总数和去重，使用完整扫描后的本地关键词筛选。详情按岗位编号读取职责、要求，再核验该岗位公开的毕业范围；查询无需凭据，使用禁用 CookieJar 的公开客户端且只允许同源 HTTPS 跳转。
+
+
+OPPO 仅接收 `https://careers.oppo.com/university/oppo/campus/post`，可无查询参数或带唯一 `recruitType=Graduate`。从公开项目枚举核对项目 30 的名称、Graduate 类型与毕业要求，列表每页 50 条校验页号、页大小、页数、总数、每页行数及去重。详情使用 `idRecruitPosition`，不可替换成 ATS/projectPositionId；详情的 recruitmentType 可为空，但必须保留正确的项目编号、名称与“应届生”类型名。公开 Tenant-Id=1000 不包含个人凭据。原文保留职责、要求、知识技能、AI 能力、加分项与地区有别的毕业要求。
+
+西门子仅接收 `https://jobs.siemens.com.cn/siemens/position/index?recruitmentType=CAMPUSRECRUITMENT`。按官网发布的 POST `/siemens/position/nextPageList` 表单读取，每页 15 条；从 HTML 的“共 N 个职位”、活动页号、总页数和行数核验完整分页，并逐行核验 recruitment 分类及编号。独立公开详情核验原编号、PUBLISHING 状态和 detailRecruitmentType，抽取岗位内容区域，保留工作经验与完整中英文要求，不混入导航、登录表单或客户端脚本。校招分类不意味着所有岗位具有相同毕业年份，资格判断仍以各岗位原文为准。
+
+海尔仅接收 `https://maker.haier.net/client/campusmobile/activity/id/68/fid.html`。公开页面核对“海尔集团2027校园招聘”和所属类别链接，POST `/client/campusmobile/researchlist.html` 按项目 68、空类别/关键词、每页 50 条读取。官网不返回总数，`maxPage=1` 是终止标记而非总页数；预览也必须读取到终止标记才能显示总数。核验 status=1、activity_stop=false、终止标记存在、非终止页满页、编号去重、行内详情链接的项目/类别/岗位身份，最多 500 岗；无法核实终止时整次失败。详情链接名称 deliverfirst 只是官网公开内容页，读取不会执行投递、收藏或登录操作。详情核验 data-aid/data-rid，保留名称、职责、要求、地点及招聘部门，不据部门推定签约子公司。
+
+上述 HTML 查询复用来源限速、一次网络/5xx 重试、1 MiB 响应上限及 GET 条件缓存。HTML 与 JSON 分别校验响应类型；POST 不使用条件缓存。新来源均不读取个人 CookieJar，仅允许各自官网同源 HTTPS 跳转，不更改公网 DNS 核验和代理禁用边界。

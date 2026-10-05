@@ -27,6 +27,8 @@ __debug_bin*
 !/docs/recovery.md
 !/docs/agent-evaluation.md
 !/docs/campus-sources.md
+!/docs/campus-source-inventory.md
+!/docs/campus-source-inventory.csv
 /release-repair-report.md
 /repair-report.md
 /release-final-report.md

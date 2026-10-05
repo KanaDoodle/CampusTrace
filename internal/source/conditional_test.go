@@ -66,3 +66,47 @@ func TestConditionalRejectsUnbound304AndNeverConditionsPOST(t *testing.T) {
 		t.Fatal("accepted POST 304")
 	}
 }
+
+func TestPublicDocumentConditionalCacheAndMediaType(t *testing.T) {
+	calls := 0
+	var entry HTTPEntry
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		if r.Header.Get("Accept") != "text/html" {
+			t.Error("wrong document accept header")
+		}
+		if calls == 1 {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.Header().Set("ETag", `"public-job-v1"`)
+			w.Write([]byte(`<div id="job">任职要求：熟悉 Go</div><script>private UI logic</script>`))
+			return
+		}
+		if r.Header.Get("If-None-Match") != `"public-job-v1"` {
+			t.Error("missing document validator")
+		}
+		w.WriteHeader(304)
+	}))
+	defer srv.Close()
+	a := PublicPlatform{Client: &http.Client{Transport: rewriteTransport{srv.URL}}, CacheRead: func(context.Context, string, string) (HTTPEntry, error) { return entry, nil }, CacheWrite: func(_ context.Context, _, _ string, v HTTPEntry) error { entry = v; return nil }}
+	s := d.Source{ID: "document-fixture", Adapter: "siemens", Tenant: siemensScope}
+	for range 2 {
+		root, err := a.document(context.Background(), s, siemensOrigin+"/siemens/position/detail", nil)
+		if err != nil || nodeText(root) != "任职要求：熟悉 Go" {
+			t.Fatalf("cached document %v", err)
+		}
+	}
+	if calls != 2 || len(entry.Body) == 0 {
+		t.Fatal("document cache bypassed")
+	}
+	for _, media := range []string{"application/json", "text/plain"} {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", media)
+			w.Write([]byte(`<div id="job">untrusted content type</div>`))
+		}))
+		a = PublicPlatform{Client: &http.Client{Transport: rewriteTransport{server.URL}}}
+		if _, err := a.document(context.Background(), s, siemensOrigin+"/siemens/position/detail", nil); err == nil {
+			t.Errorf("accepted %s as official HTML", media)
+		}
+		server.Close()
+	}
+}
