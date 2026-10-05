@@ -202,6 +202,18 @@ func (a *API) radarRoutes(on func(string, http.HandlerFunc)) {
 		v, err := a.Store.Preferences(r.Context(), user(r))
 		write(w, v, err)
 	})
+	on("PUT /api/jobs/preferences", func(w http.ResponseWriter, r *http.Request) {
+		var in struct {
+			JobIDs      []string `json:"job_ids"`
+			Disposition string   `json:"disposition"`
+		}
+		if err := decode(r, &in); err != nil {
+			write(w, nil, err)
+			return
+		}
+		v, err := a.Store.SetBulkPreference(r.Context(), user(r), in.JobIDs, in.Disposition)
+		write(w, v, err)
+	})
 	on("PUT /api/jobs/{id}/preference", func(w http.ResponseWriter, r *http.Request) {
 		var in struct {
 			Disposition string `json:"disposition"`

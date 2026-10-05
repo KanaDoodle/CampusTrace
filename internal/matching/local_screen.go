@@ -29,6 +29,7 @@ type LocalScreen struct {
 	Role           string       `json:"role"`
 	RoleSource     string       `json:"role_source"`
 	RoleExcerpt    string       `json:"role_excerpt"`
+	Direction      Direction    `json:"direction"`
 	Reasons        []string     `json:"reasons"`
 	Warnings       []string     `json:"warnings"`
 	Checks         []LocalCheck `json:"checks"`
@@ -39,12 +40,15 @@ type LocalScreener struct {
 	evidence         map[string][]LocalEvidence
 	targetRoles      []string
 	unknownTargets   []string
+	directionTargets []string
+	directionUnknown bool
 	preferredCities  map[string]bool
 	acceptableCities map[string]bool
 }
 
 func NewLocalScreener(p d.Profile, candidate Candidate) *LocalScreener {
 	s := &LocalScreener{profile: p, evidence: map[string][]LocalEvidence{}, preferredCities: map[string]bool{}, acceptableCities: map[string]bool{}}
+	s.directionTargets, s.directionUnknown = directionTargets(p.TargetRoles)
 	for _, target := range p.TargetRoles {
 		families := detectLocalRoles(target)
 		s.targetRoles = append(s.targetRoles, families...)
@@ -183,6 +187,7 @@ func (s *LocalScreener) localRole(j d.Job, parsed localParsed) (score float64, r
 func (s *LocalScreener) Screen(j d.Job, text string) LocalScreen {
 	parsed := localJobCache.get(text)
 	v := LocalScreen{Version: LocalVersion, Tier: "UNCERTAIN", Reasons: []string{}, Warnings: []string{}, Checks: []LocalCheck{}}
+	v.Direction = s.direction(j, parsed)
 	roleScore, role, source, excerpt, roleReason := s.localRole(j, parsed)
 	v.Role, v.RoleSource, v.RoleExcerpt = role, source, excerpt
 	v.Reasons = append(v.Reasons, roleReason)

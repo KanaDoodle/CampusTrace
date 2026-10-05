@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-const LocalVersion = "local-screen-v2"
+const LocalVersion = "local-screen-v3"
 
 type localRequirement struct {
 	Category, Mode, Excerpt string

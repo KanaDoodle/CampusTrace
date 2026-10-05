@@ -4,6 +4,13 @@ const m=require('./matching.js');
 const D=require('./display.js');
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const row=(id,state='BASIC',bytes=4000,excluded='')=>({job:{id,company:'小红书',title:'后端开发'},state,text_bytes:bytes,excluded_reason:excluded});
+test('方向筛选与技能得分分开，缺失方向保留待判断，批量清理保护关注和投递记录',()=>{
+ const rows=['MATCH','RELATED','UNCERTAIN','UNRELATED'].map((status,i)=>({...row(String(i)),local:{tier:'LOW',score:0,direction:{status}}}));
+ assert.deepEqual(rows.filter(r=>m.directionMatch(r,'MAIN')).map(r=>r.job.id),['0','1']);assert.ok(m.directionMatch(row('missing'),'UNCERTAIN'));
+ const ignored={...row('ignored'),disposition:'IGNORED'},saved={...row('saved'),disposition:'SAVED'},applied={...row('applied'),application:{current_state:'APPLIED'}};
+ assert.equal(m.catalogVisible(ignored,'',false),false);assert.equal(m.catalogVisible(ignored,'IGNORED'),true);assert.equal(m.catalogVisible(ignored,'',true),true);
+ assert.deepEqual(m.bulkTargets([...rows,ignored,saved,applied],'IGNORED').map(r=>r.job.id),['0','1','2','3']);assert.deepEqual(m.bulkTargets([...rows,ignored,saved],'NONE').map(r=>r.job.id),['ignored']);
+});
 test('all inventory can be screened but only the first 30 eligible jobs enter deep analysis',()=>{
  const rows=Array.from({length:1000},(_,i)=>row(String(i)));
  rows[0].state='ANALYZED';rows[1].excluded_reason='明确不符合';rows[2].state='STALE';
