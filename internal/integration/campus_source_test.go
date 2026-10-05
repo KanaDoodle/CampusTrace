@@ -106,7 +106,7 @@ func TestGraduateSourceRegistrationIsScopedPrivateAndIdempotent(t *testing.T) {
 	ctx, s, q, owner, _ := radarSetup(t)
 	other, err := s.NewUser(ctx, d.ID()+"@graduate-source.test", "unused")
 	must(t, err)
-	for adapter, tenant := range map[string]string{"baidu": "GRADUATE", "meituan": "graduate", "jd": "present", "netease": "103", "alibaba": "100000760001", "bilibili": "freshmen", "kuaishou": "20271779425607", "oppo": "30", "siemens": "CAMPUSRECRUITMENT", "haier": "68"} {
+	for adapter, tenant := range map[string]string{"baidu": "GRADUATE", "meituan": "graduate", "jd": "present", "netease": "103", "alibaba": "100000760001", "bilibili": "freshmen", "kuaishou": "20271779425607", "oppo": "30", "siemens": "CAMPUSRECRUITMENT", "haier": "68", "lenovo": "1", "midea": "055bb05d-1957-4ea0-bb21-873ca0164d84", "byd": "2076475538687475714", "hikvision": "e198653730e14820b9e95b29fbc2223f", "qihoo360": "campus", "sany": "campus", "inovance": "campus", "vivo": "campus", "honor": "101801", "ctrip": "campus", "sgm": "campus"} {
 		input := d.WatchInput{CheckInterval: 3600, Enabled: true, Adaptive: true}
 		reg, err := s.CreateCampusSource(ctx, owner, adapter, tenant, "校招来源测试", input)
 		must(t, err)
@@ -143,7 +143,31 @@ func TestGraduateSourceRegistrationIsScopedPrivateAndIdempotent(t *testing.T) {
 	req.Header.Set("Authorization", "Bearer "+token)
 	response := httptest.NewRecorder()
 	h.ServeHTTP(response, req)
-	if response.Code != 200 || !bytes.Contains(response.Body.Bytes(), []byte("baidu")) || !bytes.Contains(response.Body.Bytes(), []byte("meituan")) || !bytes.Contains(response.Body.Bytes(), []byte("jd")) || !bytes.Contains(response.Body.Bytes(), []byte("netease")) || !bytes.Contains(response.Body.Bytes(), []byte("alibaba")) || !bytes.Contains(response.Body.Bytes(), []byte("bilibili")) || !bytes.Contains(response.Body.Bytes(), []byte("kuaishou")) || !bytes.Contains(response.Body.Bytes(), []byte("oppo")) || !bytes.Contains(response.Body.Bytes(), []byte("siemens")) || !bytes.Contains(response.Body.Bytes(), []byte("haier")) {
+	if response.Code != 200 || !bytes.Contains(response.Body.Bytes(), []byte("baidu")) || !bytes.Contains(response.Body.Bytes(), []byte("meituan")) || !bytes.Contains(response.Body.Bytes(), []byte("jd")) || !bytes.Contains(response.Body.Bytes(), []byte("netease")) || !bytes.Contains(response.Body.Bytes(), []byte("alibaba")) || !bytes.Contains(response.Body.Bytes(), []byte("bilibili")) || !bytes.Contains(response.Body.Bytes(), []byte("kuaishou")) || !bytes.Contains(response.Body.Bytes(), []byte("oppo")) || !bytes.Contains(response.Body.Bytes(), []byte("siemens")) || !bytes.Contains(response.Body.Bytes(), []byte("haier")) || !bytes.Contains(response.Body.Bytes(), []byte("ctrip")) {
 		t.Fatalf("catalog %d %s", response.Code, response.Body.String())
 	}
+	var directory []struct {
+		Company string `json:"company"`
+		Adapter string `json:"adapter"`
+		Auto    bool   `json:"auto_import"`
+	}
+	must(t, json.Unmarshal(response.Body.Bytes(), &directory))
+	if len(directory) != 38 {
+		t.Fatalf("directory contains %d entries", len(directory))
+	}
+	automatic := 0
+	for _, entry := range directory {
+		if entry.Auto {
+			automatic++
+			if !d.IsCampusSource(entry.Adapter) {
+				t.Fatalf("unknown adapter %s", entry.Adapter)
+			}
+		} else if entry.Adapter != "" {
+			t.Fatal("manual entry exposes import adapter")
+		}
+	}
+	if automatic != 21 {
+		t.Fatalf("automatic sources %d", automatic)
+	}
+
 }

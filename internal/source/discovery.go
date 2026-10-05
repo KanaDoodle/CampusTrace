@@ -72,7 +72,7 @@ type HTTPEntry struct {
 
 var publicPlatformClient = PublicClient()
 
-func (PublicPlatform) Version() string { return "public-platforms-v8" }
+func (PublicPlatform) Version() string { return "public-platforms-v9" }
 
 var tenantPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,100}$`)
 
@@ -87,6 +87,13 @@ func PlatformURL(s d.Source) (string, error) {
 		return "https://boards-api.greenhouse.io/v1/boards/" + s.Tenant + "/jobs", nil
 	case "smartrecruiters":
 		return "https://api.smartrecruiters.com/v1/companies/" + s.Tenant + "/postings", nil
+	case "lenovo", "midea", "byd", "hikvision", "qihoo360", "sany", "inovance", "vivo", "honor", "sgm", "ctrip":
+		if s.Tenant == moreTenant(s.Adapter) {
+			if cfg, ok := beisenCompanies[s.Adapter]; ok {
+				return cfg.Origin + "/api", nil
+			}
+			return map[string]string{"lenovo": lenovoOrigin + "/gateway", "midea": mideaOrigin + "/backend", "byd": bydAPI, "hikvision": hikvisionOrigin + "/api", "honor": honorOrigin + "/wecruit", "ctrip": ctripOrigin + "/api/hrrecruit"}[s.Adapter], nil
+		}
 	case "xiaohongshu":
 		return "https://job.xiaohongshu.com/websiterecruit/position", nil
 	case "baidu":
@@ -258,6 +265,17 @@ func (a PublicPlatform) requestOnce(ctx context.Context, s d.Source, method, raw
 			req.Header.Set("X-CSRF", a.bilibiliCSRF)
 		}
 	}
+	if moreTenant(s.Adapter) != "" {
+		base, err := PlatformURL(s)
+		if err != nil {
+			return err
+		}
+		origin, _ := url.Parse(base)
+		if req.URL.Scheme != "https" || req.URL.Host != origin.Host {
+			return fail("UNSUPPORTED", false, 0)
+		}
+		req.Header.Set("Referer", expandedURL(s.Adapter))
+	}
 	req.Header.Set("User-Agent", "CampusTrace/0.2 (public recruiting source monitoring)")
 	key := d.Hash(a.Version() + ":" + raw)
 	var cached HTTPEntry
@@ -274,6 +292,9 @@ func (a PublicPlatform) requestOnce(ctx context.Context, s d.Source, method, raw
 	}
 	resp, err := client.Do(req)
 	if err != nil {
+		if errors.Is(err, errCampusOffOriginRedirect) {
+			return fail("BLOCKED", false, http.StatusFound)
+		}
 		return fail("TIMEOUT_OR_NETWORK", true, 0)
 	}
 	defer resp.Body.Close()
@@ -442,6 +463,11 @@ func (a PublicPlatform) Discover(ctx context.Context, s d.Source, w d.WatchTarge
 				return nil, fail("SCHEMA_INVALID", false, 200)
 			}
 		}
+	case "lenovo", "midea", "byd", "hikvision", "qihoo360", "sany", "inovance", "vivo", "honor", "sgm", "ctrip":
+		refs, err = a.discoverMore(ctx, s, w)
+		if err != nil {
+			return nil, err
+		}
 	case "xiaohongshu":
 		refs, err = a.discoverXHS(ctx, s, w)
 		if err != nil {
@@ -568,6 +594,8 @@ func (a PublicPlatform) FetchPosting(ctx context.Context, s d.Source, r PostingR
 				text += "\nApplication URL: " + v.ApplyURL
 			}
 		}
+	case "lenovo", "midea", "byd", "hikvision", "qihoo360", "sany", "inovance", "vivo", "honor", "sgm", "ctrip":
+		text, err = a.fetchMore(ctx, s, r)
 	case "xiaohongshu":
 		text, err = a.fetchXHS(ctx, s, r)
 	case "baidu", "meituan":

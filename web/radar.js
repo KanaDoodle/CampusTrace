@@ -36,6 +36,7 @@ async function radarPage(name,set,box,query,{active=()=>true,reviewInterview}={}
  }
  if(name==='watches'){
  let watches=[],sources=[],catalog=[],catalogFailed=false,previewMarkup='',busy=false;
+ const sourceFilters={search:'',group:'',manualOpen:false};
  const drafts=globalThis.CampusNavigation?.forms(document,{retainMissing:true});
  async function reload(){
    drafts?.capture();const latest=await Promise.all([api('/api/watches'),api('/api/sources'),api('/api/sources/catalog').catch(()=>null)]);if(!active())return;
@@ -43,8 +44,8 @@ async function radarPage(name,set,box,query,{active=()=>true,reviewInterview}={}
  }
  async function draw(){
  const supported=sources.filter(s=>s.adapter),sourceOf=id=>sources.find(s=>s.id===id);
- const minimum=s=>['xiaohongshu','baidu','meituan','jd','netease','alibaba','bilibili','kuaishou','oppo','siemens','haier'].includes(s?.adapter)?30:5;
- const presets=catalog.length?`<section class="source-presets" aria-label="校招来源预设"><h3>已支持的校招来源</h3><p class="meta">选择公司后预览，确认范围与数量再开始导入。</p><div>${catalog.map((s,i)=>`<button type="button" data-campus-preset="${i}"><strong>${esc(s.company)}</strong><span>${esc(s.scope)}</span></button>`).join('')}</div></section>`:catalogFailed?'<p class="pending-note">预设入口暂时无法读取，可直接填写已支持的校招网址后预览。</p>':'';
+ const minimum=s=>['xiaohongshu','baidu','meituan','jd','netease','alibaba','bilibili','kuaishou','oppo','siemens','haier','lenovo','midea','byd','hikvision','qihoo360','sany','inovance','vivo','honor','sgm','ctrip'].includes(s?.adapter)?30:5;
+ const presets=catalog.length?CampusSources.render(catalog,esc,sourceFilters):catalogFailed?'<p class="pending-note">预设入口暂时无法读取，可直接填写已支持的校招网址后预览。</p>':'';
  const directionSelect=(selected='')=>`<label>岗位方向<select name="direction"><option value="">全部方向</option>${[['rd','研发'],['algorithm','算法'],['non_tech','非技术']].map(([value,label])=>`<option value="${value}" ${selected===value?'selected':''}>${label}</option>`).join('')}</select></label>`;
  const watchForm=(v={})=>`<div class="form-grid">${v.id?`<input type="hidden" name="source_id" value="${esc(v.source_id)}">`:`<label>招聘来源<select name="source_id" required>${supported.map(s=>`<option value="${esc(s.id)}">${esc(s.name)} · ${esc(s.adapter)}</option>`).join('')}</select></label>`}${input('check_interval','基础检查间隔（分钟）',(v.check_interval||3600)/60,'number',`required min="${minimum(v.id?sourceOf(v.source_id):supported[0])}" max="10080"`)}${input('keyword','标题或地点包含（可选）',v.keyword||'','text','maxlength="100"')}${v.id&&sourceOf(v.source_id)?.adapter==='xiaohongshu'?directionSelect(v.direction):''}</div><label class="check"><input type="checkbox" name="enabled" ${v.enabled===false?'':'checked'}>启用周期检查</label><label class="check"><input type="checkbox" name="adaptive" ${v.adaptive?'checked':''}>自动调整检查频率（无变化放缓，有变化加快）</label><label class="check"><input type="checkbox" name="priority" ${v.priority?'checked':''}>重点关注（自动调整时优先检查）</label><button>${v.id?'保存关注设置':'开始关注'}</button>`;
  const scheduleReasons={FIXED:'固定间隔',BASE:'基础间隔',PRIORITY:'重点关注或临近截止',RECENT_CHANGE:'近期有变化',UNCHANGED_BACKOFF:'连续无变化，降低频率',FAILURE_BACKOFF:'连续失败，等待恢复'};
@@ -56,11 +57,12 @@ async function radarPage(name,set,box,query,{active=()=>true,reviewInterview}={}
  if(!active())return;
  drafts?.restore();globalThis.CampusNavigation?.register({active,dirty:()=>busy||drafts?.dirty()});
  $('#refresh-watches').onclick=()=>{if(!busy)reload().catch(fail);};
- for(const button of box.querySelectorAll('[data-campus-preset]'))button.onclick=()=>{if(busy)return;const form=$('#source-preview'),site=catalog[Number(button.dataset.campusPreset)];if(!site)return;form.elements.url.value=site.url;form.elements.url.dispatchEvent(new Event('input',{bubbles:true}));form.elements.url.focus();};
+ const bindPresets=()=>{for(const button of box.querySelectorAll('[data-campus-preset]'))button.onclick=()=>{if(busy)return;const form=$('#source-preview'),site=catalog[Number(button.dataset.campusPreset)];if(!site||!CampusSources.ready(site))return;form.elements.url.value=site.url;form.elements.url.dispatchEvent(new Event('input',{bubbles:true}));form.elements.url.focus();};};
+ bindPresets();CampusSources.mount(box.querySelector?.('#source-directory'),catalog,{esc,state:sourceFilters,bind:bindPresets});
  $('#source-preview').elements.url.addEventListener('input',()=>{previewMarkup='';drafts?.forget('#source-create');$('#source-preview-result').innerHTML='';});
  formAction('#source-preview',async data=>{
    const requestedURL=String(data.get('url')).trim(),preview=await api('/api/sources/preview','POST',{url:requestedURL});if(!active()||$('#source-preview').elements.url.value.trim()!==requestedURL)return;
-   drafts?.capture();drafts?.forget('#source-create');previewMarkup=`<article class="card"><h3>${esc(preview.name)} · ${Number(preview.total)} 个岗位</h3><p class="meta">样例：${preview.samples.map(s=>esc(s.title)).join('、')||'暂无岗位'}。岗位数据来自招聘网站，首次导入需要一些时间。</p><form id="source-create" novalidate><input type="hidden" name="url" value="${esc(preview.url)}"><div class="form-grid">${preview.supports_direction?directionSelect():''}${input('keyword','标题或地点包含（可选）','','text','maxlength="100"')}${input('check_interval','基础检查间隔（分钟）',360,'number',`required min="${Math.max(30,Number(preview.minimum_interval||1800)/60)}" max="10080"`)}</div><label class="check"><input type="checkbox" name="enabled" checked>启用周期检查</label><label class="check"><input type="checkbox" name="adaptive" checked>自动调整检查频率</label><label class="check"><input type="checkbox" name="priority">重点关注</label><button>开始关注并导入</button></form></article>`;
+   drafts?.capture();drafts?.forget('#source-create');previewMarkup=`<article class="card"><h3>${esc(preview.name)} · ${Number(preview.total)} 个岗位</h3><p class="meta">${Number(preview.total)===0?'官网当前暂无该范围岗位，可以先关注，开放后自动检查。':`样例：${preview.samples.map(s=>esc(s.title)).join('、')||'暂无样例'}。岗位数据来自招聘网站，首次导入需要一些时间。`}</p><form id="source-create" novalidate><input type="hidden" name="url" value="${esc(preview.url)}"><div class="form-grid">${preview.supports_direction?directionSelect():''}${input('keyword','标题或地点包含（可选）','','text','maxlength="100"')}${input('check_interval','基础检查间隔（分钟）',360,'number',`required min="${Math.max(30,Number(preview.minimum_interval||1800)/60)}" max="10080"`)}</div><label class="check"><input type="checkbox" name="enabled" checked>启用周期检查</label><label class="check"><input type="checkbox" name="adaptive" checked>自动调整检查频率</label><label class="check"><input type="checkbox" name="priority">重点关注</label><button>开始关注并导入</button></form></article>`;
    await draw();
  });
  if(previewMarkup)formAction('#source-create',async values=>{

@@ -65,7 +65,7 @@ func sourcePreviewFailure(err error) string {
 }
 
 func (a *API) radarRoutes(on func(string, http.HandlerFunc)) {
-	on("GET /api/sources/catalog", func(w http.ResponseWriter, r *http.Request) { write(w, source.CampusSites(), nil) })
+	on("GET /api/sources/catalog", func(w http.ResponseWriter, r *http.Request) { write(w, source.CampusDirectory(), nil) })
 	on("GET /api/radar/todos", func(w http.ResponseWriter, r *http.Request) {
 		v, err := a.Store.Todos(r.Context(), user(r))
 		w.Header().Set("Cache-Control", "no-store")
