@@ -13,7 +13,8 @@ func analyzeDraft(t *testing.T, text string, draft Draft) (Draft, error) {
 	wire := struct {
 		Suggestions []Suggestion `json:"suggestions"`
 		Projects    []Project    `json:"projects"`
-	}{draft.Suggestions, draft.Projects}
+		Educations  []Education  `json:"educations,omitempty"`
+	}{draft.Suggestions, draft.Projects, draft.Educations}
 	if wire.Suggestions == nil {
 		wire.Suggestions = []Suggestion{}
 	}

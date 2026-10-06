@@ -171,6 +171,7 @@ func candidateValue(p d.Profile, typ string) string {
 }
 
 func Eligibility(j d.Job, p d.Profile, es []d.Evidence, now time.Time) d.Eligibility {
+	p = p.EducationProfile()
 	a := d.Eligibility{ID: d.ID(), JobID: j.ID, UserID: p.UserID, Status: "ELIGIBLE", RuleVersion: d.RuleVersion, AssessedAt: now, Results: []d.RuleResult{}}
 	types := []string{"GRADUATION_REQUIREMENT", "EDUCATION_REQUIREMENT", "JOB_TYPE", "LOCATION", "EXPERIENCE_REQUIREMENT", "MAJOR_REQUIREMENT", "LANGUAGE_REQUIREMENT", "TECH_STACK"}
 	critical := map[string]bool{"GRADUATION_REQUIREMENT": true, "EDUCATION_REQUIREMENT": true, "JOB_TYPE": true}
@@ -275,9 +276,11 @@ func Eligibility(j d.Job, p d.Profile, es []d.Evidence, now time.Time) d.Eligibi
 				fail()
 			}
 		case "MAJOR_REQUIREMENT":
-			if len(p.Majors) == 0 {
+			majors := p.MajorsForRequirement(e.Excerpt)
+			r.Candidate = strings.Join(majors, "|")
+			if len(majors) == 0 {
 				unknown()
-			} else if !alternatives(e.Value, p.Majors) {
+			} else if !alternatives(e.Value, majors) {
 				fail()
 			}
 		case "LANGUAGE_REQUIREMENT":

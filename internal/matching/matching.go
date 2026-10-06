@@ -53,6 +53,7 @@ func CandidateFrom(p d.Profile, facts []d.ProjectFact, maskName string) (Candida
 }
 
 func CandidateWithProjects(p d.Profile, facts []d.ProjectFact, projects []d.Project, maskName string) (Candidate, error) {
+	p = p.EducationProfile()
 	c := Candidate{Revision: p.Revision, Facts: []Fact{}}
 	clean := func(s string) string {
 		if maskName != "" {
@@ -76,9 +77,23 @@ func CandidateWithProjects(p d.Profile, facts []d.ProjectFact, projects []d.Proj
 		kind   string
 		values []string
 	}{{"MAJOR", p.Majors}, {"SKILL", p.Skills}, {"LANGUAGE", p.Languages}, {"ROLE", p.TargetRoles}, {"CITY_PREFERRED", p.PreferredCities}, {"CITY_ACCEPTABLE", p.AcceptableCities}, {"JOB_TYPE_PREFERENCE", p.PreferredTypes}} {
+		if group.kind == "MAJOR" && len(p.Educations) > 0 {
+			continue
+		}
 		for i, value := range group.values {
 			add(fmt.Sprintf("%s-%d", strings.ToLower(group.kind), i), group.kind, value)
 		}
+	}
+	for _, e := range p.Educations {
+		degree := map[string]string{"ASSOCIATE": "专科", "BACHELOR": "本科", "MASTER": "硕士", "PHD": "博士"}[e.Degree]
+		for i, major := range e.Majors {
+			add(fmt.Sprintf("education-%s-major-%d", e.ID, i), "MAJOR", degree+"专业："+major)
+		}
+		text := degree + "；状态：" + e.Status
+		if e.GraduationYear != 0 {
+			text += fmt.Sprintf("；毕业或预计毕业：%d", e.GraduationYear)
+		}
+		add("education-"+e.ID, "EDUCATION", text)
 	}
 	projectNames := map[string]string{}
 	for _, project := range projects {
@@ -435,7 +450,7 @@ func Qualification(j d.Job, p d.Profile, reqs []Requirement, now time.Time) d.El
 	evidence := []d.Evidence{}
 	for _, r := range reqs {
 		if r.Category == "QUALIFICATION" && r.ClaimType != "" {
-			evidence = append(evidence, d.Evidence{ID: r.ID, Claim: d.Claim{Type: r.ClaimType, Value: r.Value, Confidence: r.Confidence}})
+			evidence = append(evidence, d.Evidence{ID: r.ID, Claim: d.Claim{Type: r.ClaimType, Value: r.Value, Excerpt: r.Excerpt, Confidence: r.Confidence}})
 		}
 	}
 	if j.JobType == "FULL_TIME" || j.JobType == "INTERNSHIP" {

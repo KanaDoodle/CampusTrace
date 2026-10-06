@@ -180,6 +180,23 @@ func (s *Store) SaveProfile(ctx context.Context, user string, p d.Profile) error
 		if p.Revision != 0 && p.Revision != old.Revision {
 			return ErrConflict
 		}
+		// Older clients omit the new history; never erase it on an unrelated edit.
+		if p.Educations == nil && len(old.Educations) > 0 {
+			p.Educations = old.Educations
+			if p.PrimaryEducationID == "" {
+				p.PrimaryEducationID = old.PrimaryEducationID
+			}
+		}
+		if err := p.NormalizeEducations(); err != nil {
+			return ErrValidation
+		}
+		for _, e := range p.Educations {
+			for _, major := range e.Majors {
+				if resume.HasSensitive(major) {
+					return ErrValidation
+				}
+			}
+		}
 		p.Revision = old.Revision + 1
 		_, err = tx.ExecContext(ctx, "INSERT INTO profiles(id,user_id,body) VALUES(?,?,?) ON DUPLICATE KEY UPDATE body=VALUES(body)", user, user, d.JSON(p))
 		return err

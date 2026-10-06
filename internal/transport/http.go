@@ -392,7 +392,7 @@ func (a *API) Handler() http.Handler {
 			resumeFailure(w, err)
 			return
 		}
-		slog.InfoContext(r.Context(), "resume draft reviewed", "suggestions", len(draft.Suggestions), "projects", len(draft.Projects), "excluded", len(draft.Warnings), "normalized_excerpts", draft.NormalizedExcerpts)
+		slog.InfoContext(r.Context(), "resume draft reviewed", "suggestions", len(draft.Suggestions), "educations", len(draft.Educations), "projects", len(draft.Projects), "excluded", len(draft.Warnings), "normalized_excerpts", draft.NormalizedExcerpts)
 		write(w, draft, nil)
 	})
 	for _, table := range []string{"reviews", "weak_topics", "projects", "project_facts", "documents"} {

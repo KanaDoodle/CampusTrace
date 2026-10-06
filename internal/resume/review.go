@@ -1,6 +1,7 @@
 package resume
 
 import (
+	d "github.com/KanaDoodle/CampusTrace/internal/domain"
 	"strconv"
 	"strings"
 	"unicode"
@@ -26,7 +27,7 @@ func invalid(reason, scope string, project, item int) error {
 }
 
 func draftLimits(draft Draft) error {
-	if len(draft.Suggestions) > 60 || len(draft.Projects) > 15 {
+	if len(draft.Suggestions) > 60 || len(draft.Projects) > 15 || len(draft.Educations) > 8 {
 		return invalid("DRAFT_LIMIT", "", 0, 0)
 	}
 	count := 0
@@ -107,6 +108,15 @@ func exactReason(source, value string) string {
 func Validate(draft Draft, source string) error {
 	if err := draftLimits(draft); err != nil {
 		return err
+	}
+	for i, e := range draft.Educations {
+		reason := educationReason(e)
+		if reason == "" {
+			reason = exactReason(source, e.Excerpt)
+		}
+		if reason != "" {
+			return invalid(reason, "EDUCATION", 0, i+1)
+		}
 	}
 	for i, s := range draft.Suggestions {
 		reason := suggestionReason(s)
@@ -208,8 +218,34 @@ func reviewDraft(draft Draft, source string) (Draft, error) {
 		}
 		return actual, true
 	}
+	for i, e := range draft.Educations {
+		actual, ok := check(e.Excerpt, Diagnostic{Scope: "EDUCATION", ItemIndex: i + 1}, educationReason(e))
+		if ok {
+			e.Excerpt = actual
+			if e.Majors == nil {
+				e.Majors = []string{}
+			}
+			out.Educations = append(out.Educations, e)
+		}
+	}
+	values := map[string]map[string]bool{}
+	for _, s := range draft.Suggestions {
+		if s.Field == "degree" || s.Field == "graduation_year" || s.Field == "experience_months" {
+			if values[s.Field] == nil {
+				values[s.Field] = map[string]bool{}
+			}
+			values[s.Field][s.Value] = true
+		}
+	}
 	for i, suggestion := range draft.Suggestions {
-		actual, ok := check(suggestion.Excerpt, Diagnostic{Scope: "SUGGESTION", ItemIndex: i + 1}, suggestionReason(suggestion))
+		if len(out.Educations) > 0 && (suggestion.Field == "degree" || suggestion.Field == "graduation_year" || suggestion.Field == "majors") {
+			continue
+		}
+		reason := suggestionReason(suggestion)
+		if reason == "" && len(values[suggestion.Field]) > 1 {
+			reason = "VALUE_CONFLICT"
+		}
+		actual, ok := check(suggestion.Excerpt, Diagnostic{Scope: "SUGGESTION", ItemIndex: i + 1}, reason)
 		if ok {
 			suggestion.Excerpt = actual
 			out.Suggestions = append(out.Suggestions, suggestion)
@@ -233,11 +269,26 @@ func reviewDraft(draft Draft, source string) (Draft, error) {
 		out.Projects = append(out.Projects, kept)
 	}
 	out.Suggestions = filterSkillDetails(out.Suggestions)
-	if len(out.Suggestions) == 0 && validFacts == 0 && len(out.Warnings) > 0 {
+	if len(out.Suggestions) == 0 && len(out.Educations) == 0 && validFacts == 0 && len(out.Warnings) > 0 {
 		return Draft{}, &ValidationError{out.Warnings[0]}
 	}
 	if err := Validate(out, source); err != nil {
 		return Draft{}, err
 	}
 	return out, nil
+}
+
+func educationReason(e Education) string {
+	if d.DegreeLevel(e.Degree) == 0 {
+		return "EDUCATION_FORMAT"
+	}
+	if (d.Education{Degree: e.Degree, Majors: e.Majors, StartYear: e.StartYear, GraduationYear: e.GraduationYear, Status: e.Status}).Validate() != nil {
+		return "EDUCATION_FORMAT"
+	}
+	for _, major := range e.Majors {
+		if reason := valueReason(major, 200); reason != "" {
+			return reason
+		}
+	}
+	return ""
 }

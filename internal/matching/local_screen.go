@@ -47,6 +47,7 @@ type LocalScreener struct {
 }
 
 func NewLocalScreener(p d.Profile, candidate Candidate) *LocalScreener {
+	p = p.EducationProfile()
 	s := &LocalScreener{profile: p, evidence: map[string][]LocalEvidence{}, preferredCities: map[string]bool{}, acceptableCities: map[string]bool{}}
 	s.directionTargets, s.directionUnknown = directionTargets(p.TargetRoles)
 	for _, target := range p.TargetRoles {

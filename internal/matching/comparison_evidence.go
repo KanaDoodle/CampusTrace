@@ -34,6 +34,9 @@ type comparisonMatch struct {
 }
 
 func abilityCitation(f Fact, r Requirement) bool {
+	if f.Kind == "EDUCATION" && r.Category != "QUALIFICATION" {
+		return false
+	}
 	if f.Kind == "LIMITATION" {
 		return false
 	}

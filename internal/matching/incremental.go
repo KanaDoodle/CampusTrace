@@ -47,7 +47,7 @@ func ModelRequirements(reqs []Requirement) []Requirement {
 func ModelCandidate(c Candidate, scope string) Candidate {
 	v := Candidate{Facts: []Fact{}}
 	for _, f := range c.Facts {
-		if isPreference(f.Kind) || (scope == ComparisonAbilities && (f.Kind == "GRADUATION" || f.Kind == "DEGREE")) {
+		if isPreference(f.Kind) || (scope == ComparisonAbilities && (f.Kind == "GRADUATION" || f.Kind == "DEGREE" || f.Kind == "EDUCATION")) {
 			continue
 		}
 		v.Facts = append(v.Facts, f)
