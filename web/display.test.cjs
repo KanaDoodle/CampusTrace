@@ -133,3 +133,12 @@ test('匹配诊断按固定原因说明漏项、引用及能力错误，不显�
  assert.equal(D.matchingDiagnostic({validation_reason:'private-fact-or-secret',expected:'private'}),'');
  assert.ok(!D.matchingDiagnostic({validation_reason:'FACT_UNKNOWN',item_index:'private'}).includes('private'));
 });
+test('匹配容量说明区分个人资料与岗位批次，并显示安全的实际大小',()=>{
+ assert.match(D.matchingDiagnostic({capacity_reason:'CANDIDATE_BYTES',actual:33000,limit:32000}),/个人匹配资料共 33,000 字节，上限 32,000 字节/);
+ assert.match(D.matchingDiagnostic({capacity_reason:'CANDIDATE_BYTES',actual:33000,limit:32000}),/减少岗位数量不会减少/);
+ assert.match(D.matchingDiagnostic({capacity_reason:'COMPARISON_BYTES',actual:55000,limit:54000}),/比较输入共 55,000 字节/);
+ assert.equal(D.matchingDiagnostic({capacity_reason:'<script>private text</script>',actual:33000,limit:32000}),'');
+ assert.equal(D.matchingDiagnostic({capacity_reason:'constructor',actual:33000,limit:32000}),'');
+ assert.equal(D.matchingDiagnostic({capacity_reason:'CANDIDATE_BYTES',actual:'private text',limit:32000}),'');
+ assert.doesNotMatch(D.errorCode('MATCH_CAPACITY',400,'/api/matching/preview'),/精简过长的岗位、项目描述/);
+});

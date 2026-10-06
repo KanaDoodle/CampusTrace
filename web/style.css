@@ -56,3 +56,5 @@ button:not([class]){border:1px solid #d5dee8;background:white;border-radius:7px;
 @media(max-width:760px){.source-directory{padding:16px}.source-list{grid-template-columns:1fr;max-height:420px}.source-filters{grid-template-columns:1fr}.source-entry{gap:12px}.source-manual summary span{display:block;margin:6px 0 0}}
 
 .project-content{padding:0 18px;font-size:12px;line-height:1.9}.project-description,.project-bullets li{white-space:pre-wrap;overflow-wrap:anywhere}.project-bullets{padding-left:20px;margin:14px 0}.project-bullets li{margin:12px 0}.project-edit form{padding:12px 0}.project-edit textarea,.draft-project textarea{min-height:80px}.project-evidence>summary{font-size:12px;line-height:1.8}.draft-project small{white-space:pre-wrap;overflow-wrap:anywhere}
+
+.profile-delete{color:var(--danger)}.profile-delete:hover:not(:disabled){background:#faebeb}

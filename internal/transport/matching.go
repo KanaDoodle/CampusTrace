@@ -62,6 +62,7 @@ func matchFailure(w http.ResponseWriter, err error, stage ...string) {
 		phase = stage[0]
 	}
 	diagnostic := map[string]any{"stage": phase}
+	addCapacityDiagnostic(diagnostic, err)
 	var validation *matching.ValidationError
 	if errors.As(err, &validation) {
 		diagnostic["validation_reason"] = validation.Reason
@@ -90,6 +91,15 @@ func matchFailure(w http.ResponseWriter, err error, stage ...string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(map[string]any{"error": code, "code": code, "request_id": requestID, "diagnostic": diagnostic})
+}
+
+func addCapacityDiagnostic(diagnostic map[string]any, err error) {
+	var capacity *matching.CapacityError
+	if errors.As(err, &capacity) {
+		diagnostic["capacity_reason"] = capacity.Reason
+		diagnostic["actual"] = capacity.Actual
+		diagnostic["limit"] = capacity.Limit
+	}
 }
 
 type budgetedMatchModel struct {

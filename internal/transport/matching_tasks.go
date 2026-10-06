@@ -477,6 +477,7 @@ func matchTaskFailure(err error, stage string) (string, map[string]any) {
 		code = "MATCH_RUN_UNAVAILABLE"
 	}
 	diag := map[string]any{"stage": stage}
+	addCapacityDiagnostic(diag, err)
 	var v *matching.ValidationError
 	if errors.As(err, &v) {
 		diag["validation_reason"] = v.Reason

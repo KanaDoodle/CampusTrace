@@ -509,6 +509,10 @@ func (a *API) Handler() http.Handler {
 		out, err := a.Store.UpdateProject(r.Context(), user(r), r.PathValue("id"), v)
 		write(w, out, err)
 	})
+	on("DELETE /api/projects/{id}", func(w http.ResponseWriter, r *http.Request) {
+		count, err := a.Store.DeleteProject(r.Context(), user(r), r.PathValue("id"))
+		write(w, map[string]any{"deleted": err == nil, "deleted_facts": count}, err)
+	})
 	on("POST /api/project_facts", func(w http.ResponseWriter, r *http.Request) {
 		var v d.ProjectFact
 		if err := decode(r, &v); err != nil {
@@ -526,6 +530,10 @@ func (a *API) Handler() http.Handler {
 		}
 		out, err := a.Store.UpdateFact(r.Context(), user(r), r.PathValue("id"), v)
 		write(w, out, err)
+	})
+	on("DELETE /api/project_facts/{id}", func(w http.ResponseWriter, r *http.Request) {
+		err := a.Store.DeleteFact(r.Context(), user(r), r.PathValue("id"))
+		write(w, map[string]bool{"deleted": err == nil}, err)
 	})
 	on("POST /api/documents", func(w http.ResponseWriter, r *http.Request) {
 		var v rag.Document

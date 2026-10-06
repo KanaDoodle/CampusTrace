@@ -17,7 +17,11 @@ import (
 const Version = "matching-v2-evidence"
 const MaxBatch = 3
 const MaxBatchText = 24000
-const MaxCandidateText = 12000
+
+// Complete resume bullets need room for evidence IDs, profile fields and
+// project context as well as the original text. Comparison has its own budget.
+const MaxCandidateText = 32000
+const MaxComparisonText = 54000
 const MaxRequirements = 36
 
 var ErrInvalid = errors.New("unverifiable matching output")
@@ -108,8 +112,11 @@ func CandidateWithProjects(p d.Profile, facts []d.ProjectFact, projects []d.Proj
 			c.Facts[len(c.Facts)-1].ProjectName = projectNames[f.ProjectID]
 		}
 	}
-	if len(c.Facts) > 180 || len(d.JSON(c)) > MaxCandidateText {
-		return c, ErrCapacity
+	if len(c.Facts) > 180 {
+		return c, &CapacityError{Reason: "CANDIDATE_FACTS", Actual: len(c.Facts), Limit: 180}
+	}
+	if size := len(d.JSON(c)); size > MaxCandidateText {
+		return c, &CapacityError{Reason: "CANDIDATE_BYTES", Actual: size, Limit: MaxCandidateText}
 	}
 	return c, nil
 }
@@ -310,8 +317,11 @@ func ValidateRequirement(r Requirement, text string) error {
 	return nil
 }
 func Compare(ctx context.Context, m resume.Completer, c Candidate, jobs []MatchInput) (map[string][]Match, error) {
-	if len(jobs) == 0 || len(jobs) > MaxBatch || len(d.JSON(jobs))+len(d.JSON(c)) > 54000 {
+	if len(jobs) == 0 || len(jobs) > MaxBatch {
 		return nil, ErrCapacity
+	}
+	if size := ComparisonBytes(c, jobs); size > MaxComparisonText {
+		return nil, &CapacityError{Reason: "COMPARISON_BYTES", Actual: size, Limit: MaxComparisonText}
 	}
 	var out struct {
 		Jobs []struct {
@@ -319,10 +329,7 @@ func Compare(ctx context.Context, m resume.Completer, c Candidate, jobs []MatchI
 			Matches []comparisonMatch `json:"matches"`
 		} `json:"jobs"`
 	}
-	err := complete(ctx, m, comparisonPrompt, struct {
-		Candidate comparisonCandidate `json:"candidate"`
-		Jobs      []MatchInput        `json:"jobs"`
-	}{candidateForComparison(c), jobs}, &out)
+	err := complete(ctx, m, comparisonPrompt, comparisonRequest{candidateForComparison(c), jobs}, &out)
 	if err != nil {
 		return nil, err
 	}

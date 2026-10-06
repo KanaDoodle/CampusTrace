@@ -100,3 +100,22 @@ func TestUnavailableMatchingJobPreservesCompatibilityError(t *testing.T) {
 		t.Fatal(w.Code, w.Body.String())
 	}
 }
+
+func TestMatchingCapacityDiagnosticsExplainProfileVersusComparison(t *testing.T) {
+	for _, reason := range []string{"CANDIDATE_BYTES", "CANDIDATE_FACTS", "COMPARISON_BYTES"} {
+		err := &matching.CapacityError{Reason: reason, Actual: 33000, Limit: 32000}
+		w := httptest.NewRecorder()
+		matchFailure(w, err)
+		var out struct {
+			Code       string         `json:"code"`
+			Diagnostic map[string]any `json:"diagnostic"`
+		}
+		if json.Unmarshal(w.Body.Bytes(), &out) != nil || w.Code != 400 || out.Code != "MATCH_CAPACITY" || out.Diagnostic["capacity_reason"] != reason || out.Diagnostic["actual"] != float64(33000) || out.Diagnostic["limit"] != float64(32000) {
+			t.Fatal("capacity origin was hidden", w.Body.String())
+		}
+		code, task := matchTaskFailure(err, "COMPARE")
+		if code != "MATCH_CAPACITY" || task["capacity_reason"] != reason || task["actual"] != 33000 || task["limit"] != 32000 {
+			t.Fatal("background task lost input capacity diagnostics", task)
+		}
+	}
+}

@@ -319,6 +319,63 @@ func validProject(p d.Project) bool {
 	}
 	return true
 }
+
+// DeleteProject removes the project and its facts in one transaction. The user
+// lock is shared with fact writes, so a concurrent save cannot leave orphaned facts.
+func (s *Store) DeleteProject(ctx context.Context, user, id string) (int64, error) {
+	if len(id) != 32 {
+		return 0, ErrValidation
+	}
+	var deleted int64
+	err := s.Tx(ctx, func(tx *sql.Tx) error {
+		var locked string
+		if err := tx.QueryRowContext(ctx, "SELECT id FROM users WHERE id=? FOR UPDATE", user).Scan(&locked); err != nil {
+			return err
+		}
+		if err := tx.QueryRowContext(ctx, "SELECT id FROM projects WHERE id=? AND user_id=? FOR UPDATE", id, user).Scan(&locked); err != nil {
+			return err
+		}
+		result, err := tx.ExecContext(ctx, "DELETE FROM project_facts WHERE project_id=? AND user_id=?", id, user)
+		if err != nil {
+			return err
+		}
+		deleted, err = result.RowsAffected()
+		if err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx, "DELETE FROM projects WHERE id=? AND user_id=?", id, user)
+		return err
+	})
+	if err != nil {
+		return 0, err
+	}
+	return deleted, nil
+}
+
+func (s *Store) DeleteFact(ctx context.Context, user, id string) error {
+	if len(id) != 32 {
+		return ErrValidation
+	}
+	return s.Tx(ctx, func(tx *sql.Tx) error {
+		var locked string
+		if err := tx.QueryRowContext(ctx, "SELECT id FROM users WHERE id=? FOR UPDATE", user).Scan(&locked); err != nil {
+			return err
+		}
+		result, err := tx.ExecContext(ctx, "DELETE FROM project_facts WHERE id=? AND user_id=?", id, user)
+		if err != nil {
+			return err
+		}
+		count, err := result.RowsAffected()
+		if err != nil {
+			return err
+		}
+		if count == 0 {
+			return ErrNotFound
+		}
+		return nil
+	})
+}
+
 func (s *Store) SaveFact(ctx context.Context, user string, f d.ProjectFact) (d.ProjectFact, error) {
 	if err := f.Validate(); err != nil {
 		return f, ErrValidation

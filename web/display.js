@@ -152,7 +152,7 @@
   function errorCode(code, status, path='') {
     if(code==='MATCH_EXPORT_CAPACITY')return '每次最多导出 1,000 个岗位，文字总量不超过 5 MB；请减少选择后重试。';
     if(code==='MATCH_EXPORT_TEXT_REQUIRED')return '所选岗位中有原文缺失或最近读取失败的项，请移除这些岗位后再导出。';
-    const matchingErrors={MATCH_DAILY_LIMIT:'已达到每日岗位匹配调用上限，未完成项已保留，可在额度重置后继续。',MATCH_INPUT_CHANGED:'求职资料或岗位内容已变化，请刷新并重新核对外发资料。',MATCH_BUSY:'此账号已有一批岗位正在分析，请等当前批次完成后再继续。',MATCH_CAPACITY:'本批文字量超过分析上限，请缩小批次或精简过长的岗位、项目描述。',MATCH_OUTPUT_INVALID:'模型结果未通过岗位原文或项目依据核对，已保留可复用的解析结果，可单独重试。',MATCH_PROFILE_REQUIRED:'请先在求职资料中保存技能和项目事实，再使用岗位匹配。',MATCH_JOB_UNAVAILABLE:'本批包含已关闭、已忽略或原文不可用的岗位，请刷新后重新选择。'};
+    const matchingErrors={MATCH_DAILY_LIMIT:'已达到每日岗位匹配调用上限，未完成项已保留，可在额度重置后继续。',MATCH_INPUT_CHANGED:'求职资料或岗位内容已变化，请刷新并重新核对外发资料。',MATCH_BUSY:'此账号已有一批岗位正在分析，请等当前批次完成后再继续。',MATCH_CAPACITY:'分析输入超过处理上限，请查看具体原因；资料容量和岗位批次分别检查。',MATCH_OUTPUT_INVALID:'模型结果未通过岗位原文或项目依据核对，已保留可复用的解析结果，可单独重试。',MATCH_PROFILE_REQUIRED:'请先在求职资料中保存技能和项目事实，再使用岗位匹配。',MATCH_JOB_UNAVAILABLE:'本批包含已关闭、已忽略或原文不可用的岗位，请刷新后重新选择。'};
     if(matchingErrors[code])return matchingErrors[code];
     if (code==='EMAIL_TAKEN') return '该邮箱已经注册过，请直接登录，或换一个邮箱注册。';
     if (code==='TODO_CAPACITY') return '待办相关记录超过汇总容量，请进入投递进展、面试与复盘或岗位库查看；本页没有展示不完整的总数。';
@@ -188,6 +188,9 @@
     return error(status, path);
   }
   function matchingDiagnostic(value={}) {
+    const capacity={CANDIDATE_BYTES:['个人匹配资料','字节'],CANDIDATE_FACTS:['个人资料条目','项'],COMPARISON_BYTES:['本批岗位要求与个人资料的比较输入','字节']};
+    const bounds=typeof value.capacity_reason==='string'&&Object.hasOwn(capacity,value.capacity_reason)?capacity[value.capacity_reason]:null;
+    if(bounds&&Number.isInteger(value.actual)&&value.actual>=0&&value.actual<=10000000&&Number.isInteger(value.limit)&&value.limit>0&&value.limit<=10000000)return ` 具体原因：${bounds[0]}共 ${value.actual.toLocaleString('en-US')} ${bounds[1]}，上限 ${value.limit.toLocaleString('en-US')} ${bounds[1]}${value.capacity_reason.startsWith('CANDIDATE_')?'；减少岗位数量不会减少这部分资料':''}。`;
     const reasons={EDUCATION_FORMAT:'教育经历的学历、专业、日期或就读状态格式不符合约定',VALUE_CONFLICT:'同一资料字段出现多个不同值，已排除以避免相互覆盖',RESPONSE_MESSAGE:'模型服务未返回可读取的最终答案',RESPONSE_SIZE:'模型答案为空或超过结果长度上限',RESPONSE_JSON:'模型答案不是完整的 JSON，可能含格式文字或被截断',RESPONSE_SCHEMA:'模型答案不符合约定结构（多余字段、空值或类型不正确）',JOB_UNKNOWN:'模型返回了不属于本批的岗位编号',JOB_DUPLICATE:'模型重复返回了同一个岗位',JOB_COUNT:'模型遗漏了本批岗位',INPUT_JOB_DUPLICATE:'分析输入包含重复岗位',MATCH_COUNT:'模型返回的匹配项数与岗位要求数不一致',REQUIREMENT_UNKNOWN:'模型引用了不存在的岗位要求编号',REQUIREMENT_DUPLICATE:'模型重复返回了同一岗位要求',EXPLANATION_EMPTY:'模型未给出判断说明',EXPLANATION_LENGTH:'模型判断说明超过长度上限',EXPLANATION_SENSITIVE:'模型判断说明包含疑似敏感标识，已拒绝保存',EVIDENCE_COUNT:'模型引用的资料条数超过上限',RESULT_UNKNOWN:'模型返回了不支持的匹配结论',EVIDENCE_REQUIRED:'模型给出肯定或明确不符结论，却没有引用个人依据',FACT_UNKNOWN:'模型引用了不存在的个人资料或项目事实编号',EXCERPT_EMPTY:'模型引用了资料，却没有提供摘录',EXCERPT_LENGTH:'模型资料摘录超过长度上限',EXCERPT_NOT_EXACT:'模型摘录不是对应资料的连续原文，可能改写、翻译或拼接了内容',FACT_NOT_ABILITY:'模型将意向、城市偏好或项目局限当成能力证明'};
     const reason=reasons[value.validation_reason];if(!reason)return '';
     const integer=(n,max)=>Number.isInteger(n)&&n>=0&&n<=max;

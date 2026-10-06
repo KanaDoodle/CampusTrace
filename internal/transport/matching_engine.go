@@ -175,23 +175,16 @@ func (a *API) executeMatchBatch(ctx context.Context, user string, in matchBatchI
 	// job's requirements. Commit each completed group before reserving more calls.
 	for _, scope := range []string{matching.ComparisonAbilities, matching.ComparisonFull} {
 		inputs := inputsByScope[scope]
+		candidate := matching.ModelCandidate(snapshot.Candidate, scope)
 		for len(inputs) > 0 {
-			count, size := 0, 0
-			for count < len(inputs) {
-				next := len(inputs[count].Requirements)
-				if count > 0 && size+next > 24 {
-					break
-				}
-				size += next
-				count++
-			}
+			count := matching.ComparisonBatchSize(candidate, inputs)
 			group := inputs[:count]
 			if hook != nil {
 				if err := hook("COMPARE", "", 0); err != nil {
 					return out, err
 				}
 			}
-			comparisons, err := matching.Compare(ctx, budget, matching.ModelCandidate(snapshot.Candidate, scope), group)
+			comparisons, err := matching.Compare(ctx, budget, candidate, group)
 			if err != nil {
 				return out, &MatchStageError{"COMPARE", err}
 			}
