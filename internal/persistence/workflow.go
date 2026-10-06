@@ -275,15 +275,18 @@ func (s *Store) FinishInterview(ctx context.Context, user, id, result, notes str
 	return v, err
 }
 func (s *Store) SaveProject(ctx context.Context, user string, p d.Project) (d.Project, error) {
-	if p.Name == "" || len(p.Name) > 200 || resume.HasSensitive(p.Name) {
+	if !validProject(p) {
 		return p, ErrValidation
+	}
+	if p.Bullets == nil {
+		p.Bullets = []string{}
 	}
 	p.ID = d.ID()
 	_, err := s.DB.ExecContext(ctx, "INSERT INTO projects(id,user_id,body) VALUES(?,?,?)", p.ID, user, d.JSON(p))
 	return p, err
 }
 func (s *Store) UpdateProject(ctx context.Context, user, id string, incoming d.Project) (d.Project, error) {
-	if id == "" || incoming.Name == "" || len(incoming.Name) > 200 || resume.HasSensitive(incoming.Name) {
+	if id == "" || !validProject(incoming) {
 		return d.Project{}, ErrValidation
 	}
 	var updated d.Project
@@ -292,17 +295,35 @@ func (s *Store) UpdateProject(ctx context.Context, user, id string, incoming d.P
 		if err != nil {
 			return err
 		}
-		updated = d.Project{ID: old.ID, Name: incoming.Name}
+		updated = incoming
+		updated.ID = old.ID
+		// Older clients only rename projects. Missing content must not erase it;
+		// a supplied empty bullets array explicitly clears the content.
+		if incoming.Bullets == nil && incoming.Description == "" {
+			updated.Description, updated.Bullets = old.Description, old.Bullets
+		}
 		_, err = tx.ExecContext(ctx, "UPDATE projects SET body=? WHERE id=? AND user_id=?", d.JSON(updated), id, user)
 		return err
 	})
 	return updated, err
 }
+
+func validProject(p d.Project) bool {
+	if p.Validate() != nil || resume.HasSensitive(p.Name) || resume.HasSensitive(p.Description) {
+		return false
+	}
+	for _, bullet := range p.Bullets {
+		if resume.HasSensitive(bullet) {
+			return false
+		}
+	}
+	return true
+}
 func (s *Store) SaveFact(ctx context.Context, user string, f d.ProjectFact) (d.ProjectFact, error) {
 	if err := f.Validate(); err != nil {
 		return f, ErrValidation
 	}
-	if len(f.Reference) > 1000 || resume.HasSensitive(f.Claim) || resume.HasSensitive(f.Reference) {
+	if len(f.Reference) > 2000 || resume.HasSensitive(f.Claim) || resume.HasSensitive(f.Reference) {
 		return f, ErrValidation
 	}
 	f.ID = d.ID()
@@ -324,7 +345,7 @@ func (s *Store) SaveFact(ctx context.Context, user string, f d.ProjectFact) (d.P
 
 func (s *Store) UpdateFact(ctx context.Context, user, id string, incoming d.ProjectFact) (d.ProjectFact, error) {
 	var updated d.ProjectFact
-	if id == "" || len(incoming.Reference) > 1000 || resume.HasSensitive(incoming.Claim) || resume.HasSensitive(incoming.Reference) {
+	if id == "" || len(incoming.Reference) > 2000 || resume.HasSensitive(incoming.Claim) || resume.HasSensitive(incoming.Reference) {
 		return updated, ErrValidation
 	}
 	err := s.Tx(ctx, func(tx *sql.Tx) error {

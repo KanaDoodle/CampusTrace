@@ -35,6 +35,16 @@ func draftLimits(draft Draft) error {
 		if len(project.Facts) > 20 {
 			return invalid("PROJECT_FACTS_LIMIT", "PROJECT", i+1, 0)
 		}
+		if len(project.Bullets) > 20 || len(project.Description) > 4000 {
+			return invalid("PROJECT_CONTENT_LIMIT", "PROJECT", i+1, 0)
+		}
+		total := len(project.Description)
+		for _, bullet := range project.Bullets {
+			total += len(bullet)
+		}
+		if total > 16000 {
+			return invalid("PROJECT_CONTENT_LIMIT", "PROJECT", i+1, 0)
+		}
 		count += len(project.Facts)
 	}
 	if count > 80 {
@@ -84,17 +94,21 @@ func factReason(f Fact) string {
 	if f.Kind != "IMPLEMENTED" && f.Kind != "LIMITATION" && f.Kind != "PLANNED" {
 		return "FACT_KIND"
 	}
-	return valueReason(f.Claim, 1000)
+	return valueReason(f.Claim, 4000)
 }
 
 func exactReason(source, value string) string {
+	return exactReasonLimit(source, value, 600)
+}
+
+func exactReasonLimit(source, value string, limit int) string {
 	if strings.TrimSpace(value) == "" {
 		return "EXCERPT_EMPTY"
 	}
 	if !utf8.ValidString(value) || strings.ContainsRune(value, '\x00') {
 		return "EXCERPT_NOT_EXACT"
 	}
-	if len(value) > 600 {
+	if len(value) > limit {
 		return "EXCERPT_LENGTH"
 	}
 	if !strings.Contains(source, value) {
@@ -135,10 +149,21 @@ func Validate(draft Draft, source string) error {
 		if reason != "" {
 			return invalid(reason, "PROJECT", i+1, 0)
 		}
+		block := projectBlock(source, project.Excerpt, draft.Projects)
+		if project.Description != "" {
+			if reason := projectContentReason(block, project.Description, 4000); reason != "" {
+				return invalid(reason, "PROJECT_DESCRIPTION", i+1, 0)
+			}
+		}
+		for j, bullet := range project.Bullets {
+			if reason := projectContentReason(block, bullet, 2000); reason != "" {
+				return invalid(reason, "PROJECT_BULLET", i+1, j+1)
+			}
+		}
 		for j, fact := range project.Facts {
 			reason := factReason(fact)
 			if reason == "" {
-				reason = exactReason(source, fact.Excerpt)
+				reason = exactReasonLimit(source, fact.Excerpt, 2000)
 			}
 			if reason != "" {
 				return invalid(reason, "FACT", i+1, j+1)
@@ -167,7 +192,11 @@ func compactSource(source string) (string, []int, []int) {
 }
 
 func restoreExcerpt(source, compact string, starts, ends []int, value string) (string, bool, string) {
-	if reason := exactReason(source, value); reason != "EXCERPT_NOT_EXACT" {
+	return restoreExcerptLimit(source, compact, starts, ends, value, 600)
+}
+
+func restoreExcerptLimit(source, compact string, starts, ends []int, value string, limit int) (string, bool, string) {
+	if reason := exactReasonLimit(source, value, limit); reason != "EXCERPT_NOT_EXACT" {
 		return value, false, reason
 	}
 	if !utf8.ValidString(value) || strings.ContainsRune(value, '\x00') {
@@ -191,7 +220,7 @@ func restoreExcerpt(source, compact string, starts, ends []int, value string) (s
 		return "", false, "EXCERPT_AMBIGUOUS"
 	}
 	actual := source[starts[i]:ends[i+len(needle)-1]]
-	if reason := exactReason(source, actual); reason != "" {
+	if reason := exactReasonLimit(source, actual, limit); reason != "" {
 		return "", false, reason
 	}
 	return actual, true, ""
@@ -203,10 +232,17 @@ func reviewDraft(draft Draft, source string) (Draft, error) {
 	}
 	out := Draft{Suggestions: []Suggestion{}, Projects: []Project{}}
 	compact, starts, ends := compactSource(source)
-	check := func(quote string, d Diagnostic, reason string) (string, bool) {
+	// Use restored headings to delimit projects even when PDF whitespace differs.
+	sourceProjects := []Project{}
+	for _, project := range draft.Projects {
+		if heading, _, reason := restoreExcerpt(source, compact, starts, ends, project.Excerpt); reason == "" {
+			sourceProjects = append(sourceProjects, Project{Excerpt: heading})
+		}
+	}
+	checkLimit := func(quote string, d Diagnostic, reason string, limit int) (string, bool) {
 		actual, repaired := "", false
 		if reason == "" {
-			actual, repaired, reason = restoreExcerpt(source, compact, starts, ends, quote)
+			actual, repaired, reason = restoreExcerptLimit(source, compact, starts, ends, quote, limit)
 		}
 		if reason != "" {
 			d.Reason = reason
@@ -217,6 +253,9 @@ func reviewDraft(draft Draft, source string) (Draft, error) {
 			out.NormalizedExcerpts++
 		}
 		return actual, true
+	}
+	check := func(quote string, diagnostic Diagnostic, reason string) (string, bool) {
+		return checkLimit(quote, diagnostic, reason, 600)
 	}
 	for i, e := range draft.Educations {
 		actual, ok := check(e.Excerpt, Diagnostic{Scope: "EDUCATION", ItemIndex: i + 1}, educationReason(e))
@@ -257,15 +296,34 @@ func reviewDraft(draft Draft, source string) (Draft, error) {
 		if !ok {
 			continue
 		} // An unbound project cannot safely own its facts.
-		kept := Project{Name: project.Name, Excerpt: actual, Facts: []Fact{}}
+		kept := Project{Name: project.Name, Excerpt: actual, Bullets: []string{}, Facts: []Fact{}}
+		block := projectBlock(source, actual, sourceProjects)
+		content := func(value, scope string, item, limit int) (string, bool) {
+			quote, ok := checkLimit(value, Diagnostic{Scope: scope, ProjectIndex: i + 1, ItemIndex: item}, valueReason(value, limit), limit)
+			if ok && !strings.Contains(block, quote) {
+				out.Warnings = append(out.Warnings, Diagnostic{Reason: "EXCERPT_OUTSIDE_PROJECT", Scope: scope, ProjectIndex: i + 1, ItemIndex: item})
+				return "", false
+			}
+			return quote, ok
+		}
+		if project.Description != "" {
+			kept.Description, _ = content(project.Description, "PROJECT_DESCRIPTION", 0, 4000)
+		}
+		for j, bullet := range project.Bullets {
+			if quote, ok := content(bullet, "PROJECT_BULLET", j+1, 2000); ok && !containsBullet(kept.Bullets, quote) {
+				kept.Bullets = append(kept.Bullets, quote)
+			}
+		}
+		kept.Bullets = alignSourceBullets(block, kept.Bullets)
 		for j, fact := range project.Facts {
-			actual, ok := check(fact.Excerpt, Diagnostic{Scope: "FACT", ProjectIndex: i + 1, ItemIndex: j + 1}, factReason(fact))
+			actual, ok := checkLimit(fact.Excerpt, Diagnostic{Scope: "FACT", ProjectIndex: i + 1, ItemIndex: j + 1}, factReason(fact), 2000)
 			if ok {
 				fact.Excerpt = actual
 				kept.Facts = append(kept.Facts, fact)
 				validFacts++
 			}
 		}
+		kept.Facts = completeAccomplishments(kept.Facts, kept.Bullets)
 		out.Projects = append(out.Projects, kept)
 	}
 	out.Suggestions = filterSkillDetails(out.Suggestions)

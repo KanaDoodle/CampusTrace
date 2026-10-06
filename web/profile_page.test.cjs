@@ -1,6 +1,7 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),D=require('./display.js');
-function harness({readFile,modelAvailable=false,draftResult,initialProfile}={}){
+function harness({readFile,modelAvailable=false,draftResult,initialProfile,initialProjects=[],initialFacts=[]}={}){
   const elements=new Map(),actions=new Map(),writes=[],draftRequests=[],factWrites=[],projectWrites=[],fields=new Map();
+  let projects=structuredClone(initialProjects),facts=structuredClone(initialFacts);
   let html='',profile=initialProfile||{revision:1,graduation_year:2027,degree:'MASTER',experience_months:3,majors:['Computer Science'],preferred_cities:['Shanghai'],acceptable_cities:['Hangzhou'],target_roles:['后端开发'],technical_skills:['MySQL','Redis'],target_languages:['Go'],preferred_job_types:['FULLTIME']},forms=[];
   const decode=v=>String(v||'').replaceAll('&quot;','"').replaceAll('&#39;',"'").replaceAll('&lt;','<').replaceAll('&gt;','>').replaceAll('&amp;','&');
   const attrs=tag=>Object.fromEntries([...tag.matchAll(/([\w-]+)="([^"]*)"/g)].map(m=>[m[1],decode(m[2])]));
@@ -28,7 +29,7 @@ function harness({readFile,modelAvailable=false,draftResult,initialProfile}={}){
     return {id:at.id||'',dataset,fields:values,elements:controls};
   }
   let approveLeave=false;
-  const select=s=>s.startsWith('#')?elements.get(s.slice(1)):forms.find(f=>s.includes('data-draft-project')&&f.dataset.draftProject===s.match(/data-draft-project="([^"']+)"/)?.[1]);
+  const select=s=>s.startsWith('#')?elements.get(s.slice(1)):forms.find(f=>['draftProject','editProject','editFact'].some(key=>f.dataset[key]!==undefined&&s.includes(key.replace(/[A-Z]/g,c=>'-'+c.toLowerCase())+'="'+f.dataset[key]+'"')));
   const document={querySelector:select,querySelectorAll:s=>s==='#content form'?forms:s==='[data-draft-project]'?forms.filter(f=>f.dataset.draftProject!==undefined):s==='[data-edit-fact]'?forms.filter(f=>f.dataset.editFact):s==='[data-edit-project]'?forms.filter(f=>f.dataset.editProject):[],getElementById:id=>elements.get(id)};
   const context={document,CampusDisplay:D,FormData:FormDataFixture,structuredClone,CampusProfileLocal:{readFile,reviewedTextBytes:text=>Buffer.byteLength(text),hasDirectIdentifiers:()=>false},CampusModels:{bindUser(){},available:()=>modelAvailable,label:()=>'',requestConfig:()=>undefined},confirm:()=>approveLeave,console};
   vm.createContext(context);for(const file of ['ui.js','navigation.js','profile_education.js','profile.js'])vm.runInContext(fs.readFileSync(__dirname+'/'+file,'utf8'),context);
@@ -36,8 +37,9 @@ function harness({readFile,modelAvailable=false,draftResult,initialProfile}={}){
   const set=value=>{html=value;elements.clear();forms=[];for(const m of value.matchAll(/\bid="([^"]+)"/g))elements.set(m[1],{id:m[1],getClientRects:()=>[],showModal(){this.open=true;},close(){this.open=false;this.onclose?.();}});for(const m of value.matchAll(/(<form\b[^>]*>)([\s\S]*?)<\/form>/g)){const form=parseForm(m[1],m[2]);forms.push(form);if(form.id)elements.set(form.id,form);}elements.set('notice',{textContent:''});return true;};
   const api=async(path,method,body)=>{
     if(path==='/api/profile'){if(method==='PUT'){writes.push(structuredClone(body));profile={...body,revision:profile.revision+1};}return structuredClone(profile);}
-    if(path==='/api/projects'){if(method==='POST'){projectWrites.push(body);return {id:'new-project',name:body.name};}return [];}
-    if(path==='/api/project_facts'){if(method==='POST'){factWrites.push(body);return {...body,id:'fact-'+factWrites.length};}return [];}
+    if(path==='/api/projects'){if(method==='POST'){projectWrites.push(body);const project={...structuredClone(body),id:'new-project'};projects.push(project);return project;}return structuredClone(projects);}
+    if(path.startsWith('/api/projects/')&&method==='PUT'){projectWrites.push(body);const project={...structuredClone(body),id:path.split('/').at(-1)};projects=projects.map(old=>old.id===project.id?project:old);return project;}
+    if(path==='/api/project_facts'){if(method==='POST'){factWrites.push(body);const fact={...structuredClone(body),id:'fact-'+factWrites.length};facts.push(fact);return fact;}return structuredClone(facts);}
     if(path==='/api/profile/resume/capabilities')return {user_id:'qa',model_available:modelAvailable};
     if(path==='/api/profile/resume/draft'){draftRequests.push(body);return structuredClone(draftResult);}
     throw new Error(path);
@@ -65,7 +67,7 @@ test('opening resume import preserves unsaved edits and whole-profile save never
 });
 test('adding a project preserves edited profile values and does not silently save those edits',async()=>{
   const h=harness();await h.start();h.fields.set('target_roles','后端开发、平台研发');
-  await h.actions.get('#add-project')({get:()=> '测试项目'});
+  await h.actions.get('#add-project')({get:key=>key==='name'?'测试项目':null});
   assert.ok(h.html().includes('value="后端开发、平台研发"'));
   assert.ok(h.html().includes('测试项目'));
   assert.equal(h.writes.length,0);
@@ -129,4 +131,27 @@ test('saving education retains unrelated unsaved profile edits without silently 
 });
 test('saving a suggestion preserves unsaved manual education rows',async()=>{
  const h=harness({modelAvailable:true,draftResult:{suggestions:[{field:'technical_skills',value:'Linux',excerpt:'Linux'}],projects:[]}});await generate(h);h.elements.get('add-education').onclick();h.fields.set('education-1-majors','软件工程');await h.actions.get('#apply-suggestions')(h.formData('#apply-suggestions'));assert.equal(h.fields.get('education-count'),'2');assert.equal(h.fields.get('education-1-majors'),'软件工程');assert.equal(h.navigation.dirty(),true);assert.equal(h.writes[0].educations,undefined);
+});
+
+test('resume import preserves the complete overview and wrapped bullets separately from selected evidence',async()=>{
+ const description='个人招聘跟踪工具，支持职位收集与投递记录。',bullet='使用 Redis Streams 实现异步任务处理，\n通过消费者组和失败重试提高可靠性。';
+ const h=harness({modelAvailable:true,draftResult:{suggestions:[],projects:[{name:'队列',excerpt:'队列',description,bullets:[bullet],facts:[{kind:'IMPLEMENTED',claim:bullet,excerpt:bullet}]}]}});await generate(h);
+ const data=h.formData('[data-draft-project="0"]');assert.equal(data.get('description'),description);assert.equal(data.get('bullet-0'),bullet);assert.ok(data.has('fact-0'));assert.match(h.html(),/用于岗位匹配的依据/);
+ await h.actions.get('[data-draft-project="0"]')(data);
+ assert.deepEqual(Array.from(h.projectWrites[0].bullets),[bullet]);assert.equal(h.projectWrites[0].description,description);assert.equal(h.factWrites[0].claim,bullet);assert.equal(h.factWrites[0].reference,bullet);
+ assert.match(h.html(),/project-description/);assert.match(h.html(),/project-bullets/);assert.ok(h.html().includes(bullet));
+});
+test('import into an existing project merges complete bullets and keeps its name and manual overview',async()=>{
+ const h=harness({initialProjects:[{id:'old',name:'原有队列',description:'手工维护的简介',bullets:['原有完整经历']}],modelAvailable:true,draftResult:{suggestions:[],projects:[{name:'队列',excerpt:'队列',bullets:['新增完整经历'],facts:[{kind:'IMPLEMENTED',claim:'新增完整经历',excerpt:'新增完整经历'}]}]}});await generate(h);
+ const data=h.formData('[data-draft-project="0"]');data.fields.set('existing','old');await h.actions.get('[data-draft-project="0"]')(data);
+ assert.equal(h.projectWrites.length,1);assert.equal(h.projectWrites[0].name,'原有队列');assert.equal(h.projectWrites[0].description,'手工维护的简介');assert.deepEqual(Array.from(h.projectWrites[0].bullets),['原有完整经历','新增完整经历']);assert.equal(h.factWrites[0].project_id,'old');
+});
+test('project edit retains paragraph breaks, permits clearing a bullet, and never changes saved evidence',async()=>{
+ const h=harness({initialProjects:[{id:'old',name:'队列',description:'完整简介',bullets:['第一条完整经历','第二条完整经历']}],initialFacts:[{id:'f',project_id:'old',kind:'IMPLEMENTED',claim:'已确认机制',verified:true}]});await h.start();
+ const data=h.formData('[data-edit-project="old"]');data.fields.set('bullet-0','更新后的技术机制，\n以及执行结果。');data.fields.set('bullet-1','');await h.actions.get('[data-edit-project="old"]')(data);
+ assert.deepEqual(Array.from(h.projectWrites[0].bullets),['更新后的技术机制，\n以及执行结果。']);assert.equal(h.projectWrites[0].description,'完整简介');assert.equal(h.factWrites.length,0);assert.match(h.html(),/已确认机制/);
+});
+test('oversized complete Chinese bullets fail before a project or evidence is written',async()=>{
+ const h=harness({modelAvailable:true,draftResult:{suggestions:[],projects:[{name:'队列',excerpt:'队列',facts:[{kind:'IMPLEMENTED',claim:'完整实现',excerpt:'完整实现'}]}]}});await generate(h);const data=h.formData('[data-draft-project="0"]');data.fields.set('bullet-0','后'.repeat(667));
+ await assert.rejects(h.actions.get('[data-draft-project="0"]')(data),/2000 字节/);assert.equal(h.projectWrites.length,0);assert.equal(h.factWrites.length,0);
 });

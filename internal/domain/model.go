@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 const AnalysisVersion = "claims-v3-semantics"
@@ -359,9 +360,32 @@ type WeakTopic struct {
 	Count     int       `json:"occurrence_count"`
 }
 type Project struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+	ID          string   `json:"id"`
+	Name        string   `json:"name"`
+	Description string   `json:"description,omitempty"`
+	Bullets     []string `json:"bullets"`
 }
+
+func (p Project) Validate() error {
+	valid := func(s string, limit int) bool {
+		return len(s) <= limit && utf8.ValidString(s) && !strings.ContainsRune(s, '\x00')
+	}
+	if strings.TrimSpace(p.Name) == "" || !valid(p.Name, 200) || !valid(p.Description, 4000) || len(p.Bullets) > 20 {
+		return errors.New("invalid project")
+	}
+	total := len(p.Description)
+	for _, bullet := range p.Bullets {
+		if strings.TrimSpace(bullet) == "" || !valid(bullet, 2000) {
+			return errors.New("invalid project bullet")
+		}
+		total += len(bullet)
+	}
+	if total > 16000 {
+		return errors.New("project content too long")
+	}
+	return nil
+}
+
 type ProjectFact struct {
 	ID        string    `json:"id"`
 	ProjectID string    `json:"project_id"`

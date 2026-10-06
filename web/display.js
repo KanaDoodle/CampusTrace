@@ -197,12 +197,14 @@
     return ` 具体原因：${location?location+'：':''}${reason}${counts}。`;
   }
   function resumeDiagnostic(value={}) {
-    const reasons={EDUCATION_FORMAT:'教育经历的学历、专业、日期或就读状态格式不符合约定',VALUE_CONFLICT:'同一资料字段出现多个不同值，已排除以避免相互覆盖',RESPONSE_MESSAGE:'模型没有返回可读取的草稿',RESPONSE_SIZE:'模型草稿为空或超过结果长度上限',RESPONSE_JSON:'模型草稿不是完整的 JSON，可能含说明文字或被截断',RESPONSE_SCHEMA:'模型草稿的结构不符合约定，可能包含空值、未知字段或错误类型',DRAFT_LIMIT:'模型返回的资料或事实数量超过上限',PROJECT_FACTS_LIMIT:'单个项目返回的事实数量超过上限',FIELD_UNKNOWN:'模型返回了不支持的资料字段',VALUE_EMPTY:'提取内容为空',VALUE_INVALID:'提取内容包含无效字符',VALUE_LENGTH:'提取内容过长，需要拆成更短的独立条目',VALUE_SENSITIVE:'提取内容含疑似身份或联系方式，已排除',VALUE_FORMAT:'学历、毕业年份或经验月数的格式不符合约定',FACT_KIND:'项目事实的实现、计划或局限类型不符合约定',EXCERPT_EMPTY:'模型没有提供原文依据',EXCERPT_LENGTH:'原文摘录过长，应引用一小段直接依据',EXCERPT_NOT_EXACT:'引用不是外发文字中的连续原文，可能被改写、拼接或补充了内容',EXCERPT_AMBIGUOUS:'空白格式不同的引用对应多处原文，无法确定引用位置'};
+    const reasons={EDUCATION_FORMAT:'教育经历的学历、专业、日期或就读状态格式不符合约定',VALUE_CONFLICT:'同一资料字段出现多个不同值，已排除以避免相互覆盖',RESPONSE_MESSAGE:'模型没有返回可读取的草稿',RESPONSE_SIZE:'模型草稿为空或超过结果长度上限',RESPONSE_JSON:'模型草稿不是完整的 JSON，可能含说明文字或被截断',RESPONSE_SCHEMA:'模型草稿的结构不符合约定，可能包含空值、未知字段或错误类型',DRAFT_LIMIT:'模型返回的资料或事实数量超过上限',PROJECT_FACTS_LIMIT:'单个项目返回的事实数量超过上限',PROJECT_CONTENT_LIMIT:'项目简介或完整经历条目超过长度或数量上限',EXCERPT_OUTSIDE_PROJECT:'原文内容不属于当前项目，已排除以避免串到其他项目',FIELD_UNKNOWN:'模型返回了不支持的资料字段',VALUE_EMPTY:'提取内容为空',VALUE_INVALID:'提取内容包含无效字符',VALUE_LENGTH:'提取内容过长，需要拆成更短的独立条目',VALUE_SENSITIVE:'提取内容含疑似身份或联系方式，已排除',VALUE_FORMAT:'学历、毕业年份或经验月数的格式不符合约定',FACT_KIND:'项目事实的实现、计划或局限类型不符合约定',EXCERPT_EMPTY:'模型没有提供原文依据',EXCERPT_LENGTH:'原文摘录过长，应引用一小段直接依据',EXCERPT_NOT_EXACT:'引用不是外发文字中的连续原文，可能被改写、拼接或补充了内容',EXCERPT_AMBIGUOUS:'空白格式不同的引用对应多处原文，无法确定引用位置'};
     const reason=reasons[value.validation_reason];if(!reason)return '';
     const position=n=>Number.isInteger(n)&&n>0&&n<=1000;
     let location='';
     if(value.scope==='EDUCATION'&&position(value.item_index))location=`第 ${value.item_index} 段教育经历`;
     if(value.scope==='SUGGESTION'&&position(value.item_index))location=`资料建议第 ${value.item_index} 项`;
+    if(value.scope==='PROJECT_DESCRIPTION'&&position(value.project_index))location=`第 ${value.project_index} 个项目的简介`;
+    if(value.scope==='PROJECT_BULLET'&&position(value.project_index)&&position(value.item_index))location=`第 ${value.project_index} 个项目的第 ${value.item_index} 条原始经历`;
     if(value.scope==='PROJECT'&&position(value.project_index))location=`第 ${value.project_index} 个项目`;
     if(value.scope==='FACT'&&position(value.project_index)&&position(value.item_index))location=`第 ${value.project_index} 个项目的第 ${value.item_index} 条事实`;
     return (location?location+'：':'')+reason;

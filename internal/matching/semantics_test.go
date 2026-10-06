@@ -33,6 +33,24 @@ func TestCandidateProjectContextIsRedactedAndInvalidatesOnRename(t *testing.T) {
 	}
 }
 
+func TestMatchingKeepsCompleteClaimButDoesNotSendUnselectedProjectContent(t *testing.T) {
+	claim := "使用 Redis Streams 实现异步任务处理，\n通过消费者组和失败重试提高可靠性。"
+	projects := []d.Project{{ID: "p", Name: "任务队列", Description: "未选择的简介", Bullets: []string{"计划实现 Kafka", "未选择的完整经历"}}}
+	facts := []d.ProjectFact{{ID: "f", ProjectID: "p", Kind: "IMPLEMENTED", Claim: claim, Reference: claim, Verified: true}}
+	candidate, err := CandidateWithProjects(d.Profile{}, facts, projects, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if candidate.Facts[len(candidate.Facts)-1].Text != claim {
+		t.Fatal("matching lost the mechanism and result", candidate)
+	}
+	for _, text := range []string{"未选择", "Kafka"} {
+		if strings.Contains(d.JSON(candidate), text) {
+			t.Fatal("display-only project content became ability evidence")
+		}
+	}
+}
+
 func TestExtractionKeepsPreferencesSoftTraitsAndSelectableDirectionsSeparate(t *testing.T) {
 	text := "本科及以上学历，软件工程专业优先。\n责任心强，沟通协作顺畅。\n你将参与一个或多个方向：\n1、数据安全方向：建设数据安全平台；\n2、AI安全方向：建设安全护栏；\n3、以工程化思路建设上述能力。\n任职资格：熟悉 Go。"
 	items := []Requirement{
