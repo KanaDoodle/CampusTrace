@@ -27,6 +27,11 @@
   function merge(profile,selected,primaryIndex){
     const educations=entries(profile),mapping=new Map();
     const key=e=>JSON.stringify([e.degree,[...(e.majors||[])].map(v=>v.toLowerCase()).sort(),e.graduation_year||0]);
+    // A legacy scalar summary may have mixed bachelor/master majors or years.
+    // When the reviewed import replaces that degree, do not retain a fictitious
+    // third education constructed from the old flattened fields.
+    const legacy=educations.findIndex(e=>e.id==='legacy-education');
+    if(legacy>=0&&selected.some(({entry})=>entry.degree===educations[legacy].degree)&&!selected.some(({entry})=>key(entry)===key(educations[legacy])))educations.splice(legacy,1);
     for(const {entry,index} of selected){
       const old=educations.find(e=>key(e)===key(entry)&&(!e.start_year||!entry.start_year||e.start_year===entry.start_year));
       if(old){Object.assign(old,entry,{id:old.id,start_year:entry.start_year||old.start_year,status:entry.status==='UNKNOWN'?old.status:entry.status});mapping.set(index,old.id);}
