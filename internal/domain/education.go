@@ -8,12 +8,13 @@ import (
 
 // Education belongs to one profile. IDs are stable local keys, not school IDs.
 type Education struct {
-	ID             string   `json:"id"`
-	Degree         string   `json:"degree"`
-	Majors         []string `json:"majors"`
-	StartYear      int      `json:"start_year"`
-	GraduationYear int      `json:"graduation_year"`
-	Status         string   `json:"status"`
+	ID              string   `json:"id"`
+	Degree          string   `json:"degree"`
+	Majors          []string `json:"majors"`
+	StartYear       int      `json:"start_year"`
+	GraduationYear  int      `json:"graduation_year"`
+	GraduationMonth int      `json:"graduation_month,omitempty"`
+	Status          string   `json:"status"`
 }
 
 func DegreeLevel(value string) int {
@@ -23,6 +24,9 @@ func DegreeLevel(value string) int {
 var educationID = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
 
 func (e Education) Validate() error {
+	if e.GraduationMonth < 0 || e.GraduationMonth > 12 || (e.GraduationMonth != 0 && e.GraduationYear == 0) {
+		return errors.New("invalid graduation month")
+	}
 	if (e.Degree != "" && DegreeLevel(e.Degree) == 0) || (e.Status != "ENROLLED" && e.Status != "GRADUATED" && e.Status != "UNKNOWN") || len(e.Majors) > 10 {
 		return errors.New("invalid education")
 	}
@@ -83,6 +87,7 @@ func (p Profile) EducationProfile() Profile {
 	}
 	p.PrimaryEducationID = primary.ID
 	p.Degree, p.GraduationYear = primary.Degree, primary.GraduationYear
+	p.GraduationMonth = primary.GraduationMonth
 	if primary.GraduationYear != 0 || primary.ID != "legacy-education" {
 		p.GraduationFrom, p.GraduationTo = 0, 0
 	}
@@ -105,6 +110,19 @@ func (p Profile) MajorsForRequirement(text string) []string {
 	if len(p.Educations) == 0 {
 		return p.Majors
 	}
+	if degree := MajorDegreeScope(text); degree != "" {
+		out := []string{}
+		for _, e := range p.Educations {
+			if e.Degree == degree {
+				out = append(out, e.Majors...)
+			}
+		}
+		return out
+	}
+	return p.EducationProfile().Majors
+}
+
+func MajorDegreeScope(text string) string {
 	for _, item := range []struct {
 		degree  string
 		pattern *regexp.Regexp
@@ -112,16 +130,10 @@ func (p Profile) MajorsForRequirement(text string) []string {
 		{"BACHELOR", bachelorMajor}, {"MASTER", masterMajor}, {"PHD", phdMajor}, {"ASSOCIATE", associateMajor},
 	} {
 		if item.pattern.MatchString(text) {
-			out := []string{}
-			for _, e := range p.Educations {
-				if e.Degree == item.degree {
-					out = append(out, e.Majors...)
-				}
-			}
-			return out
+			return item.degree
 		}
 	}
-	return p.EducationProfile().Majors
+	return ""
 }
 
 var bachelorMajor = regexp.MustCompile(`(?i)本科(?:阶段|期间|所学)?专业|undergraduate\s+major|bachelor(?:'s)?\s+major`)

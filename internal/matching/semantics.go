@@ -9,14 +9,15 @@ import (
 
 var alternativeCue = regexp.MustCompile(`(?i)一个或多个|至少一个|至少一项|任选|任一|任意一|其中之一|one or more|one of|at least one|either`)
 var preferredCue = regexp.MustCompile(`(?i)优先(?:考虑|录用)?(?:[，。；,.;\s]|$)|加分(?:项)?|preferred|a plus`)
-var softCue = regexp.MustCompile(`(?i)责任心|自驱|沟通|协作|学习能力|热情|兴趣|teamwork|communication|motivation`)
-var technicalCue = regexp.MustCompile(`(?i)掌握|熟悉|了解|理解|实现|开发|建设|设计|优化|使用|经验|proficien|familiar|implement|develop`)
+var softCue = regexp.MustCompile(`(?i)责任心|自驱|沟通|协作|合作精神|学习能力|主动学习|逻辑思维|价值观|热爱|热情|兴趣|好奇|拥抱新技术|teamwork|communication|motivation`)
+var technicalCue = regexp.MustCompile(`(?i)掌握|熟悉|了解|理解|实现|开发|建设|设计|优化|使用|借助|排查|定位|经验|proficien|familiar|implement|develop`)
+var concreteTechnicalCue = regexp.MustCompile(`操作系统|数据结构|算法|网络|数据库|分布式|系统架构|代码质量|自动化测试|日志|监控|trace|Code Review`)
 var directionLine = regexp.MustCompile(`^\s*[0-9]+[、.．]\s*[^：:]+方向[：:]`)
 var clauseSeparator = regexp.MustCompile(`[。；;\n]`)
 var genericExperience = regexp.MustCompile(`^(有)?(相关|实际)?(开发|项目|工作)?经验(者)?(优先|加分)$`)
 
 func softOnly(r Requirement) bool {
-	return softCue.MatchString(r.Text) && !technicalCue.MatchString(r.Text)
+	return softCue.MatchString(r.Text) && (!technicalCue.MatchString(r.Text) || len(localFeatures(r.Text)) == 0 && !concreteTechnicalCue.MatchString(r.Text))
 }
 
 // Correct explicit preference/attitude cues even when a model mislabels them.
@@ -66,7 +67,7 @@ func normalizeRequirements(items []Requirement, text string) []Requirement {
 			r.GroupID = d.Hash(r.Category + "\n" + r.Aspect + "\n" + r.GroupExcerpt)[:24]
 		}
 	}
-	return items
+	return splitTestableRequirements(items)
 }
 
 func validateGroups(items []Requirement) error {

@@ -2,6 +2,15 @@ package resume
 
 import "testing"
 
+func TestEducationMonthNeedsAnExplicitGraduationEndpoint(t *testing.T) {
+	text := "硕士：软件工程，2024.09-2027.06，在读。\n本科：工商管理，2023年毕业。"
+	items := []Education{{Degree: "MASTER", Majors: []string{"软件工程"}, GraduationYear: 2027, GraduationMonth: 6, Status: "ENROLLED", Excerpt: "硕士：软件工程，2024.09-2027.06，在读。"}, {Degree: "BACHELOR", Majors: []string{"工商管理"}, GraduationYear: 2023, GraduationMonth: 6, Status: "GRADUATED", Excerpt: "本科：工商管理，2023年毕业。"}}
+	got, err := analyzeDraft(t, text, Draft{Educations: items})
+	if err != nil || len(got.Educations) != 1 || got.Educations[0].GraduationMonth != 6 || len(got.Warnings) != 1 {
+		t.Fatal(got, err)
+	}
+}
+
 func TestResumeKeepsBothEducationsAndRejectsUnboundEducation(t *testing.T) {
 	text := "本科：计算机，2020-2024，已毕业。\n硕士：数学，2024-2027，在读。"
 	items := []Education{{Degree: "BACHELOR", Majors: []string{"计算机"}, StartYear: 2020, GraduationYear: 2024, Status: "GRADUATED", Excerpt: "本科：计算机，2020-2024，已毕业。"}, {Degree: "MASTER", Majors: []string{"数学"}, StartYear: 2024, GraduationYear: 2027, Status: "ENROLLED", Excerpt: "硕士：数学，2024-2027，在读。"}, {Degree: "PHD", Majors: []string{"数学"}, Status: "UNKNOWN", Excerpt: "博士：数学"}}

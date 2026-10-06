@@ -71,7 +71,11 @@ func CandidateWithProjects(p d.Profile, facts []d.ProjectFact, projects []d.Proj
 		}
 	}
 	if p.GraduationYear != 0 {
-		add("graduation", "GRADUATION", fmt.Sprint(p.GraduationYear))
+		date := fmt.Sprint(p.GraduationYear)
+		if p.GraduationMonth != 0 {
+			date = fmt.Sprintf("%d-%02d", p.GraduationYear, p.GraduationMonth)
+		}
+		add("graduation", "GRADUATION", date)
 	} else if p.GraduationFrom != 0 {
 		add("graduation", "GRADUATION", fmt.Sprintf("%d-%d", p.GraduationFrom, p.GraduationTo))
 	}
@@ -96,6 +100,9 @@ func CandidateWithProjects(p d.Profile, facts []d.ProjectFact, projects []d.Proj
 		text := degree + "；状态：" + e.Status
 		if e.GraduationYear != 0 {
 			text += fmt.Sprintf("；毕业或预计毕业：%d", e.GraduationYear)
+			if e.GraduationMonth != 0 {
+				text += fmt.Sprintf("-%02d", e.GraduationMonth)
+			}
 		}
 		add("education-"+e.ID, "EDUCATION", text)
 	}
@@ -132,16 +139,17 @@ type JobText struct {
 	Text string `json:"text"`
 }
 type Requirement struct {
-	ID           string  `json:"id"`
-	Category     string  `json:"category"`
-	Text         string  `json:"text"`
-	Excerpt      string  `json:"excerpt"`
-	ClaimType    string  `json:"claim_type,omitempty"`
-	Value        string  `json:"value,omitempty"`
-	Confidence   float64 `json:"confidence"`
-	Aspect       string  `json:"aspect,omitempty"`
-	GroupID      string  `json:"group_id,omitempty"`
-	GroupExcerpt string  `json:"group_excerpt,omitempty"`
+	ID               string            `json:"id"`
+	Category         string            `json:"category"`
+	Text             string            `json:"text"`
+	Excerpt          string            `json:"excerpt"`
+	ClaimType        string            `json:"claim_type,omitempty"`
+	Value            string            `json:"value,omitempty"`
+	Confidence       float64           `json:"confidence"`
+	Aspect           string            `json:"aspect,omitempty"`
+	GroupID          string            `json:"group_id,omitempty"`
+	GroupExcerpt     string            `json:"group_excerpt,omitempty"`
+	GraduationWindow *GraduationWindow `json:"graduation_window,omitempty"`
 }
 type Requirements struct {
 	Items []Requirement `json:"requirements"`
@@ -261,6 +269,10 @@ func Extract(ctx context.Context, m resume.Completer, jobs []JobText) (map[strin
 			return nil, err
 		}
 		j.Items = normalizeRequirements(j.Items, text)
+		j.Items = RepairQualifications(j.Items, text)
+		if len(j.Items) > MaxRequirements {
+			return nil, ErrCapacity
+		}
 		if err := validateGroups(j.Items); err != nil {
 			return nil, err
 		}
@@ -287,6 +299,12 @@ func Extract(ctx context.Context, m resume.Completer, jobs []JobText) (map[strin
 	return result, nil
 }
 func ValidateRequirement(r Requirement, text string) error {
+	if r.GraduationWindow != nil {
+		w := graduationWindow(r.GraduationWindow.Excerpt)
+		if r.Category != "QUALIFICATION" || r.ClaimType != "GRADUATION_REQUIREMENT" || w == nil || *w != *r.GraduationWindow || len(w.Excerpt) > 600 || !strings.Contains(text, w.Excerpt) {
+			return ErrInvalid
+		}
+	}
 	if r.Category != "QUALIFICATION" && r.Category != "REQUIRED" && r.Category != "BONUS" && r.Category != "RESPONSIBILITY" {
 		return ErrInvalid
 	}
@@ -461,6 +479,7 @@ func Score(reqs []Requirement, matches []Match) (*float64, float64) {
 	return section.Score, section.Coverage
 }
 func Qualification(j d.Job, p d.Profile, reqs []Requirement, now time.Time) d.Eligibility {
+	reqs = RepairQualifications(reqs, "")
 	evidence := []d.Evidence{}
 	for _, r := range reqs {
 		if r.Category == "QUALIFICATION" && r.ClaimType != "" {
@@ -481,6 +500,25 @@ func Qualification(j d.Job, p d.Profile, reqs []Requirement, now time.Time) d.El
 	// Major names need semantic interpretation; do not turn differing spellings
 	// into a definitive rejection. Location and type remain preferences.
 	e := rules.Eligibility(j, p, evidence, now)
+	checkGraduationPrecision(&e, p.EducationProfile(), reqs)
+	unsupported := map[string]bool{}
+	for _, req := range reqs {
+		if req.Category != "QUALIFICATION" || strings.TrimSpace(req.Text) == "" {
+			continue
+		}
+		if req.ClaimType == "" || (strings.Contains(req.Excerpt, "统招") && !strings.Contains(req.Excerpt, "不限")) {
+			// Unsupported explicit gates must not disappear into an eligible
+			// summary. A study status or minimum degree cannot prove admission mode.
+			condition := req.Text
+			if strings.Contains(req.Excerpt, "统招") {
+				condition = "统招入学要求（以岗位原文为准）"
+			}
+			if !unsupported[condition] {
+				e.Results = append(e.Results, d.RuleResult{Rule: "OTHER_QUALIFICATION", Result: "UNKNOWN", Requirement: condition, Explanation: "该条件尚不能由当前结构化资料自动确认，请结合教育背景与官网说明人工核对。", EvidenceIDs: []string{req.ID}})
+				unsupported[condition] = true
+			}
+		}
+	}
 	e.Status = "ELIGIBLE"
 	for i := range e.Results {
 		r := &e.Results[i]

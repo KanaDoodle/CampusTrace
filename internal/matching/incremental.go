@@ -1,9 +1,12 @@
 package matching
 
 import (
+	"fmt"
+	"strings"
 	"time"
 
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
+	"github.com/KanaDoodle/CampusTrace/internal/rules"
 )
 
 // Separate paid comparison identity from the full reviewed-input identity.
@@ -92,11 +95,47 @@ func AssembleMatches(p d.Profile, c Candidate, reqs []Requirement, modelMatches 
 	}
 	out := make([]Match, 0, len(reqs))
 	for _, r := range reqs {
+		if r.Category == "QUALIFICATION" && r.ClaimType == "MAJOR_REQUIREMENT" {
+			m := byID[r.ID]
+			gate := byRule[r.ClaimType]
+			m.Result, m.Evidence, m.Explanation = "NO_EVIDENCE", []Citation{}, "专业归属或学历范围仍需核对，以资格表为准。"
+			if gate.Result == "PASS" && r.Confidence >= .8 {
+				allowedFacts := map[string]bool{}
+				scope := d.MajorDegreeScope(r.Excerpt)
+				for _, education := range p.Educations {
+					if scope != "" && education.Degree != scope {
+						continue
+					}
+					for i := range education.Majors {
+						allowedFacts[fmt.Sprintf("education-%s-major-%d", education.ID, i)] = true
+					}
+				}
+				for _, major := range p.MajorsForRequirement(r.Excerpt) {
+					if !rules.MajorMatches(r.Value, []string{major}, r.Excerpt) {
+						continue
+					}
+					for _, f := range c.Facts {
+						if f.Kind == "MAJOR" && (len(p.Educations) == 0 || allowedFacts[f.ID]) && (f.Text == major || strings.HasSuffix(f.Text, "专业："+major)) {
+							m.Result, m.Evidence, m.Explanation = "DIRECT", []Citation{{ID: f.ID, Excerpt: f.Text}}, "已按岗位限定的学历范围与已保存专业核对，满足该专业要求。"
+							break
+						}
+					}
+					if m.Result == "DIRECT" {
+						break
+					}
+				}
+			}
+			out = append(out, m)
+			continue
+		}
 		if !isLocalRequirement(r) {
 			out = append(out, byID[r.ID])
 			continue
 		}
 		m := Match{RequirementID: r.ID, Result: "NO_EVIDENCE", Explanation: "本地核对依据不足或条件存在冲突，请确认岗位原文与求职资料。", Evidence: []Citation{}}
+		if gate := byRule[r.ClaimType]; gate.Result == "UNKNOWN" && strings.Contains(gate.Explanation, "毕业") {
+			m.Explanation = gate.Explanation
+		}
 		if r.Confidence >= .8 && (r.ClaimType == "LOCATION" || r.ClaimType == "JOB_TYPE") {
 			m = comparePreferences(c, []Requirement{r}, []Match{m})[0]
 		} else if r.Confidence >= .8 {
@@ -121,9 +160,19 @@ func AssembleMatches(p d.Profile, c Candidate, reqs []Requirement, modelMatches 
 
 // Read-only rebinding never changes the date of the paid analysis or writes
 // history. The full input key still fences in-flight tasks and commits.
-func RefreshResult(r Result, j d.Job, p d.Profile, c Candidate, inputKey, candidateHash string, now time.Time) (Result, error) {
+func RefreshResult(r Result, j d.Job, p d.Profile, c Candidate, inputKey, candidateHash string, now time.Time, sourceText ...string) (Result, error) {
 	if ComparisonScope(r.Requirements) != r.ComparisonScope {
 		return r, ErrInvalid
+	}
+	text := ""
+	if len(sourceText) > 0 {
+		text = sourceText[0]
+	}
+	r.Requirements = RepairQualifications(r.Requirements, text)
+	for i, req := range r.Requirements {
+		if softOnly(req) {
+			r.Requirements[i].Aspect = "SOFT"
+		}
 	}
 	modelIDs := map[string]bool{}
 	for _, req := range ModelRequirements(r.Requirements) {

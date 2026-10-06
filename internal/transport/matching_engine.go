@@ -80,6 +80,10 @@ func (a *API) executeMatchBatch(ctx context.Context, user string, in matchBatchI
 	for _, job := range remaining {
 		reqs, err := a.Store.CachedRequirements(ctx, user, job.RequirementsKey)
 		if err == nil {
+			reqs.Items, err = matching.PrepareCachedRequirements(reqs.Items, job.Text)
+			if err != nil {
+				return out, &MatchStageError{"EXTRACT", err}
+			}
 			requirements[job.Job.ID] = reqs
 			requirementsReused++
 			continue

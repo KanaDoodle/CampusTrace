@@ -4,3 +4,10 @@ test('repeat import enriches a legacy record without duplicating it or mixing da
 test('campus selection must refer to a retained education',()=>{assert.throws(()=>E.merge({},[{index:0,entry:{degree:'BACHELOR',majors:[],graduation_year:2024,status:'UNKNOWN'}}],1),/勾选的教育经历/);});
 
 test('fresh histories replace a flattened legacy summary without inventing a third mixed education',()=>{const old={degree:'MASTER',graduation_year:2024,majors:['计算机','数学']};const rows=[{index:0,entry:{degree:'BACHELOR',majors:['计算机'],graduation_year:2024,status:'GRADUATED'}},{index:1,entry:{degree:'MASTER',majors:['数学'],graduation_year:2027,status:'ENROLLED'}}];const merged=E.merge(old,rows,1);assert.equal(merged.educations.length,2);assert.deepEqual(merged.educations.find(e=>e.degree==='MASTER').majors,['数学']);assert.equal(merged.graduation_year,2027);});
+
+test('graduation month follows the selected degree and survives a less precise repeated import',()=>{
+ const p={educations:[{id:'b',degree:'BACHELOR',majors:['工商管理'],graduation_year:2023,graduation_month:6,status:'GRADUATED'},{id:'m',degree:'MASTER',majors:['软件工程'],graduation_year:2027,graduation_month:7,status:'ENROLLED'}],primary_education_id:'m'};
+ assert.equal(E.project(p).graduation_month,7);assert.equal(E.project({...p,primary_education_id:'b'}).graduation_month,6);
+ const merged=E.merge(p,[{index:0,entry:{degree:'MASTER',majors:['软件工程'],graduation_year:2027,graduation_month:0,status:'ENROLLED'}}],0);assert.equal(merged.educations.length,2);assert.equal(merged.graduation_month,7);
+ const form=new FormData();form.set('education-count','1');for(const [k,v]of Object.entries(p.educations[1]))form.set('education-0-'+k,Array.isArray(v)?v.join(','):String(v));form.set('primary_education_id','m');assert.equal(E.read(form).educations[0].graduation_month,7);
+});

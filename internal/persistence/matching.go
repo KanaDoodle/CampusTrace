@@ -21,23 +21,25 @@ type matchResultSummary struct {
 	JobID, InputKey, Model, RequirementsKey, ComparisonKey, ComparisonScope string
 	Score                                                                   *float64
 	Coverage                                                                float64
+	Breakdown                                                               []matching.SectionScore
 }
 
 type MatchJob struct {
-	Job              d.Job                 `json:"job"`
-	Text             string                `json:"-"`
-	TextBytes        int                   `json:"text_bytes"`
-	RequirementsKey  string                `json:"requirements_key"`
-	InputKey         string                `json:"input_key"`
-	PreliminaryScore float64               `json:"preliminary_score"`
-	Local            *matching.LocalScreen `json:"local,omitempty"`
-	ExcludedReason   string                `json:"excluded_reason"`
-	State            string                `json:"state"`
-	Score            *float64              `json:"score"`
-	Coverage         float64               `json:"coverage"`
-	Disposition      string                `json:"disposition"`
-	Application      *MatchApplication     `json:"application,omitempty"`
-	Result           *matching.Result      `json:"-"`
+	Job              d.Job                   `json:"job"`
+	Text             string                  `json:"-"`
+	TextBytes        int                     `json:"text_bytes"`
+	RequirementsKey  string                  `json:"requirements_key"`
+	InputKey         string                  `json:"input_key"`
+	PreliminaryScore float64                 `json:"preliminary_score"`
+	Local            *matching.LocalScreen   `json:"local,omitempty"`
+	ExcludedReason   string                  `json:"excluded_reason"`
+	State            string                  `json:"state"`
+	Score            *float64                `json:"score"`
+	Coverage         float64                 `json:"coverage"`
+	Breakdown        []matching.SectionScore `json:"breakdown,omitempty"`
+	Disposition      string                  `json:"disposition"`
+	Application      *MatchApplication       `json:"application,omitempty"`
+	Result           *matching.Result        `json:"-"`
 }
 
 // The inventory needs workflow context, never application notes or resume names.
@@ -211,7 +213,7 @@ func (s *Store) matchSnapshot(ctx context.Context, user, model, maskName string,
 	if len(ids) > 0 && len(jobs) != len(ids) {
 		return v, ErrNotFound
 	}
-	resultQuery := "SELECT JSON_OBJECT('JobID',job_id,'InputKey',JSON_UNQUOTE(JSON_EXTRACT(body,'$.input_key')),'Model',JSON_UNQUOTE(JSON_EXTRACT(body,'$.model')),'RequirementsKey',JSON_UNQUOTE(JSON_EXTRACT(body,'$.requirements_key')),'ComparisonKey',JSON_UNQUOTE(JSON_EXTRACT(body,'$.comparison_key')),'ComparisonScope',JSON_UNQUOTE(JSON_EXTRACT(body,'$.comparison_scope')),'Score',JSON_EXTRACT(body,'$.score'),'Coverage',JSON_EXTRACT(body,'$.coverage')) FROM job_match_results WHERE user_id=?"
+	resultQuery := "SELECT JSON_OBJECT('JobID',job_id,'InputKey',JSON_UNQUOTE(JSON_EXTRACT(body,'$.input_key')),'Model',JSON_UNQUOTE(JSON_EXTRACT(body,'$.model')),'RequirementsKey',JSON_UNQUOTE(JSON_EXTRACT(body,'$.requirements_key')),'ComparisonKey',JSON_UNQUOTE(JSON_EXTRACT(body,'$.comparison_key')),'ComparisonScope',JSON_UNQUOTE(JSON_EXTRACT(body,'$.comparison_scope')),'Score',JSON_EXTRACT(body,'$.score'),'Coverage',JSON_EXTRACT(body,'$.coverage'),'Breakdown',JSON_EXTRACT(body,'$.breakdown')) FROM job_match_results WHERE user_id=?"
 	resultArgs := []any{user}
 	if fullResults || len(ids) > 0 || company != "" {
 		if fullResults {
@@ -238,7 +240,7 @@ func (s *Store) matchSnapshot(ctx context.Context, user, model, maskName string,
 		}
 		for _, r := range results {
 			fullByID[r.JobID] = r
-			resultByID[r.JobID] = matchResultSummary{r.JobID, r.InputKey, r.Model, r.RequirementsKey, r.ComparisonKey, r.ComparisonScope, r.Score, r.Coverage}
+			resultByID[r.JobID] = matchResultSummary{r.JobID, r.InputKey, r.Model, r.RequirementsKey, r.ComparisonKey, r.ComparisonScope, r.Score, r.Coverage, r.Breakdown}
 		}
 	} else {
 		results, e := Many[matchResultSummary](ctx, tx, resultQuery, resultArgs...)
@@ -368,12 +370,14 @@ func (s *Store) matchSnapshot(ctx context.Context, user, model, maskName string,
 				row.State = "ANALYZED"
 				row.Score = r.Score
 				row.Coverage = r.Coverage
+				row.Breakdown = r.Breakdown
 				if fullResults && reusable {
-					refreshed, e := matching.RefreshResult(*row.Result, job, v.Profile, v.Candidate, row.InputKey, v.CandidateHash, time.Now().UTC())
+					refreshed, e := matching.RefreshResult(*row.Result, job, v.Profile, v.Candidate, row.InputKey, v.CandidateHash, time.Now().UTC(), row.Text)
 					if e != nil {
 						row.State, row.Score, row.Coverage = "STALE", nil, 0
 					} else {
 						row.Result = &refreshed
+						row.Score, row.Coverage, row.Breakdown = refreshed.Score, refreshed.Coverage, refreshed.Breakdown
 					}
 				}
 			}

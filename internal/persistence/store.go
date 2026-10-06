@@ -154,6 +154,9 @@ func (s *Store) Profile(ctx context.Context, user string) (d.Profile, error) {
 	return One[d.Profile](ctx, s.DB, "SELECT body FROM profiles WHERE user_id=?", user)
 }
 func (s *Store) SaveProfile(ctx context.Context, user string, p d.Profile) error {
+	if p.GraduationMonth < 0 || p.GraduationMonth > 12 || (p.GraduationMonth != 0 && p.GraduationYear == 0 && len(p.Educations) == 0) {
+		return ErrValidation
+	}
 	p.UserID = user
 	if (p.GraduationFrom != 0 && (p.GraduationFrom < 2000 || p.GraduationTo > 2100 || p.GraduationTo < p.GraduationFrom)) || (p.GraduationYear != 0 && (p.GraduationYear < 2000 || p.GraduationYear > 2100)) || p.ExperienceMonths < 0 || len(p.Skills) > 100 {
 		return ErrValidation

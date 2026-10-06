@@ -241,6 +241,7 @@ type Profile struct {
 	Revision           uint64      `json:"revision"`
 	UserID             string      `json:"user_id"`
 	GraduationYear     int         `json:"graduation_year"`
+	GraduationMonth    int         `json:"graduation_month,omitempty"`
 	GraduationFrom     int         `json:"graduation_from"`
 	GraduationTo       int         `json:"graduation_to"`
 	Degree             string      `json:"degree"`

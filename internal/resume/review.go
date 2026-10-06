@@ -2,6 +2,7 @@ package resume
 
 import (
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
+	"regexp"
 	"strconv"
 	"strings"
 	"unicode"
@@ -340,8 +341,20 @@ func educationReason(e Education) string {
 	if d.DegreeLevel(e.Degree) == 0 {
 		return "EDUCATION_FORMAT"
 	}
-	if (d.Education{Degree: e.Degree, Majors: e.Majors, StartYear: e.StartYear, GraduationYear: e.GraduationYear, Status: e.Status}).Validate() != nil {
+	if (d.Education{Degree: e.Degree, Majors: e.Majors, StartYear: e.StartYear, GraduationYear: e.GraduationYear, GraduationMonth: e.GraduationMonth, Status: e.Status}).Validate() != nil {
 		return "EDUCATION_FORMAT"
+	}
+	if e.GraduationMonth != 0 {
+		matches := educationYearMonth.FindAllStringSubmatch(e.Excerpt, -1)
+		if len(matches) == 0 {
+			return "EDUCATION_FORMAT"
+		}
+		last := matches[len(matches)-1]
+		year, _ := strconv.Atoi(last[1])
+		month, _ := strconv.Atoi(last[2])
+		if year != e.GraduationYear || month != e.GraduationMonth {
+			return "EDUCATION_FORMAT"
+		}
 	}
 	for _, major := range e.Majors {
 		if reason := valueReason(major, 200); reason != "" {
@@ -350,3 +363,5 @@ func educationReason(e Education) string {
 	}
 	return ""
 }
+
+var educationYearMonth = regexp.MustCompile(`(20\d{2})(?:年|[-./])\s*(\d{1,2})(?:月|\b)`)

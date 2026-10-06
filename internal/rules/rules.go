@@ -280,7 +280,7 @@ func Eligibility(j d.Job, p d.Profile, es []d.Evidence, now time.Time) d.Eligibi
 			r.Candidate = strings.Join(majors, "|")
 			if len(majors) == 0 {
 				unknown()
-			} else if !alternatives(e.Value, majors) {
+			} else if !MajorMatches(e.Value, majors, e.Excerpt) {
 				fail()
 			}
 		case "LANGUAGE_REQUIREMENT":

@@ -18,7 +18,7 @@
     fact: {IMPLEMENTED:'已实现', LIMITATION:'已知局限', PLANNED:'计划实现'},
     terminal: {COMPLETED:'查询完成', ERROR:'查询失败', TIMEOUT:'查询超时', CANCELLED:'查询已取消', UNGROUNDED:'暂无充分依据', TOOL_LIMIT:'已达本次查询上限', STEP_LIMIT:'已达本次分析上限', OUTPUT_LIMIT:'查询内容超过本次输出上限，请缩小范围'},
     change: {JD_CONTENT_CHANGED:'岗位描述有更新', GRADUATION_CHANGED:'毕业届别要求有更新', LOCATION_CHANGED:'工作地点有更新', APPLY_SIGNAL_CHANGED:'申请入口有变化', DEADLINE_CHANGED:'截止日期有更新', TECH_REQUIREMENT_CHANGED:'技术要求有更新'},
-    evidence: {GRADUATION_REQUIREMENT:'毕业届别要求', EDUCATION_REQUIREMENT:'学历要求', JOB_TYPE:'岗位类型', LOCATION:'工作地点', EXPERIENCE_REQUIREMENT:'经验要求', TECH_STACK:'技术要求', LANGUAGE_REQUIREMENT:'语言要求', MAJOR_REQUIREMENT:'专业要求', APPLY_ACTION:'申请入口', DEADLINE:'投递截止日期', OPEN_SIGNAL:'开放招聘信号', CLOSED_SIGNAL:'结束招聘信号'},
+    evidence: {OTHER_QUALIFICATION:'其他投递条件', GRADUATION_REQUIREMENT:'毕业届别要求', EDUCATION_REQUIREMENT:'学历要求', JOB_TYPE:'岗位类型', LOCATION:'工作地点', EXPERIENCE_REQUIREMENT:'经验要求', TECH_STACK:'技术要求', LANGUAGE_REQUIREMENT:'语言要求', MAJOR_REQUIREMENT:'专业要求', APPLY_ACTION:'申请入口', DEADLINE:'投递截止日期', OPEN_SIGNAL:'开放招聘信号', CLOSED_SIGNAL:'结束招聘信号'},
     tool: {get_daily_digest:'查询每日雷达',get_recent_changes:'查询最近变化',get_closing_jobs:'查询截止雷达',get_watched_sources:'查询关注源',watch_source:'关注招聘来源',unwatch_source:'取消关注来源',search_jobs:'检索校招岗位', get_job:'查询岗位详情', get_job_evidence:'核对岗位证据', get_job_eligibility:'核对投递条件',get_match_result:'查看深度匹配',compare_company_jobs:'对比同公司岗位',get_match_tasks:'查询深度分析进度', list_applications:'查询投递记录', get_application_history:'查询投递进展', get_interview_history:'查询面试与复盘', get_weak_topics:'查询待加强知识点', search_knowledge:'检索复习资料', get_project_facts:'核对项目事实', get_preparation_context:'整理面试准备内容', create_application:'加入投递计划', transition_application:'更新投递进展', record_interview_review:'保存面试复盘'},
     ranking: {status:'岗位可投递情况', eligibility:'投递条件匹配', city:'意向城市匹配', type:'岗位类型偏好', go_fit:'Go 技术方向匹配', role:'意向职能匹配', freshness:'岗位信息时效'}
   });
@@ -126,6 +126,7 @@
     const s=String(value);
     if (type==='DEADLINE') return date(s,true);
     if (type==='GRADUATION_REQUIREMENT' && /^20\d{2}(-20\d{2})?$/.test(s)) return s.replace('-','—')+' 届';
+    if (type==='GRADUATION_REQUIREMENT' && /^20\d{2}-\d{2}$/.test(s)) return s.slice(0,4)+' 年 '+Number(s.slice(5))+' 月';
     if (type==='EXPERIENCE_REQUIREMENT' && /^\d+$/.test(s)) return Number(s)===0?(key==='candidate_value'?'0 个月相关经验':'不限相关经验'):s+' 个月';
     if (type==='APPLY_ACTION') return label('signal',s);
     if (type==='OPEN_SIGNAL'||type==='CLOSED_SIGNAL') return label('job',s);
