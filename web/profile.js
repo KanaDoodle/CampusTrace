@@ -165,7 +165,7 @@ const CampusProfile=(function(){
           const fact=await api('/api/project_facts','POST',{project_id:project.id,kind:data.get('kind-'+j),claim,reference:f.excerpt,verified:true});
           state.facts.push(fact);saved++;
         }
-        savedForm(`[data-draft-project="${i}" data-form-key="${esc(project.localKey)}"]`);state.draft.projects.splice(i,1);savedResume();render();notice(`项目已保存，新增 ${saved} 条事实。`);
+        savedForm(`[data-form-key="${draft.localKey}"]`);const remainingIndex=state.draft?.projects?.indexOf(draft)??-1;if(remainingIndex>=0)state.draft.projects.splice(remainingIndex,1);savedResume();render();notice(`项目已保存，新增 ${saved} 条事实。`);
       });
     };
     render();

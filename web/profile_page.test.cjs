@@ -1,7 +1,8 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),D=require('./display.js');
-function harness({readFile,modelAvailable=false,draftResult,initialProfile,initialProjects=[],initialFacts=[],deleteError,manualDeleteConfirmation=false}={}){
+function harness({readFile,modelAvailable=false,draftResult,initialProfile,initialProjects=[],initialFacts=[],deleteError,manualDeleteConfirmation=false,factFailureAt=0,beforeProjectWrite}={}){
   const elements=new Map(),actions=new Map(),writes=[],draftRequests=[],factWrites=[],projectWrites=[],deletions=[],confirmations=[],fields=new Map();
   let projects=structuredClone(initialProjects),facts=structuredClone(initialFacts);
+  let factAttempts=0;
   let html='',profile=initialProfile||{revision:1,graduation_year:2027,degree:'MASTER',experience_months:3,majors:['Computer Science'],preferred_cities:['Shanghai'],acceptable_cities:['Hangzhou'],target_roles:['后端开发'],technical_skills:['MySQL','Redis'],target_languages:['Go'],preferred_job_types:['FULLTIME']},forms=[];
   const decode=v=>String(v||'').replaceAll('&quot;','"').replaceAll('&#39;',"'").replaceAll('&lt;','<').replaceAll('&gt;','>').replaceAll('&amp;','&');
   const attrs=tag=>Object.fromEntries([...tag.matchAll(/([\w-]+)="([^"]*)"/g)].map(m=>[m[1],decode(m[2])]));
@@ -29,7 +30,14 @@ function harness({readFile,modelAvailable=false,draftResult,initialProfile,initi
     return {id:at.id||'',dataset,fields:values,elements:controls};
   }
   let approveLeave=false;
-  const select=s=>s.startsWith('#')?elements.get(s.slice(1)):forms.find(f=>['draftProject','editProject','editFact'].some(key=>f.dataset[key]!==undefined&&s.includes(key.replace(/[A-Z]/g,c=>'-'+c.toLowerCase())+'="'+f.dataset[key]+'"')));
+  const select=s=>{
+    if(s.startsWith('#'))return elements.get(s.slice(1));
+    // Match complete attribute selectors, including stable form keys. Browsers
+    // throw on malformed selectors even after the preceding API writes succeed.
+    if(!/^(?:\[data-[\w-]+="[^"]*"\])+$/.test(s))throw new SyntaxError('Invalid selector: '+s);
+    const attributes=[...s.matchAll(/\[data-([\w-]+)="([^"]*)"\]/g)].map(([,key,value])=>[key.replace(/-([a-z])/g,(_,c)=>c.toUpperCase()),value]);
+    return forms.find(form=>attributes.every(([key,value])=>form.dataset[key]===value));
+  };
   const document={querySelector:select,querySelectorAll:s=>s==='#content form'?forms:s==='[data-draft-project]'?forms.filter(f=>f.dataset.draftProject!==undefined):s==='[data-edit-fact]'?forms.filter(f=>f.dataset.editFact):s==='[data-edit-project]'?forms.filter(f=>f.dataset.editProject):[],getElementById:id=>elements.get(id)};
   const context={document,CampusDisplay:D,FormData:FormDataFixture,structuredClone,CampusProfileLocal:{readFile,reviewedTextBytes:text=>Buffer.byteLength(text),hasDirectIdentifiers:()=>false},CampusModels:{bindUser(){},available:()=>modelAvailable,label:()=>'',requestConfig:()=>undefined},confirm:message=>{confirmations.push(message);return approveLeave;},console};
   vm.createContext(context);for(const file of ['ui.js','navigation.js','profile_education.js','profile.js'])vm.runInContext(fs.readFileSync(__dirname+'/'+file,'utf8'),context);
@@ -37,9 +45,9 @@ function harness({readFile,modelAvailable=false,draftResult,initialProfile,initi
   const set=value=>{html=value;elements.clear();forms=[];for(const m of value.matchAll(/\bid="([^"]+)"/g))elements.set(m[1],{id:m[1],getClientRects:()=>[],focus(){},showModal(){this.open=true;if(this.id==='profile-delete-confirm'){confirmations.push(elements.get('profile-delete-message').textContent);if(!manualDeleteConfirmation)this.close(approveLeave?'delete':'cancel');}},close(result){if(result!==undefined)this.returnValue=result;this.open=false;this.onclose?.();}});for(const m of value.matchAll(/(<form\b[^>]*>)([\s\S]*?)<\/form>/g)){const form=parseForm(m[1],m[2]);forms.push(form);if(form.id)elements.set(form.id,form);}elements.set('notice',{textContent:''});return true;};
   const api=async(path,method,body)=>{
     if(path==='/api/profile'){if(method==='PUT'){writes.push(structuredClone(body));profile={...body,revision:profile.revision+1};}return structuredClone(profile);}
-    if(path==='/api/projects'){if(method==='POST'){projectWrites.push(body);const project={...structuredClone(body),id:'new-project'};projects.push(project);return project;}return structuredClone(projects);}
+    if(path==='/api/projects'){if(method==='POST'){projectWrites.push(body);const ordinal=projectWrites.length;await beforeProjectWrite?.(body);const project={...structuredClone(body),id:ordinal===1?'new-project':'new-project-'+ordinal};projects.push(project);return project;}return structuredClone(projects);}
     if(path.startsWith('/api/projects/')&&method==='PUT'){projectWrites.push(body);const project={...structuredClone(body),id:path.split('/').at(-1)};projects=projects.map(old=>old.id===project.id?project:old);return project;}
-    if(path==='/api/project_facts'){if(method==='POST'){factWrites.push(body);const fact={...structuredClone(body),id:'fact-'+factWrites.length};facts.push(fact);return fact;}return structuredClone(facts);}
+    if(path==='/api/project_facts'){if(method==='POST'){if(++factAttempts===factFailureAt)throw new Error('事实保存暂时失败');factWrites.push(body);const fact={...structuredClone(body),id:'fact-'+factWrites.length};facts.push(fact);return fact;}return structuredClone(facts);}
     if(method==='DELETE'){
       if(deleteError)throw new Error(deleteError);deletions.push(path);const id=path.split('/').at(-1);
       if(path.startsWith('/api/projects/')){const deleted_facts=facts.filter(f=>f.project_id===id).length;projects=projects.filter(p=>p.id!==id);facts=facts.filter(f=>f.project_id!==id);return {deleted:true,deleted_facts};}
@@ -182,4 +190,33 @@ test('page confirmation keeps deletion pending until an explicit choice and supp
  const h=harness({...deleteFixture,manualDeleteConfirmation:true});await h.start();const button=h.elements.get('delete-project-one');const deleting=button.onclick();
  assert.equal(button.disabled,true);assert.equal(h.elements.get('profile-delete-confirm').open,true);assert.equal(h.elements.get('profile-delete-title').textContent,'删除项目');assert.match(h.elements.get('profile-delete-message').textContent,/及其 2 条事实/);assert.equal(h.deletions.length,0);
  h.elements.get('profile-delete-cancel').onclick();await deleting;assert.equal(button.disabled,false);assert.equal(h.elements.get('profile-delete-confirm').open,false);assert.equal(h.deletions.length,0);assert.match(h.html(),/待清理的队列/);
+});
+
+const importProject=name=>({name,excerpt:name,bullets:['完整实现经历'],facts:[{kind:'IMPLEMENTED',claim:name+'的实现',excerpt:name+'的实现'}]});
+test('saving the final reviewed project clears its edited draft and permits leaving without a warning',async()=>{
+ const h=harness({modelAvailable:true,draftResult:{suggestions:[],projects:[importProject('队列')]}});await generate(h);
+ const data=h.formData('[data-draft-project="0"]');data.fields.set('name','核对后的队列');data.fields.set('claim-0','核对后的完整实现');assert.equal(h.navigation.dirty(),true);
+ await h.actions.get('[data-draft-project="0"]')(data);assert.equal(h.factWrites.length,1);assert.equal(h.factWrites[0].claim,'核对后的完整实现');assert.match(h.elements.get('notice').textContent,/项目已保存/);assert.doesNotMatch(h.html(),/data-draft-project=/);assert.equal(h.navigation.dirty(),false);assert.equal(await h.navigation.leave(),true);assert.equal(h.confirmations.length,0);
+});
+test('saving the first project preserves the next draft edits after its index shifts',async()=>{
+ const h=harness({modelAvailable:true,draftResult:{suggestions:[],projects:[importProject('队列'),importProject('缓存')]}});await generate(h);
+ h.formData('[data-draft-project="1"]').fields.set('claim-0','缓存项目尚未保存的完整实现');await h.actions.get('[data-draft-project="0"]')(h.formData('[data-draft-project="0"]'));
+ assert.equal(h.navigation.dirty(),true);const remaining=h.formData('[data-draft-project="0"]');assert.equal(remaining.get('name'),'缓存');assert.equal(remaining.get('claim-0'),'缓存项目尚未保存的完整实现');
+ await h.actions.get('[data-draft-project="0"]')(remaining);assert.equal(h.projectWrites.length,2);assert.equal(h.factWrites.length,2);assert.equal(h.factWrites[1].claim,'缓存项目尚未保存的完整实现');assert.equal(h.navigation.dirty(),false);assert.equal(await h.navigation.leave(),true);
+});
+test('project import keeps unrelated manual edits unsaved until the profile is saved',async()=>{
+ const h=harness({modelAvailable:true,draftResult:{suggestions:[],projects:[importProject('队列')]}});await generate(h);h.fields.set('target_roles','后端开发、平台研发');
+ await h.actions.get('[data-draft-project="0"]')(h.formData('[data-draft-project="0"]'));assert.equal(h.writes.length,0);assert.equal(h.fields.get('target_roles'),'后端开发、平台研发');assert.equal(h.navigation.dirty(),true);
+ await h.actions.get('#save-profile')(h.data());assert.equal(h.navigation.dirty(),false);assert.equal(await h.navigation.leave(),true);
+});
+test('a partial fact failure retains the draft and retry saves only its missing facts',async()=>{
+ const project=importProject('队列');project.facts.push({kind:'IMPLEMENTED',claim:'实现失败重试',excerpt:'实现失败重试'});
+ const h=harness({factFailureAt:2,modelAvailable:true,draftResult:{suggestions:[],projects:[project]}});await generate(h);const selector='[data-draft-project="0"]',data=h.formData(selector);
+ await assert.rejects(h.actions.get(selector)(data),/事实保存暂时失败/);assert.equal(h.factWrites.length,1);assert.equal(h.navigation.dirty(),true);assert.match(h.html(),/data-draft-project=/);
+ await h.actions.get(selector)(data);assert.equal(h.factWrites.length,2);assert.equal(h.projectWrites[1].name,h.projectWrites[0].name);assert.equal(h.factWrites[0].project_id,h.factWrites[1].project_id);assert.equal(h.navigation.dirty(),false);assert.equal(await h.navigation.leave(),true);
+});
+test('project drafts completing concurrently clear their own identities after another import shifts indexes',async()=>{
+ let finishSecond;const h=harness({modelAvailable:true,draftResult:{suggestions:[],projects:[importProject('队列'),importProject('缓存')]},beforeProjectWrite:body=>body.name==='缓存'?new Promise(resolve=>{finishSecond=resolve;}):undefined});await generate(h);
+ const second=h.actions.get('[data-draft-project="1"]')(h.formData('[data-draft-project="1"]'));await h.actions.get('[data-draft-project="0"]')(h.formData('[data-draft-project="0"]'));assert.equal(h.navigation.dirty(),true);finishSecond();await second;
+ assert.equal(h.factWrites.length,2);assert.equal(h.navigation.dirty(),false);assert.doesNotMatch(h.html(),/data-draft-project=/);assert.equal(await h.navigation.leave(),true);
 });
