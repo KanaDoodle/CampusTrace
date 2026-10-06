@@ -16,6 +16,8 @@ var beisenCompanies = map[string]struct{ Origin, Company string }{
 	"inovance": {"https://inovance.zhiye.com", "汇川技术"},
 	"vivo":     {"https://hr-campus.vivo.com", "vivo"},
 	"sgm":      {"https://sgm.zhiye.com", "上汽通用/泛亚"},
+	"hundsun":  {"https://campus.hundsun.com", "恒生电子"},
+	"yuewen":   {"https://yuewen.zhiye.com", "阅文集团"},
 }
 
 type beisenEnvelope[T any] struct {
@@ -92,7 +94,7 @@ func (a PublicPlatform) fetchBeisen(ctx context.Context, s d.Source, r PostingRe
 		return "", err
 	}
 	ref, err := beisenRef(s.Adapter, v.Data)
-	if err != nil || ref.ExternalID != r.ExternalID {
+	if err != nil || ref.ExternalID != r.ExternalID || ref.Title != r.Title {
 		return "", fail("SCHEMA_INVALID", false, 200)
 	}
 	return campusText(ref, "官网校园招聘分类（不含社招、实习；具体毕业年份以岗位原文为准）", v.Data.Duties, v.Data.Requirements)

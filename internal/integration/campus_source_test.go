@@ -106,7 +106,7 @@ func TestGraduateSourceRegistrationIsScopedPrivateAndIdempotent(t *testing.T) {
 	ctx, s, q, owner, _ := radarSetup(t)
 	other, err := s.NewUser(ctx, d.ID()+"@graduate-source.test", "unused")
 	must(t, err)
-	for adapter, tenant := range map[string]string{"baidu": "GRADUATE", "meituan": "graduate", "jd": "present", "netease": "103", "alibaba": "100000760001", "bilibili": "freshmen", "kuaishou": "20271779425607", "oppo": "30", "siemens": "CAMPUSRECRUITMENT", "haier": "68", "lenovo": "1", "midea": "055bb05d-1957-4ea0-bb21-873ca0164d84", "byd": "2076475538687475714", "hikvision": "e198653730e14820b9e95b29fbc2223f", "qihoo360": "campus", "sany": "campus", "inovance": "campus", "vivo": "campus", "honor": "101801", "ctrip": "campus", "sgm": "campus"} {
+	for adapter, tenant := range map[string]string{"baidu": "GRADUATE", "meituan": "graduate", "jd": "present", "netease": "103", "alibaba": "100000760001", "bilibili": "freshmen", "kuaishou": "20271779425607", "oppo": "30", "siemens": "CAMPUSRECRUITMENT", "haier": "68", "lenovo": "1", "midea": "055bb05d-1957-4ea0-bb21-873ca0164d84", "byd": "2076475538687475714", "hikvision": "e198653730e14820b9e95b29fbc2223f", "qihoo360": "campus", "sany": "campus", "inovance": "campus", "vivo": "campus", "honor": "101801", "ctrip": "campus", "sgm": "campus", "ths": "61", "cmbnt": "graduate", "netease_game": "102", "leihuo": "77", "ctyun": "101101_581854", "ctcloud": "101101_581851", "mihoyo": "13", "pingan_tech": "graduate_PA011", "pingan_oneconnect": "graduate_PA038", "pingan_wallet": "graduate_PA027", "cmcloud": "79", "cmiot": "77", "cmhome": "81", "gbits": "8a82ac07a057a3ea01a0617904b4100c", "hundsun": "campus", "yuewen": "campus", "tcl_digital": "308501_101206", "tcl_honghu": "308501_364906", "cec_software": "graduate_software"} {
 		input := d.WatchInput{CheckInterval: 3600, Enabled: true, Adaptive: true}
 		reg, err := s.CreateCampusSource(ctx, owner, adapter, tenant, "校招来源测试", input)
 		must(t, err)
@@ -152,7 +152,7 @@ func TestGraduateSourceRegistrationIsScopedPrivateAndIdempotent(t *testing.T) {
 		Auto    bool   `json:"auto_import"`
 	}
 	must(t, json.Unmarshal(response.Body.Bytes(), &directory))
-	if len(directory) != 38 {
+	if len(directory) != 75 {
 		t.Fatalf("directory contains %d entries", len(directory))
 	}
 	automatic := 0
@@ -166,7 +166,7 @@ func TestGraduateSourceRegistrationIsScopedPrivateAndIdempotent(t *testing.T) {
 			t.Fatal("manual entry exposes import adapter")
 		}
 	}
-	if automatic != 21 {
+	if automatic != 40 {
 		t.Fatalf("automatic sources %d", automatic)
 	}
 

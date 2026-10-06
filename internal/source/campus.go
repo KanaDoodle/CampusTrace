@@ -52,6 +52,25 @@ func CampusSites() []CampusSite {
 		{"midea", "美的集团", MideaCampusURL, "2027 届美的星校招（不含博士专项、实习）", 1800, false},
 		{"byd", "比亚迪", BYDCampusURL, "2027 应届生（不含实习、外派专项）", 1800, false},
 		{"hikvision", "海康威视", HikvisionCampusURL, "2027 常规校园招聘（不含智先锋、实习）", 1800, false},
+		{"ths", "同花顺", THSCampusURL, "2027 届校园招聘（含实习转正，用工形式以原文为准）", 1800, false},
+		{"cmbnt", "招银网络科技", CMBNTCampusURL, "官网应届毕业生分类（不含社招、实习；具体届别见原文）", 1800, false},
+		{"netease_game", "网易游戏互娱", NeteaseGameCampusURL, "网易互娱 2027 届校园招聘（独立于网易互联网、雷火）", 1800, false},
+		{"leihuo", "网易游戏雷火", LeihuoCampusURL, "雷火 2027 届应届生（不含研究型、转正或日常实习）", 1800, false},
+		{"ctyun", "天翼云科技有限公司", ctCampusURL("ctyun"), "2027 年度秋季校招 · 天翼云单位（不含集团其他单位）", 1800, false},
+		{"ctcloud", "中国电信云计算研究院", ctCampusURL("ctcloud"), "2027 年度秋季校招 · 云计算研究院（含博士岗位）", 1800, false},
+		{"mihoyo", "米哈游", MihoyoCampusURL, "2027 届秋招应届生项目（不含实习）", 1800, false},
+		{"pingan_tech", "平安科技", pinganCampusURL("pingan_tech"), "官网应届生分类 · 平安科技（具体届别见原文）", 1800, false},
+		{"pingan_oneconnect", "金融壹账通", pinganCampusURL("pingan_oneconnect"), "官网应届生分类 · 金融壹账通（具体届别见原文）", 1800, false},
+		{"pingan_wallet", "平安壹钱包", pinganCampusURL("pingan_wallet"), "官网应届生分类 · 平安壹钱包（具体届别见原文）", 1800, false},
+		{"cmcloud", "中国移动云公司", mobileCampusURL("cmcloud"), "官网校园招聘 · 云公司（具体届别见原文）", 1800, false},
+		{"cmiot", "中国移动物联网公司", mobileCampusURL("cmiot"), "官网校园招聘 · 物联网公司（含博士岗位，届别见原文）", 1800, false},
+		{"cmhome", "中国移动智慧家庭运营中心", mobileCampusURL("cmhome"), "官网校园招聘 · 智慧家庭运营中心（含博士岗位，届别见原文）", 1800, false},
+		{"hundsun", "恒生电子", "https://campus.hundsun.com/campus/jobs", "官网校招分类（具体毕业年份见岗位原文）", 1800, false},
+		{"yuewen", "阅文集团", "https://yuewen.zhiye.com/campus/jobs", "官网应届生校招分类（不含实习、社招）", 1800, false},
+		{"gbits", "吉比特&雷霆游戏", GBitsCampusURL, "2027 届秋季校招正式岗位（含提前实习要求，用工形式见原文）", 1800, false},
+		{"tcl_digital", "TCL · 流程与数字化转型中心", tclCampusURL("tcl_digital"), "2027 届全球校招 · 流程与数字化转型中心", 1800, false},
+		{"tcl_honghu", "TCL · 鸿鹄实验室", tclCampusURL("tcl_honghu"), "2027 届全球校招 · 鸿鹄实验室", 1800, false},
+		{"cec_software", "中国电子 · 麒麟软件/中电云", CECCampusURL, "官网校招分类 · 仅麒麟软件、中电云两个招聘单位（具体届别见原文）", 1800, false},
 	}
 }
 
@@ -66,6 +85,9 @@ func campusSite(raw string) (CampusSite, error) {
 	}
 	path := strings.TrimRight(u.Path, "/")
 	for _, site := range CampusSites() {
+		if _, ok := sectorScopes[site.Adapter]; ok && sectorEntry(site, u) {
+			return site, nil
+		}
 		if site.Adapter == "lenovo" && u.Host == "talent.lenovo.com.cn" && path == "" && u.RawQuery == "" && u.RawFragment == "" && (u.Fragment == "" || u.Fragment == "/campus") {
 			return site, nil
 		}

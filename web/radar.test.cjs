@@ -26,3 +26,12 @@ test('校招预设能选择准确范围且编辑网址会清除旧预览',async(
   assert.match(html,/已支持的校招来源/);assert.match(html,/美团&lt;script&gt;/);assert.doesNotMatch(html,/<script>/);
   for(const i of [1,3,4,5,6,7,8,9,10]){buttons[i].onclick();assert.equal(input.value,catalog[i].url);} assert.equal(result.innerHTML,'');assert.equal(focused,true);
 });
+test('新增行业来源遵循校招最低检查间隔',async()=>{
+ context.input=(name,label,value,type,attrs)=>`<label>${label}<input name="${name}" type="${type}" value="${value}" ${attrs}></label>`;
+ context.document.querySelector=()=>({elements:{url:{value:'',addEventListener(){}},source_id:{value:'sector-source'},check_interval:{}},addEventListener(){}});
+ for(const adapter of ['ths','cmbnt','netease_game','leihuo','ctyun','ctcloud','tcl_digital','tcl_honghu','cec_software']){
+  let html='';context.api=async path=>path==='/api/sources'?[{id:'sector-source',adapter,discovery_supported:true,name:'来源测试'}]:[];
+  await context.radarPage('watches',v=>(html=v,true),{querySelectorAll:()=>[]},'');
+  assert.match(html,/name="check_interval"[^>]*min="30"/);
+ }
+});

@@ -16,7 +16,7 @@ import (
 	p "github.com/KanaDoodle/CampusTrace/internal/persistence"
 )
 
-var moreAdapters = []string{"lenovo", "midea", "byd", "hikvision", "qihoo360", "sany", "inovance", "vivo", "honor", "sgm"}
+var moreAdapters = []string{"lenovo", "midea", "byd", "hikvision", "qihoo360", "sany", "inovance", "vivo", "honor", "sgm", "hundsun", "yuewen"}
 
 func moreID(adapter string, n int) string {
 	switch adapter {
@@ -552,7 +552,7 @@ func TestHikvisionMergedDepartmentsAreChecked(t *testing.T) {
 }
 func TestMoreCampusDirectoryAndStrictEntry(t *testing.T) {
 	entries := CampusDirectory()
-	if len(entries) != 38 {
+	if len(entries) != 75 {
 		t.Fatalf("directory %d", len(entries))
 	}
 	readyCount := 0
@@ -571,7 +571,7 @@ func TestMoreCampusDirectoryAndStrictEntry(t *testing.T) {
 			t.Fatal("manual entry promoted to import")
 		}
 	}
-	if readyCount != 21 {
+	if readyCount != 40 {
 		t.Fatalf("automatic sources %d", readyCount)
 	}
 	for _, adapter := range moreAdapters {
@@ -593,5 +593,25 @@ func TestMoreCampusDirectoryAndStrictEntry(t *testing.T) {
 		if _, err := a.Discover(context.Background(), s, d.WatchTarget{WatchInput: d.WatchInput{Direction: "rd"}}); err == nil || calls != 0 {
 			t.Fatal("unsupported direction reached network")
 		}
+	}
+}
+
+func TestBeisenDetailTitleIsBoundToListing(t *testing.T) {
+	for adapter := range beisenCompanies {
+		t.Run(adapter, func(t *testing.T) {
+			srv := moreFixture(t, adapter, "")
+			defer srv.Close()
+			a := PublicPlatform{Client: &http.Client{Transport: rewriteTransport{srv.URL}}}
+			s := d.Source{ID: d.ID(), Adapter: adapter, Tenant: "campus"}
+			refs, err := a.Discover(context.Background(), s, d.WatchTarget{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			refs[0].Title = "另一个岗位"
+			result, err := a.FetchPosting(context.Background(), s, refs[0])
+			if err == nil || result.Status == "SUCCESS" {
+				t.Fatal("wrong title accepted")
+			}
+		})
 	}
 }

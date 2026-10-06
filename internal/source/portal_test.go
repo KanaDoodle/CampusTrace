@@ -211,12 +211,12 @@ func TestPortalCampusSourcesRejectIncompleteOrWrongScope(t *testing.T) {
 	}
 }
 func TestPortalURLsRejectOtherProjectsCredentialsAndFilters(t *testing.T) {
-	for _, raw := range []string{JDCampusURL, "https://campus.jd.com/", NeteaseCampusURL} {
+	for _, raw := range []string{JDCampusURL, "https://campus.jd.com/", NeteaseCampusURL, NeteaseGameCampusURL} {
 		if RecognizeCampusURL(raw) != nil {
 			t.Fatal("rejected supported URL", raw)
 		}
 	}
-	for _, raw := range []string{"https://campus.jd.com/#/jobs?type=internship", "https://campus.jd.com/#/jobs?type=present&city=1", "https://campus.jd.com/?token=secret", "https://user:secret@campus.jd.com/", "https://campus.jd.com.evil.example/", "https://campus.163.com/app/job/position?id=75", "https://campus.163.com/app/job/position?id=103&id=75", "https://campus.game.163.com/app/job/position?id=102", "https://campus.163.com/app/job/position?id=103&keyword=Go"} {
+	for _, raw := range []string{"https://campus.jd.com/#/jobs?type=internship", "https://campus.jd.com/#/jobs?type=present&city=1", "https://campus.jd.com/?token=secret", "https://user:secret@campus.jd.com/", "https://campus.jd.com.evil.example/", "https://campus.163.com/app/job/position?id=75", "https://campus.163.com/app/job/position?id=103&id=75", "https://campus.game.163.com/app/job/position?id=103", "https://campus.163.com/app/job/position?id=103&keyword=Go"} {
 		if RecognizeCampusURL(raw) == nil {
 			t.Fatal("accepted other scope", raw)
 		}

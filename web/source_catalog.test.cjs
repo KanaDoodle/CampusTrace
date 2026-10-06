@@ -4,13 +4,19 @@ const catalog=[{company:'百度',checked_at:'2026-10-05',category:'互联网',au
 test('搜索公司和行业筛选保留原始索引，未接入公司没有自动导入按钮',()=>{
  assert.deepEqual(S.select(catalog,{search:' 美的 ',group:'制造业与消费电子'}).map(v=>v.index),[2]);
  assert.deepEqual(S.select(catalog,{search:'sap',group:'外企'}).map(v=>v.index),[1]);
- const h=S.render(catalog,esc);assert.match(h,/可自动导入 2 家 · 官网入口 1 家/);assert.match(h,/核验于 2026-10-05/);assert.match(h,/data-campus-preset="2"/);assert.doesNotMatch(h,/data-campus-preset="1"/);assert.match(h,/需核验中国毕业生项目/);assert.match(h,/rel="noopener noreferrer"/);
+ const h=S.render(catalog,esc);assert.match(h,/可自动导入 2 个 · 官网入口 1 个/);assert.match(h,/核验于 2026-10-05/);assert.match(h,/data-campus-preset="2"/);assert.doesNotMatch(h,/data-campus-preset="1"/);assert.match(h,/需核验中国毕业生项目/);assert.match(h,/rel="noopener noreferrer"/);
  assert.match(S.render(catalog,esc,{search:'sap'}),/<details class="source-manual" open>/);assert.match(S.render(catalog,esc,{search:'不存在'}),/没有符合筛选/);
 });
 test('目录转义所有官网文本并拒绝危险链接',()=>{
  const h=S.render([{company:'<script>',scope:'<img>',auto_import:false,note:'"<iframe>',status:'<svg>',url:'javascript:alert(1)'}],esc);
  assert.doesNotMatch(h,/<script>|<iframe>|<svg>|javascript:/);assert.match(h,/&lt;script&gt;/);assert.match(h,/入口待确认/);
  for(const u of ['http://site.test','https://user:secret@site.test','invalid'])assert.equal(S.officialURL(u),'');
+});
+test('游戏金融科技和国央企可独立筛选，电信集团入口不会变成自动导入',()=>{
+ const rows=[{company:'网易游戏雷火',category:'游戏',auto_import:true,scope:'2027届'}, {company:'同花顺',category:'金融科技',auto_import:true,scope:'2027届（含实习转正）'}, {company:'天翼云科技有限公司',category:'国央企',auto_import:true,scope:'2027秋招'}, {company:'中国电信（集团入口）',category:'国央企',auto_import:false,url:'https://job.chinatelecom.com.cn/',note:'需按单位接入'}];
+ for(const [group,indices] of [['游戏',[0]],['金融科技',[1]],['国央企',[2,3]]]) assert.deepEqual(S.select(rows,{group}).map(v=>v.index),indices);
+ const h=S.render(rows,esc,{group:'国央企'});assert.match(h,/4 个招聘来源/);assert.match(h,/可自动导入 1 个 · 官网入口 1 个/);assert.match(h,/data-campus-preset="2"/);assert.doesNotMatch(h,/data-campus-preset="3"/);
+ for(const g of ['游戏','金融科技','国央企'])assert.ok(h.includes(`<option value="${g}"`));
 });
 test('搜索不重绘其他表单，展开状态在重新筛选后保留',()=>{
  let rebound=0;const search={value:''},type={value:''},manual={open:true};

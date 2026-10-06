@@ -90,6 +90,9 @@ func campusPages(ctx context.Context, load func(context.Context, int) (campusPag
 	}
 }
 func moreTenant(adapter string) string {
+	if cfg, ok := sectorScopes[adapter]; ok {
+		return cfg.Tenant
+	}
 	if adapter == "ctrip" {
 		return "campus"
 	}
@@ -115,6 +118,9 @@ func (a PublicPlatform) discoverMore(ctx context.Context, s d.Source, w d.WatchT
 	if err != nil {
 		return nil, err
 	}
+	if _, ok := sectorScopes[s.Adapter]; ok {
+		return a.discoverSector(ctx, s)
+	}
 	if _, ok := beisenCompanies[s.Adapter]; ok {
 		return a.discoverBeisen(ctx, s)
 	}
@@ -139,6 +145,9 @@ func (a PublicPlatform) fetchMore(ctx context.Context, s d.Source, r PostingRef)
 	a, err = a.campusPublic(s)
 	if err != nil {
 		return "", err
+	}
+	if _, ok := sectorScopes[s.Adapter]; ok {
+		return a.fetchSector(ctx, s, r)
 	}
 	if _, ok := beisenCompanies[s.Adapter]; ok {
 		return a.fetchBeisen(ctx, s, r)

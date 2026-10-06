@@ -72,7 +72,7 @@ type HTTPEntry struct {
 
 var publicPlatformClient = PublicClient()
 
-func (PublicPlatform) Version() string { return "public-platforms-v9" }
+func (PublicPlatform) Version() string { return "public-platforms-v12" }
 
 var tenantPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,100}$`)
 
@@ -87,7 +87,11 @@ func PlatformURL(s d.Source) (string, error) {
 		return "https://boards-api.greenhouse.io/v1/boards/" + s.Tenant + "/jobs", nil
 	case "smartrecruiters":
 		return "https://api.smartrecruiters.com/v1/companies/" + s.Tenant + "/postings", nil
-	case "lenovo", "midea", "byd", "hikvision", "qihoo360", "sany", "inovance", "vivo", "honor", "sgm", "ctrip":
+	case "ths", "cmbnt", "netease_game", "leihuo", "ctyun", "ctcloud", "mihoyo", "pingan_tech", "pingan_oneconnect", "pingan_wallet", "cmcloud", "cmiot", "cmhome", "gbits", "tcl_digital", "tcl_honghu", "cec_software":
+		if cfg := sectorScopes[s.Adapter]; s.Tenant == cfg.Tenant {
+			return cfg.Origin + "/api", nil
+		}
+	case "lenovo", "midea", "byd", "hikvision", "qihoo360", "sany", "inovance", "vivo", "honor", "sgm", "ctrip", "hundsun", "yuewen":
 		if s.Tenant == moreTenant(s.Adapter) {
 			if cfg, ok := beisenCompanies[s.Adapter]; ok {
 				return cfg.Origin + "/api", nil
@@ -173,6 +177,18 @@ func (a PublicPlatform) allowRequest(ctx context.Context, s d.Source) error {
 		key := s.ID
 		if d.IsCampusSource(s.Adapter) {
 			key = s.Adapter + ":public-site"
+			if _, ok := tclUnits[s.Adapter]; ok {
+				key = "tcl:public-site"
+			}
+			if s.Adapter == "ctyun" || s.Adapter == "ctcloud" {
+				key = "chinatelecom:public-site"
+			}
+			if _, ok := pinganUnits[s.Adapter]; ok {
+				key = "pingan:public-site"
+			}
+			if _, ok := mobileUnits[s.Adapter]; ok {
+				key = "chinamobile:public-site"
+			}
 		}
 		ok, err := a.Allow(ctx, key, limit)
 		if err != nil {
@@ -275,6 +291,10 @@ func (a PublicPlatform) requestOnce(ctx context.Context, s d.Source, method, raw
 			return fail("UNSUPPORTED", false, 0)
 		}
 		req.Header.Set("Referer", expandedURL(s.Adapter))
+		if _, ok := tclUnits[s.Adapter]; ok {
+			req.Header.Set("Origin", tclOrigin)
+			req.Header.Set("X-Requested-With", "XMLHttpRequest")
+		}
 	}
 	req.Header.Set("User-Agent", "CampusTrace/0.2 (public recruiting source monitoring)")
 	key := d.Hash(a.Version() + ":" + raw)
@@ -320,7 +340,7 @@ func (a PublicPlatform) requestOnce(ctx context.Context, s d.Source, method, raw
 	}
 	media, _, err := mime.ParseMediaType(resp.Header.Get("Content-Type"))
 	_, isHTML := dst.(*htmlDocument)
-	validMedia := media == "application/json" || strings.HasSuffix(media, "+json")
+	validMedia := media == "application/json" || strings.HasSuffix(media, "+json") || mobilePlainJSON(s.Adapter, method, req.URL.Path, media)
 	if isHTML {
 		validMedia = media == "text/html" || media == "application/xhtml+xml"
 	}
@@ -463,7 +483,7 @@ func (a PublicPlatform) Discover(ctx context.Context, s d.Source, w d.WatchTarge
 				return nil, fail("SCHEMA_INVALID", false, 200)
 			}
 		}
-	case "lenovo", "midea", "byd", "hikvision", "qihoo360", "sany", "inovance", "vivo", "honor", "sgm", "ctrip":
+	case "lenovo", "midea", "byd", "hikvision", "qihoo360", "sany", "inovance", "vivo", "honor", "sgm", "ctrip", "ths", "cmbnt", "netease_game", "leihuo", "ctyun", "ctcloud", "mihoyo", "pingan_tech", "pingan_oneconnect", "pingan_wallet", "cmcloud", "cmiot", "cmhome", "gbits", "hundsun", "yuewen", "tcl_digital", "tcl_honghu", "cec_software":
 		refs, err = a.discoverMore(ctx, s, w)
 		if err != nil {
 			return nil, err
@@ -594,7 +614,7 @@ func (a PublicPlatform) FetchPosting(ctx context.Context, s d.Source, r PostingR
 				text += "\nApplication URL: " + v.ApplyURL
 			}
 		}
-	case "lenovo", "midea", "byd", "hikvision", "qihoo360", "sany", "inovance", "vivo", "honor", "sgm", "ctrip":
+	case "lenovo", "midea", "byd", "hikvision", "qihoo360", "sany", "inovance", "vivo", "honor", "sgm", "ctrip", "ths", "cmbnt", "netease_game", "leihuo", "ctyun", "ctcloud", "mihoyo", "pingan_tech", "pingan_oneconnect", "pingan_wallet", "cmcloud", "cmiot", "cmhome", "gbits", "hundsun", "yuewen", "tcl_digital", "tcl_honghu", "cec_software":
 		text, err = a.fetchMore(ctx, s, r)
 	case "xiaohongshu":
 		text, err = a.fetchXHS(ctx, s, r)
