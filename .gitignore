@@ -29,6 +29,11 @@ __debug_bin*
 !/docs/campus-sources.md
 !/docs/campus-source-inventory.md
 !/docs/campus-source-inventory.csv
+!/docs/architecture.md
+!/docs/matching.md
+!/docs/images/
+/docs/images/*
+!/docs/images/job-radar.jpg
 /release-repair-report.md
 /repair-report.md
 /release-final-report.md
