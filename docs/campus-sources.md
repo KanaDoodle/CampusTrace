@@ -287,7 +287,7 @@ CAMPUS_LIVE_SOURCES=1 GOWORK=off go test -count=1 -v -run '^TestAdditionalCampus
 
 目录仍有 75 个来源，自动导入预设增至 41 个，34 个仅提供官网入口。此前腾讯客户端资源返回 403 的限制本次未再出现；新版适配器已接入关注源预览、定期检查及一键导入全部来源。
 
-腾讯使用官网公开 `getProjectMapping`、`searchPosition` 和 `getJobDetailsByPostId` 查询。范围固定为 `projectMappingIdList=[1]`、`workCountryType=1`，内部 scope 为 `2027_cn_1`。每次发现及详情读取均核对官网映射的 recruitType=1、projectId=1、recruitYear=2027 与启用状态，避免下一年度复用项目编号时混入旧来源。详情还核对 postId、标题、项目及类型，并保留毕业时间范围、职责、任职要求和 graduateBonus 加分项。
+腾讯使用官网公开 `getProjectMapping`、`searchPosition` 和 `getJobDetailsByPostId` 查询。范围固定为 `projectMappingIdList=[1]`、`workCountryType=1`，内部 scope 为 `2027_cn_1`。每次发现及详情读取均核对官网映射的 recruitType=1、projectId=1、recruitYear=2027 与启用状态，避免下一年度复用项目编号时混入旧来源。详情还核对 postId、标题、项目及类型，并保留毕业时间范围、职责、任职要求和 graduateBonus 加分项。官网城市标签“深圳总部”在岗位元数据中归一为“深圳”，使求职城市偏好和筛选正常匹配；详情原文仍保留官网标签。
 
 列表每页100岗，稳定总数、精确页长度和唯一编号全部通过才返回成功。官网全部工作地点的常规校招有116岗，其中11个海外岗位指向Workday；本预设仅完整读取官网中国工作地点分类105岗，不将海外岗位静默丢弃后声称已完成全范围导入。首岗 `1282707398326592512`（AI全栈工程师）、尾岗 `1294744848557342720`（内容培训生-内容技术方向，含AIGC）的独立原文验证通过；全部105岗的元数据符合导入校验。正式扫描及各次详情读取均限定15秒，采用 PublicClient 原有直连、TLS、DNS、公开地址校验与同源跳转限制。无需登录或候选人 Cookie；所有请求共用腾讯每分钟30次的额度。
 

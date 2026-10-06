@@ -68,7 +68,16 @@ func tencentRef(job tencentListJob) (PostingRef, error) {
 	if !numericID(job.ID) || job.ProjectID == nil || *job.ProjectID != 1 || job.Source != "oa" {
 		return PostingRef{}, fail("SCHEMA_INVALID", false, 200)
 	}
-	ref := PostingRef{ExternalID: job.ID, URL: tencentURL(job.ID), Title: strings.TrimSpace(job.Title), Company: "腾讯", JobType: "FULL_TIME", Locations: strings.Fields(job.Cities)}
+	locations := strings.Fields(job.Cities)
+	for i, city := range locations {
+		// Tencent's public city dictionary calls Shenzhen "深圳总部". Keep
+		// the original label in the detail text, but import the city itself
+		// so a saved Shenzhen preference and the city filter can match it.
+		if city == "深圳总部" {
+			locations[i] = "深圳"
+		}
+	}
+	ref := PostingRef{ExternalID: job.ID, URL: tencentURL(job.ID), Title: strings.TrimSpace(job.Title), Company: "腾讯", JobType: "FULL_TIME", Locations: locations}
 	return ref, validateRef(ref)
 }
 

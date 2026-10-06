@@ -151,13 +151,16 @@ func TestTencentCampusScopeAndOriginals(t *testing.T) {
 		t.Fatalf("full scan %d, calls %d: %v", len(refs), calls, err)
 	}
 	for _, ref := range refs {
+		if !d.CityAlternatives("深圳", ref.Locations) {
+			t.Fatal("official headquarters label did not match saved city")
+		}
 		if err := (p.Ingest{SourceID: s.ID, ExternalID: ref.ExternalID, URL: ref.URL, Title: ref.Title, Company: ref.Company, JobType: ref.JobType, Locations: ref.Locations, Text: "public original", FetchStatus: "SUCCESS"}).Validate(); err != nil {
 			t.Fatal(err)
 		}
 	}
 	for _, ref := range []PostingRef{refs[0], refs[101]} {
 		res, err := a.FetchPosting(context.Background(), s, ref)
-		if err != nil || res.Status != "SUCCESS" || !strings.Contains(res.Text, "2026年1月1日-2027年12月31日") || !strings.Contains(res.Text, "加分项：\nRedis 加分") || strings.Contains(res.Text, "<p>") {
+		if err != nil || res.Status != "SUCCESS" || !strings.Contains(res.Text, "2026年1月1日-2027年12月31日") || !strings.Contains(res.Text, "加分项：\nRedis 加分") || !strings.Contains(res.Text, "深圳总部") || strings.Contains(res.Text, "<p>") {
 			t.Fatalf("original %+v %v", res, err)
 		}
 	}
