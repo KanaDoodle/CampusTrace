@@ -21,6 +21,7 @@
     if(value.length<2||value.length>60) throw new Error('请填写至少 2 个字的姓名或称呼。');
     return String(text||'').split(value).join('[已移除姓名]');
   }
+  function reviewedTextBytes(text) { return new TextEncoder().encode(String(text||'')).byteLength; }
   async function readDocx(file) {
     if(!root.JSZip) throw new Error('文档读取组件未就绪，请刷新页面重试。');
     const zip=await root.JSZip.loadAsync(await file.arrayBuffer());
@@ -62,7 +63,7 @@
     if(text.length>100000) throw new Error('简历正文过长，请先精简文件。');
     return redact(text);
   }
-  const api={redact,hasDirectIdentifiers,maskAdditionalName,readFile};
+  const api={redact,hasDirectIdentifiers,maskAdditionalName,readFile,reviewedTextBytes};
   if(typeof module==='object'&&module.exports) module.exports=api;
   root.CampusProfileLocal=api;
 })(typeof window==='undefined'?globalThis:window);

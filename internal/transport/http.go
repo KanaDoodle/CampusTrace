@@ -355,6 +355,7 @@ func (a *API) Handler() http.Handler {
 		write(w, map[string]any{"model_available": a.ResumeModel != nil, "model": a.ResumeModelName, "user_id": user(r), "durable_matching": a.MatchTasks != nil, "application_campaigns": true}, nil)
 	})
 	on("POST /api/profile/resume/draft", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
 		var v resume.Request
 		if err := decode(r, &v); err != nil {
 			codedError(w, http.StatusBadRequest, "RESUME_TEXT_INVALID")
@@ -388,15 +389,10 @@ func (a *API) Handler() http.Handler {
 		}
 		draft, err := resume.Analyze(r.Context(), resumeModelWithTimeout(model), v.Text)
 		if err != nil {
-			code := resumeDraftFailure(err)
-			slog.WarnContext(r.Context(), "resume draft failed", "category", code)
-			status := http.StatusBadGateway
-			if code == "MODEL_TIMEOUT" {
-				status = http.StatusGatewayTimeout
-			}
-			codedError(w, status, code)
+			resumeFailure(w, err)
 			return
 		}
+		slog.InfoContext(r.Context(), "resume draft reviewed", "suggestions", len(draft.Suggestions), "projects", len(draft.Projects), "excluded", len(draft.Warnings), "normalized_excerpts", draft.NormalizedExcerpts)
 		write(w, draft, nil)
 	})
 	for _, table := range []string{"reviews", "weak_topics", "projects", "project_facts", "documents"} {

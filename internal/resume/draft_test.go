@@ -41,8 +41,9 @@ func TestAnalyzeSendsOnlyReviewedTextAndBindsExcerpts(t *testing.T) {
 		t.Fatalf("draft=%+v input=%q err=%v", draft, m.input, err)
 	}
 	m.output = strings.Replace(m.output, `"excerpt":"实现失败重试"`, `"excerpt":"支持百万用户"`, 1)
-	if _, err := Analyze(context.Background(), m, text); !errors.Is(err, ErrInvalid) {
-		t.Fatalf("unsupported excerpt accepted: %v", err)
+	draft, err = Analyze(context.Background(), m, text)
+	if err != nil || len(draft.Suggestions) != 2 || len(draft.Projects[0].Facts) != 0 || len(draft.Warnings) != 1 || draft.Warnings[0].Reason != "EXCERPT_NOT_EXACT" {
+		t.Fatalf("supported items lost or unsupported fact accepted: %+v %v", draft, err)
 	}
 }
 

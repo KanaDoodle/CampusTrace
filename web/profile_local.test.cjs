@@ -38,3 +38,9 @@ test('TXT extraction stays local and rejects unsupported or empty files',async()
   await assert.rejects(P.readFile(new File(['hello'],'resume.doc')),/支持 PDF、DOCX 和 TXT/);
   await assert.rejects(P.readFile(new File([''],'resume.txt')),/没有读到可用文字/);
 });
+
+test('reviewed text length follows the backend UTF-8 byte limit',()=>{
+  assert.equal(P.reviewedTextBytes('Go'),2);
+  assert.equal(P.reviewedTextBytes('后端'),6);
+  assert.equal(P.reviewedTextBytes('后'.repeat(5334)),16002);
+});

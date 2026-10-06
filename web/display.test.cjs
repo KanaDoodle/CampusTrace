@@ -61,6 +61,16 @@ test('简历模型失败区分超时、密钥、余额与摘录核对',()=>{
   assert.match(D.errorCode('MODEL_BALANCE_LOW',502),/余额/);
   assert.match(D.errorCode('RESUME_DRAFT_UNVERIFIABLE',502),/摘录核对/);
 });
+
+test('简历诊断区分格式、长度和原文依据，且只显示已知原因及数字位置',()=>{
+  assert.match(D.resumeDiagnostic({validation_reason:'EXCERPT_NOT_EXACT',scope:'FACT',project_index:2,item_index:3}),/第 2 个项目的第 3 条事实.*连续原文/);
+  assert.match(D.resumeDiagnostic({validation_reason:'EXCERPT_LENGTH',scope:'SUGGESTION',item_index:4}),/资料建议第 4 项.*摘录过长/);
+  assert.match(D.resumeDiagnostic({validation_reason:'RESPONSE_JSON'}),/JSON/);
+  assert.match(D.resumeDiagnostic({validation_reason:'VALUE_FORMAT'}),/格式/);
+  assert.equal(D.resumeDiagnostic({validation_reason:'private resume text'}),'');
+  assert.doesNotMatch(D.resumeDiagnostic({validation_reason:'EXCERPT_EMPTY',scope:'FACT',project_index:'private',item_index:3}),/private/);
+  assert.doesNotMatch(D.errorCode('RESUME_DRAFT_UNVERIFIABLE',502),/缩短外发文字/);
+});
 test('招聘源读取失败区分网络、访问限制与接口变化',()=>{
   assert.match(D.errorCode('SOURCE_PREVIEW_NETWORK',502),/网络不通/);
   assert.doesNotMatch(D.errorCode('SOURCE_PREVIEW_NETWORK',502),/接口已变化/);
@@ -76,6 +86,10 @@ vm.createContext(context);vm.runInContext(fs.readFileSync(__dirname+'/ui.js','ut
 const code=fs.readFileSync(__dirname+'/app.js','utf8');
 vm.runInContext(code.slice(0,code.indexOf("formAction('#login'")),context);
 const render=(value,key='')=>{context.fixture=value;context.fixtureKey=key;return vm.runInContext('translated(fixture,fixtureKey)',context);};
+test('简历 API 错误显示安全的具体原因及请求编号',async()=>{
+  context.fetch=async()=>({ok:false,status:502,json:async()=>({code:'RESUME_DRAFT_UNVERIFIABLE',diagnostic:{validation_reason:'EXCERPT_NOT_EXACT',scope:'FACT',project_index:1,item_index:2},request_id:'aabbccddeeff00112233445566778899'}),headers:{get:()=>null}});
+  await assert.rejects(vm.runInContext("api('/api/profile/resume/draft','POST',{text:'synthetic reviewed text'})",context),error=>/第 1 个项目的第 2 条事实/.test(error.message)&&/aabbccddeeff00112233445566778899/.test(error.message));
+});
 test('嵌套得分、投递条件和操作预览不显示英文 JSON 键或枚举',()=>{
   const html=render({eligibility:{status:'UNKNOWN',results:[]},ranking:{breakdown:{status:30,city:10}},args:{state:'APPLIED'},action_type:'transition_application'});
   assert.match(html,/资格暂无法判断/);assert.match(html,/岗位可投递情况/);assert.match(html,/30.0 分/);assert.match(html,/已投递/);

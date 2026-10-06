@@ -183,7 +183,7 @@
     if(code==='CAMPAIGN_LIMIT_REACHED')return '这组限投岗位的名额已被投递计划或实际投递占用。请在投递进展核对规则，或先撤回尚未投递的计划。';
     if(code==='MATCH_RUN_UNAVAILABLE')return '分析任务暂时无法启动，请稍后重试。';
     if(code==='MATCH_INTERRUPTED')return '任务处理已中断。成功结果已保留，请核对资料与模型设置后继续。';
-    if (code==='RESUME_DRAFT_UNVERIFIABLE') return '模型返回的草稿未通过原文摘录核对。请缩短外发文字，或分段保留项目经历后重试。';
+    if (code==='RESUME_DRAFT_UNVERIFIABLE') return '模型草稿未通过内容与原文摘录核对。请查看具体原因，核对外发文字后重试。';
     if (code==='MODEL_PROVIDER_FAILED') return path.includes('/api/matching/')?'模型服务未能返回分析结果，请查看失败阶段与请求编号以定位原因。':'暂时无法从模型服务获得草稿，请稍后重试，并核对模型设置。';
     return error(status, path);
   }
@@ -196,6 +196,16 @@
     const counts=['JOB_COUNT','MATCH_COUNT'].includes(value.validation_reason)&&integer(value.expected,1000)&&integer(value.actual,1000)?`（应有 ${value.expected} 项，返回 ${value.actual} 项）`:'';
     return ` 具体原因：${location?location+'：':''}${reason}${counts}。`;
   }
+  function resumeDiagnostic(value={}) {
+    const reasons={RESPONSE_MESSAGE:'模型没有返回可读取的草稿',RESPONSE_SIZE:'模型草稿为空或超过结果长度上限',RESPONSE_JSON:'模型草稿不是完整的 JSON，可能含说明文字或被截断',RESPONSE_SCHEMA:'模型草稿的结构不符合约定，可能包含空值、未知字段或错误类型',DRAFT_LIMIT:'模型返回的资料或事实数量超过上限',PROJECT_FACTS_LIMIT:'单个项目返回的事实数量超过上限',FIELD_UNKNOWN:'模型返回了不支持的资料字段',VALUE_EMPTY:'提取内容为空',VALUE_INVALID:'提取内容包含无效字符',VALUE_LENGTH:'提取内容过长，需要拆成更短的独立条目',VALUE_SENSITIVE:'提取内容含疑似身份或联系方式，已排除',VALUE_FORMAT:'学历、毕业年份或经验月数的格式不符合约定',FACT_KIND:'项目事实的实现、计划或局限类型不符合约定',EXCERPT_EMPTY:'模型没有提供原文依据',EXCERPT_LENGTH:'原文摘录过长，应引用一小段直接依据',EXCERPT_NOT_EXACT:'引用不是外发文字中的连续原文，可能被改写、拼接或补充了内容',EXCERPT_AMBIGUOUS:'空白格式不同的引用对应多处原文，无法确定引用位置'};
+    const reason=reasons[value.validation_reason];if(!reason)return '';
+    const position=n=>Number.isInteger(n)&&n>0&&n<=1000;
+    let location='';
+    if(value.scope==='SUGGESTION'&&position(value.item_index))location=`资料建议第 ${value.item_index} 项`;
+    if(value.scope==='PROJECT'&&position(value.project_index))location=`第 ${value.project_index} 个项目`;
+    if(value.scope==='FACT'&&position(value.project_index)&&position(value.item_index))location=`第 ${value.project_index} 个项目的第 ${value.item_index} 条事实`;
+    return (location?location+'：':'')+reason;
+  }
   function inputList(value) {return (Array.isArray(value)?value:[]).map(text).join('、');}
   function parseList(value) {
     const reverse=Object.fromEntries(Object.entries(aliases).map(([en,zh])=>[zh,en]));
@@ -207,7 +217,7 @@
     if (Number.isNaN(d.getTime())) throw new Error('面试时间格式不正确，请重新填写。');
     return d.toISOString();
   }
-  const display=Object.freeze({enums,fields,label,field,text,reason,date,scalar,requirement,error,errorCode,matchingDiagnostic,inputList,parseList,shanghaiISO});
+  const display=Object.freeze({enums,fields,label,field,text,reason,date,scalar,requirement,error,errorCode,matchingDiagnostic,resumeDiagnostic,inputList,parseList,shanghaiISO});
   root.CampusDisplay=display;
   if (typeof module!=='undefined') module.exports=display;
 })(globalThis);
