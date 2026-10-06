@@ -39,7 +39,7 @@ cd CampusTrace
 ./campustrace start --open
 ```
 
-Once startup finishes, open **http://127.0.0.1:8080** and register your account. The UI is currently in Chinese.
+Once startup finishes, open [http://127.0.0.1:8080](http://127.0.0.1:8080/) and register your account. The UI is currently in Chinese.
 
 The CLI starts the application, MySQL, Redis, etcd and two Analysis instances, then waits for them to become healthy. They keep running when you close the terminal.
 
