@@ -56,7 +56,7 @@ $('#register').onclick=async()=>{
 };
 $('#logout').onclick=async()=>{if(!await CampusNavigation.leave())return;CampusUI.closeAll();pageVersion++;token='';sessionStorage.removeItem('campustrace-token');CampusModels.lock();CampusMatching.lock();$('#content').replaceChildren();$('#notice').textContent='';show();};
 for (const b of document.querySelectorAll('[data-page]')) b.onclick=()=>page(b.dataset.page).catch(fail);
-const pageTitles={radar:'我的校招雷达',watches:'关注源',source_jobs:'来源岗位',notifications:'通知收件箱',preferences:'稍后看与忽略',closing:'截止雷达',changes:'最近变化',jobs:'校招岗位',matching:'岗位库',applications:'投递进展',interviews:'面试与复盘',weak_topics:'待加强知识点',project_facts:'项目事实',agent:'求职问答',profile:'求职资料',models:'模型设置',ingest:'录入岗位'};
+const pageTitles={radar:'我的校招雷达',watches:'关注源',source_jobs:'来源岗位',notifications:'通知收件箱',preferences:'稍后看与忽略',closing:'截止雷达',changes:'最近变化',jobs:'校招岗位',matching:'岗位雷达',applications:'投递进展',interviews:'面试与复盘',weak_topics:'待加强知识点',project_facts:'项目事实',agent:'求职问答',profile:'求职资料',models:'模型设置',ingest:'录入岗位'};
 function input(name,label,value='',type='text',extra='') {return `<label>${esc(label)}<input name="${esc(name)}" type="${type}" value="${esc(value)}" ${extra}></label>`;}
 function area(name,label,value='',extra='') {return `<label>${esc(label)}<textarea name="${esc(name)}" ${extra}>${esc(value)}</textarea></label>`;}
 function displayQuery(query) {

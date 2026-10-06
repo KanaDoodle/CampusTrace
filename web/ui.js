@@ -30,6 +30,7 @@ const CampusUI=(function(root){
     const doc=root.document,a=doc?.activeElement;
     return {id:a?.id,select:a?.dataset?.matchSelect,position:a?.selectionStart,end:a?.selectionEnd,x:root.scrollX||0,y:root.scrollY||0,
       dialogs:[...(doc?.querySelectorAll('dialog[open]')||[])].map(el=>({id:el.id,top:el.scrollTop})),
+      regions:[...(doc?.querySelectorAll('[data-scroll-region]')||[])].map(el=>({id:el.id,top:el.scrollTop})),
       details:[...(doc?.querySelectorAll('details[data-remember][open]')||[])].map(el=>el.id)};
   }
   function restore(state){
@@ -38,13 +39,29 @@ const CampusUI=(function(root){
     const target=state.id?doc?.getElementById?.(state.id):state.select?[...(doc?.querySelectorAll('[data-match-select]')||[])].find(el=>el.dataset.matchSelect===state.select):null;
     if(target&&!target.disabled&&target.getClientRects?.().length){target.focus({preventScroll:true});if(typeof state.position==='number')try{target.setSelectionRange(state.position,state.end);}catch{}}
     for(const saved of state.dialogs||[]){const el=doc?.getElementById?.(saved.id);if(el?.open)el.scrollTop=saved.top;}
+    for(const saved of state.regions||[]){const el=doc?.getElementById?.(saved.id);if(el)el.scrollTop=saved.top;}
     root.scrollTo?.({left:state.x,top:state.y,behavior:'instant'});
   }
   function openDialog(el,onClose){if(!el)return;if(onClose)el.onclose=onClose;if(!el.open)el.showModal();}
   let drawerRevision=0,drawerTrigger=null;
-  function drawer(html){const el=root.document.querySelector('#job-drawer');if(!el.open)drawerTrigger=root.document.activeElement;el.innerHTML=html;openDialog(el);return {element:el,revision:++drawerRevision};}
+  function placeDrawer(host){
+    const el=root.document?.querySelector('#job-drawer');if(!el)return;
+    (host||root.document.body).append(el);
+    el.classList.toggle('is-docked',!!host);
+    host?.classList.toggle('has-detail',el.open);
+  }
+  // Keep the same dialog alive across list renders: loading detail requests and
+  // preparation checklists belong to this element, not to a particular list DOM.
+  function releaseDrawer(){placeDrawer(null);}
+  function drawer(html){
+    const el=root.document.querySelector('#job-drawer'),host=root.document.querySelector('#match-detail');
+    if(!el.open)drawerTrigger=root.document.activeElement;el.innerHTML=html;
+    if(host){const x=root.scrollX||0,y=root.scrollY||0;placeDrawer(host);if(!el.open)el.show();host.classList.add('has-detail');root.scrollTo?.({left:x,top:y,behavior:'instant'});}
+    else openDialog(el);
+    return {element:el,revision:++drawerRevision};
+  }
   function drawerCurrent(revision){return root.document.querySelector('#job-drawer')?.open&&revision===drawerRevision;}
-  function closeAll(){for(const el of root.document.querySelectorAll('dialog[open]'))el.close();drawerRevision++;}
+  function closeAll(){for(const el of root.document.querySelectorAll('dialog[open]'))el.close();releaseDrawer();drawerRevision++;}
   function activateTab(button){
     for(const tab of button.closest('[role="tablist"]').querySelectorAll('[role="tab"]')){const selected=tab===button;tab.setAttribute('aria-selected',String(selected));tab.tabIndex=selected?0:-1;const panel=root.document.getElementById(tab.getAttribute('aria-controls'));if(panel)panel.hidden=!selected;}
     button.focus({preventScroll:true});
@@ -64,8 +81,8 @@ const CampusUI=(function(root){
       const tabs=[...event.target.closest('[role="tablist"]').querySelectorAll('[role="tab"]')].filter(tab=>!tab.disabled);if(!tabs.length)return;let i=tabs.indexOf(event.target);i=event.key==='Home'?0:event.key==='End'?tabs.length-1:(i+(event.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;event.preventDefault();tabs[i].click();
     });
     const message=doc.querySelector('#notice');if(message&&root.MutationObserver)new root.MutationObserver(()=>showDialogNotice(message.textContent)).observe(message,{childList:true,subtree:true,characterData:true});
-    const el=doc.querySelector('#job-drawer');if(el)el.addEventListener('close',()=>{drawerRevision++;if(drawerTrigger?.isConnected)drawerTrigger.focus({preventScroll:true});drawerTrigger=null;});
+    const el=doc.querySelector('#job-drawer');if(el)el.addEventListener('close',()=>{drawerRevision++;el.closest('#match-detail')?.classList.remove('has-detail');for(const row of doc.querySelectorAll('[data-workbench-row]'))row.classList.remove('is-current');for(const button of doc.querySelectorAll('[data-match-job]'))button.removeAttribute('aria-current');if(drawerTrigger?.isConnected)drawerTrigger.focus({preventScroll:true});drawerTrigger=null;});
   }
-  const api={esc,icon,heading,modalHead,capture,restore,openDialog,drawer,drawerCurrent,closeAll,activateTab,notify,init};
+  const api={esc,icon,heading,modalHead,capture,restore,openDialog,placeDrawer,releaseDrawer,drawer,drawerCurrent,closeAll,activateTab,notify,init};
   if(typeof module==='object'&&module.exports)module.exports=api;root.CampusUI=api;return api;
 })(typeof window==='undefined'?globalThis:window);
