@@ -67,7 +67,7 @@ async function radarPage(name,set,box,query,{active=()=>true,reviewInterview}={}
  });
  if(previewMarkup)formAction('#source-create',async values=>{
    if(busy)return;busy=true;const point=drafts?.savepoint('#source-create'),urlPoint=drafts?.savepoint('#source-preview');
-   try{const result=await api('/api/sources/from-url','POST',{url:values.get('url'),direction:values.get('direction'),keyword:values.get('keyword'),check_interval:Number(values.get('check_interval'))*60,enabled:values.has('enabled'),adaptive:values.has('adaptive'),priority:values.has('priority')});if(!active())return;
+   try{const result=await api('/api/sources/from-url','POST',{url:values.get('url'),direction:values.get('direction')||'',keyword:values.get('keyword'),check_interval:Number(values.get('check_interval'))*60,enabled:values.has('enabled'),adaptive:values.has('adaptive'),priority:values.has('priority')});if(!active())return;
      drafts?.saved('#source-create',point);drafts?.saved('#source-preview',urlPoint);
      await refreshAfterSave(result.existing?'此前已关注这个招聘项目。':'已创建关注。岗位将在后台逐步导入。');
    }finally{busy=false;}
