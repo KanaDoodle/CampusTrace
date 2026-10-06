@@ -237,6 +237,18 @@ func directionPreference(p d.Profile, in DecisionInput) (int, string) {
 	if len(p.TargetRoles) == 0 {
 		return 0, "尚未填写意向职能"
 	}
+	if in.Local != nil && in.Local.Direction.Status != "" {
+		switch in.Local.Direction.Status {
+		case "MATCH":
+			return 2, "与已保存意向一致"
+		case "RELATED":
+			return 1, "与意向相关，需核对职责"
+		case "UNRELATED":
+			return -1, "与当前意向方向不同"
+		default:
+			return 0, "方向尚需核对"
+		}
+	}
 	roles := detectLocalRoles(in.Job.Title)
 	if in.Local != nil && in.Local.Role != "" {
 		roles = detectLocalRoles(in.Local.Role)
@@ -253,8 +265,12 @@ func directionPreference(p d.Profile, in DecisionInput) (int, string) {
 			return 2, "与已保存意向一致"
 		}
 	}
-	if hasString(targets, "后端开发") && hasString(roles, "基础架构与平台") || hasString(targets, "基础架构与平台") && hasString(roles, "后端开发") {
-		return 1, "与意向相关，需核对职责"
+	for _, role := range roles {
+		for _, target := range targets {
+			if relatedDirection(target, role) {
+				return 1, "与意向相关，需核对职责"
+			}
+		}
 	}
 	if len(targets) > 0 && len(roles) > 0 {
 		return -1, "与当前意向方向不同"

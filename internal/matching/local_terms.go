@@ -117,6 +117,7 @@ func shortLocalText(text string, max int) string {
 var localSentences = regexp.MustCompile(`[\n\r;；。]+`)
 var localCommas = regexp.MustCompile(`[,，]`)
 var localCue = regexp.MustCompile(`(?i)掌握|熟悉|熟练|了解|精通|具备|具有|擅长|经验|能够|proficien|familiar|knowledge|experience|\bmust\b|\brequired\b`)
+var localRequirementLead = regexp.MustCompile(`(?i)^[-*\s0-9.、)（）]*(?:掌握|熟悉|熟练|了解|精通|具备|具有|擅长|proficien|familiar|knowledge|experience|must\b|required\b)`)
 var localDuty = regexp.MustCompile(`(?i)负责|参与|开发|设计|实现|维护|建设|优化|搭建|\bbuild\b|\bimplement\b|\bdevelop\b|\bmaintain\b|\bdesign\b`)
 var localBonus = regexp.MustCompile(`(?i)优先|加分|优选|更佳|\bpreferred\b|\bbonus\b|nice[ -]to[ -]have`)
 var localNegative = regexp.MustCompile(`(?i)未实现|未使用|未掌握|没有|不支持|无需|不要求|不需要|计划|拟实现|待实现|准备实现|\bnot required\b|\bnot implemented\b|\bplanned\b|\bwithout\b`)

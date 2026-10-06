@@ -38,8 +38,6 @@ type LocalScreen struct {
 type LocalScreener struct {
 	profile          d.Profile
 	evidence         map[string][]LocalEvidence
-	targetRoles      []string
-	unknownTargets   []string
 	directionTargets []string
 	directionUnknown bool
 	preferredCities  map[string]bool
@@ -50,13 +48,6 @@ func NewLocalScreener(p d.Profile, candidate Candidate) *LocalScreener {
 	p = p.EducationProfile()
 	s := &LocalScreener{profile: p, evidence: map[string][]LocalEvidence{}, preferredCities: map[string]bool{}, acceptableCities: map[string]bool{}}
 	s.directionTargets, s.directionUnknown = directionTargets(p.TargetRoles)
-	for _, target := range p.TargetRoles {
-		families := detectLocalRoles(target)
-		s.targetRoles = append(s.targetRoles, families...)
-		if len(families) == 0 && len(Normalize(target)) >= 2 {
-			s.unknownTargets = append(s.unknownTargets, target)
-		}
-	}
 	for _, city := range p.PreferredCities {
 		if norm := Normalize(city); norm != "" {
 			s.preferredCities[norm] = true
@@ -86,30 +77,8 @@ func NewLocalScreener(p d.Profile, candidate Candidate) *LocalScreener {
 	return s
 }
 
-type roleFamily struct {
-	name    string
-	pattern *regexp.Regexp
-}
-
-var roleFamilies = []roleFamily{
-	{"后端开发", regexp.MustCompile(`(?i)后端|服务端|服务器端|\bbackend\b|server[ -]side`)},
-	{"基础架构与平台", regexp.MustCompile(`(?i)基础架构|基础设施|中间件|云原生|开发平台|研发平台|\binfrastructure\b|\bplatform engineer`)},
-	{"前端开发", regexp.MustCompile(`(?i)前端|\bfrontend\b|front[ -]end`)},
-	{"移动端开发", regexp.MustCompile(`(?i)客户端|移动端|\bandroid\b|\bios\b`)},
-	{"数据开发", regexp.MustCompile(`(?i)数据开发|数据工程|大数据|\bdata engineer`)},
-	{"算法与模型", regexp.MustCompile(`(?i)算法|机器学习|模型训练|\balgorithm\b|machine learning`)},
-	{"安全研发", regexp.MustCompile(`(?i)安全|\bsecurity\b`)},
-	{"测试研发", regexp.MustCompile(`(?i)测试|质量保障|\btesting\b|\bqa\b`)},
-}
-
 func detectLocalRoles(text string) []string {
-	out := []string{}
-	for _, role := range roleFamilies {
-		if role.pattern.MatchString(text) {
-			out = append(out, role.name)
-		}
-	}
-	return out
+	return directionRoles(text, false)
 }
 func hasString(values []string, v string) bool {
 	for _, value := range values {
@@ -123,64 +92,33 @@ func hasString(values []string, v string) bool {
 var backendInterface = regexp.MustCompile(`(?i)服务接口|后端接口|业务接口|接口服务|api\s*接口|rpc|grpc|restful|http\s*接口|微服务|\bapi\b|\bbackend services\b`)
 var backendStorage = regexp.MustCompile(`(?i)数据库|缓存|mysql|postgres|redis|任务队列|异步任务|消息队列|database|message queue|task queue`)
 
-func (s *LocalScreener) localRole(j d.Job, parsed localParsed) (score float64, role, source, excerpt, reason string) {
+func (s *LocalScreener) localRole(j d.Job, direction Direction) (score float64, role, source, excerpt, reason string) {
 	titleRoles := detectLocalRoles(j.Title)
-	if len(titleRoles) > 0 {
+	if len(titleRoles) > 0 && !hasString(titleRoles, softwareDirection) {
 		role, source, excerpt = strings.Join(titleRoles, "、"), "TITLE", j.Title
-	}
-	targets := s.targetRoles
-	for _, family := range titleRoles {
-		if hasString(targets, family) {
-			return 30, role, source, excerpt, "岗位标题方向与意向职能一致。"
+	} else if len(direction.Roles) > 0 {
+		role = strings.Join(direction.Roles, "、")
+		if len(direction.Evidence) > 0 {
+			source, excerpt = direction.Evidence[0].Source, direction.Evidence[0].Excerpt
 		}
 	}
-	if hasString(targets, "后端开发") && hasString(titleRoles, "基础架构与平台") || hasString(targets, "基础架构与平台") && hasString(titleRoles, "后端开发") {
-		return 16, role, source, excerpt, "岗位方向与意向职能相关，需要进一步核对具体职责。"
-	}
-	// Only responsibilities can establish a role from a generic title. A
-	// language mention or company introduction cannot turn a job into backend.
-	interfaces, storage, dutyExcerpt := false, false, ""
-	for _, clause := range parsed.Body {
-		if !localDuty.MatchString(clause) {
-			continue
+	reason = direction.Reason
+	switch direction.Status {
+	case "MATCH":
+		score = 30
+		if source == "BODY" {
+			score = 26
 		}
-		bodyRoles := detectLocalRoles(clause)
-		for _, family := range bodyRoles {
-			if hasString(targets, family) {
-				if len(titleRoles) == 0 {
-					return 26, family, "BODY", clause, "标题较笼统，岗位职责出现了意向职能的明确线索。"
+	case "RELATED":
+		score = 16
+	case "UNCERTAIN":
+		for _, family := range direction.Roles {
+			for _, target := range s.directionTargets {
+				if target == family || relatedDirection(target, family) {
+					score = 8
 				}
-				return 8, role, source, excerpt, "标题指向其他方向，职责中存在部分意向职能线索，需核对岗位重心。"
 			}
 		}
-		if backendInterface.MatchString(clause) {
-			interfaces = true
-			dutyExcerpt = clause
-		}
-		if backendStorage.MatchString(clause) {
-			storage = true
-			if dutyExcerpt == "" {
-				dutyExcerpt = clause
-			}
-		}
-	}
-	if hasString(targets, "后端开发") && interfaces && storage {
-		if len(titleRoles) == 0 {
-			return 26, "后端开发", "BODY", dutyExcerpt, "岗位职责包含服务接口及数据库、缓存或异步任务线索，倾向后端方向。"
-		}
-		return 8, role, source, excerpt, "职责有后端相关线索，但标题指向其他方向，需要核对岗位重心。"
-	}
-	for _, target := range s.unknownTargets {
-		if strings.Contains(Normalize(j.Title), Normalize(target)) {
-			return 30, target, "TITLE", j.Title, "岗位标题包含意向职能。"
-		}
-	}
-	if len(s.profile.TargetRoles) == 0 {
-		reason = "尚未填写意向职能，未计方向优先级。"
-	} else if role == "" {
-		reason = "尚未识别岗位方向，保留供核对。"
-	} else {
-		reason = "已识别的岗位方向与意向职能不同。"
 	}
 	return
 }
@@ -189,7 +127,7 @@ func (s *LocalScreener) Screen(j d.Job, text string) LocalScreen {
 	parsed := localJobCache.get(text)
 	v := LocalScreen{Version: LocalVersion, Tier: "UNCERTAIN", Reasons: []string{}, Warnings: []string{}, Checks: []LocalCheck{}}
 	v.Direction = s.direction(j, parsed)
-	roleScore, role, source, excerpt, roleReason := s.localRole(j, parsed)
+	roleScore, role, source, excerpt, roleReason := s.localRole(j, v.Direction)
 	v.Role, v.RoleSource, v.RoleExcerpt = role, source, excerpt
 	v.Reasons = append(v.Reasons, roleReason)
 	prefScore := 0.0

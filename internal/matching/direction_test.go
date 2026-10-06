@@ -58,7 +58,7 @@ func TestDirectionDoesNotUseScoreSkillsCityOrModelAndSupportsMultipleTargets(t *
 	if got := localFixture(t, p, nil).Screen(d.Job{Title: "前端开发"}, "岗位职责\n负责前端开发"); got.Direction.Status != "MATCH" {
 		t.Fatal(got.Direction)
 	}
-	for _, targets := range [][]string{nil, {"软件研发"}, {"后端开发", "自定义职能"}} {
+	for _, targets := range [][]string{nil, {"自定义研发方向"}, {"后端开发", "自定义职能"}} {
 		p.TargetRoles = targets
 		v := localFixture(t, p, nil).Screen(d.Job{Title: "会计"}, "岗位职责\n负责会计核算").Direction
 		if v.Status != "UNCERTAIN" {
