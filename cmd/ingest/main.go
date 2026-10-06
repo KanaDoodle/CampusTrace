@@ -25,7 +25,7 @@ func main() {
 	limit := flag.Int("rate", 6, "source requests per minute")
 	owner := flag.String("owner", "", "owner user ID for private manual ingestion")
 	timezone := flag.String("timezone", "Asia/Shanghai", "source IANA timezone for date-only deadlines")
-	adapter := flag.String("adapter", "", "public discovery adapter: lever, greenhouse, smartrecruiters, xiaohongshu, baidu, meituan, jd, netease, alibaba, bilibili, kuaishou, oppo, siemens, haier, lenovo, midea, byd, hikvision, qihoo360, sany, inovance, vivo, honor, sgm, ctrip, ths, cmbnt, netease_game, leihuo, ctyun, ctcloud, mihoyo, pingan_tech, pingan_oneconnect, pingan_wallet, cmcloud, cmiot, cmhome, gbits, hundsun, yuewen, tcl_digital, tcl_honghu, cec_software")
+	adapter := flag.String("adapter", "", "public discovery adapter: lever, greenhouse, smartrecruiters, xiaohongshu, baidu, meituan, jd, netease, alibaba, bilibili, kuaishou, oppo, siemens, haier, lenovo, midea, byd, hikvision, qihoo360, sany, inovance, vivo, honor, sgm, ctrip, tencent, ths, cmbnt, netease_game, leihuo, ctyun, ctcloud, mihoyo, pingan_tech, pingan_oneconnect, pingan_wallet, cmcloud, cmiot, cmhome, gbits, hundsun, yuewen, tcl_digital, tcl_honghu, cec_software")
 	tenant := flag.String("tenant", "", "public platform tenant identifier")
 	flag.Parse()
 	ctx, cancel := bootstrap.Root()

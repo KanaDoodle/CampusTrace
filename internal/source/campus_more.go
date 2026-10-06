@@ -93,6 +93,9 @@ func moreTenant(adapter string) string {
 	if cfg, ok := sectorScopes[adapter]; ok {
 		return cfg.Tenant
 	}
+	if adapter == "tencent" {
+		return tencentScope
+	}
 	if adapter == "ctrip" {
 		return "campus"
 	}
@@ -125,6 +128,8 @@ func (a PublicPlatform) discoverMore(ctx context.Context, s d.Source, w d.WatchT
 		return a.discoverBeisen(ctx, s)
 	}
 	switch s.Adapter {
+	case "tencent":
+		return a.discoverTencent(ctx, s)
 	case "ctrip":
 		return a.discoverCtrip(ctx, s)
 	case "lenovo":
@@ -153,6 +158,8 @@ func (a PublicPlatform) fetchMore(ctx context.Context, s d.Source, r PostingRef)
 		return a.fetchBeisen(ctx, s, r)
 	}
 	switch s.Adapter {
+	case "tencent":
+		return a.fetchTencent(ctx, s, r)
 	case "ctrip":
 		return a.fetchCtrip(ctx, s, r)
 	case "lenovo":

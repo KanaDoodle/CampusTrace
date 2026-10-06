@@ -156,7 +156,7 @@ CAMPUS_LIVE_SOURCES=1 GOWORK=off go test -count=1 -run '^TestExpandedCampusLiveR
 CAMPUS_LIVE_SOURCES=1 GOWORK=off go test -count=1 -run '^TestMoreCampusLiveReadOnly$' -v ./internal/source
 ```
 
-所有官网入口、范围与剩余接入阻碍见 [公司来源清单](campus-source-inventory.md) 与 [CSV](campus-source-inventory.csv)。腾讯公开资源403、Moka入口重定向循环、部分站点连接/访问限制、中国毕业生范围与集团子渠道待核验、超500岗范围需按官网项目拆分等问题均保留具体记录，未宣称全部37家可以自动抓取。
+所有官网入口、范围与剩余接入阻碍见 [公司来源清单](campus-source-inventory.md) 与 [CSV](campus-source-inventory.csv)。Moka入口重定向循环、部分站点连接/访问限制、中国毕业生范围与集团子渠道待核验、超500岗范围需按官网项目拆分等问题均保留具体记录，未宣称全部37家可以自动抓取。
 
 ## 游戏、金融科技与国央企来源（2026-10-06）
 
@@ -281,3 +281,30 @@ TCL列表没有职责和要求，详情来自匿名POST `/Ajax/job_detail.html?p
 ```sh
 CAMPUS_LIVE_SOURCES=1 GOWORK=off go test -count=1 -v -run '^TestAdditionalCampusLiveReadOnly/(tcl_digital|tcl_honghu|cec_software)$' ./internal/source
 ```
+
+
+## 腾讯常规中国校招与剩余缺口（2026-10-06）
+
+目录仍有 75 个来源，自动导入预设增至 41 个，34 个仅提供官网入口。此前腾讯客户端资源返回 403 的限制本次未再出现；新版适配器已接入关注源预览、定期检查及一键导入全部来源。
+
+腾讯使用官网公开 `getProjectMapping`、`searchPosition` 和 `getJobDetailsByPostId` 查询。范围固定为 `projectMappingIdList=[1]`、`workCountryType=1`，内部 scope 为 `2027_cn_1`。每次发现及详情读取均核对官网映射的 recruitType=1、projectId=1、recruitYear=2027 与启用状态，避免下一年度复用项目编号时混入旧来源。详情还核对 postId、标题、项目及类型，并保留毕业时间范围、职责、任职要求和 graduateBonus 加分项。
+
+列表每页100岗，稳定总数、精确页长度和唯一编号全部通过才返回成功。官网全部工作地点的常规校招有116岗，其中11个海外岗位指向Workday；本预设仅完整读取官网中国工作地点分类105岗，不将海外岗位静默丢弃后声称已完成全范围导入。首岗 `1282707398326592512`（AI全栈工程师）、尾岗 `1294744848557342720`（内容培训生-内容技术方向，含AIGC）的独立原文验证通过；全部105岗的元数据符合导入校验。正式扫描及各次详情读取均限定15秒，采用 PublicClient 原有直连、TLS、DNS、公开地址校验与同源跳转限制。无需登录或候选人 Cookie；所有请求共用腾讯每分钟30次的额度。
+
+普通 CI 使用固定数据，覆盖项目年份变化、未启用映射、毕业范围缺失、截断分页、总数变化、重复编号、容量超限、实习与外部渠道混入、详情错配、职责/要求为空、身份字段缺失、访问拦截、越域跳转及不继承候选人会话。全来源导入的集成测试会覆盖新增预设登记与任务生成。
+
+```sh
+CAMPUS_LIVE_SOURCES=1 GOWORK=off go test -count=1 -v -run '^TestTencentCampusLiveReadOnly$' ./internal/source
+```
+
+剩余五个来源本次复核仍未加入自动导入：
+
+| 来源 | 本次结果 | 剩余工作 |
+| --- | --- | --- |
+| 字节跳动 | 官网及客户端可读，匿名公开岗位查询返回405 | 取得可稳定查询并核对校招范围的公开流程，再核验完整分页和详情 |
+| 华为 | 新版校招页面可读，公开应届岗位查询返回412 | 等待可公开读取的岗位渠道，再核验原文和分页 |
+| 滴滴 | 官网校招入口指向官方 Moka 渠道，该入口仍出现重定向循环 | 复核入口恢复后的公开列表和详情 |
+| 携程/Trip.com | 普通公开请求返回56个应届岗，但正式 PublicPlatform 收到官网验证跳转，返回BLOCKED | 正式抓取可正常读取后才恢复自动导入 |
+| 小米 | 官网公开校招分类1061岗，北京分类529岗，均超500岗上限 | 支持官网可核对的项目拆分，或连同任务、容量及列表浏览统一扩容；核验独立详情 |
+
+以上均为本机当日快照。未创建用户关注、导入真实用户岗位或调用模型；也没有绕过网站验证。

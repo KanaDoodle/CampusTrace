@@ -32,6 +32,7 @@ type CampusSite struct {
 func CampusSites() []CampusSite {
 	return []CampusSite{
 		{"xiaohongshu", "小红书", XHSURL, "当前常规应届校招项目", 1800, true},
+		{"tencent", "腾讯", TencentCampusURL, "2027 常规应届校招 · 官网中国工作地点分类（不含实习、青云等人才专项及海外 Workday 岗）", 1800, false},
 		{"baidu", "百度", BaiduCampusURL, "应届生校招（含 AIDU、管培生项目）", 1800, false},
 		{"meituan", "美团", MeituanCampusURL, "应届生校招", 1800, false},
 		{"jd", "京东", JDCampusURL, "应届生项目（JDS、TET、新锐之星）", 1800, false},
@@ -104,6 +105,10 @@ func campusSite(raw string) (CampusSite, error) {
 			return site, nil
 		}
 		switch site.Adapter {
+		case "tencent":
+			if u.Host == "join.qq.com" && (path == "" || path == "/post.html") && u.RawQuery == "" {
+				return site, nil
+			}
 		case "xiaohongshu":
 			if u.Host == "job.xiaohongshu.com" && path == "/campus/position" && u.RawQuery == "" {
 				return site, nil

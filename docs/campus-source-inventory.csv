@@ -1,5 +1,6 @@
 company,category,official_entry_or_candidate,status,note,checked_date
 小红书,互联网,https://job.xiaohongshu.com/campus/position,已接入,常规应届校招；支持官网方向筛选。此前正式抓取验证见 campus-sources.md。,2026-10-05
+腾讯,互联网,https://join.qq.com/post.html,已接入,限定2027常规应届校招、官网中国工作地点分类；不含实习、青云专项和海外Workday岗。正式抓取器完整105岗，首尾详情核验通过，保留毕业范围、职责、要求和加分项。,2026-10-06
 百度,互联网,https://talent.baidu.com/jobs/list?recruitType=GRADUATE,已接入,GRADUATE 应届生；此前正式抓取器验证 159 岗。,2026-10-05
 美团,互联网,https://zhaopin.meituan.com/web/campus?hiringType=1_1,已接入但本机直连受限,适配器与固定数据测试已有；代理网络可读，但正式抓取器禁用代理，本机直连超时。,2026-10-05
 京东,互联网,https://campus.jd.com/#/jobs?type=present,已接入,present 应届生项目；此前正式抓取器验证 124 岗。,2026-10-05
@@ -39,12 +40,11 @@ vivo,消费电子与制造,https://hr-campus.vivo.com/campus/jobs,本轮接入�
 TCL · 流程与数字化转型中心,消费电子与制造,https://campus.tcl.com/campus/recruiting.html?id=43,已接入,限定2027全球校招与流程与数字化转型中心；正式抓取器完整12岗，首尾独立职责、要求与毕业范围核验通过。,2026-10-06
 TCL · 鸿鹄实验室,消费电子与制造,https://campus.tcl.com/campus/recruiting.html?id=46,已接入,限定2027全球校招与鸿鹄实验室；正式抓取器完整6岗，首尾独立职责、要求与毕业范围核验通过。,2026-10-06
 中国电子 · 麒麟软件/中电云,国央企,https://campus.cec.com.cn/position?positionType=0,已接入,仅麒麟软件、中电云两单位的官网校招分类；正式抓取器完整72岗，首尾独立详情核验通过。官网入口打开集团校招页，可按单位筛选查看；具体届别、截止日期见原文。,2026-10-06
-腾讯,互联网,https://join.qq.com/,访问受限,官网首页可读，公开客户端资源返回 403；完整校招列表与详情尚未接通。,2026-10-05
-字节跳动,互联网,https://jobs.bytedance.com/campus/position,待适配,官网与客户端可读；公开查询路由、校招项目范围和完整分页尚未验证。,2026-10-05
-携程/Trip.com,互联网,https://careers.ctrip.com/campus/jobList,官网验证阻断,公开接口曾返回 56 个应届生岗位；正式安全抓取器收到官网验证跳转，当前不可自动导入。,2026-10-05
-滴滴,互联网,https://talent.didiglobal.com/campus/,访问受限,官网链接的 Moka 校招入口在本机出现重定向循环。,2026-10-05
-华为,通信与制造,https://career.huawei.com/cn/campus-recruitment,访问受限,本机官网连接超时；此前岗位请求返回 403，尚未完成正式抓取验证。,2026-10-05
-小米,消费电子与制造,https://hr.xiaomi.com/website/campus.html,范围待拆分,此前公开校招查询超过单来源 500 岗上限；需核验官网项目划分后接入。,2026-10-05
+字节跳动,互联网,https://jobs.bytedance.com/campus/position,公开查询受限,官网与客户端可读；按公开客户端发送匿名岗位查询返回405，尚未完成校招范围、完整分页与详情核验。,2026-10-06
+携程/Trip.com,互联网,https://careers.ctrip.com/campus/jobList,官网验证阻断,公开接口曾返回 56 个应届生岗位；正式安全抓取器收到官网验证跳转，当前不可自动导入。,2026-10-06
+滴滴,互联网,https://talent.didiglobal.com/campus/,访问受限,官网链接的 Moka 校招入口在本机出现重定向循环。,2026-10-06
+华为,通信与制造,https://career.huawei.com/cn/campus-recruitment,访问受限,官网校招页可读；公开应届岗位查询本次返回412，尚未完成正式抓取验证。,2026-10-06
+小米,消费电子与制造,https://hr.xiaomi.com/website/campus.html,范围待拆分,官网校招分类本次返回1061岗，北京分类也有529岗，超过单来源500岗上限；需完善范围划分与详情。,2026-10-06
 博世,外企与工业,https://www.bosch.com.cn/careers/,访问受限,中国官网可读，官网链接的 Moka 校招入口在本机出现重定向循环。,2026-10-05
 ABB,外企与工业,https://careers.abb/china/zh/,待适配,中国职业页可读；中国毕业生岗位范围与公开查询尚未验证。,2026-10-05
 施耐德电气,外企与工业,https://www.se.com/cn/zh/about-us/careers/students-and-young-professionals.jsp,访问受限,本机中国页面连接超时，全球职位入口返回 403，尚未完成岗位读取验证。,2026-10-05
