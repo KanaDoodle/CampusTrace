@@ -82,6 +82,22 @@ func TestRecoveryRoundTripAndImportIsolation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	bulk, err := store.StartSourceImport(ctx, user, []p.SourceImportSpec{{Adapter: "meituan", Company: "synthetic", URL: "https://zhaopin.meituan.com/web/campus?hiringType=1_1"}, {Adapter: "jd", Company: "synthetic", URL: "https://campus.jd.com/#/jobs?type=present"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	prepare := p.NewTask("SOURCE_IMPORT", bulk.Items[0].ID)
+	prepare.Generation = 1
+	prepare.ID = p.SourceImportTaskID(prepare.EntityID, prepare.Generation)
+	if _, err = store.PrepareSourceImport(ctx, prepare); err != nil {
+		t.Fatal(err)
+	}
+	if err = store.QueueSourceImport(ctx, prepare, "meituan", "graduate", "synthetic campus"); err != nil {
+		t.Fatal(err)
+	}
+	pending := p.NewTask("SOURCE_IMPORT", bulk.Items[1].ID)
+	pending.Generation = 1
+	pending.ID = p.SourceImportTaskID(pending.EntityID, pending.Generation)
 	run := p.MatchRun{ID: d.ID(), State: "RUNNING", Version: 1, RequestKey: d.ID(), Items: []p.MatchRunItem{{JobID: o.JobID, InputKey: d.Hash("fixture"), State: "RUNNING"}}, CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()}
 	if _, err = store.DB.ExecContext(ctx, "INSERT INTO match_runs(id,user_id,request_key,state,token,lease_until,updated_at,body) VALUES(?,?,?,?,?,?,?,?)", run.ID, user, run.RequestKey, run.State, d.ID(), time.Now().Add(time.Minute), run.UpdatedAt, d.JSON(run)); err != nil {
 		t.Fatal(err)
@@ -165,7 +181,7 @@ func TestRecoveryRoundTripAndImportIsolation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw = append(raw, []byte("\nDROP TABLE source_http_cache; DELETE FROM schema_migrations WHERE version='local-reliability-v1';\n")...)
+	raw = append(raw, []byte("\nDROP TABLE source_http_cache; DROP TABLE source_import_items; DROP TABLE source_import_batches; DELETE FROM schema_migrations WHERE version IN ('local-reliability-v1','source-import-v1');\n")...)
 	os.WriteFile(legacy, raw, 0600)
 	if err = backupMetadata(legacy, time.Now().UTC(), report.ServerVersion); err != nil {
 		t.Fatal(err)
@@ -174,7 +190,7 @@ func TestRecoveryRoundTripAndImportIsolation(t *testing.T) {
 	if err != nil {
 		t.Fatal("previous backup failed migration", err)
 	}
-	if len(upgraded.BeforeMigration.Tables) != 43 || len(upgraded.AfterMigration.Tables) != 44 {
+	if len(upgraded.BeforeMigration.Tables) != len(baseline.Tables)-3 || len(upgraded.AfterMigration.Tables) != len(baseline.Tables) {
 		t.Fatal("new table not restored by migration", upgraded)
 	}
 	for _, name := range []string{"profiles", "projects", "project_facts", "jobs", "observations", "job_match_results"} {
@@ -205,7 +221,7 @@ func TestRecoveryRoundTripAndImportIsolation(t *testing.T) {
 		t.Fatal(err)
 	}
 	for name, want := range baseline.Tables {
-		if name != "watch_targets" && name != "match_runs" && proof.Tables[name] != want {
+		if name != "watch_targets" && name != "match_runs" && name != "source_import_items" && proof.Tables[name] != want {
 			t.Fatal("kept data changed", name)
 		}
 	}
@@ -217,8 +233,19 @@ func TestRecoveryRoundTripAndImportIsolation(t *testing.T) {
 	if err = restored.DB.QueryRowContext(ctx, "SELECT state,token FROM match_runs WHERE id=?", run.ID).Scan(&state, &token); err != nil || state != "WAITING_AUTH" || token != "" {
 		t.Fatal("restored task retained execution", state, token, err)
 	}
-	if kept.RecoveryChanges["paused_watches"] != 1 || kept.RecoveryChanges["interrupted_matching_tasks"] != 1 {
+	if kept.RecoveryChanges["paused_watches"] != 2 || kept.RecoveryChanges["interrupted_matching_tasks"] != 1 {
 		t.Fatal(kept.RecoveryChanges)
+	}
+	interrupted, err := restored.LatestSourceImport(ctx, user)
+	if err != nil || interrupted.State != "COMPLETED_WITH_ERRORS" || interrupted.Failed != 2 {
+		t.Fatal("restored source imports resumed without review", interrupted, err)
+	}
+	if _, err = restored.PrepareSourceImport(ctx, pending); err != p.ErrStaleSourceImport {
+		t.Fatal("restored prepare task was replayable", err)
+	}
+	retry, err := restored.RetrySourceImport(ctx, user, bulk.ID)
+	if err != nil || retry.State != "RUNNING" {
+		t.Fatal("restored imports not retryable", retry, err)
 	}
 	files, err := filepath.Glob(path + ".verify-*.json")
 	if err != nil || len(files) < 2 {

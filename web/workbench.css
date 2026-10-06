@@ -241,3 +241,18 @@ main { padding-top: 22px; padding-bottom: 35px; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
+
+/* Background campus imports stay separate from editable watch forms. */
+.source-bulk{padding:24px;margin:20px 0 28px;background:var(--surface,#fff);border:1px solid var(--line,#e3e5ed);border-radius:16px}
+.source-bulk-heading{display:flex;align-items:center;justify-content:space-between;gap:24px}
+.source-bulk-heading h3{margin:0 0 8px}.source-bulk-heading p{margin:0;max-width:650px}
+.source-bulk-heading>.btn{flex-shrink:0}.source-bulk-progress{display:grid;grid-template-columns:1fr auto;gap:8px 20px;margin:20px 0 16px}
+.source-bulk-progress span{font-size:13px;color:var(--muted,#72788b)}
+.source-bulk-progress progress{grid-column:1/-1;width:100%;height:8px;accent-color:var(--accent,#5550cc)}
+.source-bulk-details{margin-top:18px}.source-bulk-details summary{cursor:pointer}.source-bulk-details summary>span{margin-left:12px}
+.source-bulk-list{margin-top:14px;max-height:430px;overflow:auto;border-top:1px solid var(--line,#e3e5ed)}
+.source-bulk-row{display:grid;grid-template-columns:1fr auto;gap:12px;padding:15px 0;border-bottom:1px solid var(--line,#e3e5ed)}
+.source-bulk-row small{display:block;color:var(--muted,#72788b);margin-top:5px;font-size:12px;line-height:1.6}
+.source-bulk-row>div:last-child{text-align:right}.source-bulk-status{font-size:13px;color:var(--accent,#5550cc)}
+.source-bulk-status.is-failed{color:#ad652e}.source-bulk-row .btn{margin-top:6px}
+@media(max-width:700px){.source-bulk{padding:18px}.source-bulk-heading{align-items:flex-start;flex-direction:column;gap:14px}.source-bulk-progress{grid-template-columns:1fr}.source-bulk-progress progress{grid-column:1}.source-bulk-row{grid-template-columns:minmax(0,1fr) auto}}

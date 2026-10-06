@@ -39,6 +39,11 @@ func watchInterval(ctx context.Context, q Queryer, v d.WatchTarget, now time.Tim
 
 func finishWatchSchedule(ctx context.Context, tx *sql.Tx, v *d.WatchTarget, now time.Time, success bool) error {
 	v.RecordWatchRound(success)
+	if v.OneShot {
+		v.Enabled = false
+		v.ScheduleReason = "ONE_SHOT_FINISHED"
+		return nil
+	}
 	interval, reason, err := watchInterval(ctx, tx, *v, now)
 	if err != nil {
 		return err

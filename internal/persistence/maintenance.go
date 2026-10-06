@@ -221,7 +221,7 @@ func (s *Store) ProofDatabase(ctx context.Context) (DatabaseProof, error) {
 	return out, nil
 }
 
-var SupportedMigrations = map[string]bool{"repair-v2": true, "identity-v2": true, "release-repair-v3": true, "job-radar-v4": true, "backend-v1": true, "local-reliability-v1": true}
+var SupportedMigrations = map[string]bool{"repair-v2": true, "identity-v2": true, "release-repair-v3": true, "job-radar-v4": true, "backend-v1": true, "local-reliability-v1": true, "source-import-v1": true}
 
 func CheckMigrations(versions []string) error {
 	for _, v := range versions {

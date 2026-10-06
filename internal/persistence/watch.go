@@ -72,7 +72,7 @@ func createWatchTx(ctx context.Context, tx *sql.Tx, user string, input d.WatchIn
 		return v, err
 	}
 	var count int
-	if err := tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM watch_targets WHERE user_id=?", user).Scan(&count); err != nil {
+	if err := tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM watch_targets WHERE user_id=? AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(body,'$.one_shot')),'false')='false'", user).Scan(&count); err != nil {
 		return v, err
 	}
 	if count >= 100 {
@@ -89,13 +89,13 @@ func (s *Store) CreateWatch(ctx context.Context, user string, input d.WatchInput
 	return v, err
 }
 func (s *Store) Watch(ctx context.Context, user, id string) (d.WatchTarget, error) {
-	return One[d.WatchTarget](ctx, s.DB, "SELECT body FROM watch_targets WHERE id=? AND user_id=?", id, user)
+	return One[d.WatchTarget](ctx, s.DB, "SELECT body FROM watch_targets WHERE id=? AND user_id=? AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(body,'$.one_shot')),'false')='false'", id, user)
 }
 func (s *Store) Watches(ctx context.Context, user string) ([]d.WatchTarget, error) {
 	if user == "" {
 		return nil, ErrNotFound
 	}
-	return Many[d.WatchTarget](ctx, s.DB, "SELECT body FROM watch_targets WHERE user_id=? ORDER BY id LIMIT 100", user)
+	return Many[d.WatchTarget](ctx, s.DB, "SELECT body FROM watch_targets WHERE user_id=? AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(body,'$.one_shot')),'false')='false' ORDER BY id LIMIT 100", user)
 }
 func saveWatch(ctx context.Context, tx *sql.Tx, v d.WatchTarget) error {
 	_, err := tx.ExecContext(ctx, "UPDATE watch_targets SET enabled=?,next_check_at=?,body=? WHERE id=?", v.Enabled, v.NextCheckAt, d.JSON(v), v.ID)
@@ -108,7 +108,7 @@ func (s *Store) UpdateWatch(ctx context.Context, user, id string, input d.WatchI
 	}
 	err := s.Tx(ctx, func(tx *sql.Tx) error {
 		var err error
-		v, err = One[d.WatchTarget](ctx, tx, "SELECT body FROM watch_targets WHERE id=? AND user_id=? FOR UPDATE", id, user)
+		v, err = One[d.WatchTarget](ctx, tx, "SELECT body FROM watch_targets WHERE id=? AND user_id=? AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(body,'$.one_shot')),'false')='false' FOR UPDATE", id, user)
 		if err != nil {
 			return err
 		}
@@ -141,7 +141,7 @@ func (s *Store) UpdateWatch(ctx context.Context, user, id string, input d.WatchI
 	return v, err
 }
 func deleteWatchTx(ctx context.Context, tx *sql.Tx, user, id string) error {
-	r, err := tx.ExecContext(ctx, "DELETE FROM watch_targets WHERE id=? AND user_id=?", id, user)
+	r, err := tx.ExecContext(ctx, "DELETE FROM watch_targets WHERE id=? AND user_id=? AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(body,'$.one_shot')),'false')='false'", id, user)
 	if err != nil {
 		return err
 	}
@@ -167,7 +167,7 @@ func (s *Store) ScheduleWatches(ctx context.Context, now time.Time, limit int) (
 	}
 	count := 0
 	err := s.Tx(ctx, func(tx *sql.Tx) error {
-		watches, err := Many[d.WatchTarget](ctx, tx, "SELECT body FROM watch_targets WHERE enabled=TRUE AND next_check_at<=? ORDER BY next_check_at,id LIMIT ? FOR UPDATE SKIP LOCKED", now, limit)
+		watches, err := Many[d.WatchTarget](ctx, tx, "SELECT body FROM watch_targets WHERE enabled=TRUE AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(body,'$.one_shot')),'false')='false' AND next_check_at<=? ORDER BY next_check_at,id LIMIT ? FOR UPDATE SKIP LOCKED", now, limit)
 		if err != nil {
 			return err
 		}

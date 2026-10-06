@@ -230,6 +230,9 @@ func Decode(m redis.XMessage) (p.Task, error) {
 const MaxTaskAttempt = 100
 
 func ValidateTask(t p.Task) error {
+	if t.Type == "SOURCE_IMPORT" && (len(t.EntityID) != 32 || t.Generation == 0 || t.ID != p.SourceImportTaskID(t.EntityID, t.Generation) || t.ProcessingVersion != "" || t.CorrelationID == "") {
+		return errors.New("schema: invalid source import envelope")
+	}
 	if t.Type == "WATCH_CHECK" || t.Type == "WATCH_FETCH" {
 		if len(t.WatchID) != 32 || t.EntityID != t.WatchID || t.ScheduleVersion == 0 || t.CorrelationID == "" {
 			return errors.New("schema: invalid watch envelope")
@@ -244,7 +247,7 @@ func ValidateTask(t p.Task) error {
 		return errors.New("schema: unexpected watch fields")
 	}
 
-	if strings.TrimSpace(t.ID) == "" || len(t.ID) > 100 || strings.TrimSpace(t.EntityID) == "" || len(t.EntityID) > 100 || len(t.CorrelationID) > 200 || t.Attempt < 1 || t.Attempt > MaxTaskAttempt || t.Version != 1 || (t.Type != "ANALYZE" && t.Type != "ASSESS" && t.Type != "WATCH_CHECK" && t.Type != "WATCH_FETCH") {
+	if strings.TrimSpace(t.ID) == "" || len(t.ID) > 100 || strings.TrimSpace(t.EntityID) == "" || len(t.EntityID) > 100 || len(t.CorrelationID) > 200 || t.Attempt < 1 || t.Attempt > MaxTaskAttempt || t.Version != 1 || (t.Type != "ANALYZE" && t.Type != "ASSESS" && t.Type != "WATCH_CHECK" && t.Type != "WATCH_FETCH" && t.Type != "SOURCE_IMPORT") {
 		return errors.New("schema: invalid task envelope")
 	}
 	return nil

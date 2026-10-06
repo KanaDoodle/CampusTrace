@@ -25,8 +25,9 @@ func (v WatchInput) Validate() error {
 }
 
 type WatchTarget struct {
-	ID     string `json:"id"`
-	UserID string `json:"user_id"`
+	OneShot bool   `json:"one_shot,omitempty"`
+	ID      string `json:"id"`
+	UserID  string `json:"user_id"`
 	WatchInput
 	NextCheckAt       time.Time  `json:"next_check_at"`
 	LastCheckedAt     *time.Time `json:"last_checked_at,omitempty"`

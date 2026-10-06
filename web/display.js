@@ -161,6 +161,7 @@
     if (code==='SOURCE_PREVIEW_CAPACITY') return '此招聘项目超过当前单来源 500 个岗位的容量，本次没有创建关注。';
     if (code==='SOURCE_PREVIEW_RATE_LIMIT') return '网址预览太频繁，请一分钟后再试。';
     if (code==='SOURCE_PREVIEW_FAILED') return '招聘网站暂时无法读取，或页面接口已变化；本次没有创建关注，请稍后重试。';
+    if (code==='SOURCE_IMPORT_COOLDOWN') return '完整导入每 30 分钟可发起一次；失败来源可以单独重试。';
     if (code==='SOURCE_PREVIEW_NETWORK') return 'CampusTrace 连接招聘网站时超时或网络不通；本次没有创建关注。请检查运行服务的设备能否访问招聘网站，再重试。';
     if (code==='SOURCE_PREVIEW_BLOCKED') return '招聘网站拒绝了本次访问，可能需要登录或验证；本次没有创建关注。请先在浏览器中查看招聘页面。';
     if (code==='SOURCE_PREVIEW_BUSY') return '招聘网站暂时繁忙或请求过于频繁；本次没有创建关注，请稍后重试。';

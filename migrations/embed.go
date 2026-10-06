@@ -22,3 +22,6 @@ var BackendSQL string
 
 //go:embed 007_local_reliability.sql
 var LocalReliabilitySQL string
+
+//go:embed 008_source_import.sql
+var SourceImportSQL string

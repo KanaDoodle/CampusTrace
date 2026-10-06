@@ -74,6 +74,9 @@ func setup(t *testing.T) (context.Context, *p.Store, *pipeline.Queue, string, st
 
 func cleanupFixture(ctx context.Context, s *p.Store, owner, source string) error {
 	return s.Tx(ctx, func(tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, `DELETE FROM outbox WHERE JSON_UNQUOTE(JSON_EXTRACT(body,'$.entity_id')) IN (SELECT i.id FROM source_import_items i JOIN source_import_batches b ON b.id=i.batch_id WHERE b.user_id=?)`, owner); err != nil {
+			return err
+		}
 		for _, query := range []string{
 			`DELETE FROM outbox WHERE JSON_UNQUOTE(JSON_EXTRACT(body,'$.entity_id')) IN (SELECT o.id FROM observations o JOIN jobs j ON j.id=o.job_id WHERE EXISTS (SELECT 1 FROM postings p WHERE p.job_id=j.id AND p.source_id=?) OR j.owner_id=?)`,
 			`DELETE FROM outbox WHERE JSON_UNQUOTE(JSON_EXTRACT(body,'$.entity_id')) IN (SELECT j.id FROM jobs j WHERE EXISTS (SELECT 1 FROM postings p WHERE p.job_id=j.id AND p.source_id=?) OR j.owner_id=?)`,
@@ -83,6 +86,9 @@ func cleanupFixture(ctx context.Context, s *p.Store, owner, source string) error
 			if _, err := tx.ExecContext(ctx, query, source, owner); err != nil {
 				return err
 			}
+		}
+		if _, err := tx.ExecContext(ctx, "DELETE FROM source_import_batches WHERE user_id=?", owner); err != nil {
+			return err
 		}
 		rows, err := tx.QueryContext(ctx, `SELECT id FROM jobs WHERE owner_id=? OR id IN (SELECT job_id FROM postings WHERE source_id=?)`, owner, source)
 		if err != nil {

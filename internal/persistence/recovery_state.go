@@ -55,6 +55,9 @@ func (s *Store) PrepareRecovery(ctx context.Context) (map[string]int, error) {
 			}
 			counts["interrupted_matching_tasks"]++
 		}
+		if _, err = tx.ExecContext(ctx, `UPDATE source_import_items SET body=JSON_SET(body,'$.state','FAILED','$.code','SOURCE_IMPORT_INTERRUPTED') WHERE watch_id IS NULL AND JSON_UNQUOTE(JSON_EXTRACT(body,'$.state')) IN ('PENDING','PREPARING')`); err != nil {
+			return err
+		}
 		_, err = tx.ExecContext(ctx, "UPDATE match_runs SET token='',lease_until=NULL")
 		return err
 	})
