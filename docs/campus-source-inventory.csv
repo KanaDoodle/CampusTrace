@@ -7,6 +7,7 @@ company,category,official_entry_or_candidate,status,note,checked_date
 网易互联网,互联网,https://campus.163.com/app/job/position?id=103,已接入,2027届互联网项目103；此前验证81岗，不包含互娱、雷火。,2026-10-05
 阿里巴巴,互联网,https://campus-talent.alibaba.com/campus/position?batchId=100000760001,已接入,2027届应届生固定批次；此前验证468岗。,2026-10-05
 哔哩哔哩,互联网,https://jobs.bilibili.com/campus/positions?type=3,已接入,公开应届生范围；此前正式抓取器验证89岗。,2026-10-05
+SAP,外企与软件,https://careers.sap.com/search/?q=&optionsFacetsDD_country=CN&optionsFacetsDD_customfield3=Graduate,核验时暂无岗位,核验时暂无岗位：中国 Graduate 分类正式抓取器直连返回 0 岗，可关注后等待更新；不混入 Student、Professional 或海外岗位。Graduate 不是统一 2027 应届项目，具体届别与经验要求以原文为准。,2026-10-06
 西门子,外企与工业,https://jobs.siemens.com.cn/siemens/position/index?recruitmentType=CAMPUSRECRUITMENT,已接入,中国官网校招分类；此前正式抓取器完整42岗与首尾详情。,2026-10-05
 海尔集团,制造业,https://maker.haier.net/client/campusmobile/activity/id/68/fid.html,已接入,集团2027校招项目68；此前正式抓取器完整102岗与首尾详情。,2026-10-05
 OPPO,消费电子与制造,https://careers.oppo.com/university/oppo/campus/post?recruitType=Graduate,已接入,项目30；此前正式抓取器完整118岗与首尾详情，包含后端岗位。,2026-10-05
@@ -44,14 +45,13 @@ TCL · 鸿鹄实验室,消费电子与制造,https://campus.tcl.com/campus/recru
 携程/Trip.com,互联网,https://careers.ctrip.com/campus/jobList,官网验证阻断,公开接口曾返回 56 个应届生岗位；正式安全抓取器收到官网验证跳转，当前不可自动导入。,2026-10-06
 滴滴,互联网,https://talent.didiglobal.com/campus/,访问受限,官网链接的 Moka 校招入口在本机出现重定向循环。,2026-10-06
 华为,通信与制造,https://career.huawei.com/cn/campus-recruitment,访问受限,官网校招页可读；公开应届岗位查询本次返回412，尚未完成正式抓取验证。,2026-10-06
-小米,消费电子与制造,https://hr.xiaomi.com/website/campus.html,范围待拆分,官网校招分类本次返回1061岗，北京分类也有529岗，超过单来源500岗上限；需完善范围划分与详情。,2026-10-06
+小米,消费电子与制造,https://hr.xiaomi.com/website/campus.html,投递入口失效,投递入口失效：官网校招分类本次可读 1059 岗，但官网发布的校招、零售项目入口及抽查岗位链接均返回 404；容量扩展与原文核对也尚未完成，暂不自动导入。2026-10-06 复核。,2026-10-06
 博世,外企与工业,https://www.bosch.com.cn/careers/,访问受限,中国官网可读，官网链接的 Moka 校招入口在本机出现重定向循环。,2026-10-05
 ABB,外企与工业,https://careers.abb/china/zh/,待适配,中国职业页可读；中国毕业生岗位范围与公开查询尚未验证。,2026-10-05
 施耐德电气,外企与工业,https://www.se.com/cn/zh/about-us/careers/students-and-young-professionals.jsp,访问受限,本机中国页面连接超时，全球职位入口返回 403，尚未完成岗位读取验证。,2026-10-05
-SAP,外企与软件,https://jobs.sap.com/,待适配,官网此次可读；中国地点、毕业生分类及完整分页仍待验证。,2026-10-05
 Intel,外企与芯片,https://jobs.intel.com/en/locations-china,访问受限,中国职位入口在本机返回 403，尚未完成毕业生范围与分页验证。,2026-10-05
 IBM,外企与软件,https://www.ibm.com/careers/search,待适配,官网搜索页可读；中国毕业生岗位范围尚未验证，不能混入全球社招。,2026-10-05
-爱立信,外企与通信,https://jobs.ericsson.com/careers,待适配,官网搜索页可读；中国地点、毕业生范围及完整详情尚未验证。,2026-10-05
+爱立信,外企与通信,https://jobs.ericsson.com/careers,公开查询受限,公开查询受限：官网搜索页可读且能看到中国 New Grad 岗位；公开 search 查询本次返回 403，尚未完成完整分页与详情验证。2026-10-06 复核。,2026-10-06
 宁德时代,新能源与制造,https://talent.catl.com/,访问受限,官网 Moka 招聘入口在本机出现重定向循环；2027 校招项目尚未核验。,2026-10-05
 吉利汽车/控股,汽车与制造,https://www.geelyautogroup.com/recruitment,访问受限,集团招聘页可读；官网链接的校招站点连接失败，需分别核对子公司范围。,2026-10-05
 上汽集团,汽车与制造,https://www.saicmotor.com/chinese/rlzy/rcxq/xyzp/index_xz2.shtml,需按子公司接入,官网汇总多个子公司渠道；尚未核验各渠道校招范围，不能视为集团统一列表。,2026-10-05

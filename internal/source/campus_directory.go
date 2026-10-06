@@ -15,7 +15,7 @@ func CampusDirectory() []CampusDirectoryEntry {
 	categories := map[string]string{
 		"xiaohongshu": "互联网", "tencent": "互联网", "baidu": "互联网", "meituan": "互联网", "jd": "互联网", "netease": "互联网", "alibaba": "互联网", "bilibili": "互联网", "kuaishou": "互联网", "qihoo360": "互联网",
 		"oppo": "消费电子与制造", "vivo": "消费电子与制造", "honor": "消费电子与制造", "lenovo": "消费电子与制造",
-		"siemens": "外企与工业", "haier": "制造业", "sany": "制造业", "sgm": "汽车与制造", "inovance": "制造业", "midea": "制造业", "byd": "汽车与制造", "hikvision": "智能物联与制造",
+		"sap": "外企与软件", "siemens": "外企与工业", "haier": "制造业", "sany": "制造业", "sgm": "汽车与制造", "inovance": "制造业", "midea": "制造业", "byd": "汽车与制造", "hikvision": "智能物联与制造",
 		"ths": "金融科技", "cmbnt": "金融科技", "netease_game": "游戏", "leihuo": "游戏", "ctyun": "国央企", "ctcloud": "国央企", "mihoyo": "游戏", "pingan_tech": "金融科技", "pingan_oneconnect": "金融科技", "pingan_wallet": "金融科技", "cmcloud": "国央企", "cmiot": "国央企", "cmhome": "国央企", "hundsun": "金融科技", "yuewen": "互联网", "gbits": "游戏", "tcl_digital": "消费电子与制造", "tcl_honghu": "消费电子与制造", "cec_software": "国央企",
 	}
 	out := make([]CampusDirectoryEntry, 0, 75)
@@ -25,6 +25,9 @@ func CampusDirectory() []CampusDirectoryEntry {
 			entry.CheckedAt = "2026-10-06"
 		}
 		switch site.Adapter {
+		case "sap":
+			entry.CheckedAt = "2026-10-06"
+			entry.Status, entry.Note = "核验时暂无岗位", "中国 Graduate 分类核验为 0 岗，可关注后等待更新；不混入 Student 实习及 Professional 社招。Graduate 不等于统一 2027 应届项目，具体届别与经验要求见原文。"
 		case "tencent":
 			entry.CheckedAt = "2026-10-06"
 			entry.Note = "限定 2027 常规应届校招及官网中国工作地点分类；每次核对官网项目映射，保留毕业范围、职责、要求与加分项，不混入实习、青云专项和海外 Workday 岗位。"
@@ -65,14 +68,13 @@ func CampusDirectory() []CampusDirectoryEntry {
 		{"携程/Trip.com", "互联网", CtripCampusURL, "官网验证阻断", "公开接口曾返回 56 个应届生岗位；正式安全抓取器收到官网验证跳转，当前不可自动导入。"},
 		{"滴滴", "互联网", "https://talent.didiglobal.com/campus/", "访问受限", "官网链接的 Moka 校招入口在本机出现重定向循环。"},
 		{"华为", "通信与制造", "https://career.huawei.com/cn/campus-recruitment", "访问受限", "官网校招页可读；公开应届岗位查询本次返回 412，尚未完成正式抓取验证。"},
-		{"小米", "消费电子与制造", "https://hr.xiaomi.com/website/campus.html", "范围待拆分", "官网校招分类本次返回 1061 岗，北京分类也有 529 岗，超过单来源 500 岗上限；需完善可核对的范围划分与详情后接入。"},
+		{"小米", "消费电子与制造", "https://hr.xiaomi.com/website/campus.html", "投递入口失效", "官网校招分类本次可读 1059 岗，但官网发布的校招、零售项目入口及抽查岗位链接均返回 404；容量扩展与原文核对也尚未完成，暂不自动导入。"},
 		{"博世", "外企与工业", "https://www.bosch.com.cn/careers/", "访问受限", "中国官网可读，官网链接的 Moka 校招入口在本机出现重定向循环。"},
 		{"ABB", "外企与工业", "https://careers.abb/china/zh/", "待适配", "中国职业页可读；中国毕业生岗位范围与公开查询尚未验证。"},
 		{"施耐德电气", "外企与工业", "https://www.se.com/cn/zh/about-us/careers/students-and-young-professionals.jsp", "访问受限", "本机中国页面连接超时，全球职位入口返回 403，尚未完成岗位读取验证。"},
-		{"SAP", "外企与软件", "https://jobs.sap.com/", "待适配", "官网此次可读；中国地点、毕业生分类及完整分页仍待验证。"},
 		{"Intel", "外企与芯片", "https://jobs.intel.com/en/locations-china", "访问受限", "中国职位入口在本机返回 403，尚未完成毕业生范围与分页验证。"},
 		{"IBM", "外企与软件", "https://www.ibm.com/careers/search", "待适配", "官网搜索页可读；中国毕业生岗位范围尚未验证，不能混入全球社招。"},
-		{"爱立信", "外企与通信", "https://jobs.ericsson.com/careers", "待适配", "官网搜索页可读；中国地点、毕业生范围及完整详情尚未验证。"},
+		{"爱立信", "外企与通信", "https://jobs.ericsson.com/careers", "公开查询受限", "官网搜索页可读且能看到中国 New Grad 岗位；公开 search 查询本次返回 403，尚未完成完整分页与详情验证。"},
 		{"宁德时代", "新能源与制造", "https://talent.catl.com/", "访问受限", "官网 Moka 招聘入口在本机出现重定向循环；2027 校招项目尚未核验。"},
 		{"吉利汽车/控股", "汽车与制造", "https://www.geelyautogroup.com/recruitment", "访问受限", "集团招聘页可读；官网链接的校招站点连接失败，需分别核对子公司范围。"},
 		{"上汽集团", "汽车与制造", "https://www.saicmotor.com/chinese/rlzy/rcxq/xyzp/index_xz2.shtml", "需按子公司接入", "官网汇总多个子公司渠道；尚未核验各渠道校招范围，不能视为集团统一列表。"},
@@ -81,7 +83,7 @@ func CampusDirectory() []CampusDirectoryEntry {
 	for _, s := range manual {
 		checked := "2026-10-05"
 		switch s.company {
-		case "字节跳动", "携程/Trip.com", "滴滴", "华为", "小米":
+		case "字节跳动", "携程/Trip.com", "滴滴", "华为", "小米", "爱立信":
 			checked = "2026-10-06"
 		}
 		out = append(out, CampusDirectoryEntry{CampusSite: CampusSite{Company: s.company, URL: s.url, Scope: "仅官网入口，暂不支持自动导入"}, Category: s.category, Status: s.status, Note: s.note, CheckedAt: checked})

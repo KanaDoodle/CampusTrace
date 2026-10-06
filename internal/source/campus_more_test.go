@@ -571,7 +571,7 @@ func TestMoreCampusDirectoryAndStrictEntry(t *testing.T) {
 			t.Fatal("manual entry promoted to import")
 		}
 	}
-	if readyCount != 41 {
+	if readyCount != 42 {
 		t.Fatalf("automatic sources %d", readyCount)
 	}
 	for _, adapter := range moreAdapters {

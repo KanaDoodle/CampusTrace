@@ -39,6 +39,7 @@ func CampusSites() []CampusSite {
 		{"netease", "网易互联网", NeteaseCampusURL, "2027 届校园招聘（不含互娱、雷火）", 1800, false},
 		{"alibaba", "阿里巴巴", AlibabaCampusURL, "2027 届应届生（官网当前公开业务集团）", 1800, false},
 		{"bilibili", "哔哩哔哩", BilibiliCampusURL, "官网公开应届生岗位（不含实习）", 1800, false},
+		{"sap", "SAP", SAPCampusURL, "中国 Graduate 职业阶段（不含 Student、Professional；具体届别与经验要求见原文）", 1800, false},
 		{"siemens", "西门子", SiemensCampusURL, "中国官网校招分类（不含实习、社招）", 1800, false},
 		{"haier", "海尔集团", HaierCampusURL, "2027 校园招聘项目", 1800, false},
 		{"oppo", "OPPO", OPPOCampusURL, "2027 届应届生（不含实习、博士专项）", 1800, false},
@@ -105,6 +106,10 @@ func campusSite(raw string) (CampusSite, error) {
 			return site, nil
 		}
 		switch site.Adapter {
+		case "sap":
+			if u.Host == "careers.sap.com" && path == "/search" && len(query) == 3 && len(query["q"]) == 1 && query.Get("q") == "" && len(query["optionsFacetsDD_country"]) == 1 && query.Get("optionsFacetsDD_country") == "CN" && len(query["optionsFacetsDD_customfield3"]) == 1 && query.Get("optionsFacetsDD_customfield3") == "Graduate" {
+				return site, nil
+			}
 		case "tencent":
 			if u.Host == "join.qq.com" && (path == "" || path == "/post.html") && u.RawQuery == "" {
 				return site, nil

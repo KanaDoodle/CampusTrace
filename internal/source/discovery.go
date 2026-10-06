@@ -72,7 +72,7 @@ type HTTPEntry struct {
 
 var publicPlatformClient = PublicClient()
 
-func (PublicPlatform) Version() string { return "public-platforms-v14" }
+func (PublicPlatform) Version() string { return "public-platforms-v15" }
 
 var tenantPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,100}$`)
 
@@ -91,12 +91,12 @@ func PlatformURL(s d.Source) (string, error) {
 		if cfg := sectorScopes[s.Adapter]; s.Tenant == cfg.Tenant {
 			return cfg.Origin + "/api", nil
 		}
-	case "lenovo", "midea", "byd", "hikvision", "qihoo360", "sany", "inovance", "vivo", "honor", "sgm", "ctrip", "tencent", "hundsun", "yuewen":
+	case "lenovo", "midea", "byd", "hikvision", "qihoo360", "sany", "inovance", "vivo", "honor", "sgm", "ctrip", "tencent", "sap", "hundsun", "yuewen":
 		if s.Tenant == moreTenant(s.Adapter) {
 			if cfg, ok := beisenCompanies[s.Adapter]; ok {
 				return cfg.Origin + "/api", nil
 			}
-			return map[string]string{"lenovo": lenovoOrigin + "/gateway", "midea": mideaOrigin + "/backend", "byd": bydAPI, "hikvision": hikvisionOrigin + "/api", "honor": honorOrigin + "/wecruit", "ctrip": ctripOrigin + "/api/hrrecruit", "tencent": tencentOrigin + "/api/v1"}[s.Adapter], nil
+			return map[string]string{"lenovo": lenovoOrigin + "/gateway", "midea": mideaOrigin + "/backend", "byd": bydAPI, "hikvision": hikvisionOrigin + "/api", "honor": honorOrigin + "/wecruit", "ctrip": ctripOrigin + "/api/hrrecruit", "tencent": tencentOrigin + "/api/v1", "sap": sapOrigin + "/services/jobs"}[s.Adapter], nil
 		}
 	case "xiaohongshu":
 		return "https://job.xiaohongshu.com/websiterecruit/position", nil
@@ -483,7 +483,7 @@ func (a PublicPlatform) Discover(ctx context.Context, s d.Source, w d.WatchTarge
 				return nil, fail("SCHEMA_INVALID", false, 200)
 			}
 		}
-	case "lenovo", "midea", "byd", "hikvision", "qihoo360", "sany", "inovance", "vivo", "honor", "sgm", "ctrip", "ths", "cmbnt", "netease_game", "leihuo", "ctyun", "ctcloud", "mihoyo", "pingan_tech", "pingan_oneconnect", "pingan_wallet", "cmcloud", "cmiot", "cmhome", "gbits", "hundsun", "yuewen", "tcl_digital", "tcl_honghu", "cec_software", "tencent":
+	case "lenovo", "midea", "byd", "hikvision", "qihoo360", "sany", "inovance", "vivo", "honor", "sgm", "ctrip", "ths", "cmbnt", "netease_game", "leihuo", "ctyun", "ctcloud", "mihoyo", "pingan_tech", "pingan_oneconnect", "pingan_wallet", "cmcloud", "cmiot", "cmhome", "gbits", "hundsun", "yuewen", "tcl_digital", "tcl_honghu", "cec_software", "tencent", "sap":
 		refs, err = a.discoverMore(ctx, s, w)
 		if err != nil {
 			return nil, err
@@ -614,7 +614,7 @@ func (a PublicPlatform) FetchPosting(ctx context.Context, s d.Source, r PostingR
 				text += "\nApplication URL: " + v.ApplyURL
 			}
 		}
-	case "lenovo", "midea", "byd", "hikvision", "qihoo360", "sany", "inovance", "vivo", "honor", "sgm", "ctrip", "ths", "cmbnt", "netease_game", "leihuo", "ctyun", "ctcloud", "mihoyo", "pingan_tech", "pingan_oneconnect", "pingan_wallet", "cmcloud", "cmiot", "cmhome", "gbits", "hundsun", "yuewen", "tcl_digital", "tcl_honghu", "cec_software", "tencent":
+	case "lenovo", "midea", "byd", "hikvision", "qihoo360", "sany", "inovance", "vivo", "honor", "sgm", "ctrip", "ths", "cmbnt", "netease_game", "leihuo", "ctyun", "ctcloud", "mihoyo", "pingan_tech", "pingan_oneconnect", "pingan_wallet", "cmcloud", "cmiot", "cmhome", "gbits", "hundsun", "yuewen", "tcl_digital", "tcl_honghu", "cec_software", "tencent", "sap":
 		text, err = a.fetchMore(ctx, s, r)
 	case "xiaohongshu":
 		text, err = a.fetchXHS(ctx, s, r)

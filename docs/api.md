@@ -149,3 +149,9 @@ OPPO 仅接收 `https://careers.oppo.com/university/oppo/campus/post`，可无�
 海尔仅接收 `https://maker.haier.net/client/campusmobile/activity/id/68/fid.html`。公开页面核对“海尔集团2027校园招聘”和所属类别链接，POST `/client/campusmobile/researchlist.html` 按项目 68、空类别/关键词、每页 50 条读取。官网不返回总数，`maxPage=1` 是终止标记而非总页数；预览也必须读取到终止标记才能显示总数。核验 status=1、activity_stop=false、终止标记存在、非终止页满页、编号去重、行内详情链接的项目/类别/岗位身份，最多 500 岗；无法核实终止时整次失败。详情链接名称 deliverfirst 只是官网公开内容页，读取不会执行投递、收藏或登录操作。详情核验 data-aid/data-rid，保留名称、职责、要求、地点及招聘部门，不据部门推定签约子公司。
 
 上述 HTML 查询复用来源限速、一次网络/5xx 重试、1 MiB 响应上限及 GET 条件缓存。HTML 与 JSON 分别校验响应类型；POST 不使用条件缓存。新来源均不读取个人 CookieJar，仅允许各自官网同源 HTTPS 跳转，不更改公网 DNS 核验和代理禁用边界。
+
+### SAP 中国 Graduate 来源
+
+预设仅接收 `https://careers.sap.com/search/?q=&optionsFacetsDD_country=CN&optionsFacetsDD_customfield3=Graduate`，scope 为 `CN_Graduate`。查询只用官网公开职业阶段和国家筛选，不使用标题关键词推断应届身份。Student、Professional、其他国家、分页及额外私有筛选参数不作为入口接受。Graduate 可能包含有一定经验的毕业生，具体届别与经验要求仍以岗位原文为准。
+
+公开 facet 查询核对 `customfield3=Graduate` 与 `country=CN`。HTML 列表每页25条，检查页码、页范围、总数、唯一原始编号及重复的桌面/手机版标题；空结果必须有明确的同范围提示，不能把推荐岗位当成结果。详情独立核对 canonical URL、标题、SAP 主体、Graduate 阶段及中国地点，只保留岗位正文和官网用工类型。列表没有用工类型，元数据保留 UNKNOWN，不将 Graduate 擅自标为全职或统一2027届。来源私有、最小周期1800秒，站点共享30次/分钟限制，同源HTTPS、响应上限、候选人会话隔离与条件缓存沿用。

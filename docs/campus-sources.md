@@ -308,3 +308,21 @@ CAMPUS_LIVE_SOURCES=1 GOWORK=off go test -count=1 -v -run '^TestTencentCampusLiv
 | 小米 | 官网公开校招分类1061岗，北京分类529岗，均超500岗上限 | 支持官网可核对的项目拆分，或连同任务、容量及列表浏览统一扩容；核验独立详情 |
 
 以上均为本机当日快照。未创建用户关注、导入真实用户岗位或调用模型；也没有绕过网站验证。
+
+## SAP 中国 Graduate 来源及小米、爱立信复核（2026-10-06）
+
+自动导入预设现在为42个，目录总数仍为75个，33个只保留官网入口。新增 SAP 支持关注源预览、定期检查及一键导入全部来源。
+
+SAP 使用官网当前公开可直连的 `careers.sap.com` 招聘入口。本预设固定 `optionsFacetsDD_country=CN`、`optionsFacetsDD_customfield3=Graduate`，内部 scope 为 `CN_Graduate`。通过官网公开 `/services/jobs/options/facetValues/` 确认国家和职业阶段，再读取 `/search/` 的 HTML 分页。中国所有阶段共有21岗，但中国 Graduate 分类明确返回0岗；这是该分类为空，不代表SAP没有中国岗位。Graduate是官网职业阶段，可能包含有一定经验的毕业生，不等同统一2027应届项目。
+
+HTML列表每页25岗，核对带范围的 aria-label、页码、起止序号、总页数、稳定总数、唯一原始编号及两份桌面/移动标题。页面空结果必须明确标注 `Graduate AND China`，推荐列表不参与导入。独立详情核对 canonical URL、标题、SAP主体、Graduate阶段和中国地址；正文保留职责、要求、加分项、经验要求及官网用工类型，排除页眉和页脚。列表无用工类型字段，因此元数据为UNKNOWN。英文城市按明确名称归一，例如Shanghai为上海、Dalian China为大连，详情仍保留原地址。
+
+普通测试使用固定HTML与JSON数据，覆盖52岗跨3页、截断/重复/页码及总数变化、容量超限、国家或阶段混入、推荐列表、身份及城市错配、缺失正文、会话隔离和越域跳转。中国Graduate当前没有真实详情可抽查；当前真实验证确认正式PublicClient在15秒内直连返回0岗，不声称验证了不存在的中国应届详情。正式部署网络也单独复核空范围。
+
+```sh
+CAMPUS_LIVE_SOURCES=1 GOWORK=off go test -count=1 -v -run '^TestSAPCampusLiveReadOnly$' ./internal/source
+```
+
+本次小米复核：官网公开 `searchJobPage` 的type=2可读取1059岗；官方CMS项目配置中的 `xiaomi.jobs.f.mioffice.cn/campus/?spread=J7NS6YR`、新零售入口及抽查的岗位详情链接均返回404。此前容量超限仍需处理，但单纯扩容不能修复官网失效入口，因此本次保留为仅官网来源并更正状态。没有截取前500岗作为“导入成功”。
+
+爱立信官网可打开并显示中国New Grad岗位，但其公开客户端使用的 `/api/pcsx/search` 查询本次返回403，尚未完成正式分页和独立详情验证；目录保留公开查询受限状态。以上均为本机当日快照，没有绕过验证、读取候选人账号或调用模型。
