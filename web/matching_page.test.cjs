@@ -3,8 +3,8 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
 
-function harness({pending=['pending-a','pending-b'],failed=['failed-a','failed-b'],analyze,exportError,compare,evidenceReviews=0,durable=false,taskRuns=[],taskRequest,bulkRequest}={}){
-  const stored=new Map(),elements=new Map(),requests=[],exports=[],decisionRequests=[],taskRequests=[],bulkRequests=[],timers=[];
+function harness({pending=['pending-a','pending-b'],failed=['failed-a','failed-b'],analyze,exportError,compare,evidenceReviews=0,durable=false,taskRuns=[],taskRequest,bulkRequest,importRequest}={}){
+  const stored=new Map(),elements=new Map(),requests=[],exports=[],decisionRequests=[],taskRequests=[],bulkRequests=[],importRequests=[],timers=[];
   const model={url:'https://model.example/chat',model:'test-model',api_key:'synthetic-test-key'};
   const modelKey=JSON.stringify([model.url,model.model,'server-model']);
   stored.set('campustrace:match-progress:v1:alice',JSON.stringify({hash:'profile',model:modelKey,pending,failed:failed.map(id=>({id,message:'上次连接失败'})),done:1,calls:1}));
@@ -20,11 +20,12 @@ function harness({pending=['pending-a','pending-b'],failed=['failed-a','failed-b
     }
     return true;
   };
-  const context={document,setTimeout:(fn,delay)=>{timers.push({fn,delay});return timers.length;},FormData:class{get(k){const el=elements.get({q:'match-search',state:'match-state',tier:'match-tier',workflow:'match-workflow',city:'match-city',sort:'match-sort',only_selected:'match-only-selected',show_ignored:'match-show-ignored'}[k]);return el?.tagName==='INPUT'&&['only_selected','show_ignored'].includes(k)?el.checked?'on':'':el?.value||'';}},clearTimeout:id=>{if(timers[id-1])timers[id-1].canceled=true;},crypto:{randomUUID:()=>'synthetic-task-request-00000000000'},sessionStorage:{getItem:k=>stored.get(k),setItem:(k,v)=>stored.set(k,v)},CampusModels:{bindUser(){},requestConfig:()=>model,available:()=>true,label:()=> '测试模型'},CampusMatchingChat:{readSelection:()=>new Set(),selectedRows:()=>[],pruneSelection(){},storeSelection(){}},console};
+  const context={document,TextEncoder,setTimeout:(fn,delay)=>{timers.push({fn,delay});return timers.length;},FormData:class{get(k){const el=elements.get({q:'match-search',state:'match-state',tier:'match-tier',workflow:'match-workflow',city:'match-city',sort:'match-sort',only_selected:'match-only-selected',show_ignored:'match-show-ignored'}[k]);return el?.tagName==='INPUT'&&['only_selected','show_ignored'].includes(k)?el.checked?'on':'':el?.value||'';}},clearTimeout:id=>{if(timers[id-1])timers[id-1].canceled=true;},crypto:{randomUUID:()=>'synthetic-task-request-00000000000'},sessionStorage:{getItem:k=>stored.get(k),setItem:(k,v)=>stored.set(k,v)},CampusModels:{bindUser(){},requestConfig:()=>model,available:()=>true,label:()=> '测试模型'},CampusMatchingChat:{readSelection:()=>new Set(),selectedRows:()=>[],pruneSelection(){},storeSelection(){}},console};
   vm.createContext(context);vm.runInContext(fs.readFileSync(__dirname+'/ui.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/navigation.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching_decision.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching_tasks.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching_chat.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching.js','utf8'),context);
   const api=async(path,method,body)=>{
     if(path==='/api/profile/resume/capabilities')return {user_id:'alice',model:'server-model',model_available:true,durable_matching:durable};
     if(path.startsWith('/api/matching/tasks')){if(!method||method==='GET'){return structuredClone(path==='/api/matching/tasks'?taskRuns:taskRuns.find(v=>v.id===path.split('/')[4]));}taskRequests.push({path,body});if(taskRequest)return taskRequest(path,body);throw new Error('unexpected mutation');}
+    if(path.startsWith('/api/matching/import/')){importRequests.push({path,body});if(importRequest)return importRequest(path,body);throw new Error('Unexpected chat import');}
     if(path==='/api/matching/preview')return structuredClone(snapshot);
     if(path==='/api/jobs/preferences'){
       bulkRequests.push(body);if(bulkRequest)await bulkRequest(body,bulkRequests.length);
@@ -51,7 +52,7 @@ function harness({pending=['pending-a','pending-b'],failed=['failed-a','failed-b
     throw new Error('Unexpected local test API path: '+path);
   };
   const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  return {navigation:context.CampusNavigation,start:(initial={})=>context.CampusMatching.page(set,'<h2>岗位匹配</h2>',{api,esc,D:{text:s=>s,date:()=>'',errorCode:s=>s,matchingDiagnostic:()=>'',label:(_kind,s)=>s},active:()=>true,navigate(){},...initial}),elements,requests,exports,decisionRequests,taskRequests,bulkRequests,timers,stored,snapshot,review:()=>elements.get('match-confirm').onclick(),html:()=>html,consent:()=>elements.get('match-consent').onchange({target:{checked:true}}),progress:()=>JSON.parse(stored.get('campustrace:match-progress:v1:alice'))};
+  return {navigation:context.CampusNavigation,start:(initial={})=>context.CampusMatching.page(set,'<h2>岗位匹配</h2>',{api,esc,D:{text:s=>s,date:()=>'',errorCode:s=>s,matchingDiagnostic:()=>'',label:(_kind,s)=>s},active:()=>true,navigate(){},...initial}),elements,requests,exports,decisionRequests,taskRequests,bulkRequests,importRequests,timers,stored,snapshot,review:()=>elements.get('match-confirm').onclick(),html:()=>html,consent:()=>elements.get('match-consent').onchange({target:{checked:true}}),progress:()=>JSON.parse(stored.get('campustrace:match-progress:v1:alice'))};
 }
 
 test('returning from evidence supplementation reviews only the target job without starting a model call',async()=>{
@@ -264,4 +265,24 @@ test('批量处理中途失败，保留已成功结果和未完成选择，重�
  h.snapshot.jobs=Array.from({length:1002},(_,i)=>directionRow('other-'+i,'UNRELATED'));await h.start();h.elements.get('match-select-unrelated').onclick();await h.elements.get('match-bulk-ignore').onclick();
  assert.equal(h.snapshot.jobs.filter(j=>j.disposition==='IGNORED').length,1000);assert.match(h.html(),/模拟网络中断/);assert.equal(JSON.parse(h.stored.get('campustrace:match-selection:v1:alice')).length,2);
  fail=false;await h.elements.get('match-bulk-ignore').onclick();assert.equal(h.bulkRequests.at(-1).job_ids.length,2);assert.equal(h.snapshot.jobs.filter(j=>j.disposition==='IGNORED').length,1002);assert.deepEqual(h.requests,[]);
+});
+
+const chatDoc=()=>({version:'campustrace-chat-v3',candidate_hash:'profile',jobs:[{job_id:'pending-a',input_key:'input',requirements:[],matches:[]}]});
+const chatPreview=()=>({preview_key:'checked-preview',evidence_reviews:0,jobs:[{job_id:'pending-a',company:'测试公司',title:'岗位',replaces:true,result:{score:100,coverage:100,requirements:[],matches:[],candidate_facts:[],breakdown:[],qualifications:{status:'UNKNOWN'}}}]});
+test('chat import only saves after preview and confirmation; edits invalidate the preview',async()=>{
+  const h=harness({importRequest:async(path)=>path.endsWith('preview')?chatPreview():{imported:1}});await h.start();
+  await h.elements.get('match-open-import').onclick();
+  const edit=()=>h.elements.get('match-import-text').oninput({target:{value:JSON.stringify(chatDoc())}});
+  edit();assert.equal(h.elements.get('match-import-confirm').disabled,true);
+  await h.elements.get('match-import-preview').onclick();
+  assert.equal(h.importRequests.length,1);assert.ok(h.html().includes('替换已有结果'));assert.equal(h.elements.get('match-import-confirm').disabled,false);
+  edit();assert.equal(h.elements.get('match-import-confirm').disabled,true);
+  await h.elements.get('match-import-preview').onclick();await h.elements.get('match-import-confirm').onclick();
+  assert.equal(h.importRequests.at(-1).path,'/api/matching/import/confirm');assert.equal(h.importRequests.at(-1).body.preview_key,'checked-preview');
+  assert.ok(h.html().includes('已导入 1 个岗位'));assert.equal(h.requests.length,0);assert.equal(h.exports.length,0);
+});
+test('failed chat confirmation clears preview and keeps pasted results for correction',async()=>{
+  const h=harness({importRequest:async(path)=>{if(path.endsWith('preview'))return chatPreview();throw new Error('资料已变化');}});await h.start();h.elements.get('match-open-import').onclick();
+  h.elements.get('match-import-text').oninput({target:{value:JSON.stringify(chatDoc())}});await h.elements.get('match-import-preview').onclick();await h.elements.get('match-import-confirm').onclick();
+  assert.match(h.html(),/资料已变化/);assert.equal(h.elements.get('match-import-confirm').disabled,true);assert.match(h.html(),/campustrace-chat-v3/);
 });

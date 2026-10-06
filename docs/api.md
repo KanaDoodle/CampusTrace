@@ -163,3 +163,14 @@ OPPO 仅接收 `https://careers.oppo.com/university/oppo/campus/post`，可无�
 预设仅接收 `https://careers.sap.com/search/?q=&optionsFacetsDD_country=CN&optionsFacetsDD_customfield3=Graduate`，scope 为 `CN_Graduate`。查询只用官网公开职业阶段和国家筛选，不使用标题关键词推断应届身份。Student、Professional、其他国家、分页及额外私有筛选参数不作为入口接受。Graduate 可能包含有一定经验的毕业生，具体届别与经验要求仍以岗位原文为准。
 
 公开 facet 查询核对 `customfield3=Graduate` 与 `country=CN`。HTML 列表每页25条，检查页码、页范围、总数、唯一原始编号及重复的桌面/手机版标题；空结果必须有明确的同范围提示，不能把推荐岗位当成结果。详情独立核对 canonical URL、标题、SAP 主体、Graduate 阶段及中国地点，只保留岗位正文和官网用工类型。列表没有用工类型，元数据保留 UNKNOWN，不将 Graduate 擅自标为全职或统一2027届。来源私有、最小周期1800秒，站点共享30次/分钟限制，同源HTTPS、响应上限、候选人会话隔离与条件缓存沿用。
+
+
+### Manual chat result import
+
+`POST /api/matching/export` returns `version=campustrace-chat-v3`, `candidate_hash` and each job's `input_key`. Chat returns only `{version,candidate_hash,jobs:[{job_id,input_key,requirements,matches}]}`. The package specifies requirement IDs, exact source quotes, optional supported qualification claim types/values and match citation IDs. Chat scores/ranks stay outside the JSON; the service calculates scores, section counts and eligibility.
+
+`POST /api/matching/import/preview` accepts `{document,mask_name}` and returns `{preview_key,jobs:[{job_id,title,company,replaces,result}],evidence_reviews}`. It reads local records and makes no model request. `POST /api/matching/import/confirm` accepts the same document and mask plus `preview_key`. The preview is bound to current candidate/job inputs, normalized results and existing saved-result versions. Confirm revalidates and saves the whole batch atomically under the account lock; a change aborts all writes. Duplicate confirmation with an old preview is rejected. Both routes are authenticated and use `Cache-Control: no-store`.
+
+Import is bounded to 100 jobs, a 2 MiB request and 36 requirements per job; each supplied job is processed once, incomplete per-requirement matches and duplicate IDs are rejected. It does not assert that an uploaded result includes every exported job. Fixed `MATCH_CHAT_FORMAT`, `MATCH_CHAT_INVALID`, `MATCH_CHAT_CAPACITY`, `MATCH_CHAT_STALE` errors carry only validation codes and numeric positions. Larger bodies use an explicitly bounded strict decoder; other routes retain their 64 KiB decoder limit. Nulls and unknown fields remain invalid.
+
+Saved results have `source=CHATGPT_IMPORT` and a local `source_context_key` covering current default-redacted inputs. This hash lets an additionally name-masked export survive page reload without storing the mask. Imported results remain readable with another selected API model, while any candidate revision or job-text change marks them stale. Their existing paid-analysis record is replaced only after an explicit preview confirmation. Import does not populate paid requirement caches, run a model or increment daily model usage.

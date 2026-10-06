@@ -31,10 +31,13 @@ func ID() string {
 	}
 	return hex.EncodeToString(b)
 }
-func Normalize(s string) string { return strings.Join(strings.Fields(strings.ToLower(s)), " ") }
-func Hash(s string) string      { h := sha256.Sum256([]byte(s)); return hex.EncodeToString(h[:]) }
-func Strict(raw []byte, dst any) error {
-	if len(raw) == 0 || len(raw) > 65536 || bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
+func Normalize(s string) string        { return strings.Join(strings.Fields(strings.ToLower(s)), " ") }
+func Hash(s string) string             { h := sha256.Sum256([]byte(s)); return hex.EncodeToString(h[:]) }
+func Strict(raw []byte, dst any) error { return StrictLimit(raw, dst, 65536) }
+
+// StrictLimit retains the same schema/null checks with an explicit route bound.
+func StrictLimit(raw []byte, dst any, limit int) error {
+	if limit <= 0 || len(raw) == 0 || len(raw) > limit || bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
 		return errors.New("invalid JSON size or null")
 	}
 	// Reject null at any depth: optional values are omitted, never ambiguous nulls.

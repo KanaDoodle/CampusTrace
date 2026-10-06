@@ -17,6 +17,7 @@ const maxChatExportBytes = 5 << 20
 // of the manual-chat package. This route only reads local data; no model runs.
 type chatExportJob struct {
 	ID             string   `json:"job_id"`
+	InputKey       string   `json:"input_key"`
 	Company        string   `json:"company"`
 	Title          string   `json:"title"`
 	Locations      []string `json:"locations"`
@@ -74,7 +75,7 @@ func (a *API) exportMatches(w http.ResponseWriter, r *http.Request) {
 			codedError(w, 409, "MATCH_EXPORT_TEXT_REQUIRED")
 			return
 		}
-		byID[row.Job.ID] = chatExportJob{row.Job.ID, clean(row.Job.Company), clean(row.Job.Title), cleanList(row.Job.Locations), row.Job.JobType, row.Job.CurrentStatus, row.ExcludedReason, row.Text}
+		byID[row.Job.ID] = chatExportJob{row.Job.ID, matching.InputKey(matching.RequirementKey(row.Text, matching.ChatIdentity), snapshot.CandidateHash), clean(row.Job.Company), clean(row.Job.Title), cleanList(row.Job.Locations), row.Job.JobType, row.Job.CurrentStatus, row.ExcludedReason, row.Text}
 	}
 	jobs := make([]chatExportJob, 0, len(in.JobIDs))
 	for _, id := range in.JobIDs {
@@ -87,7 +88,7 @@ func (a *API) exportMatches(w http.ResponseWriter, r *http.Request) {
 		Candidate     matching.Candidate  `json:"candidate"`
 		Preferences   map[string][]string `json:"preferences"`
 		Jobs          []chatExportJob     `json:"jobs"`
-	}{"campustrace-chat-v2", time.Now().UTC(), snapshot.CandidateHash, snapshot.Candidate, map[string][]string{
+	}{matching.ChatVersion, time.Now().UTC(), snapshot.CandidateHash, snapshot.Candidate, map[string][]string{
 		"preferred_job_types": cleanList(snapshot.Profile.PreferredTypes),
 		"preferred_cities":    cleanList(snapshot.Profile.PreferredCities),
 		"acceptable_cities":   cleanList(snapshot.Profile.AcceptableCities),

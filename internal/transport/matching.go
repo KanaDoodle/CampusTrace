@@ -185,6 +185,13 @@ func (a *API) matchingRoutes(on func(string, http.HandlerFunc)) {
 	})
 	on("POST /api/matching/analyze", a.analyzeMatches)
 	on("POST /api/matching/export", a.exportMatches)
+	on("POST /api/matching/import/{action}", func(w http.ResponseWriter, r *http.Request) {
+		if r.PathValue("action") != "preview" && r.PathValue("action") != "confirm" {
+			codedError(w, 404, "NOT_FOUND")
+			return
+		}
+		a.importChatMatches(w, r)
+	})
 	on("POST /api/matching/company", a.compareCompany)
 	on("POST /api/matching/preparation/{id}", a.prepareMatchedJob)
 }

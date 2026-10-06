@@ -70,3 +70,20 @@ test('download contains exact reviewed edits, with merge instructions for ZIP an
     assert.equal(filename,files[0].name);assert.equal(await blob.text(),files[0].text);
   }finally{global.URL=oldURL;global.document=oldDocument;delete global.JSZip;}
 });
+
+test('chat results accept full JSON or one fenced block, merge consistent files and reject ambiguity',()=>{
+  const doc=id=>({version:'campustrace-chat-v3',candidate_hash:'profile',jobs:[{job_id:id,input_key:'input-'+id,requirements:[],matches:[]}]});
+  assert.equal(C.parseDocuments(['说明\n```json\n'+JSON.stringify(doc('a'))+'\n```']).jobs[0].job_id,'a');
+  assert.equal(C.parseDocuments([JSON.stringify(doc('a')),JSON.stringify(doc('b'))]).jobs.length,2);
+  assert.throws(()=>C.parseDocuments([JSON.stringify(doc('a')),JSON.stringify(doc('a'))]),/重复/);
+  assert.throws(()=>C.parseDocuments([JSON.stringify(doc('a')),JSON.stringify({...doc('b'),candidate_hash:'different'})]),/不同/);
+  assert.throws(()=>C.parseDocuments(['```json\n{}\n```\n```json\n{}\n```']),/一个 JSON/);
+  assert.throws(()=>C.parseDocuments(['{"version":"campustrace-chat-v2","jobs":[]}']),/新版/);
+  assert.throws(()=>C.parseDocuments(['x'.repeat(2*1024*1024+1)]),/2 MB/);
+});
+test('new export instructions bind round-trip IDs and omit externally calculated scores from the wire result',()=>{
+  const file=C.makeFiles({...payload([{...job(1),input_key:'literal-input-key'}]),version:'campustrace-chat-v3'})[0];
+  assert.equal(data(file).jobs[0].input_key,'literal-input-key');
+  assert.match(file.text,/claim_type\/value/);assert.match(file.text,/本地重新计算/);
+  assert.match(C.instructions([file]),/导入聊天分析/);
+});

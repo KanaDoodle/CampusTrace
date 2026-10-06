@@ -18,10 +18,10 @@ var ErrMatchQuota = errors.New("daily matching call limit reached")
 // Inventory previews need cache identity and scores, not every citation and
 // historical candidate fact. Keep this smaller than matching.Result.
 type matchResultSummary struct {
-	JobID, InputKey, Model, RequirementsKey, ComparisonKey, ComparisonScope string
-	Score                                                                   *float64
-	Coverage                                                                float64
-	Breakdown                                                               []matching.SectionScore
+	JobID, InputKey, Model, RequirementsKey, ComparisonKey, ComparisonScope, Source, SourceContextKey string
+	Score                                                                                             *float64
+	Coverage                                                                                          float64
+	Breakdown                                                                                         []matching.SectionScore
 }
 
 type MatchJob struct {
@@ -37,6 +37,7 @@ type MatchJob struct {
 	Score            *float64                `json:"score"`
 	Coverage         float64                 `json:"coverage"`
 	Breakdown        []matching.SectionScore `json:"breakdown,omitempty"`
+	Source           string                  `json:"source,omitempty"`
 	Disposition      string                  `json:"disposition"`
 	Application      *MatchApplication       `json:"application,omitempty"`
 	Result           *matching.Result        `json:"-"`
@@ -213,7 +214,7 @@ func (s *Store) matchSnapshot(ctx context.Context, user, model, maskName string,
 	if len(ids) > 0 && len(jobs) != len(ids) {
 		return v, ErrNotFound
 	}
-	resultQuery := "SELECT JSON_OBJECT('JobID',job_id,'InputKey',JSON_UNQUOTE(JSON_EXTRACT(body,'$.input_key')),'Model',JSON_UNQUOTE(JSON_EXTRACT(body,'$.model')),'RequirementsKey',JSON_UNQUOTE(JSON_EXTRACT(body,'$.requirements_key')),'ComparisonKey',JSON_UNQUOTE(JSON_EXTRACT(body,'$.comparison_key')),'ComparisonScope',JSON_UNQUOTE(JSON_EXTRACT(body,'$.comparison_scope')),'Score',JSON_EXTRACT(body,'$.score'),'Coverage',JSON_EXTRACT(body,'$.coverage'),'Breakdown',JSON_EXTRACT(body,'$.breakdown')) FROM job_match_results WHERE user_id=?"
+	resultQuery := "SELECT JSON_OBJECT('JobID',job_id,'InputKey',JSON_UNQUOTE(JSON_EXTRACT(body,'$.input_key')),'Model',JSON_UNQUOTE(JSON_EXTRACT(body,'$.model')),'RequirementsKey',JSON_UNQUOTE(JSON_EXTRACT(body,'$.requirements_key')),'ComparisonKey',JSON_UNQUOTE(JSON_EXTRACT(body,'$.comparison_key')),'ComparisonScope',JSON_UNQUOTE(JSON_EXTRACT(body,'$.comparison_scope')),'Score',JSON_EXTRACT(body,'$.score'),'Coverage',JSON_EXTRACT(body,'$.coverage'),'Breakdown',JSON_EXTRACT(body,'$.breakdown'),'Source',JSON_UNQUOTE(JSON_EXTRACT(body,'$.source')),'SourceContextKey',JSON_UNQUOTE(JSON_EXTRACT(body,'$.source_context_key'))) FROM job_match_results WHERE user_id=?"
 	resultArgs := []any{user}
 	if fullResults || len(ids) > 0 || company != "" {
 		if fullResults {
@@ -240,7 +241,7 @@ func (s *Store) matchSnapshot(ctx context.Context, user, model, maskName string,
 		}
 		for _, r := range results {
 			fullByID[r.JobID] = r
-			resultByID[r.JobID] = matchResultSummary{r.JobID, r.InputKey, r.Model, r.RequirementsKey, r.ComparisonKey, r.ComparisonScope, r.Score, r.Coverage, r.Breakdown}
+			resultByID[r.JobID] = matchResultSummary{r.JobID, r.InputKey, r.Model, r.RequirementsKey, r.ComparisonKey, r.ComparisonScope, r.Source, r.SourceContextKey, r.Score, r.Coverage, r.Breakdown}
 		}
 	} else {
 		results, e := Many[matchResultSummary](ctx, tx, resultQuery, resultArgs...)
@@ -326,6 +327,7 @@ func (s *Store) matchSnapshot(ctx context.Context, user, model, maskName string,
 	type cleanInput struct{ Text, RequirementsKey, InputKey string }
 	cleaned := map[string]cleanInput{}
 	memoBytes := 0
+	baseHash, baseReady := v.CandidateHash, maskName == ""
 	for _, job := range jobs {
 		row := MatchJob{Job: job, State: "BASIC", Disposition: prefByID[job.ID], Application: applicationByID[job.ID]}
 		o, exists := latest[job.ID]
@@ -364,14 +366,28 @@ func (s *Store) matchSnapshot(ctx context.Context, user, model, maskName string,
 			}
 			row.State = "STALE"
 			identity := matching.Result{RequirementsKey: r.RequirementsKey, ComparisonKey: r.ComparisonKey, ComparisonScope: r.ComparisonScope}
-			reusable := identity.CanReuse(row.RequirementsKey, hashes)
-			legacyCurrent := r.ComparisonKey == "" && r.InputKey == row.InputKey
-			if row.InputKey != "" && r.Model == model && (legacyCurrent || reusable) {
+			resultKey := row.RequirementsKey
+			manual := r.Source == matching.ChatSource && r.Model == matching.ChatIdentity
+			reusable := identity.CanReuse(resultKey, hashes)
+			if manual {
+				if !baseReady {
+					_, base, err := matchCandidate(ctx, tx, user, "")
+					if err != nil {
+						return v, err
+					}
+					baseHash, baseReady = base.Hash(), true
+				}
+				contextKey := matching.InputKey(matching.RequirementKey(cleanJobText(o.Text, ""), matching.ChatIdentity), baseHash)
+				reusable = o.FetchStatus == "SUCCESS" && r.SourceContextKey != "" && r.SourceContextKey == contextKey
+			}
+			legacyCurrent := !manual && r.ComparisonKey == "" && r.InputKey == row.InputKey
+			if row.InputKey != "" && (r.Model == model || manual) && (legacyCurrent || reusable) {
 				row.State = "ANALYZED"
 				row.Score = r.Score
 				row.Coverage = r.Coverage
 				row.Breakdown = r.Breakdown
-				if fullResults && reusable {
+				row.Source = r.Source
+				if fullResults && reusable && !manual {
 					refreshed, e := matching.RefreshResult(*row.Result, job, v.Profile, v.Candidate, row.InputKey, v.CandidateHash, time.Now().UTC(), row.Text)
 					if e != nil {
 						row.State, row.Score, row.Coverage = "STALE", nil, 0
@@ -418,37 +434,56 @@ func (s *Store) SaveMatchResult(ctx context.Context, user, maskName string, r ma
 		if err := tx.QueryRowContext(ctx, "SELECT id FROM users WHERE id=? FOR UPDATE", user).Scan(&id); err != nil {
 			return err
 		}
-		if err := checkMatchRunGuard(ctx, tx, user, r.JobID, r.InputKey); err != nil {
-			return err
-		}
-		if err := CheckJobAccess(ctx, tx, user, r.JobID); err != nil {
-			return err
-		}
-		if err := tx.QueryRowContext(ctx, "SELECT id FROM jobs WHERE id=? FOR UPDATE", r.JobID).Scan(&id); err != nil {
-			return err
-		}
-		_, candidate, err := matchCandidate(ctx, tx, user, maskName)
+		return s.saveMatchResult(ctx, tx, user, maskName, r)
+	})
+}
+
+func (s *Store) saveMatchResult(ctx context.Context, tx *sql.Tx, user, maskName string, r matching.Result) error {
+	var id string
+	if err := checkMatchRunGuard(ctx, tx, user, r.JobID, r.InputKey); err != nil {
+		return err
+	}
+	if err := CheckJobAccess(ctx, tx, user, r.JobID); err != nil {
+		return err
+	}
+	if err := tx.QueryRowContext(ctx, "SELECT id FROM jobs WHERE id=? FOR UPDATE", r.JobID).Scan(&id); err != nil {
+		return err
+	}
+	_, candidate, err := matchCandidate(ctx, tx, user, maskName)
+	if err != nil {
+		return err
+	}
+	o, err := One[d.Observation](ctx, tx, "SELECT body FROM observations WHERE job_id=? ORDER BY observed_at DESC,id DESC LIMIT 1", r.JobID)
+	if err != nil {
+		return err
+	}
+	if r.Source == matching.ChatSource {
+		_, base, err := matchCandidate(ctx, tx, user, "")
 		if err != nil {
 			return err
 		}
-		o, err := One[d.Observation](ctx, tx, "SELECT body FROM observations WHERE job_id=? ORDER BY observed_at DESC,id DESC LIMIT 1", r.JobID)
-		if err != nil {
-			return err
-		}
-		key := matching.RequirementKey(cleanJobText(o.Text, maskName), r.Model)
-		if o.FetchStatus != "SUCCESS" || matching.InputKey(key, candidate.Hash()) != r.InputKey {
+		if r.SourceContextKey != matching.InputKey(matching.RequirementKey(cleanJobText(o.Text, ""), matching.ChatIdentity), base.Hash()) {
 			return ErrStaleInput
 		}
-		if r.ComparisonKey != "" {
-			scope := matching.ComparisonScope(r.Requirements)
-			if r.RequirementsKey != key || r.CandidateHash != candidate.Hash() || r.ComparisonScope != scope || r.ComparisonKey != matching.ComparisonKey(key, matching.ComparisonCandidateHash(candidate, scope), scope) {
-				return ErrValidation
-			}
-			if err := matching.ValidateMatches(candidate, r.Requirements, r.Matches); err != nil {
+		for _, req := range r.Requirements {
+			if err := matching.ValidateRequirement(req, cleanJobText(o.Text, maskName)); err != nil {
 				return err
 			}
 		}
-		_, err = tx.ExecContext(ctx, "INSERT INTO job_match_results(user_id,job_id,body) VALUES(?,?,?) ON DUPLICATE KEY UPDATE body=VALUES(body)", user, r.JobID, d.JSON(r))
-		return err
-	})
+	}
+	key := matching.RequirementKey(cleanJobText(o.Text, maskName), r.Model)
+	if o.FetchStatus != "SUCCESS" || matching.InputKey(key, candidate.Hash()) != r.InputKey {
+		return ErrStaleInput
+	}
+	if r.ComparisonKey != "" {
+		scope := matching.ComparisonScope(r.Requirements)
+		if r.RequirementsKey != key || r.CandidateHash != candidate.Hash() || r.ComparisonScope != scope || r.ComparisonKey != matching.ComparisonKey(key, matching.ComparisonCandidateHash(candidate, scope), scope) {
+			return ErrValidation
+		}
+		if err := matching.ValidateMatches(candidate, r.Requirements, r.Matches); err != nil {
+			return err
+		}
+	}
+	_, err = tx.ExecContext(ctx, "INSERT INTO job_match_results(user_id,job_id,body) VALUES(?,?,?) ON DUPLICATE KEY UPDATE body=VALUES(body)", user, r.JobID, d.JSON(r))
+	return err
 }

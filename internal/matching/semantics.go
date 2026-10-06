@@ -24,6 +24,10 @@ func softOnly(r Requirement) bool {
 // The selectable-direction repair is limited to an explicit heading and its
 // numbered direction lines; a shared engineering duty is not an alternative.
 func normalizeRequirements(items []Requirement, text string) []Requirement {
+	return splitTestableRequirements(normalizeRequirementSemantics(items, text))
+}
+
+func normalizeRequirementSemantics(items []Requirement, text string) []Requirement {
 	heading, lines := "", []string{}
 	active := false
 	for _, line := range strings.Split(text, "\n") {
@@ -67,7 +71,7 @@ func normalizeRequirements(items []Requirement, text string) []Requirement {
 			r.GroupID = d.Hash(r.Category + "\n" + r.Aspect + "\n" + r.GroupExcerpt)[:24]
 		}
 	}
-	return splitTestableRequirements(items)
+	return items
 }
 
 func validateGroups(items []Requirement) error {

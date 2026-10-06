@@ -178,6 +178,8 @@ type Result struct {
 	ComparisonScope  string         `json:"comparison_scope,omitempty"`
 	LocallyRefreshed bool           `json:"locally_refreshed,omitempty"`
 	Model            string         `json:"model"`
+	Source           string         `json:"source,omitempty"`
+	SourceContextKey string         `json:"source_context_key,omitempty"`
 	AnalyzedAt       time.Time      `json:"analyzed_at"`
 	Requirements     []Requirement  `json:"requirements"`
 	Matches          []Match        `json:"matches"`
