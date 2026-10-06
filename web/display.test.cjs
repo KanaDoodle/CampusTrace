@@ -129,6 +129,9 @@ test('匹配诊断按固定原因说明漏项、引用及能力错误，不显�
  assert.match(D.matchingDiagnostic({validation_reason:'MATCH_COUNT',job_index:1,expected:15,actual:9}),/应有 15 项，返回 9 项/);
  assert.match(D.matchingDiagnostic({validation_reason:'EXCERPT_NOT_EXACT',job_index:1,item_index:8}),/结果第 8 项/);
  assert.match(D.matchingDiagnostic({validation_reason:'EXCERPT_NOT_EXACT'}),/连续原文/);
+ assert.match(D.matchingDiagnostic({validation_reason:'EXCERPT_ID_UNKNOWN',job_index:1,item_index:2}),/结果第 2 项.*片段编号.*对应资料/);
+ assert.match(D.matchingDiagnostic({validation_reason:'EXCERPT_REFERENCE_CONFLICT'}),/同时返回/);
+ assert.match(D.matchingDiagnostic({validation_reason:'EXCERPT_AMBIGUOUS'}),/多处原文/);
  assert.match(D.matchingDiagnostic({validation_reason:'FACT_NOT_ABILITY'}),/当成能力证明/);
  assert.equal(D.matchingDiagnostic({validation_reason:'private-fact-or-secret',expected:'private'}),'');
  assert.ok(!D.matchingDiagnostic({validation_reason:'FACT_UNKNOWN',item_index:'private'}).includes('private'));

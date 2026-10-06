@@ -33,7 +33,7 @@ func TestComparisonSeparatesLimitationsAndOmitsPreferencesWithoutChangingCandida
 		t.Fatal(err)
 	}
 	var input struct {
-		Candidate comparisonCandidate `json:"candidate"`
+		Candidate comparisonModelCandidate `json:"candidate"`
 	}
 	if err := json.Unmarshal([]byte(model.input), &input); err != nil {
 		t.Fatal(err)

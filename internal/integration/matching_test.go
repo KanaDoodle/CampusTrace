@@ -26,6 +26,28 @@ type matchFixtureModel struct {
 	badCitation atomic.Bool
 }
 
+// API comparison facts are complete ordered source chunks; persistence and
+// ChatGPT exports still use matching.Fact with the original unsplit text.
+type matchFixtureFact struct {
+	ID          string                      `json:"id"`
+	Kind        string                      `json:"kind"`
+	ProjectName string                      `json:"project_name"`
+	Excerpts    []struct{ ID, Text string } `json:"excerpts"`
+}
+
+func (f matchFixtureFact) text() string {
+	var text strings.Builder
+	for _, excerpt := range f.Excerpts {
+		text.WriteString(excerpt.Text)
+	}
+	return text.String()
+}
+
+type matchFixtureCandidate struct {
+	Facts       []matchFixtureFact `json:"facts"`
+	Limitations []matchFixtureFact `json:"limitations"`
+}
+
 type blockingMatchModel struct {
 	inner   *matchFixtureModel
 	entered chan struct{}
@@ -63,26 +85,27 @@ func (m *matchFixtureModel) Complete(_ context.Context, messages, _ any) (json.R
 		}
 	} else {
 		var input struct {
-			Candidate matching.Candidate    `json:"candidate"`
+			Candidate matchFixtureCandidate `json:"candidate"`
 			Jobs      []matching.MatchInput `json:"jobs"`
 		}
 		if err := json.Unmarshal([]byte(msgs[1]["content"]), &input); err != nil {
 			return nil, err
 		}
-		id := ""
+		id, excerptID := "", ""
 		for _, f := range input.Candidate.Facts {
-			if f.Text == "Go" {
+			if f.text() == "Go" {
 				id = f.ID
+				excerptID = f.Excerpts[0].ID
 			}
 		}
-		excerpt := "Go"
+		evidence := []map[string]string{{"id": id, "excerpt_id": excerptID}}
 		if m.badCitation.Load() {
-			excerpt = "invented Kafka"
+			evidence = []map[string]string{{"id": id, "excerpt": "invented Kafka"}}
 		}
 		for _, job := range input.Jobs {
-			matches := []matching.Match{}
+			matches := []map[string]any{}
 			for _, r := range job.Requirements {
-				matches = append(matches, matching.Match{RequirementID: r.ID, Result: "DIRECT", Explanation: "资料明确记录 Go", Evidence: []matching.Citation{{ID: id, Excerpt: excerpt}}})
+				matches = append(matches, map[string]any{"requirement_id": r.ID, "result": "DIRECT", "explanation": "资料明确记录 Go", "evidence": evidence})
 			}
 			out = append(out, map[string]any{"job_id": job.ID, "matches": matches})
 		}

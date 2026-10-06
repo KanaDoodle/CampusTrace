@@ -39,7 +39,7 @@ func (m *preferenceMatchModel) Complete(_ context.Context, messages, _ any) (jso
 		}
 	} else {
 		var input struct {
-			Candidate matching.Candidate    `json:"candidate"`
+			Candidate matchFixtureCandidate `json:"candidate"`
 			Jobs      []matching.MatchInput `json:"jobs"`
 		}
 		if err := json.Unmarshal([]byte(msgs[1]["content"]), &input); err != nil {
@@ -51,10 +51,10 @@ func (m *preferenceMatchModel) Complete(_ context.Context, messages, _ any) (jso
 				match := matching.Match{RequirementID: r.ID, Result: "NO_EVIDENCE", Explanation: "资料中暂无依据", Evidence: []matching.Citation{}}
 				if r.Text == "熟悉 Go" {
 					for _, f := range input.Candidate.Facts {
-						if f.Kind == "LANGUAGE" && f.Text == "Go" {
+						if f.Kind == "LANGUAGE" && f.text() == "Go" {
 							match.Result = "DIRECT"
 							match.Explanation = "语言有依据"
-							match.Evidence = []matching.Citation{{ID: f.ID, Excerpt: f.Text}}
+							match.Evidence = []matching.Citation{{ID: f.ID, Excerpt: f.text()}}
 						}
 					}
 				}

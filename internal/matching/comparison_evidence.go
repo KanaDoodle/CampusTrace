@@ -27,10 +27,10 @@ func candidateForComparison(c Candidate) comparisonCandidate {
 // Keep the wire schema separate from Match, so the model cannot forge the
 // local review_note field in a saved result.
 type comparisonMatch struct {
-	RequirementID string     `json:"requirement_id"`
-	Result        string     `json:"result"`
-	Explanation   string     `json:"explanation"`
-	Evidence      []Citation `json:"evidence"`
+	RequirementID string               `json:"requirement_id"`
+	Result        string               `json:"result"`
+	Explanation   string               `json:"explanation"`
+	Evidence      []comparisonCitation `json:"evidence"`
 }
 
 func abilityCitation(f Fact, r Requirement) bool {

@@ -34,11 +34,8 @@ func (m *limitationFixtureModel) Complete(ctx context.Context, messages, tools a
 		return raw, nil
 	}
 	var input struct {
-		Candidate struct {
-			Facts       []matching.Fact `json:"facts"`
-			Limitations []matching.Fact `json:"limitations"`
-		} `json:"candidate"`
-		Jobs []matching.MatchInput `json:"jobs"`
+		Candidate matchFixtureCandidate `json:"candidate"`
+		Jobs      []matching.MatchInput `json:"jobs"`
 	}
 	if err := json.Unmarshal([]byte(msgs[1]["content"]), &input); err != nil {
 		return nil, err
@@ -52,7 +49,7 @@ func (m *limitationFixtureModel) Complete(ctx context.Context, messages, tools a
 		}
 	}
 	f := input.Candidate.Limitations[0]
-	excerpt := f.Text
+	excerpt := f.text()
 	if m.forge {
 		excerpt = "生产环境性能验证"
 	}

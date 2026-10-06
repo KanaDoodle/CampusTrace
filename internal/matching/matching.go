@@ -329,7 +329,7 @@ func Compare(ctx context.Context, m resume.Completer, c Candidate, jobs []MatchI
 			Matches []comparisonMatch `json:"matches"`
 		} `json:"jobs"`
 	}
-	err := complete(ctx, m, comparisonPrompt, comparisonRequest{candidateForComparison(c), jobs}, &out)
+	err := complete(ctx, m, comparisonPrompt, comparisonRequest{candidateWithExcerpts(c), jobs}, &out)
 	if err != nil {
 		return nil, err
 	}
@@ -356,9 +356,16 @@ func Compare(ctx context.Context, m resume.Completer, c Candidate, jobs []MatchI
 		// Missing, unknown or duplicate requirement IDs still fail validation.
 		matches := make([]Match, 0, len(j.Matches))
 		for _, m := range j.Matches {
-			matches = append(matches, Match{RequirementID: m.RequirementID, Result: m.Result, Explanation: m.Explanation, Evidence: m.Evidence})
+			matches = append(matches, Match{RequirementID: m.RequirementID, Result: m.Result, Explanation: m.Explanation, Evidence: []Citation{}})
 		}
 		matches = comparePreferences(c, reqs, matches)
+		if err := resolveComparisonCitations(c, reqs, j.Matches, matches); err != nil {
+			var validation *ValidationError
+			if errors.As(err, &validation) {
+				validation.JobIndex = positions[j.ID]
+			}
+			return nil, err
+		}
 		// Validate every ID, explanation and exact excerpt before withdrawing any
 		// semantic misuse, so a bad citation cannot conceal another invalid field.
 		if err := validateMatches(c, reqs, matches, false); err != nil {
