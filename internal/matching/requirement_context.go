@@ -7,6 +7,7 @@ import (
 
 var agentParts = regexp.MustCompile(`(?i)Tool\s+Use|Planning|Memory|Reflection`)
 var ragParts = regexp.MustCompile(`文档解析|分块策略|向量化|检索排序`)
+var aiUmbrella = regexp.MustCompile(`(?i)(?:Agent|RAG).*(?:原理|核心机制)`)
 
 func capabilityParts(text string) []string {
 	pattern := agentParts
@@ -96,7 +97,7 @@ func withoutCoveredUmbrellas(items []Requirement) []Requirement {
 	out := []Requirement{}
 	for _, r := range items {
 		parts := capabilityParts(r.Excerpt)
-		umbrella := r.Category != "QUALIFICATION" && r.GroupID == "" && len(parts) >= 2 && len(capabilityParts(r.Text)) == 0 && (strings.Contains(r.Excerpt, "包括") || strings.Contains(r.Excerpt, "包含")) && (strings.Contains(strings.ToLower(r.Text), "agent") || strings.Contains(strings.ToLower(r.Text), "rag")) && knowledgeLevel.MatchString(r.Text)
+		umbrella := r.Category != "QUALIFICATION" && r.GroupID == "" && len(parts) >= 2 && len(capabilityParts(r.Text)) == 0 && (strings.Contains(r.Excerpt, "包括") || strings.Contains(r.Excerpt, "包含")) && aiUmbrella.MatchString(r.Text) && !strings.Contains(r.Text, "框架") && !practicalExperience.MatchString(r.Text) && knowledgeLevel.MatchString(r.Text)
 		covered := umbrella
 		for _, part := range parts {
 			found := false

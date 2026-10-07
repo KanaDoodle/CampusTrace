@@ -136,4 +136,11 @@ func TestChatContextRepairDoesNotBlockImportOrCopyJudgments(t *testing.T) {
 	if len(kept) != 3 {
 		t.Fatal("source numbering prevented umbrella deduplication", kept)
 	}
+	// A framework condition sharing the source is an independent capability,
+	// not an umbrella for Planning/Memory/Tool Use.
+	framework := Requirement{ID: "framework", Category: "REQUIRED", Text: "熟悉Agent开发框架", Excerpt: text, Confidence: 1}
+	kept = withoutCoveredUmbrellas(append(restoreRequirementContext(append([]Requirement{}, reqs...), text), framework))
+	if len(kept) != 4 || kept[len(kept)-1].ID != "framework" {
+		t.Fatal("independent framework requirement was discarded", kept)
+	}
 }
