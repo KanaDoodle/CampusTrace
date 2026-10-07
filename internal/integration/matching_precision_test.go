@@ -26,6 +26,13 @@ func TestSavedComparisonLocalPrecisionIsReadOnlyAndMonthEditsReuseAbilities(t *t
 	score, coverage := matching.Score(reqs, proof)
 	old := matching.Result{JobID: o.JobID, InputKey: input.InputKey, RequirementsKey: input.RequirementsKey, CandidateHash: snap.CandidateHash, ComparisonScope: matching.ComparisonAbilities, ComparisonKey: matching.ComparisonKey(input.RequirementsKey, matching.ComparisonCandidateHash(snap.Candidate, matching.ComparisonAbilities), matching.ComparisonAbilities), Model: identity, AnalyzedAt: time.Now().UTC(), Requirements: reqs, Matches: proof, CandidateFacts: snap.Candidate.Facts, Score: score, Coverage: coverage, Breakdown: matching.ScoreBreakdown(reqs, proof)}
 	must(t, s.SaveMatchResult(ctx, u, "", old))
+	// Saving adds local quality metadata. Compare subsequent read-only
+	// refreshes with that durable record, not the pre-save input object.
+	baseline, err := s.MatchResult(ctx, u, o.JobID)
+	must(t, err)
+	if baseline.QualityVersion != matching.QualityVersion {
+		t.Fatal("saved result is missing current quality metadata")
+	}
 	assertView := func(want string) {
 		t.Helper()
 		current, err := s.MatchDecisionSnapshot(ctx, u, identity, "", []string{o.JobID}, "")
@@ -44,7 +51,7 @@ func TestSavedComparisonLocalPrecisionIsReadOnlyAndMonthEditsReuseAbilities(t *t
 		}
 		stored, err := s.MatchResult(ctx, u, o.JobID)
 		must(t, err)
-		if d.JSON(stored) != d.JSON(old) {
+		if d.JSON(stored) != d.JSON(baseline) {
 			t.Fatal("read refreshed stored history")
 		}
 	}
