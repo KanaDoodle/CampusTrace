@@ -194,3 +194,76 @@ func TestMaskedChatImportRemainsUsableAfterReloadWithoutStoringMask(t *testing.T
 		t.Fatal("masked import lost identity on reload", after.Jobs[0])
 	}
 }
+
+func TestChatImportSharedQualificationExcerptPreviewAndConfirm(t *testing.T) {
+	ctx, s, q, u, _ := setup(t)
+	profile := d.Profile{Degree: "MASTER", Majors: []string{"软件工程"}, Languages: []string{"Go"}}
+	must(t, s.SaveProfile(ctx, u, profile))
+	quote := "本科及以上学历，计算机或软件工程相关专业"
+	o, err := s.IngestForUser(ctx, u, p.Ingest{Company: "Shared qualification fixture", Title: "后端开发", JobType: "FULL_TIME", ExternalID: d.ID(), Text: quote + "。熟悉 Go", FetchStatus: "SUCCESS", ObservedAt: time.Now().UTC()})
+	must(t, err)
+	snapshot, err := s.MatchImportSnapshot(ctx, u, "", []string{o.JobID})
+	must(t, err)
+	row := snapshot.Jobs[0]
+	doc := matching.ChatDocument{Version: matching.ChatVersion, CandidateHash: snapshot.CandidateHash, Jobs: []matching.ChatJob{{ID: o.JobID, InputKey: row.InputKey,
+		Requirements: []matching.Requirement{
+			{ID: "degree", Category: "QUALIFICATION", Aspect: "TECHNICAL", Text: quote, Excerpt: quote, ClaimType: "EDUCATION_REQUIREMENT", Value: "BACHELOR", Confidence: 1},
+			{ID: "major", Category: "QUALIFICATION", Aspect: "TECHNICAL", Text: quote, Excerpt: quote, ClaimType: "MAJOR_REQUIREMENT", Value: "计算机|软件工程", Confidence: 1},
+			{ID: "go", Category: "REQUIRED", Text: "熟悉 Go", Excerpt: "熟悉 Go", Confidence: 1},
+		}, Matches: []matching.Match{
+			{RequirementID: "degree", Result: "NO_EVIDENCE", Explanation: "由本地核对", Evidence: []matching.Citation{}},
+			{RequirementID: "major", Result: "NO_EVIDENCE", Explanation: "由本地核对", Evidence: []matching.Citation{}},
+			{RequirementID: "go", Result: "DIRECT", Explanation: "已记录 Go", Evidence: []matching.Citation{{ID: "language-0", Excerpt: "Go"}}},
+		},
+	}}}
+	authn := auth.Service{Store: s, Secret: []byte("synthetic-shared-qualification-32-bytes")}
+	token, err := authn.Token(u)
+	must(t, err)
+	handler := (&transport.API{Store: s, Queue: q, Auth: authn, Metrics: observability.New()}).Handler()
+	body := map[string]any{"document": doc, "mask_name": ""}
+	rec := matchingRequest(handler, token, "/api/matching/import/preview", "POST", body)
+	if rec.Code != 200 {
+		t.Fatal("shared quote falsely rejected as duplicate", rec.Code, rec.Body.String())
+	}
+	var preview struct {
+		Key string `json:"preview_key"`
+	}
+	must(t, json.Unmarshal(rec.Body.Bytes(), &preview))
+	body["preview_key"] = preview.Key
+	rec = matchingRequest(handler, token, "/api/matching/import/confirm", "POST", body)
+	if rec.Code != 200 {
+		t.Fatal(rec.Code, rec.Body.String())
+	}
+	result, err := s.MatchResult(ctx, u, o.JobID)
+	must(t, err)
+	if len(result.Requirements) != 3 || len(result.Matches) != 3 || result.Score == nil || *result.Score != 100 {
+		t.Fatal("lost facets or inflated core units", result)
+	}
+	checked := 0
+	for _, rule := range result.Qualifications.Results {
+		if rule.Rule == "EDUCATION_REQUIREMENT" || rule.Rule == "MAJOR_REQUIREMENT" {
+			if rule.Result != "PASS" {
+				t.Fatal("qualification did not remain independently checked", rule)
+			}
+			checked++
+		}
+	}
+	if checked != 2 {
+		t.Fatal("missing degree or major check", result.Qualifications.Results)
+	}
+	// A different ID cannot disguise two copies of the same qualification.
+	bad := doc
+	bad.Jobs = append([]matching.ChatJob{}, doc.Jobs...)
+	bad.Jobs[0].Requirements = append([]matching.Requirement{}, doc.Jobs[0].Requirements...)
+	bad.Jobs[0].Requirements[1].ClaimType = "EDUCATION_REQUIREMENT"
+	bad.Jobs[0].Requirements[1].Value = "BACHELOR"
+	rec = matchingRequest(handler, token, "/api/matching/import/preview", "POST", map[string]any{"document": bad, "mask_name": ""})
+	if rec.Code != 400 || !strings.Contains(rec.Body.String(), "CHAT_REQUIREMENT_CONTENT_DUPLICATE") || !strings.Contains(rec.Body.String(), `"related_item_index":1`) {
+		t.Fatal("real duplicates were accepted or not located", rec.Code, rec.Body.String())
+	}
+	stored, err := s.MatchResult(ctx, u, o.JobID)
+	must(t, err)
+	if d.JSON(stored) != d.JSON(result) {
+		t.Fatal("failed preview changed a saved result")
+	}
+}

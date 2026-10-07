@@ -15,7 +15,7 @@ const CampusMatchingChat=(function(root){
 
 统一标准：
 1. 逐个岗位提取明确的投递资格 QUALIFICATION、必需能力 REQUIRED、加分项 BONUS、工作内容 RESPONSIBILITY。区分“任意一种语言”和“同时掌握多种语言”，优先专业或学历放入 BONUS；软性要求标为 aspect=SOFT，与技术要求拆开。明确“一个或多个方向”的条目用相同 group_id 和准确 group_excerpt 标记为任选组，共同职责不放入组；不能仅凭“2027校招”标题认定毕业届别。
-2. 每项要求附上本岗位 text 中的准确原文摘录 excerpt 和 confidence（0—1）；没有明确要求就不猜。每岗最多36项，超过时明确标记 truncated，不静默省略。项目名称只提供上下文，不证明实现了某功能。项目事实的 kind 和学历编码按原意理解：IMPLEMENTED=已确认实现，LIMITATION=已确认局限，MASTER=硕士，BACHELOR=本科。
+2. 每项要求附上本岗位 text 中的准确原文摘录 excerpt 和 confidence（0—1）；没有明确要求就不猜。同一句原文中的学历与专业可以分别列出，使用不同 id 和 claim_type；text 只写本项条件，excerpt 可以引用相同的完整连续原文。一个条件只列一次，不通过更换 id 或 value 重复计入。每岗最多36项，超过时明确标记 truncated，不静默省略。项目名称只提供上下文，不证明实现了某功能。项目事实的 kind 和学历编码按原意理解：IMPLEMENTED=已确认实现，LIMITATION=已确认局限，MASTER=硕士，BACHELOR=本科。
 3. 逐项判断 DIRECT（直接匹配）、PARTIAL（部分匹配）、TRANSFERABLE（有可迁移经验）、NO_EVIDENCE（资料不足）、MISMATCH（有明确不符合的依据）。肯定和否定结论均需引用 candidate.facts 的真实 id 与准确文字 excerpt，并解释语义关系；资料没有写到不等于候选人不会。城市与岗位类型意向见 preferences 和偏好事实，Shanghai/上海/上海市需归一，它们是偏好而非能力证明。检查具体项目机制：MySQL 行锁/SKIP LOCKED 可支持 SQL 实现经验；Consumer Group/PEL/XAUTOCLAIM 可支持消息处理与恢复经验，但不证明掌握 Kafka。工程调度、重试与服务治理可与 AI 平台工作有部分或可迁移关联，明确缺少的 AI 专属经验；不要把已有依据的子部分整项判为暂无依据。
 4. 投递资格单独核对；不推断招聘仍开放，不把能力评分当作录用概率。保留 recruitment_status 与 local_note 提醒。
 5. 主 score 和 coverage 只计算 aspect 非 SOFT 的 REQUIRED 核心技术要求。DIRECT取1、PARTIAL取0.5、TRANSFERABLE取0.25、MISMATCH取0；NO_EVIDENCE或要求confidence低于0.8属于未知。任选组只计一个单位：选置信度至少0.8的最佳有据正向项；所有成员都有据明确不符合时计MISMATCH，否则保留未知。覆盖度=已知核心单位数/全部核心单位数×100，分数=已知核心单位匹配值之和/已知核心单位数×100。没有核心技术要求或核心覆盖度低于60%时score必须为null。工作内容、加分项、软性要求分别统计 total/known/coverage，不能降低主覆盖度，软性要求不评分。
@@ -56,18 +56,18 @@ const CampusMatchingChat=(function(root){
     }
     const url=root.URL.createObjectURL(blob),link=root.document.createElement('a');link.href=url;link.download=name;root.document.body.append(link);link.click();link.remove();setTimeout(()=>root.URL.revokeObjectURL(url),1000);
   }
-  function parseDocuments(texts){
+  function parseDocuments(texts,onJob){
     if(!Array.isArray(texts)||!texts.length)throw new Error('请上传 JSON 文件或粘贴 ChatGPT 返回的 JSON。');
     if(texts.reduce((n,s)=>n+new TextEncoder().encode(s).length,0)>2*1024*1024)throw new Error('结果文字超过 2 MB，请分批导入。');
     let merged=null;const ids=new Set();
-    for(const source of texts){
+    for(const [fileIndex,source] of texts.entries()){
       let raw=String(source).replace(/^\uFEFF/,'').trim();
       if(!raw.startsWith('{')){const blocks=[...raw.matchAll(/```(?:json)?\s*\n([\s\S]*?)```/gi)];if(blocks.length!==1)throw new Error('请粘贴完整 JSON，或只包含一个 JSON 代码块的回复。');raw=blocks[0][1].trim();}
       let doc;try{doc=JSON.parse(raw);}catch{throw new Error('JSON 格式不完整，请重新下载结果文件或复制整个代码块。');}
       if(doc.version!=='campustrace-chat-v3'||typeof doc.candidate_hash!=='string'||!Array.isArray(doc.jobs)||!doc.jobs.length)throw new Error('这份结果缺少新版分析包的标识。请重新导出，并让 ChatGPT 按包内格式返回 JSON。');
       if(merged&&(doc.version!==merged.version||doc.candidate_hash!==merged.candidate_hash))throw new Error('这些文件使用了不同的求职资料，请分开导入。');
       merged||={version:doc.version,candidate_hash:doc.candidate_hash,jobs:[]};
-      for(const job of doc.jobs){if(!job.job_id||ids.has(job.job_id))throw new Error('结果中存在空岗位编号或重复岗位，请移除重复文件。');ids.add(job.job_id);merged.jobs.push(job);}
+      for(const [jobIndex,job] of doc.jobs.entries()){if(!job.job_id||ids.has(job.job_id))throw new Error('结果中存在空岗位编号或重复岗位，请移除重复文件。');ids.add(job.job_id);merged.jobs.push(job);if(typeof onJob==='function')onJob(job.job_id,fileIndex,jobIndex+1);}
     }
     if(merged.jobs.length>100)throw new Error('单次最多导入 100 个岗位，请分批选择文件。');
     return merged;

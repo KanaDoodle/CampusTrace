@@ -286,3 +286,23 @@ test('failed chat confirmation clears preview and keeps pasted results for corre
   h.elements.get('match-import-text').oninput({target:{value:JSON.stringify(chatDoc())}});await h.elements.get('match-import-preview').onclick();await h.elements.get('match-import-confirm').onclick();
   assert.match(h.html(),/资料已变化/);assert.equal(h.elements.get('match-import-confirm').disabled,true);assert.match(h.html(),/campustrace-chat-v3/);
 });
+
+test('multi-file chat validation identifies the original file and job without sending file metadata',async()=>{
+  const h=harness({pending:['a','b','c','target'],failed:[],importRequest:async()=>{const error=new Error('岗位要求核对失败');error.jobIndex=4;throw error;}});
+  await h.start();h.elements.get('match-open-import').onclick();
+  const doc=ids=>({...chatDoc(),jobs:ids.map(id=>({...chatDoc().jobs[0],job_id:id}))});
+  const first=JSON.stringify(doc(['a','b','c'])),second=JSON.stringify(doc(['target']));
+  await h.elements.get('match-import-files').onchange({target:{files:[
+    {name:'分析结果-001.json',size:first.length,text:async()=>first},
+    {name:'<script>分析结果-002</script>.json',size:second.length,text:async()=>second},
+  ]}});
+  await h.elements.get('match-import-preview').onclick();
+  assert.match(h.html(),/对应岗位：测试公司 · target/);
+  assert.match(h.html(),/所在文件：&lt;script&gt;分析结果-002&lt;\/script&gt;\.json，文件内第 1 个岗位/);
+  assert.doesNotMatch(JSON.stringify(h.importRequests[0].body.document),/分析结果|fileIndex|file_name/);
+  const merged=JSON.stringify(h.importRequests[0].body.document);
+  h.elements.get('match-import-text').oninput({target:{value:merged}});
+  await h.elements.get('match-import-preview').onclick();
+  assert.match(h.html(),/对应岗位：测试公司 · target/);
+  assert.doesNotMatch(h.html(),/所在文件/);
+});

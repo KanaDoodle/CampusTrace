@@ -156,7 +156,7 @@ const CampusMatching=(function(root){
     let lastJob=browse.lastJob||'',lastTab=browse.lastTab||'overview',drawerOpen=!!browse.drawerOpen,lastOpened=null;
     let comparisonCompany='',comparisonScope='ALL',comparisonReport=null,comparisonBusy=false,comparisonError='',comparisonRevision=0;
     let reviewKeys=new Map(),renderedViewKey='';
-    let importText='',importDocument=null,importPreview=null,importError='',importBusy=false,importRevision=0,importMask=maskName;
+    let importText='',importDocument=null,importPreview=null,importError='',importBusy=false,importRevision=0,importMask=maskName,importOrigins=new Map();
     const selected=C.readSelection(cap.user_id,snapshot.jobs);
     let onlySelected=initialQuery?false:!!browse.onlySelected,preparing=false,exportFiles=[],exportIndex=0,exportConsent=false,exportKeys=new Map();
     const modelKey=()=>JSON.stringify([identity().model_url,identity().model_name,cap.model]);
@@ -222,18 +222,28 @@ const CampusMatching=(function(root){
       return `<dialog id="match-import-dialog" class="modal wide" aria-labelledby="match-import-title">${U.modalHead('match-import-title','导入聊天分析','把 ChatGPT 的分析带回岗位雷达。')}<div class="modal-body"><p>上传一个或多个 JSON 结果文件，或粘贴完整 JSON。读取、核对和保存都不调用外部模型。请使用本版导出的分析包。</p><label>选择结果文件（可多选）<input id="match-import-files" type="file" accept=".json,application/json" multiple ${importBusy?'disabled':''}></label><label>或粘贴分析结果<textarea id="match-import-text" spellcheck="false" ${importBusy?'disabled':''} placeholder="粘贴 ChatGPT 返回的 JSON 或 JSON 代码块">${esc(importText)}</textarea></label><details><summary>导出时用了补充遮盖姓名？</summary><label>填写与导出时相同的姓名或称呼<input id="match-import-mask" value="${esc(importMask)}" maxlength="60" autocomplete="off" ${importBusy?'disabled':''}></label><p class="form-note">仅用于本地重新核对脱敏资料，不发送给模型。</p></details>${importError?`<p class="pending-note" role="alert">${esc(importError)}</p>`:''}${importPreview?`<section id="match-import-preview-content"><h3>核对 ${importPreview.jobs.length} 个岗位</h3><p>分数和资格已由本地重新计算。${importPreview.jobs.filter(j=>j.replaces).length} 个岗位已有分析，保存会替换这些结果。原文摘录通过核对仍不代表模型推理必然正确，请阅读逐项结论。</p>${importPreview.evidence_reviews?`<p class="pending-note">${Number(importPreview.evidence_reviews)} 项误用偏好或局限的能力结论已撤销，计为暂无依据。</p>`:''}${importPreview.jobs.map(j=>`<details><summary>${esc(j.company)} · ${esc(j.title)} · ${j.result.score==null?'依据不足':Number(j.result.score).toFixed(1)+' 分'}${j.replaces?' · 替换已有结果':''}</summary><p>核心依据覆盖 ${Number(j.result.coverage).toFixed(1)}% · 投递资格：${esc(D.label('eligibility',j.result.qualifications?.status))}</p>${structureHTML(j.result,{esc})}${renderRequirements(j.result,{esc,D},false)}</details>`).join('')}</section>`:''}</div><div class="modal-foot"><small>本地核对 · 不消耗 API 额度</small><button id="match-import-preview" class="btn" ${importBusy?'disabled':''}>${importBusy?'正在处理…':'核对并预览'}</button><button id="match-import-confirm" class="btn btn-primary" ${importBusy||!importPreview?'disabled':''}>确认导入${importPreview?' '+importPreview.jobs.length+' 个岗位':''}</button></div></dialog>`;
     }
     function invalidateImport(){importRevision++;importPreview=null;importDocument=null;importError='';const content=document.querySelector('#match-import-preview-content');if(content){content.innerHTML='';content.hidden=true;}const b=document.querySelector('#match-import-confirm');if(b)b.disabled=true;}
+    function importFailure(error,doc){
+      let message=error.message+(error.diagnostic?D.matchingDiagnostic(error.diagnostic):'');
+      const index=error.jobIndex??error.diagnostic?.job_index;
+      if(!Number.isInteger(index)||index<1||index>(doc?.jobs?.length||0))return message;
+      const job=doc.jobs[index-1],row=snapshot.jobs.find(j=>j.job.id===job.job_id),origin=importOrigins.get(job.job_id);
+      if(row)message+=` 对应岗位：${row.job.company} · ${row.job.title}。`;
+      if(origin)message+=` 所在文件：${origin.name}，文件内第 ${origin.index} 个岗位。`;
+      return message;
+    }
     async function previewImport(){
       if(importBusy||!current())return;
       invalidateImport();const rev=importRevision;importBusy=true;render();
-      try{const doc=C.parseDocuments([importText]);const preview=await api('/api/matching/import/preview','POST',{document:doc,mask_name:importMask});if(!current()||panel!=='import'||rev!==importRevision)return;importDocument=doc;importPreview=preview;}
-      catch(e){if(current()&&panel==='import'&&rev===importRevision)importError=e.message+(e.diagnostic?D.matchingDiagnostic(e.diagnostic):'');}
+      let doc;
+      try{doc=C.parseDocuments([importText]);const preview=await api('/api/matching/import/preview','POST',{document:doc,mask_name:importMask});if(!current()||panel!=='import'||rev!==importRevision)return;importDocument=doc;importPreview=preview;}
+      catch(e){if(current()&&panel==='import'&&rev===importRevision)importError=importFailure(e,doc);}
       finally{if(current()&&panel==='import'&&rev===importRevision){importBusy=false;render();}}
     }
     async function confirmImport(){
       if(importBusy||!importPreview||!importDocument||!current())return;
       const rev=importRevision;importBusy=true;render();let saved=false;
       try{const out=await api('/api/matching/import/confirm','POST',{document:importDocument,mask_name:importMask,preview_key:importPreview.preview_key});saved=true;if(!current())return;if(rev===importRevision){importText='';importPreview=importDocument=null;if(panel==='import')panel='';}notice=`已导入 ${out.imported} 个岗位的聊天分析，可用于岗位对比和准备清单。`;try{await refresh();}catch{notice+=' 列表刷新失败，可稍后手动刷新；结果已保存。';}}
-      catch(e){if(current()&&panel==='import'&&rev===importRevision){importError=e.message;importPreview=null;}}
+      catch(e){if(current()&&panel==='import'&&rev===importRevision){importError=importFailure(e,importDocument);importPreview=null;}}
       finally{if(current()&&(saved||rev===importRevision)){importBusy=false;render();}}
     }
     const authorized=()=>consentHash===snapshot.candidate_hash;
@@ -318,10 +328,10 @@ const CampusMatching=(function(root){
       on('match-dismiss-notice',()=>{notice='';render();});on('match-source',()=>navigate('watches'));on('match-open-settings',()=>{panel='settings';render();});
       on('match-open-import',()=>{panel='import';importError='';render();});
       on('match-import-preview',previewImport);on('match-import-confirm',confirmImport);
-      $('#match-import-text').oninput=e=>{importText=e.target.value;invalidateImport();};$('#match-import-mask').oninput=e=>{importMask=e.target.value.trim();invalidateImport();};
+      $('#match-import-text').oninput=e=>{importText=e.target.value;importOrigins.clear();invalidateImport();};$('#match-import-mask').oninput=e=>{importMask=e.target.value.trim();invalidateImport();};
       $('#match-import-files').onchange=async e=>{
-        const files=Array.from(e.target.files||[]);if(!files.length)return;invalidateImport();const rev=importRevision;importBusy=true;render();
-        try{if(files.reduce((n,f)=>n+f.size,0)>2*1024*1024)throw new Error('结果文件超过 2 MB，请分批导入。');const texts=await Promise.all(files.map(f=>f.text()));const doc=C.parseDocuments(texts);if(current()&&panel==='import'&&rev===importRevision)importText=JSON.stringify(doc,null,2);}
+        const files=Array.from(e.target.files||[]);if(!files.length)return;importOrigins.clear();invalidateImport();const rev=importRevision;importBusy=true;render();
+        try{if(files.reduce((n,f)=>n+f.size,0)>2*1024*1024)throw new Error('结果文件超过 2 MB，请分批导入。');const texts=await Promise.all(files.map(f=>f.text())),origins=new Map();const doc=C.parseDocuments(texts,(id,fileIndex,index)=>origins.set(id,{name:String(files[fileIndex].name||'所选文件'),index}));if(current()&&panel==='import'&&rev===importRevision){importText=JSON.stringify(doc,null,2);importOrigins=origins;}}
         catch(err){if(current()&&panel==='import'&&rev===importRevision)importError=err.message;}finally{if(current()&&panel==='import'&&rev===importRevision){importBusy=false;render();}}
       };
       on('match-model',()=>{paused=true;navigate('models');});

@@ -87,3 +87,11 @@ test('new export instructions bind round-trip IDs and omit externally calculated
   assert.match(file.text,/claim_type\/value/);assert.match(file.text,/本地重新计算/);
   assert.match(C.instructions([file]),/导入聊天分析/);
 });
+
+test('merged chat jobs retain source positions locally without adding fields to the import document',()=>{
+  const doc=ids=>({version:'campustrace-chat-v3',candidate_hash:'profile',jobs:ids.map(id=>({job_id:id,input_key:'input-'+id,requirements:[],matches:[]}))});
+  const positions=[];
+  const merged=C.parseDocuments([JSON.stringify(doc(['a','b','c'])),JSON.stringify(doc(['d']))],(...position)=>positions.push(position));
+  assert.deepEqual(positions,[['a',0,1],['b',0,2],['c',0,3],['d',1,1]]);
+  assert.deepEqual(merged,doc(['a','b','c','d']));
+});

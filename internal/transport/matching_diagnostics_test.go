@@ -101,6 +101,31 @@ func TestUnavailableMatchingJobPreservesCompatibilityError(t *testing.T) {
 	}
 }
 
+func TestChatImportDuplicateDiagnosticIncludesBothNumericPositions(t *testing.T) {
+	var logs bytes.Buffer
+	previous := slog.Default()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&logs, nil)))
+	t.Cleanup(func() { slog.SetDefault(previous) })
+	w := httptest.NewRecorder()
+	w.Header().Set("X-Request-ID", "synthetic-request")
+	chatImportFailure(w, &matching.ValidationError{Reason: "CHAT_REQUIREMENT_CONTENT_DUPLICATE", ItemIndex: 2, RelatedItemIndex: 1}, 4)
+	var out struct {
+		Code       string `json:"code"`
+		Diagnostic struct {
+			Reason  string `json:"validation_reason"`
+			Job     int    `json:"job_index"`
+			Item    int    `json:"item_index"`
+			Related int    `json:"related_item_index"`
+		} `json:"diagnostic"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &out); err != nil || w.Code != 400 || out.Code != "MATCH_CHAT_INVALID" || out.Diagnostic.Reason != "CHAT_REQUIREMENT_CONTENT_DUPLICATE" || out.Diagnostic.Job != 4 || out.Diagnostic.Item != 2 || out.Diagnostic.Related != 1 {
+		t.Fatal(w.Code, w.Body.String(), err)
+	}
+	if !strings.Contains(logs.String(), "synthetic-request") || !strings.Contains(logs.String(), "CHAT_REQUIREMENT_CONTENT_DUPLICATE") {
+		t.Fatal("cannot correlate the safe diagnostic with its request", logs.String())
+	}
+}
+
 func TestMatchingCapacityDiagnosticsExplainProfileVersusComparison(t *testing.T) {
 	for _, reason := range []string{"CANDIDATE_BYTES", "CANDIDATE_FACTS", "COMPARISON_BYTES"} {
 		err := &matching.CapacityError{Reason: reason, Actual: 33000, Limit: 32000}

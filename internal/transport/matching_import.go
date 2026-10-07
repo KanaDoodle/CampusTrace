@@ -8,6 +8,7 @@ import (
 	"github.com/KanaDoodle/CampusTrace/internal/matching"
 	p "github.com/KanaDoodle/CampusTrace/internal/persistence"
 	"io"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -47,9 +48,11 @@ func decodeChatImport(r *http.Request, in *chatImportRequest) error {
 func chatImportFailure(w http.ResponseWriter, err error, job int) {
 	var v *matching.ValidationError
 	if errors.As(err, &v) {
+		diagnostic := map[string]any{"validation_reason": v.Reason, "job_index": job, "item_index": v.ItemIndex, "related_item_index": v.RelatedItemIndex}
+		slog.Warn("chat matching import rejected", "request_id", w.Header().Get("X-Request-ID"), "diagnostic", diagnostic)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(400)
-		json.NewEncoder(w).Encode(map[string]any{"error": "MATCH_CHAT_INVALID", "code": "MATCH_CHAT_INVALID", "diagnostic": map[string]any{"validation_reason": v.Reason, "job_index": job, "item_index": v.ItemIndex}})
+		json.NewEncoder(w).Encode(map[string]any{"error": "MATCH_CHAT_INVALID", "code": "MATCH_CHAT_INVALID", "diagnostic": diagnostic})
 	} else if errors.Is(err, matching.ErrInvalid) {
 		codedError(w, 400, "MATCH_CHAT_INVALID")
 	} else if errors.Is(err, matching.ErrCapacity) {

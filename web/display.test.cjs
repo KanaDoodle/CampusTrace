@@ -90,6 +90,12 @@ test('简历 API 错误显示安全的具体原因及请求编号',async()=>{
   context.fetch=async()=>({ok:false,status:502,json:async()=>({code:'RESUME_DRAFT_UNVERIFIABLE',diagnostic:{validation_reason:'EXCERPT_NOT_EXACT',scope:'FACT',project_index:1,item_index:2},request_id:'aabbccddeeff00112233445566778899'}),headers:{get:()=>null}});
   await assert.rejects(vm.runInContext("api('/api/profile/resume/draft','POST',{text:'synthetic reviewed text'})",context),error=>/第 1 个项目的第 2 条事实/.test(error.message)&&/aabbccddeeff00112233445566778899/.test(error.message));
 });
+test('聊天导入 API retains a bounded job position for local file lookup',async()=>{
+  context.fetch=async()=>({ok:false,status:400,json:async()=>({code:'MATCH_CHAT_INVALID',diagnostic:{validation_reason:'CHAT_REQUIREMENT_CONTENT_DUPLICATE',job_index:4,item_index:2,related_item_index:1}}),headers:{get:()=>null}});
+  await assert.rejects(vm.runInContext("api('/api/matching/import/preview','POST',{})",context),error=>error.jobIndex===4&&/第 1 项重复/.test(error.message));
+  context.fetch=async()=>({ok:false,status:400,json:async()=>({code:'MATCH_CHAT_INVALID',diagnostic:{job_index:'private'}}),headers:{get:()=>null}});
+  await assert.rejects(vm.runInContext("api('/api/matching/import/preview','POST',{})",context),error=>error.jobIndex===undefined&&!error.message.includes('private'));
+});
 test('嵌套得分、投递条件和操作预览不显示英文 JSON 键或枚举',()=>{
   const html=render({eligibility:{status:'UNKNOWN',results:[]},ranking:{breakdown:{status:30,city:10}},args:{state:'APPLIED'},action_type:'transition_application'});
   assert.match(html,/资格暂无法判断/);assert.match(html,/岗位可投递情况/);assert.match(html,/30.0 分/);assert.match(html,/已投递/);
@@ -133,6 +139,10 @@ test('匹配诊断按固定原因说明漏项、引用及能力错误，不显�
  assert.match(D.matchingDiagnostic({validation_reason:'EXCERPT_REFERENCE_CONFLICT'}),/同时返回/);
  assert.match(D.matchingDiagnostic({validation_reason:'EXCERPT_AMBIGUOUS'}),/多处原文/);
  assert.match(D.matchingDiagnostic({validation_reason:'FACT_NOT_ABILITY'}),/当成能力证明/);
+ assert.match(D.matchingDiagnostic({validation_reason:'CHAT_REQUIREMENT_ID_DUPLICATE',job_index:4,item_index:2,related_item_index:1}),/第 4 个岗位.*第 2 项.*编号重复.*第 1 项重复/);
+ assert.match(D.matchingDiagnostic({validation_reason:'CHAT_REQUIREMENT_CONTENT_DUPLICATE',item_index:2,related_item_index:1}),/同一种岗位条件.*第 1 项重复/);
+ assert.match(D.matchingDiagnostic({validation_reason:'CHAT_REQUIREMENT_ID_INVALID'}),/编号为空或过长/);
+ assert.doesNotMatch(D.matchingDiagnostic({validation_reason:'CHAT_REQUIREMENT_CONTENT_DUPLICATE',related_item_index:'private'}),/private/);
  assert.equal(D.matchingDiagnostic({validation_reason:'private-fact-or-secret',expected:'private'}),'');
  assert.ok(!D.matchingDiagnostic({validation_reason:'FACT_UNKNOWN',item_index:'private'}).includes('private'));
 });
