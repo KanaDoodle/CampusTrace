@@ -72,7 +72,7 @@ test('core score, separate sections, selectable directions and project context r
 test('withdrawn capability evidence remains explicit and cannot display its former proof',()=>{
  const v={state:'ANALYZED',result:{score:null,coverage:50,model:'fixture',analyzed_at:'2026-09-28T00:00:00Z',requirements:[{id:'r',category:'REQUIRED',text:'具体能力',excerpt:'要求原文',confidence:1}],matches:[{requirement_id:'r',result:'NO_EVIDENCE',review_note:'INVALID_ABILITY_EVIDENCE',explanation:'原结论已撤销，不代表你不会。',evidence:[]}],candidate_facts:[{id:'city',kind:'CITY_PREFERRED',text:'误用的城市事实'}],qualifications:{status:'UNKNOWN',results:[]}}};
  const html=m.renderResult(v,{esc,D});
- for(const word of ['1 项结论因误用偏好或项目局限已撤销','错误引用已撤销','暂无依据','暂无法可靠评分','不代表你不会'])assert.ok(html.includes(word),word);
+ for(const word of ['1 项结论已本地复核','错误引用已撤销','暂无依据','暂无法可靠评分','不代表你不会'])assert.ok(html.includes(word),word);
  assert.ok(!html.includes('误用的城市事实'));assert.ok(!html.includes('100.0 / 100'));
 });
 
@@ -84,4 +84,11 @@ test('操作状态与分析状态独立，拒绝和撤回保留真实投递历�
 test('analysis structure separates duty evidence from score and puts concrete work before duplicate language labels',()=>{
  const result={state:'ANALYZED',result:{score:60,coverage:100,model:'fixture',analyzed_at:'2026-10-07T00:00:00Z',requirements:[{id:'go',category:'REQUIRED',text:'掌握 Go',excerpt:'掌握 Go',confidence:1},{id:'soft',category:'REQUIRED',aspect:'SOFT',text:'热爱技术',excerpt:'热爱技术',confidence:1}],matches:[{requirement_id:'go',result:'DIRECT',explanation:'有 Go 实现',evidence:[{id:'skill',excerpt:'Go'},{id:'lang',excerpt:'Go'},{id:'impl',excerpt:'用 Go 实现请求复用与超时清理'}]}],candidate_facts:[{id:'skill',kind:'SKILL',text:'Go'},{id:'lang',kind:'LANGUAGE',text:'Go'},{id:'impl',kind:'IMPLEMENTED',text:'用 Go 实现请求复用与超时清理',project_name:'RPC项目'}],qualifications:{status:'UNKNOWN',results:[]},breakdown:[{category:'REQUIRED',total:5,known:5,direct:1,partial:4,missing:0},{category:'RESPONSIBILITY',total:4,known:2,direct:1,partial:1,missing:2},{category:'SOFT',total:1,known:0,missing:1}]}};
  const html=m.renderResult(result,{esc,D});assert.match(html,/工作内容相关性/);assert.match(html,/直接 1 · 部分 1 · 可迁移 0 · 暂无依据 2/);assert.match(html,/覆盖 100% 不等于全部能力已证明/);assert.match(html,/软性要求（不计技术分）/);assert.ok(html.indexOf('用 Go 实现请求复用与超时清理')<html.indexOf('<br>Go'));assert.equal((html.match(/<br>Go/g)||[]).length,1);
+});
+
+
+test('experience and proficiency reviews retain partial support and show their distinct labels',()=>{
+ const result={requirements:[{id:'exp',category:'BONUS',text:'有RAG使用经验',excerpt:'有RAG使用经验',confidence:1},{id:'context',category:'REQUIRED',text:'深入理解Memory机制',excerpt:'深入理解Memory机制',confidence:1}],matches:[{requirement_id:'exp',result:'PARTIAL',explanation:'技能相关，实践待确认',review_note:'EXPERIENCE_UNCONFIRMED',evidence:[{id:'skill',excerpt:'RAG'}]},{requirement_id:'context',result:'PARTIAL',explanation:'程度未确认',review_note:'CONTEXT_UNCONFIRMED',evidence:[{id:'skill',excerpt:'RAG'}]}],candidate_facts:[{id:'skill',kind:'SKILL',text:'RAG'}]};
+ const html=m.renderResult({state:'ANALYZED',result:{...result,model:'fixture',score:null,coverage:100,qualifications:{status:'UNKNOWN',results:[]}}},{esc,D});
+ assert.ok(html.includes('技能相关 · 实践待确认'));assert.ok(html.includes('程度待确认'));assert.ok(html.includes('部分匹配'));assert.ok(!html.includes('错误引用已撤销'));
 });

@@ -24,7 +24,7 @@ func softOnly(r Requirement) bool {
 // The selectable-direction repair is limited to an explicit heading and its
 // numbered direction lines; a shared engineering duty is not an alternative.
 func normalizeRequirements(items []Requirement, text string) []Requirement {
-	return splitTestableRequirements(normalizeRequirementSemantics(items, text))
+	return splitAIRequirements(splitTestableRequirements(restoreRequirementContext(normalizeRequirementSemantics(items, text), text)))
 }
 
 func normalizeRequirementSemantics(items []Requirement, text string) []Requirement {

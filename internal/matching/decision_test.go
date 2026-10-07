@@ -19,18 +19,21 @@ func decisionFixture(id, title string, statuses ...string) DecisionInput {
 	}
 	return DecisionInput{Job: d.Job{ID: id, Company: "测试公司", Title: title, CurrentStatus: "UNKNOWN", JobType: "FULL_TIME", Locations: []string{"Shanghai"}}, State: "ANALYZED", Result: &Result{InputKey: "current", Requirements: reqs, Matches: matches, CandidateFacts: []Fact{{ID: "fact", Kind: "IMPLEMENTED", ProjectName: "任务调度", Text: "Go 任务队列"}}, AnalyzedAt: decisionNow}}
 }
-func TestDecisionNeverUsesStaleOrUnscoredResults(t *testing.T) {
+func TestDecisionNeverUsesStaleButAllowsLowCoveragePriority(t *testing.T) {
 	stale := decisionFixture("stale", "后端开发", "DIRECT")
 	stale.State = "STALE"
 	low := decisionFixture("low", "后端开发", "DIRECT", "NO_EVIDENCE", "NO_EVIDENCE")
 	pending := DecisionInput{Job: d.Job{ID: "pending", Title: "后端开发"}, State: "BASIC"}
 	report := BuildCompanyComparison("测试公司", "ALL", []DecisionInput{stale, low, pending}, d.Profile{}, decisionNow)
-	if report.Recommendation != "NONE" || len(report.RecommendedIDs) != 0 || report.Stale != 1 || report.Pending != 1 {
+	if report.Recommendation != "PARTIAL" || len(report.RecommendedIDs) != 1 || report.RecommendedIDs[0] != "low" || report.Stale != 1 || report.Pending != 1 {
 		t.Fatal(report)
 	}
 	for _, row := range report.Jobs {
 		if row.Score != nil {
 			t.Fatal("unreliable score exposed", row)
+		}
+		if row.State != "ANALYZED" && (row.Priority != nil || row.Comparable) {
+			t.Fatal("stale priority exposed", row)
 		}
 	}
 	for _, in := range []DecisionInput{stale, pending} {

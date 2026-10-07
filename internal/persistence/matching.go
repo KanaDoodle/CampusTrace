@@ -18,10 +18,10 @@ var ErrMatchQuota = errors.New("daily matching call limit reached")
 // Inventory previews need cache identity and scores, not every citation and
 // historical candidate fact. Keep this smaller than matching.Result.
 type matchResultSummary struct {
-	JobID, InputKey, Model, RequirementsKey, ComparisonKey, ComparisonScope, Source, SourceContextKey string
-	Score                                                                                             *float64
-	Coverage                                                                                          float64
-	Breakdown                                                                                         []matching.SectionScore
+	JobID, InputKey, Model, RequirementsKey, ComparisonKey, ComparisonScope, Source, SourceContextKey, QualityVersion string
+	Score                                                                                                             *float64
+	Coverage                                                                                                          float64
+	Breakdown                                                                                                         []matching.SectionScore
 }
 
 type MatchJob struct {
@@ -214,7 +214,7 @@ func (s *Store) matchSnapshot(ctx context.Context, user, model, maskName string,
 	if len(ids) > 0 && len(jobs) != len(ids) {
 		return v, ErrNotFound
 	}
-	resultQuery := "SELECT JSON_OBJECT('JobID',job_id,'InputKey',JSON_UNQUOTE(JSON_EXTRACT(body,'$.input_key')),'Model',JSON_UNQUOTE(JSON_EXTRACT(body,'$.model')),'RequirementsKey',JSON_UNQUOTE(JSON_EXTRACT(body,'$.requirements_key')),'ComparisonKey',JSON_UNQUOTE(JSON_EXTRACT(body,'$.comparison_key')),'ComparisonScope',JSON_UNQUOTE(JSON_EXTRACT(body,'$.comparison_scope')),'Score',JSON_EXTRACT(body,'$.score'),'Coverage',JSON_EXTRACT(body,'$.coverage'),'Breakdown',JSON_EXTRACT(body,'$.breakdown'),'Source',JSON_UNQUOTE(JSON_EXTRACT(body,'$.source')),'SourceContextKey',JSON_UNQUOTE(JSON_EXTRACT(body,'$.source_context_key'))) FROM job_match_results WHERE user_id=?"
+	resultQuery := "SELECT JSON_OBJECT('QualityVersion',COALESCE(JSON_UNQUOTE(JSON_EXTRACT(body,'$.quality_version')),''),'JobID',job_id,'InputKey',JSON_UNQUOTE(JSON_EXTRACT(body,'$.input_key')),'Model',JSON_UNQUOTE(JSON_EXTRACT(body,'$.model')),'RequirementsKey',JSON_UNQUOTE(JSON_EXTRACT(body,'$.requirements_key')),'ComparisonKey',JSON_UNQUOTE(JSON_EXTRACT(body,'$.comparison_key')),'ComparisonScope',JSON_UNQUOTE(JSON_EXTRACT(body,'$.comparison_scope')),'Score',JSON_EXTRACT(body,'$.score'),'Coverage',JSON_EXTRACT(body,'$.coverage'),'Breakdown',JSON_EXTRACT(body,'$.breakdown'),'Source',JSON_UNQUOTE(JSON_EXTRACT(body,'$.source')),'SourceContextKey',JSON_UNQUOTE(JSON_EXTRACT(body,'$.source_context_key'))) FROM job_match_results WHERE user_id=?"
 	resultArgs := []any{user}
 	if fullResults || len(ids) > 0 || company != "" {
 		if fullResults {
@@ -241,7 +241,7 @@ func (s *Store) matchSnapshot(ctx context.Context, user, model, maskName string,
 		}
 		for _, r := range results {
 			fullByID[r.JobID] = r
-			resultByID[r.JobID] = matchResultSummary{r.JobID, r.InputKey, r.Model, r.RequirementsKey, r.ComparisonKey, r.ComparisonScope, r.Source, r.SourceContextKey, r.Score, r.Coverage, r.Breakdown}
+			resultByID[r.JobID] = matchResultSummary{r.JobID, r.InputKey, r.Model, r.RequirementsKey, r.ComparisonKey, r.ComparisonScope, r.Source, r.SourceContextKey, r.QualityVersion, r.Score, r.Coverage, r.Breakdown}
 		}
 	} else {
 		results, e := Many[matchResultSummary](ctx, tx, resultQuery, resultArgs...)
@@ -381,7 +381,7 @@ func (s *Store) matchSnapshot(ctx context.Context, user, model, maskName string,
 				reusable = o.FetchStatus == "SUCCESS" && r.SourceContextKey != "" && r.SourceContextKey == contextKey
 			}
 			legacyCurrent := !manual && r.ComparisonKey == "" && r.InputKey == row.InputKey
-			if row.InputKey != "" && (r.Model == model || manual) && (legacyCurrent || reusable) {
+			if r.QualityVersion == matching.QualityVersion && row.InputKey != "" && (r.Model == model || manual) && (legacyCurrent || reusable) {
 				row.State = "ANALYZED"
 				row.Score = r.Score
 				row.Coverage = r.Coverage
@@ -484,6 +484,7 @@ func (s *Store) saveMatchResult(ctx context.Context, tx *sql.Tx, user, maskName 
 			return err
 		}
 	}
+	r.QualityVersion = matching.QualityVersion
 	_, err = tx.ExecContext(ctx, "INSERT INTO job_match_results(user_id,job_id,body) VALUES(?,?,?) ON DUPLICATE KEY UPDATE body=VALUES(body)", user, r.JobID, d.JSON(r))
 	return err
 }

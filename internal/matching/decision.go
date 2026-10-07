@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-const DecisionVersion = "decision-v1"
+const DecisionVersion = "decision-v2-application-priority"
 const MaxDecisionJobs = 200
 
 var ErrDecisionCapacity = errors.New("decision view capacity exceeded")
@@ -207,6 +207,7 @@ type CompanyJob struct {
 	Job                                           d.Job             `json:"job"`
 	State                                         string            `json:"state"`
 	Score                                         *float64          `json:"score"`
+	Priority                                      *Priority         `json:"priority,omitempty"`
 	Coverage                                      float64           `json:"coverage"`
 	Eligibility                                   string            `json:"eligibility"`
 	Direction                                     string            `json:"direction"`
@@ -319,7 +320,7 @@ func typePreference(p d.Profile, j d.Job) (int, string) {
 	return 0, "需确认岗位类型偏好"
 }
 func compareOrder(a, b CompanyJob) int {
-	for _, pair := range [][2]int{{a.roleRank, b.roleRank}, {a.eligibilityRank, b.eligibilityRank}} {
+	for _, pair := range [][2]int{{a.roleRank, b.roleRank}} {
 		if pair[0] > pair[1] {
 			return -1
 		}
@@ -327,7 +328,7 @@ func compareOrder(a, b CompanyJob) int {
 			return 1
 		}
 	}
-	for _, pair := range [][2]float64{{*a.Score, *b.Score}, {a.Coverage, b.Coverage}, {float64(a.cityRank), float64(b.cityRank)}, {float64(a.typeRank), float64(b.typeRank)}, {a.bonusSupport, b.bonusSupport}} {
+	for _, pair := range [][2]float64{{a.Priority.Score, b.Priority.Score}, {a.Coverage, b.Coverage}, {float64(a.cityRank), float64(b.cityRank)}, {float64(a.typeRank), float64(b.typeRank)}, {a.bonusSupport, b.bonusSupport}, {float64(a.eligibilityRank), float64(b.eligibilityRank)}} {
 		if pair[0] > pair[1] {
 			return -1
 		}
@@ -358,6 +359,7 @@ func BuildCompanyComparison(company, scope string, inputs []DecisionInput, p d.P
 			row.EvidenceReviews = plan.EvidenceReviews
 			row.Score, row.Coverage, row.Eligibility, row.AnalyzedAt = plan.Score, plan.Coverage, plan.Eligibility.Status, plan.AnalyzedAt
 			row.Sections = ScoreBreakdown(in.Result.Requirements, in.Result.Matches)
+			row.Priority = ApplicationPriority(row.Sections)
 			for _, task := range plan.Tasks {
 				if task.Category == "QUALIFICATION" {
 					continue
@@ -381,7 +383,7 @@ func BuildCompanyComparison(company, scope string, inputs []DecisionInput, p d.P
 			if row.BlockedReason == "" && row.Eligibility == "INELIGIBLE" {
 				row.BlockedReason = "明确不符合投递条件"
 			}
-			row.Comparable = row.Score != nil && row.Coverage >= 60 && row.BlockedReason == ""
+			row.Comparable = row.Priority != nil && row.BlockedReason == ""
 		}
 		out.Jobs = append(out.Jobs, row)
 	}
@@ -404,7 +406,7 @@ func BuildCompanyComparison(company, scope string, inputs []DecisionInput, p d.P
 		}
 	}
 	if len(candidates) == 0 {
-		out.Reasons = append(out.Reasons, "当前范围没有同时具备有效评分、足够依据且未被排除的意向岗位。请补充资料、更新分析或核对岗位条件。")
+		out.Reasons = append(out.Reasons, "当前范围没有具备核心技术相关依据且未被排除的意向岗位。没有写到不等于不会，可查看原文后考虑投递或补充资料。")
 		return out
 	}
 	top := out.Jobs[candidates[0]]
@@ -422,8 +424,11 @@ func BuildCompanyComparison(company, scope string, inputs []DecisionInput, p d.P
 	if len(out.RecommendedIDs) > 1 {
 		out.Recommendation = "TIED"
 	}
-	out.Reasons = append(out.Reasons, "仅使用本次范围内的有效分析；先看意向方向与资格状态，再按核心匹配度、覆盖度、城市与类型偏好、加分项有据匹配比例排序。相同条件保留并列。")
-	out.Reasons = append(out.Reasons, fmt.Sprintf("优先候选的核心匹配度 %.1f，依据覆盖 %.1f%%；%s，%s。", *top.Score, top.Coverage, top.Direction, top.City))
+	out.Reasons = append(out.Reasons, "先看意向方向，再按投递优先度、依据覆盖、城市与类型偏好、加分项排序；资格未知不阻止比较。未知技术项按中性值计入排序，参考区间展示未知项的影响，不把没写到当作不会。相同条件保留并列。")
+	out.Reasons = append(out.Reasons, fmt.Sprintf("优先候选的投递优先度 %.1f，参考区间 %.1f–%.1f，依据覆盖 %.1f%%；%s，%s。", top.Priority.Score, top.Priority.Lower, top.Priority.Upper, top.Coverage, top.Direction, top.City))
+	if top.Coverage < 60 {
+		out.Reasons = append(out.Reasons, "优先候选的已知资料较少，这个排序可用于选择先投的岗位，补充经历后顺序可能改变。")
+	}
 	if top.Eligibility != "ELIGIBLE" {
 		out.Reasons = append(out.Reasons, "优先候选的投递资格仍需核对，不能直接视为可投递。")
 	}

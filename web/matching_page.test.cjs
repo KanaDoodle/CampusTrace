@@ -193,7 +193,7 @@ test('completed analysis surfaces withdrawn evidence without queuing another mod
  const h=harness({pending:['pending-a'],failed:[],evidenceReviews:2});await h.start();
  await h.elements.get('match-continue').onclick();h.consent();await h.review();
  assert.deepEqual(h.requests,[['pending-a']]);assert.deepEqual(h.progress().failed,[]);
- assert.ok(h.html().includes('2 项错误能力引用已撤销'));
+ assert.ok(h.html().includes('2 项结论已本地复核'));
 });
 
 

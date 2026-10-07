@@ -32,7 +32,17 @@ test('comparison preserves multiple recommendations, scopes partial results and 
 
 
 test('preparation and company comparison surface withdrawn evidence reviews',()=>{
- const p={...plan(),evidence_reviews:2};assert.ok(Decision.renderPreparation(p,{esc,D}).includes('2 项错误能力引用已撤销'));
+ const p={...plan(),evidence_reviews:2};assert.ok(Decision.renderPreparation(p,{esc,D}).includes('2 项结论已本地复核'));
  const html=Decision.renderCompany({scope:'ALL',total:1,analyzed:1,pending:0,stale:0,recommendation:'NONE',reasons:[],jobs:[{job:{id:'1',title:'测试岗位'},state:'ANALYZED',evidence_reviews:2,score:null,coverage:50,strengths:[],gaps:[],sections:[]}]},{esc,D});
- assert.ok(html.includes('2 项错误引用已撤销'));assert.ok(html.includes('暂无可靠评分'));
+ assert.ok(html.includes('2 项结论已本地复核'));assert.ok(html.includes('暂无可靠评分'));
+});
+
+
+test('company comparison displays low-coverage priority and uncertainty without exposing stale priority',()=>{
+ const row={job:{id:'j',title:'后端开发'},state:'ANALYZED',priority:{score:60,lower:20,upper:100},score:null,coverage:20,strengths:[],gaps:[],sections:[]};
+ const report={scope:'ALL',total:1,analyzed:1,pending:0,stale:0,recommendation:'READY',reasons:[],jobs:[row]};
+ const html=Decision.renderCompany(report,{esc,D});
+ assert.ok(html.includes('投递优先度'));assert.ok(html.includes('60.0'));assert.ok(html.includes('参考区间 20.0–100.0'));assert.ok(html.includes('不必等资料全部补齐'));
+ const stale=Decision.renderCompany({...report,jobs:[{...row,state:'STALE',score:99,priority:{score:99,lower:99,upper:99}}]},{esc,D});
+ assert.ok(!stale.includes('99.0'));assert.ok(stale.includes('待分析或更新'));
 });

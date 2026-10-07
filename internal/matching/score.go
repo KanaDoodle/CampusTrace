@@ -2,6 +2,29 @@ package matching
 
 import "math"
 
+// Priority is an application triage estimate, not proof of eligibility. Related
+// experience receives more weight than in the audited core score. Unknown units
+// receive a neutral half point rather than being treated as mismatches.
+// Bounds show the effect of those unknowns (not statistical confidence).
+type Priority struct {
+	Score float64 `json:"score"`
+	Lower float64 `json:"lower"`
+	Upper float64 `json:"upper"`
+}
+
+func ApplicationPriority(sections []SectionScore) *Priority {
+	for _, s := range sections {
+		if s.Category != "REQUIRED" || s.Total == 0 || s.Direct+s.Partial+s.Transferable == 0 {
+			continue
+		}
+		points := float64(s.Direct) + .75*float64(s.Partial) + .6*float64(s.Transferable)
+		unknown := float64(s.Total - s.Known)
+		round := func(v float64) float64 { return math.Round(v/float64(s.Total)*1000) / 10 }
+		return &Priority{Score: round(points + .5*unknown), Lower: round(points), Upper: round(points + unknown)}
+	}
+	return nil
+}
+
 type SectionScore struct {
 	Category     string   `json:"category"`
 	Score        *float64 `json:"score"`

@@ -92,7 +92,7 @@ func TestComparisonWithdrawsOnlyKnownMisuseAndPreservesVerifiedItems(t *testing.
 					t.Fatal("missing evidence task")
 				}
 				report := BuildCompanyComparison("company", "ALL", []DecisionInput{in}, d.Profile{}, decisionNow)
-				if report.Recommendation != "NONE" || report.Jobs[0].EvidenceReviews != 1 || report.Jobs[0].Score != nil {
+				if report.Recommendation != "READY" || report.Jobs[0].EvidenceReviews != 1 || report.Jobs[0].Score != nil || report.Jobs[0].Priority == nil || report.Jobs[0].Priority.Score != 75 {
 					t.Fatal(report)
 				}
 			})

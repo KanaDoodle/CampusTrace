@@ -152,6 +152,43 @@ func TestChatImportPreviewConfirmStalenessOwnershipAndDecisionFlows(t *testing.T
 		t.Fatal("stale profile imported", rec.Code)
 	}
 }
+
+func TestOldMatchingQualityIsStaleInBothCatalogAndDecisionUntilReimport(t *testing.T) {
+	ctx, s, _, user, _ := setup(t)
+	profile := d.Profile{Degree: "MASTER", Languages: []string{"Go"}}
+	must(t, s.SaveProfile(ctx, user, profile))
+	o, err := s.IngestForUser(ctx, user, p.Ingest{Company: "Quality fixture", Title: "后端开发", JobType: "FULL_TIME", ExternalID: d.ID(), Text: "熟悉 Go", FetchStatus: "SUCCESS", ObservedAt: time.Now().UTC()})
+	must(t, err)
+	snapshot, err := s.MatchExportSnapshot(ctx, user, matching.ChatIdentity, "", []string{o.JobID})
+	must(t, err)
+	r, err := matching.ImportChatJob(matching.ChatJob{Requirements: []matching.Requirement{{ID: "go", Category: "REQUIRED", Text: "熟悉 Go", Excerpt: "熟悉 Go", Confidence: 1}}, Matches: []matching.Match{{RequirementID: "go", Result: "DIRECT", Explanation: "已填写 Go", Evidence: []matching.Citation{{ID: "language-0", Excerpt: "Go"}}}}}, snapshot.Jobs[0].Text, snapshot.Jobs[0].Job, profile, snapshot.Candidate, time.Now().UTC())
+	must(t, err)
+	r.SourceContextKey = r.InputKey
+	must(t, s.SaveMatchResult(ctx, user, "", r))
+	_, err = s.DB.ExecContext(ctx, "UPDATE job_match_results SET body=JSON_REMOVE(body,'$.quality_version') WHERE user_id=? AND job_id=?", user, o.JobID)
+	must(t, err)
+	for _, full := range []bool{false, true} {
+		var snap p.MatchSnapshot
+		if full {
+			snap, err = s.MatchDecisionSnapshot(ctx, user, matching.ChatIdentity, "", []string{o.JobID}, "")
+		} else {
+			snap, err = s.MatchSnapshot(ctx, user, matching.ChatIdentity, "", []string{o.JobID})
+		}
+		must(t, err)
+		if snap.Jobs[0].State != "STALE" || snap.Jobs[0].Score != nil {
+			t.Fatal("old quality was considered current", snap.Jobs[0].State)
+		}
+		if full && snap.Jobs[0].Result == nil {
+			t.Fatal("historical result discarded")
+		}
+	}
+	must(t, s.SaveMatchResult(ctx, user, "", r))
+	snapshot, err = s.MatchDecisionSnapshot(ctx, user, matching.ChatIdentity, "", []string{o.JobID}, "")
+	must(t, err)
+	if snapshot.Jobs[0].State != "ANALYZED" || snapshot.Jobs[0].Result.QualityVersion != matching.QualityVersion {
+		t.Fatal(snapshot.Jobs[0].State)
+	}
+}
 func TestMaskedChatImportRemainsUsableAfterReloadWithoutStoringMask(t *testing.T) {
 	ctx, s, q, u, _ := setup(t)
 	must(t, s.SaveProfile(ctx, u, d.Profile{Languages: []string{"Go"}}))

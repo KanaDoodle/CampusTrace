@@ -95,3 +95,11 @@ test('merged chat jobs retain source positions locally without adding fields to 
   assert.deepEqual(positions,[['a',0,1],['b',0,2],['c',0,3],['d',1,1]]);
   assert.deepEqual(merged,doc(['a','b','c','d']));
 });
+
+
+test('export guides practical company ranking, scoped proficiency and declaration-only partial matches',()=>{
+ const text=C.makeFiles(payload([job(1)]))[0].text;
+ for(const phrase of ['实用的相对排序','每岗最多64项','实践未确认','Planning','限定对象','概括性父项'])assert.ok(text.includes(phrase),phrase);
+ assert.ok(C.mergePrompt.includes('覆盖不足60%仍可给投递顺序建议'));
+ assert.ok(!text.includes('每岗最多36项'));
+});

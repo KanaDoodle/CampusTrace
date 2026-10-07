@@ -1,7 +1,13 @@
 package matching
 
+import "regexp"
+
 // Review notes are assigned locally, never accepted from model output.
 const InvalidAbilityEvidence = "INVALID_ABILITY_EVIDENCE"
+const ExperienceUnconfirmed = "EXPERIENCE_UNCONFIRMED"
+const ContextUnconfirmed = "CONTEXT_UNCONFIRMED"
+
+var practicalExperience = regexp.MustCompile(`(?i)(?:实际|实战|实践|使用|搭建|构建|建设|开发|项目|编码|落地)(?:的)?经验|实际(?:使用|搭建|构建|开发|实现)|hands.on experience|practical experience`)
 
 type comparisonCandidate struct {
 	Revision    uint64 `json:"revision"`
@@ -63,7 +69,10 @@ func withdrawInvalidAbilityEvidence(c Candidate, reqs []Requirement, matches []M
 		if m.Result != "DIRECT" && m.Result != "PARTIAL" && m.Result != "TRANSFERABLE" {
 			continue
 		}
+		onlyDeclarations := len(m.Evidence) > 0
 		for _, citation := range m.Evidence {
+			kind := facts[citation.ID].Kind
+			onlyDeclarations = onlyDeclarations && (kind == "SKILL" || kind == "LANGUAGE")
 			if !abilityCitation(facts[citation.ID], requirements[m.RequirementID]) {
 				matches[i].Result = "NO_EVIDENCE"
 				matches[i].Explanation = "模型引用了求职偏好或项目局限来证明能力，原结论已撤销。此项暂无足够的有效依据，请核对真实经历并补充资料；不代表你不会。"
@@ -72,13 +81,23 @@ func withdrawInvalidAbilityEvidence(c Candidate, reqs []Requirement, matches []M
 				break
 			}
 		}
+		r := requirements[m.RequirementID]
+		// Declared skills help application triage but cannot prove hands-on
+		// work. Keep partial support without rejecting the whole batch.
+		if matches[i].Result != "NO_EVIDENCE" && onlyDeclarations && (r.Category == "REQUIRED" || r.Category == "BONUS") && r.Aspect != "SOFT" && practicalExperience.MatchString(r.Text) {
+			if matches[i].Result == "DIRECT" {
+				matches[i].Result = "PARTIAL"
+			}
+			matches[i].Explanation = "已填写相关技能，可作为部分匹配参考；当前引用只有技能或语言自述，尚不能确认实际使用或项目经验。可先考虑投递，并核对自己能否讲清相关实践。"
+			matches[i].ReviewNote = ExperienceUnconfirmed
+		}
 	}
 }
 
 func EvidenceReviewCount(matches []Match) int {
 	n := 0
 	for _, m := range matches {
-		if m.ReviewNote == InvalidAbilityEvidence {
+		if m.ReviewNote == InvalidAbilityEvidence || m.ReviewNote == ExperienceUnconfirmed || m.ReviewNote == ContextUnconfirmed {
 			n++
 		}
 	}

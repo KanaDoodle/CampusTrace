@@ -97,6 +97,7 @@ func ImportChatJob(in ChatJob, text string, job d.Job, profile d.Profile, c Cand
 		return Result{}, err
 	}
 	withdrawInvalidAbilityEvidence(c, reqs, matches)
+	reqs, matches = repairChatContext(reqs, matches, text)
 	reqs = RepairQualifications(reqs, text)
 	if len(reqs) > MaxRequirements {
 		return Result{}, ErrCapacity
@@ -118,7 +119,7 @@ func ImportChatJob(in ChatJob, text string, job d.Job, profile d.Profile, c Cand
 	key := RequirementKey(text, ChatIdentity)
 	scope := ComparisonScope(reqs)
 	score, coverage := Score(reqs, matches)
-	return Result{JobID: job.ID, InputKey: InputKey(key, c.Hash()), RequirementsKey: key, CandidateHash: c.Hash(), ComparisonScope: scope, ComparisonKey: ComparisonKey(key, ComparisonCandidateHash(c, scope), scope), Model: ChatIdentity, Source: ChatSource, AnalyzedAt: now, Requirements: reqs, Matches: matches, CandidateFacts: c.Facts, Score: score, Coverage: coverage, Breakdown: ScoreBreakdown(reqs, matches), Qualifications: Qualification(job, profile, reqs, now)}, nil
+	return Result{QualityVersion: QualityVersion, JobID: job.ID, InputKey: InputKey(key, c.Hash()), RequirementsKey: key, CandidateHash: c.Hash(), ComparisonScope: scope, ComparisonKey: ComparisonKey(key, ComparisonCandidateHash(c, scope), scope), Model: ChatIdentity, Source: ChatSource, AnalyzedAt: now, Requirements: reqs, Matches: matches, CandidateFacts: c.Facts, Score: score, Coverage: coverage, Breakdown: ScoreBreakdown(reqs, matches), Qualifications: Qualification(job, profile, reqs, now)}, nil
 }
 
 var chatQualificationClauses = regexp.MustCompile(`[，,。；;\n（）()]`)

@@ -22,7 +22,7 @@ const MaxBatchText = 24000
 // project context as well as the original text. Comparison has its own budget.
 const MaxCandidateText = 32000
 const MaxComparisonText = 54000
-const MaxRequirements = 36
+const MaxRequirements = 64
 
 var ErrInvalid = errors.New("unverifiable matching output")
 var ErrCapacity = errors.New("matching input capacity exceeded")
@@ -170,6 +170,7 @@ type MatchInput struct {
 	Requirements []Requirement `json:"requirements"`
 }
 type Result struct {
+	QualityVersion   string         `json:"quality_version,omitempty"`
 	JobID            string         `json:"job_id"`
 	InputKey         string         `json:"input_key"`
 	RequirementsKey  string         `json:"requirements_key"`

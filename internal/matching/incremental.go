@@ -13,7 +13,8 @@ import (
 // Unknown qualification formats keep all non-preference facts in scope. Never
 // infer dependencies from the citations of a positive or NO_EVIDENCE result:
 // newly added facts may change either conclusion.
-const ComparisonVersion = "comparison-v3-local-basics"
+const ComparisonVersion = "comparison-v4-scoped-experience"
+const QualityVersion = "quality-v1-scoped-experience"
 const ComparisonAbilities = "ABILITIES"
 const ComparisonFull = "FULL"
 

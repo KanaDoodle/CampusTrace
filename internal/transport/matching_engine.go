@@ -149,7 +149,7 @@ func (a *API) executeMatchBatch(ctx context.Context, user string, in matchBatchI
 		}
 		score, coverage := matching.Score(reqs, matches)
 		scope := matching.ComparisonScope(reqs)
-		result := matching.Result{JobID: job.Job.ID, InputKey: job.InputKey, RequirementsKey: job.RequirementsKey, CandidateHash: snapshot.CandidateHash, ComparisonScope: scope, ComparisonKey: matching.ComparisonKey(job.RequirementsKey, matching.ComparisonCandidateHash(snapshot.Candidate, scope), scope), Model: identity, AnalyzedAt: time.Now().UTC(), Requirements: reqs, Matches: matches, CandidateFacts: snapshot.Candidate.Facts, Score: score, Coverage: coverage, Qualifications: matching.Qualification(job.Job, snapshot.Profile, reqs, time.Now().UTC())}
+		result := matching.Result{QualityVersion: matching.QualityVersion, JobID: job.Job.ID, InputKey: job.InputKey, RequirementsKey: job.RequirementsKey, CandidateHash: snapshot.CandidateHash, ComparisonScope: scope, ComparisonKey: matching.ComparisonKey(job.RequirementsKey, matching.ComparisonCandidateHash(snapshot.Candidate, scope), scope), Model: identity, AnalyzedAt: time.Now().UTC(), Requirements: reqs, Matches: matches, CandidateFacts: snapshot.Candidate.Facts, Score: score, Coverage: coverage, Qualifications: matching.Qualification(job.Job, snapshot.Profile, reqs, time.Now().UTC())}
 		result.Breakdown = matching.ScoreBreakdown(reqs, matches)
 		if hook != nil {
 			if err := hook("SAVE", "", 0); err != nil {
