@@ -15,6 +15,7 @@ const CampusUI=(function(root){
     shield:'<path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6Z"/><path d="m8 12 3 3 5-6"/>',
     upload:'<path d="M4 15v5h16v-5M12 16V3m-5 5 5-5 5 5"/>',
     download:'<path d="M4 16v4h16v-4M12 3v13m-5-5 5 5 5-5"/>',
+    external:'<path d="M14 3h7v7m0-7L10 14M11 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6"/>',
     plus:'<path d="M12 5v14M5 12h14"/>',
     clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
     bell:'<path d="M5 17h14l-2-3V9a5 5 0 0 0-10 0v5Zm5 3h4"/>',
