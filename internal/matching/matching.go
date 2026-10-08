@@ -171,6 +171,7 @@ type MatchInput struct {
 }
 type Result struct {
 	QualityVersion   string         `json:"quality_version,omitempty"`
+	IgnoredHeadings  int            `json:"ignored_headings,omitempty"`
 	JobID            string         `json:"job_id"`
 	InputKey         string         `json:"input_key"`
 	RequirementsKey  string         `json:"requirements_key"`
@@ -525,6 +526,13 @@ func Qualification(j d.Job, p d.Profile, reqs []Requirement, now time.Time) d.El
 	e.Status = "ELIGIBLE"
 	for i := range e.Results {
 		r := &e.Results[i]
+		if r.Rule == "MAJOR_REQUIREMENT" {
+			for _, req := range reqs {
+				if req.Value == "不限" && unrestrictedMajor(req) && req.Confidence >= .8 && len(r.EvidenceIDs) == 1 && r.EvidenceIDs[0] == req.ID {
+					r.Result, r.Explanation = "NOT_APPLICABLE", "岗位明确写明专业不限，不按所学专业筛除。"
+				}
+			}
+		}
 		if r.Rule == "MAJOR_REQUIREMENT" && r.Result == "FAIL" {
 			r.Result = "UNKNOWN"
 			r.Explanation = "专业表述需要结合原文核验"

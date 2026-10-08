@@ -103,3 +103,8 @@ test('export guides practical company ranking, scoped proficiency and declaratio
  assert.ok(C.mergePrompt.includes('覆盖不足60%仍可给投递顺序建议'));
  assert.ok(!text.includes('每岗最多36项'));
 });
+
+test('chat instructions exclude section headings and distinguish technical ability from an academic major',()=>{
+ const text=C.makeFiles(payload([job(1)]))[0].text;
+ for(const phrase of ['章节标题','不能单独生成 requirement 或 match','MAJOR_REQUIREMENT 只用于明确的专业范围','不明确时两个字段都不填'])assert.ok(text.includes(phrase),phrase);
+});

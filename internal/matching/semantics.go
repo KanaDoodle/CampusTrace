@@ -24,7 +24,7 @@ func softOnly(r Requirement) bool {
 // The selectable-direction repair is limited to an explicit heading and its
 // numbered direction lines; a shared engineering duty is not an alternative.
 func normalizeRequirements(items []Requirement, text string) []Requirement {
-	return splitAIRequirements(splitTestableRequirements(restoreRequirementContext(normalizeRequirementSemantics(items, text), text)))
+	return splitAIRequirements(splitTestableRequirements(restoreRequirementContext(normalizeRequirementSemantics(omitSectionHeadings(items, text), text), text)))
 }
 
 func normalizeRequirementSemantics(items []Requirement, text string) []Requirement {
@@ -43,6 +43,7 @@ func normalizeRequirementSemantics(items []Requirement, text string) []Requireme
 		}
 	}
 	for i := range items {
+		items[i] = repairUnrestrictedMajor(items[i])
 		r := &items[i]
 		preferred := preferredCue.MatchString(r.Text)
 		if r.ClaimType == "MAJOR_REQUIREMENT" {

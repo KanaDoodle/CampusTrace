@@ -35,6 +35,7 @@ func ImportChatJob(in ChatJob, text string, job d.Job, profile d.Profile, c Cand
 	}
 	reqs := append([]Requirement{}, in.Requirements...)
 	seen := map[string]int{}
+	ignored := map[string]bool{}
 	for i, r := range reqs {
 		if strings.TrimSpace(r.ID) == "" || len(r.ID) > 48 {
 			return Result{}, invalid("CHAT_REQUIREMENT_ID_INVALID", i+1)
@@ -43,8 +44,26 @@ func ImportChatJob(in ChatJob, text string, job d.Job, profile d.Profile, c Cand
 			return Result{}, &ValidationError{Reason: "CHAT_REQUIREMENT_ID_DUPLICATE", ItemIndex: i + 1, RelatedItemIndex: previous}
 		}
 		seen[r.ID] = i + 1
+		if ignorableChatHeading(r, text, c, in.Matches) {
+			ignored[r.ID] = true
+			continue
+		}
+		r = repairUnrestrictedMajor(r)
+		reqs[i] = r
 		if err := ValidateRequirement(r, text); err != nil {
 			return Result{}, invalid("CHAT_REQUIREMENT_INVALID", i+1)
+		}
+	}
+	if len(ignored) > 0 {
+		kept := []Requirement{}
+		for _, r := range reqs {
+			if !ignored[r.ID] {
+				kept = append(kept, r)
+			}
+		}
+		reqs = kept
+		if len(reqs) == 0 {
+			return Result{}, invalid("CHAT_REQUIREMENTS_EMPTY", 0)
 		}
 	}
 	if err := validateGroups(reqs); err != nil {
@@ -62,10 +81,11 @@ func ImportChatJob(in ChatJob, text string, job d.Job, profile d.Profile, c Cand
 	}
 	canonical := map[string]int{}
 	for i, r := range normalized {
+		item := seen[r.ID]
 		probe := r
 		probe.Excerpt = r.Text
 		if len(splitTestableRequirements([]Requirement{probe})) != 1 {
-			return Result{}, invalid("CHAT_REQUIREMENT_COMPOSITE", i+1)
+			return Result{}, invalid("CHAT_REQUIREMENT_COMPOSITE", item)
 		}
 		// Degree and major conditions may cite the same full source sentence.
 		// Keep the validated original facet even if preference normalization
@@ -78,22 +98,32 @@ func ImportChatJob(in ChatJob, text string, job d.Job, profile d.Profile, c Cand
 		}
 		key := d.Hash(d.JSON([]string{category, r.Text, r.Excerpt, r.Aspect, r.GroupID, facet}))
 		if previous := canonical[key]; previous > 0 {
-			return Result{}, &ValidationError{Reason: "CHAT_REQUIREMENT_CONTENT_DUPLICATE", ItemIndex: i + 1, RelatedItemIndex: previous}
+			return Result{}, &ValidationError{Reason: "CHAT_REQUIREMENT_CONTENT_DUPLICATE", ItemIndex: item, RelatedItemIndex: previous}
 		}
-		canonical[key] = i + 1
+		canonical[key] = item
 	}
 	if err := validateGroups(normalized); err != nil {
 		return Result{}, err
 	}
 	reqs = normalized
-	matches := append([]Match{}, in.Matches...)
-	for i, m := range matches {
+	matches := []Match{}
+	matchPositions := []int{}
+	for i, m := range in.Matches {
 		if m.ReviewNote != "" {
 			return Result{}, invalid("CHAT_REVIEW_NOTE", i+1)
+		}
+		if !ignored[m.RequirementID] {
+			matches = append(matches, m)
+			matchPositions = append(matchPositions, i+1)
 		}
 	}
 	matches = comparePreferences(c, reqs, matches)
 	if err := validateMatches(c, reqs, matches, false); err != nil {
+		if v, ok := err.(*ValidationError); ok && v.ItemIndex > 0 && v.ItemIndex <= len(matchPositions) {
+			copy := *v
+			copy.ItemIndex = matchPositions[v.ItemIndex-1]
+			return Result{}, &copy
+		}
 		return Result{}, err
 	}
 	withdrawInvalidAbilityEvidence(c, reqs, matches)
@@ -119,7 +149,7 @@ func ImportChatJob(in ChatJob, text string, job d.Job, profile d.Profile, c Cand
 	key := RequirementKey(text, ChatIdentity)
 	scope := ComparisonScope(reqs)
 	score, coverage := Score(reqs, matches)
-	return Result{QualityVersion: QualityVersion, JobID: job.ID, InputKey: InputKey(key, c.Hash()), RequirementsKey: key, CandidateHash: c.Hash(), ComparisonScope: scope, ComparisonKey: ComparisonKey(key, ComparisonCandidateHash(c, scope), scope), Model: ChatIdentity, Source: ChatSource, AnalyzedAt: now, Requirements: reqs, Matches: matches, CandidateFacts: c.Facts, Score: score, Coverage: coverage, Breakdown: ScoreBreakdown(reqs, matches), Qualifications: Qualification(job, profile, reqs, now)}, nil
+	return Result{QualityVersion: QualityVersion, IgnoredHeadings: len(ignored), JobID: job.ID, InputKey: InputKey(key, c.Hash()), RequirementsKey: key, CandidateHash: c.Hash(), ComparisonScope: scope, ComparisonKey: ComparisonKey(key, ComparisonCandidateHash(c, scope), scope), Model: ChatIdentity, Source: ChatSource, AnalyzedAt: now, Requirements: reqs, Matches: matches, CandidateFacts: c.Facts, Score: score, Coverage: coverage, Breakdown: ScoreBreakdown(reqs, matches), Qualifications: Qualification(job, profile, reqs, now)}, nil
 }
 
 var chatQualificationClauses = regexp.MustCompile(`[，,。；;\n（）()]`)

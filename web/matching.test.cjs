@@ -92,3 +92,10 @@ test('experience and proficiency reviews retain partial support and show their d
  const html=m.renderResult({state:'ANALYZED',result:{...result,model:'fixture',score:null,coverage:100,qualifications:{status:'UNKNOWN',results:[]}}},{esc,D});
  assert.ok(html.includes('技能相关 · 实践待确认'));assert.ok(html.includes('程度待确认'));assert.ok(html.includes('部分匹配'));assert.ok(!html.includes('错误引用已撤销'));
 });
+
+test('locally ignored section headings have a notice without changing real requirements',()=>{
+ const v={state:'ANALYZED',result:{ignored_headings:1,model:'fixture',score:100,coverage:100,requirements:[{id:'go',category:'REQUIRED',text:'熟悉 Go',excerpt:'熟悉 Go',confidence:1}],matches:[],qualifications:{status:'UNKNOWN',results:[]}}};
+ assert.ok(m.renderResult(v,{esc,D}).includes('已忽略 1 个章节标题'));assert.ok(m.renderResult(v,{esc,D}).includes('熟悉 Go'));
+ delete v.result.ignored_headings;assert.ok(!m.renderResult(v,{esc,D}).includes('已忽略'));
+ v.result.ignored_headings='<script>';assert.ok(!m.renderResult(v,{esc,D}).includes('已忽略'));
+});

@@ -25,6 +25,21 @@ var graduationDateRange = regexp.MustCompile(`(` + graduationDateToken + `)\s*(?
 var graduationMetadata = regexp.MustCompile(`毕业范围开始日期\s*[:：]\s*(` + graduationDateToken + `)[^\n]*\n毕业范围结束日期\s*[:：]\s*(` + graduationDateToken + `)`)
 var graduationNumbers = regexp.MustCompile(`\d+`)
 var qualificationClauses = regexp.MustCompile(`[，,。；;\n]`)
+var unrestrictedMajorLabel = regexp.MustCompile(`^(?:所学)?专业(?:不限|不限制|不作限制)$`)
+var unrestrictedMajorClause = regexp.MustCompile(`(?:^|[，,。；;\n])\s*(?:所学)?专业(?:不限|不限制|不作限制)(?:[，,。；;\n]|$)`)
+
+func unrestrictedMajor(r Requirement) bool {
+	return r.Category == "QUALIFICATION" && r.ClaimType == "MAJOR_REQUIREMENT" && unrestrictedMajorLabel.MatchString(strings.TrimSpace(r.Text)) && strings.Contains(r.Excerpt, strings.TrimSpace(r.Text)) && unrestrictedMajorClause.MatchString(r.Excerpt) && r.GroupID == "" && r.GroupExcerpt == "" && r.GraduationWindow == nil
+}
+
+// Only the literal no-major-restriction condition supplies this missing value.
+// Never infer a particular study field from a technical capability heading.
+func repairUnrestrictedMajor(r Requirement) Requirement {
+	if r.Value == "" && unrestrictedMajor(r) {
+		r.Value = "不限"
+	}
+	return r
+}
 
 func graduationDate(value string, end bool) (time.Time, bool) {
 	nums := graduationNumbers.FindAllString(value, -1)
