@@ -38,6 +38,36 @@ func TestChatCoveredSoftClauseNarrowsExistingDutyWithoutCopyingJudgment(t *testi
 	}
 }
 
+func TestChatEngineeringDiagnosisKeepsItsContextAndPartialEvidence(t *testing.T) {
+	for _, method := range []string{"工程化的排查思路", "工程化排查思路", "工程化的排查方法"} {
+		t.Run(method, func(t *testing.T) {
+			text := "具备清晰的逻辑思维和" + method + "，能借助日志、监控、trace等手段深入问题本质，而非停留在表面修补"
+			p := d.Profile{}
+			c, _ := CandidateFrom(p, nil, "")
+			proof := Fact{ID: "race", Kind: "IMPLEMENTED", Text: "使用 Race Detector 验证并发请求路径"}
+			c.Facts = append(c.Facts, proof)
+			in := ChatJob{Requirements: []Requirement{
+				{ID: "logic", Category: "RESPONSIBILITY", Aspect: "SOFT", Text: "逻辑思维", Excerpt: text, Confidence: 1},
+				{ID: "diagnosis", Category: "RESPONSIBILITY", Aspect: "TECHNICAL", Text: text, Excerpt: text, Confidence: 1},
+			}, Matches: []Match{
+				{RequirementID: "logic", Result: "NO_EVIDENCE", Explanation: "未记录该软性特质", Evidence: []Citation{}},
+				{RequirementID: "diagnosis", Result: "PARTIAL", Explanation: "有并发检测实践，完整线上排障能力待了解", Evidence: []Citation{{ID: proof.ID, Excerpt: proof.Text}}},
+			}}
+			got, err := ImportChatJob(in, "工作要求:\n"+text, d.Job{}, p, c, time.Now())
+			if err != nil || len(got.Requirements) != 2 || len(got.Matches) != 2 {
+				t.Fatal(got, err)
+			}
+			if got.Requirements[1].Text != text || got.Requirements[1].Excerpt != text || got.Requirements[1].Aspect != "TECHNICAL" || got.Matches[1].Result != "PARTIAL" || d.JSON(got.Matches[1].Evidence) != d.JSON(in.Matches[1].Evidence) || got.Matches[0].Result != "NO_EVIDENCE" || got.Breakdown[0].Total != 1 || got.Breakdown[3].Total != 1 {
+				t.Fatal("coherent diagnostic ability was split or its evidence expanded", got)
+			}
+			in.Matches[1].Evidence[0].Excerpt = "使用线上监控定位全部故障"
+			if _, err := ImportChatJob(in, "工作要求:\n"+text, d.Job{}, p, c, time.Now()); err == nil {
+				t.Fatal("coherent context bypassed personal citation checks")
+			}
+		})
+	}
+}
+
 func TestChatSoftRepairRequiresIndependentSameSourceFacetAndKeepsValidation(t *testing.T) {
 	for _, tc := range []struct {
 		name, reason string
