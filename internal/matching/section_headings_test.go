@@ -80,6 +80,22 @@ func TestHeadingRepairNeverDropsConditionsOrFabricatedEvidence(t *testing.T) {
 	}
 }
 
+func TestHeadingCanKeepContiguousPreviousSentenceInItsExcerpt(t *testing.T) {
+	in, text, p, c := headingChatFixture()
+	in.Requirements[0].Text = "工作要求:"
+	in.Requirements[0].Excerpt = "维护服务。\n工作要求:"
+	text = "维护服务。\n工作要求:\n熟悉 Go"
+	got, err := ImportChatJob(in, text, d.Job{}, p, c, time.Now())
+	if err != nil || got.IgnoredHeadings != 1 || len(got.Requirements) != 1 {
+		t.Fatal(got, err)
+	}
+	r := in.Requirements[0]
+	r.Excerpt = "维护工作要求: 相关功能"
+	if isSectionHeading(r, r.Excerpt+"\n工作要求:") {
+		t.Fatal("a different inline source occurrence became a section heading")
+	}
+}
+
 func TestErrorsAfterHeadingRepairKeepOriginalPositions(t *testing.T) {
 	for _, tc := range []struct {
 		reason string

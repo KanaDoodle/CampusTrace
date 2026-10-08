@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-const LocalVersion = "local-screen-v4"
+const LocalVersion = "local-screen-v5"
 
 type localRequirement struct {
 	Category, Mode, Excerpt string
@@ -24,7 +24,7 @@ type localParsed struct {
 	DutyIncomplete bool
 }
 
-var localHeading = regexp.MustCompile(`(?i)^(?:[一二三四五六七八九十0-9.、()（）【】\[\]\s-]*)(岗位职责|工作职责|职位职责|工作内容|职责描述|岗位描述|职位描述|工作任务|主要职责|你将负责|你将会|职责|responsibilities|job description|your responsibilities|your role|what you(?:'|’)ll do|what you will do|任职要求|岗位要求|任职资格|职位要求|基本要求|资格要求|任职条件|技能素质要求|知识与技能要求|技能要求|能力要求|requirements|qualifications|what you bring|who you are|加分项|加分条件|优先条件|bonus|preferred|公司介绍|团队介绍|公司福利|福利待遇|愿景|为什么是我们|关于我们|about us|benefits)\s*(?:[（(]官网原文[）)])?\s*[:：]?\s*(.*)$`)
+var localHeading = regexp.MustCompile(`(?i)^(?:[一二三四五六七八九十0-9.、()（）【】\[\]\s-]*)(岗位职责|工作职责|职位职责|工作内容|职责描述|岗位描述|职位描述|工作任务|主要职责|你将负责|你将会|职责|responsibilities|job description|your responsibilities|your role|what you(?:'|’)ll do|what you will do|任职要求|岗位要求|工作要求|任职资格|职位要求|基本要求|资格要求|任职条件|技能素质要求|知识与技能要求|技能要求|能力要求|requirements|qualifications|what you bring|who you are|加分项|加分条件|优先条件|bonus|preferred|公司介绍|团队介绍|公司福利|福利待遇|愿景|为什么是我们|关于我们|about us|benefits)\s*(?:[（(]官网原文[）)])?\s*[:：]?\s*(.*)$`)
 var localMetadata = regexp.MustCompile(`^(?:岗位名称|职位名称|公司|招聘项目|招聘类型|招聘范围|招聘单位|工作地点|部门与方向|官网招聘状态|网站列出的[^：:]*|官网公布截止时间)\s*[:：]`)
 var degreeLabel = regexp.MustCompile(`(?i)^degree:\s*(ASSOCIATE|BACHELOR|MASTER|PHD)\s*$`)
 var graduationLabel = regexp.MustCompile(`(?i)^graduation:\s*(20\d{2}(?:-20\d{2})?)\s*$`)
@@ -32,6 +32,19 @@ var degreeMinimum = regexp.MustCompile(`(专科|本科|硕士|博士)\s*(?:及|�
 var degreeNames = regexp.MustCompile(`专科|本科|硕士|博士`)
 var localYears = regexp.MustCompile(`20\d{2}`)
 var graduationMonths = regexp.MustCompile(`年\s*\d{1,2}\s*月|20\d{2}[-./]\d{1,2}`)
+
+func localHeadingCategory(label string) string {
+	switch strings.ToLower(label) {
+	case "岗位职责", "工作职责", "职位职责", "工作内容", "职责描述", "岗位描述", "职位描述", "工作任务", "主要职责", "你将负责", "你将会", "职责", "responsibilities", "job description", "your responsibilities", "your role", "what you'll do", "what you’ll do", "what you will do":
+		return "RESPONSIBILITY"
+	case "加分项", "加分条件", "优先条件", "bonus", "preferred":
+		return "BONUS"
+	case "公司介绍", "团队介绍", "公司福利", "福利待遇", "愿景", "为什么是我们", "关于我们", "about us", "benefits":
+		return "IGNORE"
+	default:
+		return "REQUIRED"
+	}
+}
 
 func parseLocal(text string) localParsed {
 	parsed := localParsed{Requirements: []localRequirement{}, Qualifications: []localQualification{}, Body: []string{}}
@@ -43,16 +56,7 @@ func parseLocal(text string) localParsed {
 			continue
 		}
 		if heading := localHeading.FindStringSubmatch(line); heading != nil {
-			switch strings.ToLower(heading[1]) {
-			case "岗位职责", "工作职责", "职位职责", "工作内容", "职责描述", "岗位描述", "职位描述", "工作任务", "主要职责", "你将负责", "你将会", "职责", "responsibilities", "job description", "your responsibilities", "your role", "what you'll do", "what you’ll do", "what you will do":
-				section = "RESPONSIBILITY"
-			case "加分项", "加分条件", "优先条件", "bonus", "preferred":
-				section = "BONUS"
-			case "公司介绍", "团队介绍", "公司福利", "福利待遇", "愿景", "为什么是我们", "关于我们", "about us", "benefits":
-				section = "IGNORE"
-			default:
-				section = "REQUIRED"
-			}
+			section = localHeadingCategory(heading[1])
 			line = strings.TrimSpace(heading[2])
 		}
 		if section == "IGNORE" || line == "" {

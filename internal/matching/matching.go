@@ -170,26 +170,27 @@ type MatchInput struct {
 	Requirements []Requirement `json:"requirements"`
 }
 type Result struct {
-	QualityVersion   string         `json:"quality_version,omitempty"`
-	IgnoredHeadings  int            `json:"ignored_headings,omitempty"`
-	JobID            string         `json:"job_id"`
-	InputKey         string         `json:"input_key"`
-	RequirementsKey  string         `json:"requirements_key"`
-	CandidateHash    string         `json:"candidate_hash"`
-	ComparisonKey    string         `json:"comparison_key,omitempty"`
-	ComparisonScope  string         `json:"comparison_scope,omitempty"`
-	LocallyRefreshed bool           `json:"locally_refreshed,omitempty"`
-	Model            string         `json:"model"`
-	Source           string         `json:"source,omitempty"`
-	SourceContextKey string         `json:"source_context_key,omitempty"`
-	AnalyzedAt       time.Time      `json:"analyzed_at"`
-	Requirements     []Requirement  `json:"requirements"`
-	Matches          []Match        `json:"matches"`
-	CandidateFacts   []Fact         `json:"candidate_facts"`
-	Score            *float64       `json:"score"`
-	Coverage         float64        `json:"coverage"`
-	Qualifications   d.Eligibility  `json:"qualifications"`
-	Breakdown        []SectionScore `json:"breakdown,omitempty"`
+	QualityVersion     string         `json:"quality_version,omitempty"`
+	IgnoredHeadings    int            `json:"ignored_headings,omitempty"`
+	RestoredCategories int            `json:"restored_categories,omitempty"`
+	JobID              string         `json:"job_id"`
+	InputKey           string         `json:"input_key"`
+	RequirementsKey    string         `json:"requirements_key"`
+	CandidateHash      string         `json:"candidate_hash"`
+	ComparisonKey      string         `json:"comparison_key,omitempty"`
+	ComparisonScope    string         `json:"comparison_scope,omitempty"`
+	LocallyRefreshed   bool           `json:"locally_refreshed,omitempty"`
+	Model              string         `json:"model"`
+	Source             string         `json:"source,omitempty"`
+	SourceContextKey   string         `json:"source_context_key,omitempty"`
+	AnalyzedAt         time.Time      `json:"analyzed_at"`
+	Requirements       []Requirement  `json:"requirements"`
+	Matches            []Match        `json:"matches"`
+	CandidateFacts     []Fact         `json:"candidate_facts"`
+	Score              *float64       `json:"score"`
+	Coverage           float64        `json:"coverage"`
+	Qualifications     d.Eligibility  `json:"qualifications"`
+	Breakdown          []SectionScore `json:"breakdown,omitempty"`
 }
 
 type jsonCompleter interface {

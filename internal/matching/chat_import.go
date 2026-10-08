@@ -70,7 +70,8 @@ func ImportChatJob(in ChatJob, text string, job d.Job, profile d.Profile, c Cand
 		return Result{}, err
 	}
 	// Never copy a single completed judgment into several atomic abilities.
-	normalized := normalizeRequirementSemantics(append([]Requirement{}, reqs...), text)
+	categorized, restoredCategories := restoreChatCategories(reqs, text)
+	normalized := normalizeRequirementSemantics(categorized, text)
 	for i, original := range reqs {
 		// A full-sentence chat label can include another qualification's
 		// preference. Do not demote a mandatory degree because the major is
@@ -79,6 +80,7 @@ func ImportChatJob(in ChatJob, text string, job d.Job, profile d.Profile, c Cand
 			normalized[i].Category, normalized[i].ClaimType, normalized[i].Value = original.Category, original.ClaimType, original.Value
 		}
 	}
+	normalized = removeCoveredSoftClauses(normalized)
 	canonical := map[string]int{}
 	for i, r := range normalized {
 		item := seen[r.ID]
@@ -127,6 +129,21 @@ func ImportChatJob(in ChatJob, text string, job d.Job, profile d.Profile, c Cand
 		return Result{}, err
 	}
 	withdrawInvalidAbilityEvidence(c, reqs, matches)
+	coveredLanguages := coveredLanguageUmbrellas(reqs)
+	if len(coveredLanguages) > 0 {
+		keptReqs, keptMatches := []Requirement{}, []Match{}
+		for _, r := range reqs {
+			if !coveredLanguages[r.ID] {
+				keptReqs = append(keptReqs, r)
+			}
+		}
+		for _, m := range matches {
+			if !coveredLanguages[m.RequirementID] {
+				keptMatches = append(keptMatches, m)
+			}
+		}
+		reqs, matches = keptReqs, keptMatches
+	}
 	reqs, matches = repairChatContext(reqs, matches, text)
 	reqs = RepairQualifications(reqs, text)
 	if len(reqs) > MaxRequirements {
@@ -149,7 +166,7 @@ func ImportChatJob(in ChatJob, text string, job d.Job, profile d.Profile, c Cand
 	key := RequirementKey(text, ChatIdentity)
 	scope := ComparisonScope(reqs)
 	score, coverage := Score(reqs, matches)
-	return Result{QualityVersion: QualityVersion, IgnoredHeadings: len(ignored), JobID: job.ID, InputKey: InputKey(key, c.Hash()), RequirementsKey: key, CandidateHash: c.Hash(), ComparisonScope: scope, ComparisonKey: ComparisonKey(key, ComparisonCandidateHash(c, scope), scope), Model: ChatIdentity, Source: ChatSource, AnalyzedAt: now, Requirements: reqs, Matches: matches, CandidateFacts: c.Facts, Score: score, Coverage: coverage, Breakdown: ScoreBreakdown(reqs, matches), Qualifications: Qualification(job, profile, reqs, now)}, nil
+	return Result{QualityVersion: QualityVersion, IgnoredHeadings: len(ignored), RestoredCategories: restoredCategories, JobID: job.ID, InputKey: InputKey(key, c.Hash()), RequirementsKey: key, CandidateHash: c.Hash(), ComparisonScope: scope, ComparisonKey: ComparisonKey(key, ComparisonCandidateHash(c, scope), scope), Model: ChatIdentity, Source: ChatSource, AnalyzedAt: now, Requirements: reqs, Matches: matches, CandidateFacts: c.Facts, Score: score, Coverage: coverage, Breakdown: ScoreBreakdown(reqs, matches), Qualifications: Qualification(job, profile, reqs, now)}, nil
 }
 
 var chatQualificationClauses = regexp.MustCompile(`[，,。；;\n（）()]`)

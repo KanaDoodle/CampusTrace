@@ -99,3 +99,9 @@ test('locally ignored section headings have a notice without changing real requi
  delete v.result.ignored_headings;assert.ok(!m.renderResult(v,{esc,D}).includes('已忽略'));
  v.result.ignored_headings='<script>';assert.ok(!m.renderResult(v,{esc,D}).includes('已忽略'));
 });
+
+test('source-based category restoration is visible without accepting arbitrary notice content',()=>{
+ const v={state:'ANALYZED',result:{restored_categories:3,model:'fixture',score:50,coverage:100,requirements:[],matches:[],qualifications:{results:[]}}};
+ assert.ok(m.renderResult(v,{esc,D}).includes('已按岗位原文分段校正 3 项分类'));
+ v.result.restored_categories='<script>';assert.ok(!m.renderResult(v,{esc,D}).includes('已按岗位原文分段校正'));
+});

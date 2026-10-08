@@ -108,3 +108,8 @@ test('chat instructions exclude section headings and distinguish technical abili
  const text=C.makeFiles(payload([job(1)]))[0].text;
  for(const phrase of ['章节标题','不能单独生成 requirement 或 match','MAJOR_REQUIREMENT 只用于明确的专业范围','不明确时两个字段都不填'])assert.ok(text.includes(phrase),phrase);
 });
+
+test('chat instructions distinguish source sections and avoid repeated soft and language labels',()=>{
+ const text=C.makeFiles(payload([job(1)]))[0].text;
+ for(const phrase of ['后者中的必需技术能力使用 REQUIRED','不重复保留软性描述','不按每个动词机械拆碎','同一句语言任选条件只列一项','网申日期等来源元信息不拼进技能 text'])assert.ok(text.includes(phrase),phrase);
+});

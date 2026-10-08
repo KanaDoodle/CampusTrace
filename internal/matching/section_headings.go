@@ -11,11 +11,18 @@ var sectionHeading = regexp.MustCompile(`^(?:[一二三四五六七八九十0-9]
 // Only a known, standalone source heading with no value or selection rule is
 // formatting. A heading followed by actual conditions is never discarded.
 func isSectionHeading(r Requirement, source string) bool {
-	label := strings.TrimSpace(r.Excerpt)
-	if label != strings.TrimSpace(r.Text) || !sectionHeading.MatchString(label) || len(r.Text) > 600 || len(r.Excerpt) > 600 || !strings.Contains(source, r.Excerpt) || r.Value != "" || r.GroupID != "" || r.GroupExcerpt != "" || r.GraduationWindow != nil || math.IsNaN(r.Confidence) || r.Confidence < 0 || r.Confidence > 1 {
+	label := strings.TrimSpace(r.Text)
+	if !sectionHeading.MatchString(label) || len(r.Text) > 600 || len(r.Excerpt) > 600 || !strings.Contains(r.Excerpt, label) || !strings.Contains(source, r.Excerpt) || r.Value != "" || r.GroupID != "" || r.GroupExcerpt != "" || r.GraduationWindow != nil || math.IsNaN(r.Confidence) || r.Confidence < 0 || r.Confidence > 1 {
 		return false
 	}
 	if r.Category != "QUALIFICATION" && r.Category != "REQUIRED" && r.Category != "BONUS" && r.Category != "RESPONSIBILITY" || r.Aspect != "" && r.Aspect != "TECHNICAL" && r.Aspect != "SOFT" {
+		return false
+	}
+	quotedLine := false
+	for _, line := range strings.Split(r.Excerpt, "\n") {
+		quotedLine = quotedLine || strings.TrimSpace(line) == label
+	}
+	if !quotedLine {
 		return false
 	}
 	for _, line := range strings.Split(source, "\n") {
