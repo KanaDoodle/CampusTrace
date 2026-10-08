@@ -8,6 +8,37 @@ import (
 	"time"
 )
 
+func TestChatRequirementDiagnosticsDistinguishQuoteLengthFromSourceMismatch(t *testing.T) {
+	source := "熟悉 Go\n" + strings.Repeat("中", 201)
+	for _, tc := range []struct {
+		name, reason string
+		change       func(*Requirement)
+	}{
+		{"long label", "CHAT_REQUIREMENT_TEXT_LENGTH", func(r *Requirement) { r.Text = strings.Repeat("中", 201) }},
+		{"long exact quote", "CHAT_REQUIREMENT_EXCERPT_LENGTH", func(r *Requirement) { r.Excerpt = strings.Repeat("中", 201) }},
+		{"missing quote", "CHAT_REQUIREMENT_EXCERPT_EMPTY", func(r *Requirement) { r.Excerpt = "" }},
+		{"paraphrased quote", "CHAT_REQUIREMENT_EXCERPT_NOT_EXACT", func(r *Requirement) { r.Excerpt = "熟悉 Golang" }},
+		{"bad category", "CHAT_REQUIREMENT_INVALID", func(r *Requirement) { r.Category = "INTRODUCTION" }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r := Requirement{ID: "r1", Category: "REQUIRED", Text: "熟悉 Go", Excerpt: "熟悉 Go", Confidence: 1}
+			tc.change(&r)
+			_, err := ImportChatJob(ChatJob{Requirements: []Requirement{r}}, source, d.Job{}, d.Profile{}, Candidate{}, time.Time{})
+			var validation *ValidationError
+			if !errors.As(err, &validation) || validation.Reason != tc.reason || validation.ItemIndex != 1 || !errors.Is(err, ErrInvalid) {
+				t.Fatal("incorrect repair diagnostic or accepted invalid requirement", err)
+			}
+		})
+	}
+	// The upper boundary is inclusive and measured as UTF-8 bytes, not runes.
+	quote := strings.Repeat("中", 200)
+	r := Requirement{ID: "r1", Category: "REQUIRED", Text: quote, Excerpt: quote, Confidence: 1}
+	in := ChatJob{Requirements: []Requirement{r}, Matches: []Match{{RequirementID: "r1", Result: "NO_EVIDENCE", Explanation: "尚未记录", Evidence: []Citation{}}}}
+	if _, err := ImportChatJob(in, quote, d.Job{}, d.Profile{}, Candidate{}, time.Time{}); err != nil {
+		t.Fatal("rejected an exact quote within the byte limit", err)
+	}
+}
+
 func TestChatDistinctQualificationsCanShareSourceSentence(t *testing.T) {
 	profile := d.Profile{Degree: "MASTER", Majors: []string{"软件工程"}}
 	candidate, err := CandidateFrom(profile, nil, "")

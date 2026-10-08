@@ -51,7 +51,7 @@ func ImportChatJob(in ChatJob, text string, job d.Job, profile d.Profile, c Cand
 		r = repairUnrestrictedMajor(r)
 		reqs[i] = r
 		if err := ValidateRequirement(r, text); err != nil {
-			return Result{}, invalid("CHAT_REQUIREMENT_INVALID", i+1)
+			return Result{}, invalid(chatRequirementFailure(r, text), i+1)
 		}
 	}
 	if len(ignored) > 0 {
@@ -177,6 +177,23 @@ func ImportChatJob(in ChatJob, text string, job d.Job, profile d.Profile, c Cand
 	scope := ComparisonScope(reqs)
 	score, coverage := Score(reqs, matches)
 	return Result{QualityVersion: QualityVersion, IgnoredHeadings: len(ignored), RestoredCategories: restoredCategories, JobID: job.ID, InputKey: InputKey(key, c.Hash()), RequirementsKey: key, CandidateHash: c.Hash(), ComparisonScope: scope, ComparisonKey: ComparisonKey(key, ComparisonCandidateHash(c, scope), scope), Model: ChatIdentity, Source: ChatSource, AnalyzedAt: now, Requirements: reqs, Matches: matches, CandidateFacts: c.Facts, Score: score, Coverage: coverage, Breakdown: ScoreBreakdown(reqs, matches), Qualifications: Qualification(job, profile, reqs, now)}, nil
+}
+
+// Explain repairable quote failures without returning any source or candidate
+// text. All of these still fail the same requirement validation above.
+func chatRequirementFailure(r Requirement, source string) string {
+	switch {
+	case len(r.Text) > 600:
+		return "CHAT_REQUIREMENT_TEXT_LENGTH"
+	case len(r.Excerpt) > 600:
+		return "CHAT_REQUIREMENT_EXCERPT_LENGTH"
+	case r.Excerpt == "":
+		return "CHAT_REQUIREMENT_EXCERPT_EMPTY"
+	case !strings.Contains(source, r.Excerpt):
+		return "CHAT_REQUIREMENT_EXCERPT_NOT_EXACT"
+	default:
+		return "CHAT_REQUIREMENT_INVALID"
+	}
 }
 
 var chatQualificationClauses = regexp.MustCompile(`[，,。；;\n（）()]`)

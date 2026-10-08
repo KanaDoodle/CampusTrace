@@ -101,7 +101,7 @@ func TestErrorsAfterHeadingRepairKeepOriginalPositions(t *testing.T) {
 		reason string
 		change func(*ChatJob)
 	}{
-		{"CHAT_REQUIREMENT_INVALID", func(in *ChatJob) { in.Requirements[1].Excerpt = "Golang" }},
+		{"CHAT_REQUIREMENT_EXCERPT_NOT_EXACT", func(in *ChatJob) { in.Requirements[1].Excerpt = "Golang" }},
 		{"EXCERPT_NOT_EXACT", func(in *ChatJob) { in.Matches[1].Evidence[0].Excerpt = "Golang" }},
 		{"CHAT_REQUIREMENT_CONTENT_DUPLICATE", func(in *ChatJob) {
 			in.Requirements = append(in.Requirements, in.Requirements[1])

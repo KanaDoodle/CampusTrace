@@ -142,6 +142,10 @@ test('匹配诊断按固定原因说明漏项、引用及能力错误，不显�
  assert.match(D.matchingDiagnostic({validation_reason:'CHAT_REQUIREMENT_ID_DUPLICATE',job_index:4,item_index:2,related_item_index:1}),/第 4 个岗位.*第 2 项.*编号重复.*第 1 项重复/);
  assert.match(D.matchingDiagnostic({validation_reason:'CHAT_REQUIREMENT_CONTENT_DUPLICATE',item_index:2,related_item_index:1}),/同一种岗位条件.*第 1 项重复/);
  assert.match(D.matchingDiagnostic({validation_reason:'CHAT_REQUIREMENT_ID_INVALID'}),/编号为空或过长/);
+ assert.match(D.matchingDiagnostic({validation_reason:'CHAT_REQUIREMENT_EXCERPT_LENGTH',job_index:4,item_index:1}),/第 4 个岗位.*第 1 项.*excerpt.*600.*UTF-8.*连续原文/);
+ assert.match(D.matchingDiagnostic({validation_reason:'CHAT_REQUIREMENT_TEXT_LENGTH'}),/text.*600/);
+ assert.match(D.matchingDiagnostic({validation_reason:'CHAT_REQUIREMENT_EXCERPT_EMPTY'}),/没有原文摘录/);
+ assert.match(D.matchingDiagnostic({validation_reason:'CHAT_REQUIREMENT_EXCERPT_NOT_EXACT'}),/不是对应岗位的连续原文/);
  assert.doesNotMatch(D.matchingDiagnostic({validation_reason:'CHAT_REQUIREMENT_CONTENT_DUPLICATE',related_item_index:'private'}),/private/);
  assert.equal(D.matchingDiagnostic({validation_reason:'private-fact-or-secret',expected:'private'}),'');
  assert.ok(!D.matchingDiagnostic({validation_reason:'FACT_UNKNOWN',item_index:'private'}).includes('private'));
