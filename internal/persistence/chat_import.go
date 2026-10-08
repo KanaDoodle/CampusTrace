@@ -39,8 +39,8 @@ func (s *Store) MatchResultVersions(ctx context.Context, user string, ids []stri
 	return out, nil
 }
 
-// A preview confirms the entire batch. Any concurrent profile, job or saved
-// result change aborts all writes; a retry never consumes model quota.
+// A preview confirms the validated subset. Any concurrent profile, accepted job
+// or saved result change aborts all subset writes; rejected jobs remain untouched.
 func (s *Store) SaveChatMatches(ctx context.Context, user, mask string, results []matching.Result, previous map[string]string) error {
 	if len(results) == 0 || len(results) > 100 || len(previous) != len(results) {
 		return ErrValidation

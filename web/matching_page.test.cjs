@@ -306,3 +306,35 @@ test('multi-file chat validation identifies the original file and job without se
   assert.match(h.html(),/对应岗位：测试公司 · target/);
   assert.doesNotMatch(h.html(),/所在文件/);
 });
+
+test('mixed chat results expose all issues and retain only failed jobs and file locations after partial import',async()=>{
+  const ready=chatPreview(),blocked='pending-b';
+  const issues=[{job_id:blocked,company:'测试公司',title:blocked,diagnostic:{validation_reason:'CHAT_REQUIREMENT_COMPOSITE',job_index:2,item_index:1,item_scope:'REQUIREMENT'}},{job_id:blocked,company:'测试公司',title:blocked,diagnostic:{validation_reason:'EXCERPT_NOT_EXACT',job_index:2,item_index:1,item_scope:'MATCH'}}];
+  const h=harness({importRequest:async(path)=>path.endsWith('preview')?{...ready,total:2,issues}:{imported:1,skipped:1}});
+  await h.start();h.elements.get('match-open-import').onclick();
+  const doc=id=>({...chatDoc(),jobs:[{job_id:id,input_key:'input-'+id,requirements:[{id:'r1'}],matches:[{requirement_id:'r1'}]}]});
+  const first=JSON.stringify(doc('pending-a')),second=JSON.stringify(doc(blocked));
+  await h.elements.get('match-import-files').onchange({target:{files:[{name:'001.json',size:first.length,text:async()=>first},{name:'<script>002</script>.json',size:second.length,text:async()=>second}]}});
+  await h.elements.get('match-import-preview').onclick();
+  assert.match(h.html(),/1 个可导入 · 1 个需修正/);assert.match(h.html(),/2 处核对问题/);
+  assert.match(h.html(),/CHAT_REQUIREMENT_COMPOSITE/);assert.match(h.html(),/EXCERPT_NOT_EXACT/);
+  assert.match(h.html(),/&lt;script&gt;002&lt;\/script&gt;.json，文件内第 1 个岗位/);
+  assert.equal(h.elements.get('match-import-confirm').disabled,false);assert.match(h.html(),/仅导入通过的 1 个岗位/);
+  await h.elements.get('match-import-confirm').onclick();
+  assert.equal(h.elements.get('match-import-dialog').open,true);assert.equal(h.elements.get('match-import-confirm').disabled,true);
+  assert.match(h.html(),/当前框中保留 1 个需修正岗位/);assert.match(h.html(),/job_id=pending-b/);assert.doesNotMatch(h.html(),/job_id=pending-a/);
+  // Preview again submits only the retained job; an already saved job is not resubmitted.
+  await h.elements.get('match-import-preview').onclick();
+  assert.deepEqual(Array.from(h.importRequests.at(-1).body.document.jobs,j=>j.job_id),[blocked]);
+  assert.equal(h.requests.length,0);assert.equal(h.exports.length,0);
+});
+
+test('all-failed chat preview remains reviewable and cannot be confirmed',async()=>{
+  const h=harness({importRequest:async()=>({preview_key:'',total:1,jobs:[],issues:[{job_id:'pending-a',company:'测试',title:'后端',diagnostic:{validation_reason:'CHAT_JOB_STALE',job_index:1}}]})});
+  await h.start();h.elements.get('match-open-import').onclick();
+  h.elements.get('match-import-text').oninput({target:{value:JSON.stringify(chatDoc())}});
+  await h.elements.get('match-import-preview').onclick();
+  assert.match(h.html(),/0 个可导入 · 1 个需修正/);assert.equal(h.elements.get('match-import-confirm').disabled,true);
+  await h.elements.get('match-import-confirm').onclick();assert.equal(h.importRequests.length,1);
+  assert.match(h.html(),/不能更换 input_key/);
+});

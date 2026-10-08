@@ -7,7 +7,7 @@ import (
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
 )
 
-var alternativeCue = regexp.MustCompile(`(?i)一个或多个|至少一个|至少一项|任选|任一|任意一|其中之一|one or more|one of|at least one|either`)
+var alternativeCue = regexp.MustCompile(`(?i)一个或多个|至少一(?:个|项|种|门|类)|任选|任一|任意一|其中之一|one or more|one of|at least one|either`)
 var preferredCue = regexp.MustCompile(`(?i)优先(?:考虑|录用)?(?:[，。；,.;\s]|$)|加分(?:项)?|preferred|a plus`)
 var softCue = regexp.MustCompile(`(?i)责任心|自驱|沟通|协作|合作精神|学习能力|主动学习|逻辑思维|价值观|热爱|热情|兴趣|好奇|拥抱新技术|teamwork|communication|motivation`)
 var technicalCue = regexp.MustCompile(`(?i)掌握|熟悉|了解|理解|实现|开发|建设|设计|优化|使用|借助|排查|定位|经验|proficien|familiar|implement|develop`)

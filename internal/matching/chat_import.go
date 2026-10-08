@@ -1,6 +1,7 @@
 package matching
 
 import (
+	"errors"
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
 	"regexp"
 	"strings"
@@ -8,6 +9,7 @@ import (
 )
 
 const ChatVersion = "campustrace-chat-v3"
+const ChatPromptRevision = "chat-prompt-2026-10-08"
 const ChatIdentity = "manual-chat\nChatGPT 聊天导入"
 const ChatSource = "CHATGPT_IMPORT"
 
@@ -21,27 +23,47 @@ type ChatJob struct {
 	Matches      []Match       `json:"matches"`
 }
 type ChatDocument struct {
-	Version       string    `json:"version"`
-	CandidateHash string    `json:"candidate_hash"`
-	Jobs          []ChatJob `json:"jobs"`
+	Version        string    `json:"version"`
+	PromptRevision string    `json:"prompt_revision,omitempty"`
+	CandidateHash  string    `json:"candidate_hash"`
+	Jobs           []ChatJob `json:"jobs"`
 }
 
 func ImportChatJob(in ChatJob, text string, job d.Job, profile d.Profile, c Candidate, now time.Time) (Result, error) {
 	if in.Truncated || len(in.Requirements) > MaxRequirements {
 		return Result{}, ErrCapacity
 	}
+	if len(in.Matches) > MaxRequirements {
+		return Result{}, invalid("CHAT_MATCHES_LIMIT", 0)
+	}
 	if len(in.Requirements) == 0 {
 		return Result{}, invalid("CHAT_REQUIREMENTS_EMPTY", 0)
 	}
 	reqs := append([]Requirement{}, in.Requirements...)
+	positions := make([]int, len(reqs))
+	for i := range positions {
+		positions[i] = i + 1
+	}
+	issues := []ValidationError{}
+	reported := map[ValidationError]bool{}
+	add := func(reason, scope string, item, related int) {
+		v := ValidationError{Reason: reason, Scope: scope, ItemIndex: item, RelatedItemIndex: related}
+		if !reported[v] {
+			issues = append(issues, v)
+			reported[v] = true
+		}
+	}
+	valid := map[int]bool{}
 	seen := map[string]int{}
 	ignored := map[string]bool{}
 	for i, r := range reqs {
 		if strings.TrimSpace(r.ID) == "" || len(r.ID) > 48 {
-			return Result{}, invalid("CHAT_REQUIREMENT_ID_INVALID", i+1)
+			add("CHAT_REQUIREMENT_ID_INVALID", "REQUIREMENT", i+1, 0)
+			continue
 		}
 		if previous := seen[r.ID]; previous > 0 {
-			return Result{}, &ValidationError{Reason: "CHAT_REQUIREMENT_ID_DUPLICATE", ItemIndex: i + 1, RelatedItemIndex: previous}
+			add("CHAT_REQUIREMENT_ID_DUPLICATE", "REQUIREMENT", i+1, previous)
+			continue
 		}
 		seen[r.ID] = i + 1
 		if ignorableChatHeading(r, text, c, in.Matches) {
@@ -51,24 +73,43 @@ func ImportChatJob(in ChatJob, text string, job d.Job, profile d.Profile, c Cand
 		r = repairUnrestrictedMajor(r)
 		reqs[i] = r
 		if err := ValidateRequirement(r, text); err != nil {
-			return Result{}, invalid(chatRequirementFailure(r, text), i+1)
+			add(chatRequirementFailure(r, text), "REQUIREMENT", i+1, 0)
+			continue
 		}
+		valid[i+1] = true
 	}
 	if len(ignored) > 0 {
 		kept := []Requirement{}
-		for _, r := range reqs {
+		keptPositions := []int{}
+		for i, r := range reqs {
 			if !ignored[r.ID] {
 				kept = append(kept, r)
+				keptPositions = append(keptPositions, positions[i])
 			}
 		}
 		reqs = kept
+		positions = keptPositions
 		if len(reqs) == 0 {
 			return Result{}, invalid("CHAT_REQUIREMENTS_EMPTY", 0)
 		}
 	}
-	if err := validateGroups(reqs); err != nil {
-		return Result{}, err
+	checkGroups := func(items []Requirement) {
+		groups := map[string]int{}
+		for i, r := range items {
+			if !valid[positions[i]] || r.GroupID == "" {
+				continue
+			}
+			if previous, ok := groups[r.GroupID]; ok {
+				p := items[previous]
+				if p.Category != r.Category || p.Aspect != r.Aspect || p.GroupExcerpt != r.GroupExcerpt {
+					add("CHAT_GROUP_CONFLICT", "REQUIREMENT", positions[i], positions[previous])
+				}
+			} else {
+				groups[r.GroupID] = i
+			}
+		}
 	}
+	checkGroups(reqs)
 	// Never copy a single completed judgment into several atomic abilities.
 	categorized, restoredCategories := restoreChatCategories(reqs, text)
 	normalized := normalizeRequirementSemantics(append([]Requirement{}, categorized...), text)
@@ -93,11 +134,14 @@ func ImportChatJob(in ChatJob, text string, job d.Job, profile d.Profile, c Cand
 	normalized = removeCoveredSoftClauses(normalized)
 	canonical := map[string]int{}
 	for i, r := range normalized {
-		item := seen[r.ID]
+		item := positions[i]
+		if !valid[item] {
+			continue
+		}
 		probe := r
 		probe.Excerpt = r.Text
 		if len(splitTestableRequirements([]Requirement{probe})) != 1 {
-			return Result{}, invalid("CHAT_REQUIREMENT_COMPOSITE", item)
+			add("CHAT_REQUIREMENT_COMPOSITE", "REQUIREMENT", item, 0)
 		}
 		// Degree and major conditions may cite the same full source sentence.
 		// Keep the validated original facet even if preference normalization
@@ -110,19 +154,18 @@ func ImportChatJob(in ChatJob, text string, job d.Job, profile d.Profile, c Cand
 		}
 		key := d.Hash(d.JSON([]string{category, r.Text, r.Excerpt, r.Aspect, r.GroupID, facet}))
 		if previous := canonical[key]; previous > 0 {
-			return Result{}, &ValidationError{Reason: "CHAT_REQUIREMENT_CONTENT_DUPLICATE", ItemIndex: item, RelatedItemIndex: previous}
+			add("CHAT_REQUIREMENT_CONTENT_DUPLICATE", "REQUIREMENT", item, previous)
+		} else {
+			canonical[key] = item
 		}
-		canonical[key] = item
 	}
-	if err := validateGroups(normalized); err != nil {
-		return Result{}, err
-	}
+	checkGroups(normalized)
 	reqs = normalized
 	matches := []Match{}
 	matchPositions := []int{}
 	for i, m := range in.Matches {
 		if m.ReviewNote != "" {
-			return Result{}, invalid("CHAT_REVIEW_NOTE", i+1)
+			add("CHAT_REVIEW_NOTE", "MATCH", i+1, 0)
 		}
 		if !ignored[m.RequirementID] {
 			matches = append(matches, m)
@@ -130,13 +173,40 @@ func ImportChatJob(in ChatJob, text string, job d.Job, profile d.Profile, c Cand
 		}
 	}
 	matches = comparePreferences(c, reqs, matches)
-	if err := validateMatches(c, reqs, matches, false); err != nil {
-		if v, ok := err.(*ValidationError); ok && v.ItemIndex > 0 && v.ItemIndex <= len(matchPositions) {
-			copy := *v
-			copy.ItemIndex = matchPositions[v.ItemIndex-1]
-			return Result{}, &copy
+	if len(matches) != len(reqs) {
+		issues = append(issues, ValidationError{Reason: "MATCH_COUNT", Expected: len(reqs), Actual: len(matches)})
+	}
+	byID := map[string]Requirement{}
+	for _, r := range reqs {
+		byID[r.ID] = r
+	}
+	matched := map[string]int{}
+	for i, m := range matches {
+		item := matchPositions[i]
+		r, ok := byID[m.RequirementID]
+		if !ok {
+			add("REQUIREMENT_UNKNOWN", "MATCH", item, 0)
+			continue
 		}
-		return Result{}, err
+		if previous := matched[m.RequirementID]; previous > 0 {
+			add("REQUIREMENT_DUPLICATE", "MATCH", item, previous)
+		} else {
+			matched[m.RequirementID] = item
+		}
+		if err := validateMatches(c, []Requirement{r}, []Match{m}, false); err != nil {
+			var v *ValidationError
+			if errors.As(err, &v) {
+				add(v.Reason, "MATCH", item, 0)
+			}
+		}
+	}
+	for _, r := range reqs {
+		if matched[r.ID] == 0 {
+			add("CHAT_MATCH_MISSING", "REQUIREMENT", seen[r.ID], 0)
+		}
+	}
+	if len(issues) > 0 {
+		return Result{}, &ChatValidationErrors{Issues: issues}
 	}
 	withdrawInvalidAbilityEvidence(c, reqs, matches)
 	coveredLanguages := coveredLanguageUmbrellas(reqs)

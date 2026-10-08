@@ -22,7 +22,7 @@ test('bulk selected jobs still use the API round limit and skip cached or exclud
   const jobs=M.shortlist(C.selectedRows(rows,selected),30);
   assert.equal(jobs.length,30);assert.equal(jobs[0].job.id,'2');assert.equal(jobs.at(-1).job.id,'31');
 });
-const payload=jobs=>({version:'campustrace-chat-v1',candidate_hash:'reviewed-profile',exported_at:'2026-09-28T00:00:00Z',candidate:{revision:1,facts:[{id:'go',kind:'LANGUAGE',text:'Go'},{id:'queue',kind:'IMPLEMENTED',text:'实现任务队列'}]},preferences:{preferred_cities:['上海']},jobs});
+const payload=jobs=>({version:'campustrace-chat-v3',candidate_hash:'reviewed-profile',exported_at:'2026-09-28T00:00:00Z',candidate:{revision:1,facts:[{id:'go',kind:'LANGUAGE',text:'Go'},{id:'queue',kind:'IMPLEMENTED',text:'实现任务队列'}]},preferences:{preferred_cities:['上海']},jobs});
 const job=i=>({job_id:String(i),company:'小红书',title:'服务端开发 '+i,text:'熟悉 Go，参与任务队列开发'});
 function data(file){return JSON.parse(file.text.split('以下 JSON 为本包完整数据：\n')[1]);}
 test('137 jobs split into complete self-contained packages with consistent facts and no lost or duplicated IDs',()=>{
@@ -33,7 +33,7 @@ test('137 jobs split into complete self-contained packages with consistent facts
     const v=data(file);assert.deepEqual(v.candidate,input.candidate);assert.deepEqual(v.preferences,input.preferences);
     assert.equal(v.candidate_hash,input.candidate_hash);assert.ok(v.jobs.length<=8);
     assert.ok(new TextEncoder().encode(file.text).length<=48000);ids.push(...v.jobs.map(j=>j.job_id));
-    assert.ok(file.text.includes('confidence低于0.8'));assert.ok(file.text.includes('coverage'));
+    assert.equal(v.prompt_revision,C.promptRevision);assert.match(file.text,/无需计算 score、coverage/);
   }
   assert.deepEqual(ids,input.jobs.map(j=>j.job_id));assert.equal(new Set(ids).size,137);
 });
@@ -100,16 +100,41 @@ test('merged chat jobs retain source positions locally without adding fields to 
 test('export guides practical company ranking, scoped proficiency and declaration-only partial matches',()=>{
  const text=C.makeFiles(payload([job(1)]))[0].text;
  for(const phrase of ['实用的相对排序','每岗最多64项','实践未确认','Planning','限定对象','概括性父项'])assert.ok(text.includes(phrase),phrase);
- assert.ok(C.mergePrompt.includes('覆盖不足60%仍可给投递顺序建议'));
+ assert.match(C.mergePrompt,/未知不等于不会/);assert.match(C.mergePrompt,/无需计算分数、覆盖度或资格结论/);
  assert.ok(!text.includes('每岗最多36项'));
 });
 
 test('chat instructions exclude section headings and distinguish technical ability from an academic major',()=>{
  const text=C.makeFiles(payload([job(1)]))[0].text;
- for(const phrase of ['章节标题','不能单独生成 requirement 或 match','MAJOR_REQUIREMENT 只用于明确的专业范围','不明确时两个字段都不填'])assert.ok(text.includes(phrase),phrase);
+ for(const phrase of ['章节标题不是要求','专业性不是所学专业','MAJOR_REQUIREMENT=明确专业','不明确时两个字段都不填'])assert.ok(text.includes(phrase),phrase);
 });
 
 test('chat instructions distinguish source sections and avoid repeated soft and language labels',()=>{
  const text=C.makeFiles(payload([job(1)]))[0].text;
- for(const phrase of ['后者中的必需技术能力使用 REQUIRED','不重复保留软性描述','不按每个动词机械拆碎','同一句语言任选条件只列一项','网申日期等来源元信息不拼进技能 text'])assert.ok(text.includes(phrase),phrase);
+ for(const phrase of ['REQUIRED（必需能力）','SOFT','不按逗号、动词或技术名词机械拆碎','真正任选语言/框架保持一项','投递日期不直接生成技术条件'])assert.ok(text.includes(phrase),phrase);
+});
+
+
+test('result example covers valid optional combinations and revision remains compatible with old v3 results',()=>{
+ const e=C.resultExample,j=e.jobs[0];
+ assert.equal(e.prompt_revision,C.promptRevision);assert.equal(j.truncated,false);
+ const reqs=new Map(j.requirements.map(r=>[r.id,r]));assert.equal(reqs.size,j.requirements.length);
+ assert.equal(j.matches.length,j.requirements.length);for(const m of j.matches)assert.ok(reqs.has(m.requirement_id));
+ const qualification=j.requirements.find(r=>r.claim_type);assert.equal(qualification.category,'QUALIFICATION');assert.equal(qualification.value,'BACHELOR');
+ const group=j.requirements.filter(r=>r.group_id);assert.equal(group.length,2);assert.equal(group[0].group_excerpt,group[1].group_excerpt);assert.ok(group.every(r=>!r.claim_type));
+ const old={version:'campustrace-chat-v3',candidate_hash:'same',jobs:[{job_id:'old'}]},fresh={...old,prompt_revision:C.promptRevision,jobs:[{job_id:'new'}]};
+ assert.equal(C.parseDocuments([JSON.stringify(fresh)]).prompt_revision,C.promptRevision);
+ assert.equal(C.parseDocuments([JSON.stringify(old),JSON.stringify(fresh)]).prompt_revision,undefined);
+ assert.equal(C.parseDocuments([JSON.stringify(fresh),JSON.stringify(old)]).prompt_revision,undefined);
+ const text=C.makeFiles(payload([job(1)]))[0].text;
+ assert.match(text,/最短但含义完整的连续片段/);assert.doesNotMatch(text,/保留完整连续原文|excerpt 可以引用相同的完整/);
+ assert.match(text,/不能用关键词命中、正则拆句/);assert.match(text,/结构检查通过不代表分析完成/);
+});
+
+test('repair checklist points to each original file and exact requirement without re-exporting private facts',()=>{
+ const doc={version:'campustrace-chat-v3',candidate_hash:'profile',jobs:[{job_id:'bad',requirements:[{id:'r7'}],matches:[{requirement_id:'r9'}]}]};
+ const issues=[{job_id:'bad',company:'测试',title:'后端',diagnostic:{item_scope:'REQUIREMENT',item_index:1,validation_reason:'QUOTE'}},{job_id:'bad',company:'测试',title:'后端',diagnostic:{item_scope:'MATCH',item_index:1,validation_reason:'MATCH'}}];
+ const report=C.repairInstructions(issues,doc,new Map([['bad',{name:'002.json',index:4}]]),d=>'修正 '+d.validation_reason);
+ assert.match(report,/requirement_id=r7/);assert.match(report,/requirement_id=r9/);assert.match(report,/002.json，文件内第 4 个岗位/);
+ assert.match(report,/candidate_hash=profile/);assert.match(report,/不能更换 input_key/);assert.match(report,/不重新生成已经导入/);
 });

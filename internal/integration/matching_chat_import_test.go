@@ -118,7 +118,7 @@ func TestChatImportPreviewConfirmStalenessOwnershipAndDecisionFlows(t *testing.T
 	invalid := doc
 	invalid.Jobs = append([]matching.ChatJob{}, doc.Jobs...)
 	invalid.Jobs[1].Matches = []matching.Match{{RequirementID: "go", Result: "DIRECT", Explanation: "伪造", Evidence: []matching.Citation{{ID: "language-0", Excerpt: "Java"}}}}
-	if rec = request("preview", map[string]any{"document": invalid, "mask_name": ""}); rec.Code != 400 || !strings.Contains(rec.Body.String(), "EXCERPT_NOT_EXACT") {
+	if rec = request("preview", map[string]any{"document": invalid, "mask_name": ""}); rec.Code != 200 || !strings.Contains(rec.Body.String(), "EXCERPT_NOT_EXACT") {
 		t.Fatal(rec.Code, rec.Body.String())
 	}
 	// All-or-nothing save even if a later job has changed since preview.
@@ -295,12 +295,134 @@ func TestChatImportSharedQualificationExcerptPreviewAndConfirm(t *testing.T) {
 	bad.Jobs[0].Requirements[1].ClaimType = "EDUCATION_REQUIREMENT"
 	bad.Jobs[0].Requirements[1].Value = "BACHELOR"
 	rec = matchingRequest(handler, token, "/api/matching/import/preview", "POST", map[string]any{"document": bad, "mask_name": ""})
-	if rec.Code != 400 || !strings.Contains(rec.Body.String(), "CHAT_REQUIREMENT_CONTENT_DUPLICATE") || !strings.Contains(rec.Body.String(), `"related_item_index":1`) {
+	if rec.Code != 200 || !strings.Contains(rec.Body.String(), "CHAT_REQUIREMENT_CONTENT_DUPLICATE") || !strings.Contains(rec.Body.String(), `"related_item_index":1`) {
 		t.Fatal("real duplicates were accepted or not located", rec.Code, rec.Body.String())
 	}
 	stored, err := s.MatchResult(ctx, u, o.JobID)
 	must(t, err)
 	if d.JSON(stored) != d.JSON(result) {
 		t.Fatal("failed preview changed a saved result")
+	}
+}
+
+func TestChatImportMixedBatchReportsAllJobsAndConfirmsOnlyReviewedSubset(t *testing.T) {
+	ctx, s, q, u, _ := setup(t)
+	profile := d.Profile{Languages: []string{"Go"}}
+	must(t, s.SaveProfile(ctx, u, profile))
+	ids := []string{}
+	for i := 0; i < 3; i++ {
+		o, err := s.IngestForUser(ctx, u, p.Ingest{Company: "Partial chat fixture", Title: "后端", JobType: "FULL_TIME", ExternalID: d.ID(), Text: "熟悉 Go；熟悉 Java", FetchStatus: "SUCCESS", ObservedAt: time.Now().UTC()})
+		must(t, err)
+		ids = append(ids, o.JobID)
+	}
+	snapshot, err := s.MatchImportSnapshot(ctx, u, "", ids)
+	must(t, err)
+	byID := map[string]p.MatchJob{}
+	for _, row := range snapshot.Jobs {
+		byID[row.Job.ID] = row
+	}
+	doc := matching.ChatDocument{Version: matching.ChatVersion, PromptRevision: matching.ChatPromptRevision, CandidateHash: snapshot.CandidateHash, Jobs: []matching.ChatJob{}}
+	for _, id := range ids {
+		doc.Jobs = append(doc.Jobs, matching.ChatJob{ID: id, InputKey: byID[id].InputKey, Requirements: []matching.Requirement{{ID: "go", Category: "REQUIRED", Text: "熟悉 Go", Excerpt: "熟悉 Go", Confidence: 1}}, Matches: []matching.Match{{RequirementID: "go", Result: "DIRECT", Explanation: "已填写 Go", Evidence: []matching.Citation{{ID: "language-0", Excerpt: "Go"}}}}})
+	}
+	// The rejected job already has a usable analysis, which must remain intact.
+	old, err := matching.ImportChatJob(doc.Jobs[1], byID[ids[1]].Text, byID[ids[1]].Job, profile, snapshot.Candidate, time.Now().UTC())
+	must(t, err)
+	old.SourceContextKey = old.InputKey
+	must(t, s.SaveMatchResult(ctx, u, "", old))
+	doc.Jobs[1].Requirements = append(doc.Jobs[1].Requirements, matching.Requirement{ID: "java", Category: "REQUIRED", Text: "熟悉 Java", Excerpt: "熟悉 JVM", Confidence: 1})
+	doc.Jobs[1].Matches = append(doc.Jobs[1].Matches, matching.Match{RequirementID: "java", Result: "PARTIAL", Explanation: "相关语言", Evidence: []matching.Citation{{ID: "language-0", Excerpt: "Golang"}}})
+	doc.Jobs[2].InputKey = "stale-input-key"
+	authn := auth.Service{Store: s, Secret: []byte("synthetic-partial-chat-secret-32-bytes")}
+	token, err := authn.Token(u)
+	must(t, err)
+	handler := (&transport.API{Store: s, Queue: q, Auth: authn, Metrics: observability.New()}).Handler()
+	request := func(action string, document matching.ChatDocument, key string) *httptest.ResponseRecorder {
+		return matchingRequest(handler, token, "/api/matching/import/"+action, "POST", map[string]any{"document": document, "mask_name": "", "preview_key": key})
+	}
+	var preview struct {
+		Key   string `json:"preview_key"`
+		Total int    `json:"total"`
+		Jobs  []struct {
+			ID string `json:"job_id"`
+		} `json:"jobs"`
+		Issues []struct {
+			ID         string `json:"job_id"`
+			Diagnostic struct {
+				Reason string `json:"validation_reason"`
+				Job    int    `json:"job_index"`
+				Item   int    `json:"item_index"`
+				Scope  string `json:"item_scope"`
+			} `json:"diagnostic"`
+		} `json:"issues"`
+	}
+	rec := request("preview", doc, "")
+	if rec.Code != 200 {
+		t.Fatal(rec.Code, rec.Body.String())
+	}
+	must(t, json.Unmarshal(rec.Body.Bytes(), &preview))
+	if preview.Total != 3 || len(preview.Jobs) != 1 || preview.Jobs[0].ID != ids[0] || preview.Key == "" {
+		t.Fatal("wrong accepted subset", preview)
+	}
+	failures := map[string]bool{}
+	for _, issue := range preview.Issues {
+		failures[issue.Diagnostic.Reason] = true
+		if issue.ID == ids[1] && (issue.Diagnostic.Job != 2 || issue.Diagnostic.Item != 2 || issue.Diagnostic.Scope == "") {
+			t.Fatal("lost job or item position", issue)
+		}
+	}
+	for _, reason := range []string{"CHAT_REQUIREMENT_EXCERPT_NOT_EXACT", "EXCERPT_NOT_EXACT", "CHAT_JOB_STALE"} {
+		if !failures[reason] {
+			t.Fatal("did not collect all jobs and items", reason, preview)
+		}
+	}
+	if _, err = s.MatchResult(ctx, u, ids[0]); !errors.Is(err, p.ErrNotFound) {
+		t.Fatal("preview wrote a result", err)
+	}
+	if rec = request("confirm", doc, ""); rec.Code != 409 {
+		t.Fatal("subset bypassed preview", rec.Code)
+	}
+	// Even changing a rejected row invalidates the confirmed document.
+	edited := doc
+	edited.Jobs = append([]matching.ChatJob{}, doc.Jobs...)
+	edited.Jobs[2].InputKey = "another-stale-key"
+	if rec = request("confirm", edited, preview.Key); rec.Code != 409 {
+		t.Fatal("edited document reused a preview", rec.Code)
+	}
+	rec = request("confirm", doc, preview.Key)
+	if rec.Code != 200 || !strings.Contains(rec.Body.String(), `"imported":1`) || !strings.Contains(rec.Body.String(), `"skipped":2`) {
+		t.Fatal(rec.Code, rec.Body.String())
+	}
+	if _, err = s.MatchResult(ctx, u, ids[0]); err != nil {
+		t.Fatal("accepted result missing", err)
+	}
+	stored, err := s.MatchResult(ctx, u, ids[1])
+	must(t, err)
+	if d.JSON(stored) != d.JSON(old) {
+		t.Fatal("rejected job overwrote existing result")
+	}
+	if _, err = s.MatchResult(ctx, u, ids[2]); !errors.Is(err, p.ErrNotFound) {
+		t.Fatal("stale job saved", err)
+	}
+	if rec = request("confirm", doc, preview.Key); rec.Code != 409 {
+		t.Fatal("double confirmation reused preview")
+	}
+	badOnly := doc
+	badOnly.Jobs = append([]matching.ChatJob{}, doc.Jobs[1:]...)
+	rec = request("preview", badOnly, "")
+	if rec.Code != 200 {
+		t.Fatal(rec.Code, rec.Body.String())
+	}
+	must(t, json.Unmarshal(rec.Body.Bytes(), &preview))
+	if len(preview.Jobs) != 0 || len(preview.Issues) < 3 || preview.Key != "" {
+		t.Fatal("all-failed preview enabled confirmation", preview)
+	}
+	if rec = request("confirm", badOnly, "fake-key"); rec.Code != 409 {
+		t.Fatal("all-failed confirmation wrote", rec.Code)
+	}
+	after, err := s.MatchSnapshot(ctx, u, matching.ChatIdentity, "", ids)
+	must(t, err)
+	if after.CallsToday != 0 {
+		t.Fatal("chat review consumed model quota")
 	}
 }

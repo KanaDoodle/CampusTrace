@@ -76,7 +76,7 @@ In **模型设置**, choose an OpenAI or DeepSeek preset and enter your API key.
 - Browser-entered keys are stored per account in the current browser, without encryption. Calls pass them through CampusTrace to the selected provider; the app does not save them in its database.
 - API calls can incur provider charges. The matching-call allowance is a request-count limit, not a spending cap for your entire model account. Failed or timed-out calls can still cost money.
 
-You can use local screening and application tracking without an API key. You can also select jobs and use **导出到 ChatGPT** to review, download and manually upload analysis packages. Export itself makes no model calls. Chat results cannot yet be imported back into CampusTrace automatically.
+You can use local screening and application tracking without an API key. You can also select jobs and use **导出到 ChatGPT** to review, download and manually upload analysis packages. Export itself makes no model calls. Return JSON through **导入聊天分析** to review the results locally. Confirm the valid jobs first; copy the repair checklist for the remaining jobs back into chat. Scores and eligibility are computed locally.
 
 ## What the Agent does
 

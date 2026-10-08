@@ -82,13 +82,14 @@ func (a *API) exportMatches(w http.ResponseWriter, r *http.Request) {
 		jobs = append(jobs, byID[id])
 	}
 	out := struct {
-		Version       string              `json:"version"`
-		ExportedAt    time.Time           `json:"exported_at"`
-		CandidateHash string              `json:"candidate_hash"`
-		Candidate     matching.Candidate  `json:"candidate"`
-		Preferences   map[string][]string `json:"preferences"`
-		Jobs          []chatExportJob     `json:"jobs"`
-	}{matching.ChatVersion, time.Now().UTC(), snapshot.CandidateHash, snapshot.Candidate, map[string][]string{
+		Version        string              `json:"version"`
+		PromptRevision string              `json:"prompt_revision"`
+		ExportedAt     time.Time           `json:"exported_at"`
+		CandidateHash  string              `json:"candidate_hash"`
+		Candidate      matching.Candidate  `json:"candidate"`
+		Preferences    map[string][]string `json:"preferences"`
+		Jobs           []chatExportJob     `json:"jobs"`
+	}{matching.ChatVersion, matching.ChatPromptRevision, time.Now().UTC(), snapshot.CandidateHash, snapshot.Candidate, map[string][]string{
 		"preferred_job_types": cleanList(snapshot.Profile.PreferredTypes),
 		"preferred_cities":    cleanList(snapshot.Profile.PreferredCities),
 		"acceptable_cities":   cleanList(snapshot.Profile.AcceptableCities),

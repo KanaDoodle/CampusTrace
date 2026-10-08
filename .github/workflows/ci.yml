@@ -20,14 +20,15 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
       - run: go build ./...
       - run: go vet ./...
       - run: go test -count=1 ./...
       - run: go test -race -count=1 ./internal/...
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
       - name: Frontend tests
         run: node --test web/*.test.cjs
 

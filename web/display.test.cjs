@@ -159,3 +159,10 @@ test('匹配容量说明区分个人资料与岗位批次，并显示安全的�
  assert.equal(D.matchingDiagnostic({capacity_reason:'CANDIDATE_BYTES',actual:'private text',limit:32000}),'');
  assert.doesNotMatch(D.errorCode('MATCH_CAPACITY',400,'/api/matching/preview'),/精简过长的岗位、项目描述/);
 });
+
+test('chat batch diagnostics distinguish requirement and match positions and explain partial import limits',()=>{
+ assert.match(D.matchingDiagnostic({validation_reason:'CHAT_REQUIREMENT_COMPOSITE',job_index:2,item_index:4,item_scope:'REQUIREMENT'}),/第 2 个岗位.*岗位要求第 4 项/);
+ assert.match(D.matchingDiagnostic({validation_reason:'EXCERPT_NOT_EXACT',item_index:3,item_scope:'MATCH'}),/匹配结论第 3 项/);
+ for(const reason of ['CHAT_GROUP_CONFLICT','CHAT_MATCH_MISSING','CHAT_REQUIREMENTS_LIMIT','CHAT_JOB_STALE'])assert.ok(D.matchingDiagnostic({validation_reason:reason}));
+ assert.match(D.errorCode('MATCH_CHAT_CAPACITY',400,'/api/matching/import/preview'),/64 项/);
+});

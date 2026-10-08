@@ -118,6 +118,80 @@ func TestChatDuplicateGuardsDistinguishIDsAndConditions(t *testing.T) {
 	}
 }
 
+func TestChatImportCollectsIndependentRequirementAndMatchFailures(t *testing.T) {
+	source := "专业能力：\n熟悉 Go\n熟悉 Java\n熟悉数据结构与算法"
+	c := Candidate{Facts: []Fact{{ID: "go", Kind: "LANGUAGE", Text: "Go"}}}
+	in := ChatJob{Requirements: []Requirement{
+		{ID: "heading", Category: "REQUIRED", Text: "专业能力：", Excerpt: "专业能力：", Confidence: 1},
+		{ID: "r1", Category: "REQUIRED", Text: "熟悉 Go", Excerpt: "熟悉 Golang", Confidence: 1},
+		{ID: "r2", Category: "REQUIRED", Text: "熟悉 Java", Excerpt: "熟悉 Java", Confidence: 1},
+		{ID: "r3", Category: "REQUIRED", Text: "熟悉数据结构与算法", Excerpt: "熟悉数据结构与算法", Confidence: 1},
+	}, Matches: []Match{
+		{RequirementID: "heading", Result: "NO_EVIDENCE", Explanation: "无", Evidence: []Citation{}},
+		{RequirementID: "r1", Result: "DIRECT", Explanation: "语言", Evidence: []Citation{{ID: "go", Excerpt: "Golang"}}},
+		{RequirementID: "r2", Result: "PARTIAL", Explanation: "相关", Evidence: []Citation{}},
+		{RequirementID: "r3", Result: "NO_EVIDENCE", Explanation: "无", Evidence: []Citation{}},
+	}}
+	result, err := ImportChatJob(in, source, d.Job{}, d.Profile{}, c, time.Time{})
+	var all *ChatValidationErrors
+	if !errors.As(err, &all) || !errors.Is(err, ErrInvalid) || result.JobID != "" {
+		t.Fatal("invalid job produced a result or lost aggregate diagnostics", err)
+	}
+	want := map[string]struct {
+		scope string
+		item  int
+	}{
+		"CHAT_REQUIREMENT_EXCERPT_NOT_EXACT": {"REQUIREMENT", 2},
+		"CHAT_REQUIREMENT_COMPOSITE":         {"REQUIREMENT", 4},
+		"EXCERPT_NOT_EXACT":                  {"MATCH", 2},
+		"EVIDENCE_REQUIRED":                  {"MATCH", 3},
+	}
+	for _, issue := range all.Issues {
+		if expected, ok := want[issue.Reason]; ok {
+			if issue.Scope != expected.scope || issue.ItemIndex != expected.item {
+				t.Fatal("lost original position", issue)
+			}
+			delete(want, issue.Reason)
+		}
+	}
+	if len(want) != 0 {
+		t.Fatal("stopped after an earlier failure", want)
+	}
+}
+
+func TestChatDuplicatePositionAndOriginalGroupConsistencyArePreserved(t *testing.T) {
+	in := ChatJob{Requirements: []Requirement{
+		{ID: "r1", Category: "REQUIRED", Text: "熟悉 Go", Excerpt: "熟悉 Go", Confidence: 1},
+		{ID: "r1", Category: "REQUIRED", Text: "熟悉 Java", Excerpt: "熟悉 Java", Confidence: 1},
+	}, Matches: []Match{}}
+	_, err := ImportChatJob(in, "熟悉 Go；熟悉 Java", d.Job{}, d.Profile{}, Candidate{}, time.Time{})
+	var all *ChatValidationErrors
+	if !errors.As(err, &all) || all.Issues[0].ItemIndex != 2 || all.Issues[0].RelatedItemIndex != 1 {
+		t.Fatal(err)
+	}
+	in.Requirements[1].ID = "r2"
+	for i := range in.Requirements {
+		in.Requirements[i].GroupID = "g1"
+		in.Requirements[i].GroupExcerpt = []string{"Go或Java至少一种", "Java或Python至少一种"}[i]
+	}
+	_, err = ImportChatJob(in, "熟悉 Go；熟悉 Java；Go或Java至少一种；Java或Python至少一种", d.Job{}, d.Profile{}, Candidate{}, time.Time{})
+	if !errors.As(err, &all) {
+		t.Fatal(err)
+	}
+	found := false
+	for _, issue := range all.Issues {
+		if issue.Reason == "CHAT_GROUP_CONFLICT" {
+			found = true
+			if issue.ItemIndex != 2 || issue.RelatedItemIndex != 1 {
+				t.Fatal(issue)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("normalization concealed conflicting source group metadata")
+	}
+}
+
 func TestChatIndependentAbilitiesCanShareSourceExcerpt(t *testing.T) {
 	profile := d.Profile{}
 	candidate, err := CandidateFrom(profile, nil, "")
