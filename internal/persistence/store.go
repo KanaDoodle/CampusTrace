@@ -154,6 +154,9 @@ func (s *Store) Profile(ctx context.Context, user string) (d.Profile, error) {
 	return One[d.Profile](ctx, s.DB, "SELECT body FROM profiles WHERE user_id=?", user)
 }
 func (s *Store) SaveProfile(ctx context.Context, user string, p d.Profile) error {
+	if p.NormalizeFoundationSkills() != nil {
+		return ErrValidation
+	}
 	if p.GraduationMonth < 0 || p.GraduationMonth > 12 || (p.GraduationMonth != 0 && p.GraduationYear == 0 && len(p.Educations) == 0) {
 		return ErrValidation
 	}
@@ -189,6 +192,9 @@ func (s *Store) SaveProfile(ctx context.Context, user string, p d.Profile) error
 			if p.PrimaryEducationID == "" {
 				p.PrimaryEducationID = old.PrimaryEducationID
 			}
+		}
+		if p.FoundationSkills == nil {
+			p.FoundationSkills = old.FoundationSkills
 		}
 		if err := p.NormalizeEducations(); err != nil {
 			return ErrValidation

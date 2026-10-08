@@ -25,22 +25,24 @@ type matchResultSummary struct {
 }
 
 type MatchJob struct {
-	Job              d.Job                   `json:"job"`
-	Text             string                  `json:"-"`
-	TextBytes        int                     `json:"text_bytes"`
-	RequirementsKey  string                  `json:"requirements_key"`
-	InputKey         string                  `json:"input_key"`
-	PreliminaryScore float64                 `json:"preliminary_score"`
-	Local            *matching.LocalScreen   `json:"local,omitempty"`
-	ExcludedReason   string                  `json:"excluded_reason"`
-	State            string                  `json:"state"`
-	Score            *float64                `json:"score"`
-	Coverage         float64                 `json:"coverage"`
-	Breakdown        []matching.SectionScore `json:"breakdown,omitempty"`
-	Source           string                  `json:"source,omitempty"`
-	Disposition      string                  `json:"disposition"`
-	Application      *MatchApplication       `json:"application,omitempty"`
-	Result           *matching.Result        `json:"-"`
+	Job              d.Job                      `json:"job"`
+	Text             string                     `json:"-"`
+	TextBytes        int                        `json:"text_bytes"`
+	RequirementsKey  string                     `json:"requirements_key"`
+	InputKey         string                     `json:"input_key"`
+	PreliminaryScore float64                    `json:"preliminary_score"`
+	Local            *matching.LocalScreen      `json:"local,omitempty"`
+	ExcludedReason   string                     `json:"excluded_reason"`
+	State            string                     `json:"state"`
+	Score            *float64                   `json:"score"`
+	Priority         *matching.Priority         `json:"priority,omitempty"`
+	CompanyPlacement *matching.CompanyPlacement `json:"company_placement,omitempty"`
+	Coverage         float64                    `json:"coverage"`
+	Breakdown        []matching.SectionScore    `json:"breakdown,omitempty"`
+	Source           string                     `json:"source,omitempty"`
+	Disposition      string                     `json:"disposition"`
+	Application      *MatchApplication          `json:"application,omitempty"`
+	Result           *matching.Result           `json:"-"`
 }
 
 // The inventory needs workflow context, never application notes or resume names.
@@ -398,7 +400,22 @@ func (s *Store) matchSnapshot(ctx context.Context, user, model, maskName string,
 				}
 			}
 		}
+		if row.State == "ANALYZED" {
+			row.Priority = matching.ApplicationPriority(row.Breakdown)
+		}
 		v.Jobs = append(v.Jobs, row)
+	}
+	if screen && len(ids) == 0 && company == "" {
+		inputs := make([]matching.PriorityInput, 0, len(v.Jobs))
+		for _, row := range v.Jobs {
+			inputs = append(inputs, matching.PriorityInput{Job: row.Job, Local: row.Local, State: row.State, ExcludedReason: row.ExcludedReason, Breakdown: row.Breakdown, Coverage: row.Coverage})
+		}
+		placements := matching.TechnicalCompanyPlacements(inputs, v.Profile)
+		for i := range v.Jobs {
+			if placement, ok := placements[v.Jobs[i].Job.ID]; ok {
+				v.Jobs[i].CompanyPlacement = &placement
+			}
+		}
 	}
 	sort.SliceStable(v.Jobs, func(i, j int) bool {
 		a, b := v.Jobs[i], v.Jobs[j]

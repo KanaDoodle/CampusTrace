@@ -181,7 +181,7 @@ func (a *API) matchingRoutes(on func(string, http.HandlerFunc)) {
 			write(w, map[string]any{"state": snapshot.Jobs[0].State, "local": snapshot.Jobs[0].Local, "excluded_reason": snapshot.Jobs[0].ExcludedReason}, nil)
 			return
 		}
-		write(w, map[string]any{"state": snapshot.Jobs[0].State, "local": snapshot.Jobs[0].Local, "excluded_reason": snapshot.Jobs[0].ExcludedReason, "result": result}, nil)
+		write(w, map[string]any{"state": snapshot.Jobs[0].State, "local": snapshot.Jobs[0].Local, "excluded_reason": snapshot.Jobs[0].ExcludedReason, "priority": snapshot.Jobs[0].Priority, "result": result}, nil)
 	})
 	on("POST /api/matching/analyze", a.analyzeMatches)
 	on("POST /api/matching/export", a.exportMatches)

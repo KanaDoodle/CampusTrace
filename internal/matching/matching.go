@@ -106,6 +106,16 @@ func CandidateWithProjects(p d.Profile, facts []d.ProjectFact, projects []d.Proj
 		}
 		add("education-"+e.ID, "EDUCATION", text)
 	}
+	if err := p.NormalizeFoundationSkills(); err != nil {
+		return c, ErrInvalid
+	}
+	foundationNames := map[string]string{}
+	for _, topic := range d.FoundationTopics() {
+		foundationNames[topic.ID] = topic.Name
+	}
+	for _, skill := range p.FoundationSkills {
+		add("foundation-"+strings.ToLower(skill.Topic), "SKILL", foundationNames[skill.Topic]+"："+d.FoundationLevelLabel(skill.Level)+"（个人自评，实践细节待核对）")
+	}
 	projectNames := map[string]string{}
 	for _, project := range projects {
 		projectNames[project.ID] = clean(project.Name)

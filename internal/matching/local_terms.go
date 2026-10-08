@@ -15,6 +15,12 @@ type localTerm struct {
 // These are explicit vocabulary correspondences, not inferred proficiency.
 // Implementation details such as goroutine or sync.Mutex remain fact text.
 var localTerms = []localTerm{
+	{"data_structures", "数据结构", "FOUNDATION", []string{"数据结构", "data structures"}},
+	{"algorithms", "算法", "FOUNDATION", []string{"算法", "algorithms"}},
+	{"operating_systems", "操作系统", "FOUNDATION", []string{"操作系统", "operating systems", "operating system"}},
+	{"computer_networks", "计算机网络", "FOUNDATION", []string{"计算机网络", "computer networks", "computer networking"}},
+	{"database_fundamentals", "数据库基础", "FOUNDATION", []string{"数据库基础", "数据库原理", "database fundamentals"}},
+	{"computer_architecture", "计算机系统结构", "FOUNDATION", []string{"计算机系统结构", "计算机组成原理", "computer architecture"}},
 	{"go", "Go", "LANGUAGE", []string{"go", "golang"}},
 	{"java", "Java", "LANGUAGE", []string{"java"}},
 	{"cpp", "C++", "LANGUAGE", []string{"c++", "cpp"}},

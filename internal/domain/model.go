@@ -241,23 +241,24 @@ type Change struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 type Profile struct {
-	Revision           uint64      `json:"revision"`
-	UserID             string      `json:"user_id"`
-	GraduationYear     int         `json:"graduation_year"`
-	GraduationMonth    int         `json:"graduation_month,omitempty"`
-	GraduationFrom     int         `json:"graduation_from"`
-	GraduationTo       int         `json:"graduation_to"`
-	Degree             string      `json:"degree"`
-	Majors             []string    `json:"majors,omitempty"`
-	PreferredTypes     []string    `json:"preferred_job_types,omitempty"`
-	PreferredCities    []string    `json:"preferred_cities,omitempty"`
-	AcceptableCities   []string    `json:"acceptable_cities,omitempty"`
-	TargetRoles        []string    `json:"target_roles,omitempty"`
-	Skills             []string    `json:"technical_skills,omitempty"`
-	Languages          []string    `json:"target_languages,omitempty"`
-	ExperienceMonths   int         `json:"experience_months"`
-	Educations         []Education `json:"educations,omitempty"`
-	PrimaryEducationID string      `json:"primary_education_id,omitempty"`
+	Revision           uint64            `json:"revision"`
+	UserID             string            `json:"user_id"`
+	GraduationYear     int               `json:"graduation_year"`
+	GraduationMonth    int               `json:"graduation_month,omitempty"`
+	GraduationFrom     int               `json:"graduation_from"`
+	GraduationTo       int               `json:"graduation_to"`
+	Degree             string            `json:"degree"`
+	Majors             []string          `json:"majors,omitempty"`
+	PreferredTypes     []string          `json:"preferred_job_types,omitempty"`
+	PreferredCities    []string          `json:"preferred_cities,omitempty"`
+	AcceptableCities   []string          `json:"acceptable_cities,omitempty"`
+	TargetRoles        []string          `json:"target_roles,omitempty"`
+	Skills             []string          `json:"technical_skills,omitempty"`
+	Languages          []string          `json:"target_languages,omitempty"`
+	FoundationSkills   []FoundationSkill `json:"foundation_skills,omitempty"`
+	ExperienceMonths   int               `json:"experience_months"`
+	Educations         []Education       `json:"educations,omitempty"`
+	PrimaryEducationID string            `json:"primary_education_id,omitempty"`
 }
 type RuleResult struct {
 	Rule        string   `json:"rule"`

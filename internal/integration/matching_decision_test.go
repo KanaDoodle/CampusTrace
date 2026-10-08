@@ -38,6 +38,22 @@ func TestDecisionViewsUseCurrentOwnedResultsWithoutModelCalls(t *testing.T) {
 		t.Fatal(rec.Code, rec.Body.String())
 	}
 	initialCalls := model.calls.Load()
+	inventory, err := s.MatchSnapshot(ctx, u, matching.ModelIdentity("server-default", "fixture"), "", nil)
+	must(t, err)
+	ranked := 0
+	for _, row := range inventory.Jobs {
+		if row.State == "ANALYZED" {
+			ranked++
+			if row.Priority == nil || row.CompanyPlacement == nil || row.CompanyPlacement.Rank != 1 || row.CompanyPlacement.Total != 2 || row.CompanyPlacement.Pending != 1 || !row.CompanyPlacement.Tied {
+				t.Fatal("inventory does not expose scoped application ordering", row.Job.ID, row.Priority, row.CompanyPlacement)
+			}
+		} else if row.Priority != nil || row.CompanyPlacement != nil {
+			t.Fatal("pending job has a current rank")
+		}
+	}
+	if ranked != 2 || model.calls.Load() != initialCalls {
+		t.Fatal("ranking required additional model calls")
+	}
 	compareBody := map[string]any{"company": "Decision fixture"}
 	compare := func(token string, body any) matching.CompanyComparison {
 		t.Helper()

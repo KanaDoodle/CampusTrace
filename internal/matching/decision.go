@@ -167,7 +167,8 @@ func BuildPreparation(in DecisionInput, p d.Profile, now time.Time) PreparationP
 				task.Priority = 3
 			}
 			if category == "SOFT" {
-				task.Action = "准备真实的学习、协作或解决问题事例。这类要求不计入技术匹配分，资料未记录也不代表缺乏该特质。"
+				task.Kind = "REHEARSE"
+				task.Action = "默认不限制投递，不计入技术匹配分或排序。面试前可准备真实的学习、协作或解决问题事例，无需为投递逐项补充证明。"
 			} else if category == "RESPONSIBILITY" {
 				task.Action += " 这是入职后的工作内容；核对已有机制的可迁移性及领域知识，不将它直接视为必需的同类从业经历。"
 			}

@@ -53,7 +53,7 @@ function harness({readFile,modelAvailable=false,draftResult,initialProfile,initi
       if(path.startsWith('/api/projects/')){const deleted_facts=facts.filter(f=>f.project_id===id).length;projects=projects.filter(p=>p.id!==id);facts=facts.filter(f=>f.project_id!==id);return {deleted:true,deleted_facts};}
       if(path.startsWith('/api/project_facts/')){facts=facts.filter(f=>f.id!==id);return {deleted:true};}
     }
-    if(path==='/api/profile/resume/capabilities')return {user_id:'qa',model_available:modelAvailable};
+    if(path==='/api/profile/resume/capabilities')return {user_id:'qa',model_available:modelAvailable,foundation_topics:[{id:'DATA_STRUCTURES',name:'数据结构'},{id:'ALGORITHMS',name:'算法'},{id:'OPERATING_SYSTEMS',name:'操作系统'},{id:'COMPUTER_NETWORKS',name:'计算机网络'},{id:'DATABASES',name:'数据库基础'},{id:'COMPUTER_ARCHITECTURE',name:'计算机系统结构'}]};
     if(path==='/api/profile/resume/draft'){draftRequests.push(body);return structuredClone(draftResult);}
     throw new Error(path);
   };
@@ -219,4 +219,13 @@ test('project drafts completing concurrently clear their own identities after an
  let finishSecond;const h=harness({modelAvailable:true,draftResult:{suggestions:[],projects:[importProject('队列'),importProject('缓存')]},beforeProjectWrite:body=>body.name==='缓存'?new Promise(resolve=>{finishSecond=resolve;}):undefined});await generate(h);
  const second=h.actions.get('[data-draft-project="1"]')(h.formData('[data-draft-project="1"]'));await h.actions.get('[data-draft-project="0"]')(h.formData('[data-draft-project="0"]'));assert.equal(h.navigation.dirty(),true);finishSecond();await second;
  assert.equal(h.factWrites.length,2);assert.equal(h.navigation.dirty(),false);assert.doesNotMatch(h.html(),/data-draft-project=/);assert.equal(await h.navigation.leave(),true);
+});
+
+
+test('foundation assessment starts unset, survives another panel and can be explicitly cleared',async()=>{
+ const h=harness();await h.start();assert.match(h.html(),/基础能力自评/);assert.equal(h.fields.get('foundation-ALGORITHMS'),'');assert.equal(h.navigation.dirty(),false);
+ h.fields.set('foundation-ALGORITHMS','UNDERSTAND');h.fields.set('foundation-COMPUTER_NETWORKS','PRACTICED');assert.equal(h.navigation.dirty(),true);
+ h.elements.get('open-resume').onclick();assert.equal(h.fields.get('foundation-ALGORITHMS'),'UNDERSTAND');
+ await h.actions.get('#save-profile')(h.data());assert.deepEqual(JSON.parse(JSON.stringify(h.writes[0].foundation_skills)),[{topic:'ALGORITHMS',level:'UNDERSTAND'},{topic:'COMPUTER_NETWORKS',level:'PRACTICED'}]);assert.equal(h.navigation.dirty(),false);assert.equal(h.draftRequests.length,0);
+ h.fields.set('foundation-ALGORITHMS','');h.fields.set('foundation-COMPUTER_NETWORKS','');await h.actions.get('#save-profile')(h.data());assert.deepEqual(Array.from(h.writes[1].foundation_skills),[]);assert.equal(h.navigation.dirty(),false);
 });

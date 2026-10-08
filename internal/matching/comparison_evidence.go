@@ -1,6 +1,9 @@
 package matching
 
-import "regexp"
+import (
+	"regexp"
+	"strings"
+)
 
 // Review notes are assigned locally, never accepted from model output.
 const InvalidAbilityEvidence = "INVALID_ABILITY_EVIDENCE"
@@ -8,6 +11,7 @@ const ExperienceUnconfirmed = "EXPERIENCE_UNCONFIRMED"
 const ContextUnconfirmed = "CONTEXT_UNCONFIRMED"
 
 var practicalExperience = regexp.MustCompile(`(?i)(?:实际|实战|实践|使用|搭建|构建|建设|开发|项目|编码|落地)(?:的)?经验|实际(?:使用|搭建|构建|开发|实现)|hands.on experience|practical experience`)
+var deepFoundationKnowledge = regexp.MustCompile(`扎实|深厚|精通`)
 
 type comparisonCandidate struct {
 	Revision    uint64 `json:"revision"`
@@ -70,9 +74,19 @@ func withdrawInvalidAbilityEvidence(c Candidate, reqs []Requirement, matches []M
 			continue
 		}
 		onlyDeclarations := len(m.Evidence) > 0
+		onlyFoundations, assessedLevel := len(m.Evidence) > 0, 0
 		for _, citation := range m.Evidence {
-			kind := facts[citation.ID].Kind
+			fact := facts[citation.ID]
+			kind := fact.Kind
 			onlyDeclarations = onlyDeclarations && (kind == "SKILL" || kind == "LANGUAGE")
+			onlyFoundations = onlyFoundations && kind == "SKILL" && strings.HasPrefix(fact.ID, "foundation-")
+			level := proficiencyRank(fact.Text)
+			if strings.Contains(fact.Text, "：有实践（个人自评") {
+				level = 2
+			}
+			if level > assessedLevel {
+				assessedLevel = level
+			}
 			if !abilityCitation(facts[citation.ID], requirements[m.RequirementID]) {
 				matches[i].Result = "NO_EVIDENCE"
 				matches[i].Explanation = "模型引用了求职偏好或项目局限来证明能力，原结论已撤销。此项暂无足够的有效依据，请核对真实经历并补充资料；不代表你不会。"
@@ -82,6 +96,14 @@ func withdrawInvalidAbilityEvidence(c Candidate, reqs []Requirement, matches []M
 			}
 		}
 		r := requirements[m.RequirementID]
+		requiredLevel := proficiencyRank(r.Text)
+		if deepFoundationKnowledge.MatchString(r.Text) {
+			requiredLevel = 3
+		}
+		if matches[i].Result == "DIRECT" && onlyFoundations && assessedLevel < requiredLevel {
+			matches[i].Result, matches[i].ReviewNote = "PARTIAL", ContextUnconfirmed
+			matches[i].Explanation = "基础能力自评与岗位相关，可作为部分匹配参考；当前自评程度尚不能确认达到岗位要求。可先考虑投递，再核对自己的原理掌握与实践。"
+		}
 		// Declared skills help application triage but cannot prove hands-on
 		// work. Keep partial support without rejecting the whole batch.
 		if matches[i].Result != "NO_EVIDENCE" && onlyDeclarations && (r.Category == "REQUIRED" || r.Category == "BONUS") && r.Aspect != "SOFT" && practicalExperience.MatchString(r.Text) {

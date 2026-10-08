@@ -256,3 +256,20 @@ main { padding-top: 22px; padding-bottom: 35px; }
 .source-bulk-row>div:last-child{text-align:right}.source-bulk-status{font-size:13px;color:var(--accent,#5550cc)}
 .source-bulk-status.is-failed{color:#ad652e}.source-bulk-row .btn{margin-top:6px}
 @media(max-width:700px){.source-bulk{padding:18px}.source-bulk-heading{align-items:flex-start;flex-direction:column;gap:14px}.source-bulk-progress{grid-template-columns:1fr}.source-bulk-progress progress{grid-column:1}.source-bulk-row{grid-template-columns:minmax(0,1fr) auto}}
+
+/* Application decisions stay prominent; optional traits remain quiet. */
+.workbench-job { grid-template-columns: 17px minmax(0,1fr) 116px; }
+.workbench-job-score .company-placement { color: var(--ink); font-weight: 500; }
+.workbench-job-score .text-btn { margin-top: 7px; font-size: 11px; }
+.workbench-assessment .company-placement { display: block; margin: 3px 0 6px; color: var(--ink); }
+.match-soft { margin-top: 18px; padding: 12px 0; border-top: 1px solid var(--line); }
+.match-soft>summary { color: var(--muted); cursor: pointer; font-size: 12px; }
+.match-soft ul { padding-left: 20px; }
+.profile-foundations { margin-top: 24px; padding-top: 22px; border-top: 1px solid var(--line); }
+.foundation-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); column-gap: 24px; margin: 14px 0; }
+.foundation-grid label { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.foundation-grid select { width: 124px; flex-shrink: 0; }
+@media(max-width:600px) {
+  .foundation-grid { grid-template-columns: 1fr; }
+  .workbench-job { grid-template-columns: 17px minmax(0,1fr) 98px; }
+}
