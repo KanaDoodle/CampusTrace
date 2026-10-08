@@ -6,6 +6,7 @@ import (
 )
 
 var collaborationClause = regexp.MustCompile(`^(?:与|和|同).*(?:团队|同事).*(?:沟通|协作|合作)[。\s]*$`)
+var academicQualificationLabel = regexp.MustCompile(`(?i)^(?:20\d{2}届|应届毕业生|学历|学位|教育背景|所学专业|专业不限|(?:本科|硕士|博士|专科)(?:及|或)?以上)|相关专业(?:[。\s]|$)|bachelor(?:'s)?\s+degree|master(?:'s)?\s+degree`)
 
 // Restore only future-duty labels whose exact excerpts lie entirely inside a
 // single explicit requirements/bonus section. A quote repeated across sections
@@ -53,6 +54,11 @@ func restoreChatCategories(items []Requirement, source string) ([]Requirement, i
 			at = n + 1
 		}
 		if !ambiguous && resolved != "" {
+			if resolved == "REQUIRED" && academicQualificationLabel.MatchString(r.Text) {
+				// Keep academic gates outside the technical denominator. Missing
+				// structured facets remain manual qualifications, not proven skills.
+				resolved = "QUALIFICATION"
+			}
 			out[i].Category = resolved
 			count++
 		}

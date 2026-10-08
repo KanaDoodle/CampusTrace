@@ -71,13 +71,23 @@ func ImportChatJob(in ChatJob, text string, job d.Job, profile d.Profile, c Cand
 	}
 	// Never copy a single completed judgment into several atomic abilities.
 	categorized, restoredCategories := restoreChatCategories(reqs, text)
-	normalized := normalizeRequirementSemantics(categorized, text)
+	normalized := normalizeRequirementSemantics(append([]Requirement{}, categorized...), text)
 	for i, original := range reqs {
 		// A full-sentence chat label can include another qualification's
 		// preference. Do not demote a mandatory degree because the major is
 		// preferred, or a mandatory major because the degree is preferred.
 		if original.Category == "QUALIFICATION" && normalized[i].Category == "BONUS" && chatMandatoryQualification(original) {
 			normalized[i].Category, normalized[i].ClaimType, normalized[i].Value = original.Category, original.ClaimType, original.Value
+		}
+		if categorized[i].Category == "QUALIFICATION" && categorized[i].ClaimType == "" && normalized[i].Category == "BONUS" {
+			// A restored, unstructured academic gate can include a preferred
+			// major next to a mandatory degree. Keep it for local/manual checks.
+			for _, clause := range qualificationClauses.Split(categorized[i].Text, -1) {
+				if degreeMinimum.MatchString(clause) && !preferredCue.MatchString(clause) && !strings.Contains(clause, "不限") {
+					normalized[i] = categorized[i]
+					break
+				}
+			}
 		}
 	}
 	normalized = removeCoveredSoftClauses(normalized)

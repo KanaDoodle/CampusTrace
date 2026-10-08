@@ -134,3 +134,26 @@ func TestChatLanguageUmbrellaRemovalRetainsPreciseOwnMatch(t *testing.T) {
 		}
 	}
 }
+
+func TestRestoredAcademicGateNeverBecomesTechnicalScore(t *testing.T) {
+	text := "2027届本科及以上学历"
+	p := d.Profile{Degree: "MASTER", GraduationYear: 2027}
+	c, _ := CandidateFrom(p, nil, "")
+	in := ChatJob{Requirements: []Requirement{{ID: "academic", Category: "RESPONSIBILITY", Text: text, Excerpt: text, Confidence: 1}}, Matches: []Match{{RequirementID: "academic", Result: "NO_EVIDENCE", Explanation: "原模型未核对资格", Evidence: []Citation{}}}}
+	got, err := ImportChatJob(in, "工作要求:\n"+text, d.Job{}, p, c, time.Now())
+	if err != nil || got.Requirements[0].Category != "QUALIFICATION" || got.Score != nil || got.Breakdown[0].Total != 0 || got.Qualifications.Status == "ELIGIBLE" {
+		t.Fatal(got, err)
+	}
+	for _, label := range []string{"专业能力：熟练掌握 Go", "具有专业的软件开发能力", "熟练掌握 Go", "开发学历认证服务"} {
+		items, count := restoreChatCategories([]Requirement{{Category: "RESPONSIBILITY", Text: label, Excerpt: label}}, "工作要求:\n"+label)
+		if count != 1 || items[0].Category != "REQUIRED" {
+			t.Fatal("technical ability became an academic gate", items)
+		}
+	}
+	in.Requirements[0].Text = "2027届本科及以上学历，计算机相关专业优先"
+	in.Requirements[0].Excerpt = in.Requirements[0].Text
+	got, err = ImportChatJob(in, "工作要求:\n"+in.Requirements[0].Text, d.Job{}, p, c, time.Now())
+	if err != nil || got.Requirements[0].Category != "QUALIFICATION" || got.Score != nil {
+		t.Fatal("preferred major demoted a mandatory degree", got, err)
+	}
+}
