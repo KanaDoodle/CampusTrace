@@ -330,3 +330,93 @@ main { padding-top: 22px; padding-bottom: 35px; }
 }
 
 .page-loading{padding:24px 0;max-width:900px}.page-loading>div{height:58px;background:var(--line,#e3e8ef);opacity:.55;border-radius:6px;margin:16px 0}.page-loading>div:last-child{width:65%}.local-drafts{margin:0 0 22px;padding:12px 16px;background:var(--accent-soft,#f3f2ff);border-left:3px solid var(--accent,#5550cc);font-size:12px}.local-drafts .actions{margin:8px 0 0}.local-drafts label{display:flex;gap:8px;align-items:center}.local-drafts p{margin:6px 0 0}.local-drafts button{font-size:12px}.local-drafts input{width:auto;accent-color:var(--accent,#5550cc)}
+
+/* Motion follows an action or a pending read; the inventory itself stays still. */
+:root {
+  --motion-fast: 140ms;
+  --motion-open: 220ms;
+  --motion-ease: cubic-bezier(.2, .7, .2, 1);
+}
+
+:is(.btn, .icon-btn, .direction-tab, .radar-filter-chip),
+:is(.btn, .icon-btn, .direction-tab, .radar-filter-chip):hover:not(:disabled) {
+  transition: background-color var(--motion-fast), border-color var(--motion-fast),
+    color var(--motion-fast), box-shadow var(--motion-fast),
+    transform var(--motion-fast) var(--motion-ease);
+}
+
+.sidebar nav button, .sidebar nav button:hover:not(:disabled),
+.detail-tabs button, .detail-tabs button:hover:not(:disabled),
+.profile-tabs button, .profile-tabs button:hover:not(:disabled) {
+  transition: background-color var(--motion-fast), color var(--motion-fast),
+    border-color var(--motion-fast), box-shadow var(--motion-fast);
+}
+
+.workbench-journey button::before {
+  transition: background-color var(--motion-fast), box-shadow var(--motion-fast);
+}
+
+.workbench-job { transition: background-color var(--motion-fast); }
+
+.match-row-select, input, select, textarea, .search-field {
+  transition: border-color var(--motion-fast), box-shadow var(--motion-fast),
+    background-color var(--motion-fast);
+}
+
+.page-loading>.meta { display: flex; align-items: center; gap: 9px; }
+.loading-radar { display: inline-flex; color: var(--accent); }
+.loading-radar .icon { width: 20px; height: 20px; }
+
+.page-loading>div { position: relative; overflow: hidden; }
+.page-loading>div::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 20%, #ffffffa8 50%, transparent 80%);
+  transform: translateX(-100%);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :is(.btn, .icon-btn, .direction-tab, .radar-filter-chip):active:not(:disabled) {
+    transform: scale(.98);
+  }
+  .loading-radar .icon path {
+    transform-origin: 12px 12px;
+    animation: radar-read 1.8s linear infinite;
+  }
+  .page-loading>div::after { animation: skeleton-read 1.8s ease-in-out infinite; }
+  .modal[open]:not([data-motion-quiet]) { animation: modal-open var(--motion-open) var(--motion-ease); }
+  .drawer[open]:not(.is-docked) { animation: drawer-open var(--motion-open) var(--motion-ease); }
+  dialog[open]:not([data-motion-quiet])::backdrop { animation: backdrop-open 180ms ease-out; }
+  .toast:not(:empty) { animation: feedback-open var(--motion-open) var(--motion-ease); }
+
+  @media (hover: hover) and (pointer: fine) {
+    .btn-primary:hover:not(:disabled) { transform: translateY(-1px); }
+    .btn-primary:active:not(:disabled) { transform: scale(.98); }
+    .workbench-job:hover:not(.is-current) { background: #f8f9fd; }
+    .workbench-job.is-selected:hover:not(.is-current) { background: #f3f2fc; }
+  }
+  @media (max-width: 700px) {
+    .sidebar.menu-open nav { animation: menu-open 180ms var(--motion-ease); }
+  }
+}
+
+@keyframes radar-read { to { transform: rotate(360deg); } }
+@keyframes skeleton-read { to { transform: translateX(100%); } }
+@keyframes modal-open {
+  from { opacity: 0; transform: translateY(8px) scale(.99); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes drawer-open {
+  from { opacity: 0; transform: translateX(18px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes backdrop-open { from { opacity: 0; } to { opacity: 1; } }
+@keyframes feedback-open {
+  from { opacity: 0; translate: 0 8px; }
+  to { opacity: 1; translate: 0 0; }
+}
+@keyframes menu-open {
+  from { opacity: 0; transform: translateX(-12px); }
+  to { opacity: 1; transform: none; }
+}

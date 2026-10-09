@@ -74,9 +74,10 @@ async function page(name,query='') {
   $('#crumb').textContent=pageTitles[name]||'求职记录';
   document.querySelector('.sidebar').classList.remove('menu-open');
   document.querySelector('#mobile-menu')?.setAttribute('aria-expanded','false');
-  const version=++pageVersion;$('#notice').textContent='';const box=$('#content');box.innerHTML=CampusUI.heading(pageTitles[name]||'求职记录')+'<section class="page-loading" aria-busy="true" aria-label="正在读取页面"><p class="meta">正在读取记录…</p><div></div><div></div><div></div></section>';
+  const version=++pageVersion;$('#notice').textContent='';const box=$('#content');box.innerHTML=CampusUI.heading(pageTitles[name]||'求职记录')+CampusUI.loading();
   document.title=`${pageTitles[name]||'求职记录'} · CampusTrace`;
-  const set=html=>{if(version!==pageVersion)return false;box.innerHTML=html;return true;};
+  let entered=false;
+  const set=html=>{if(version!==pageVersion)return false;box.innerHTML=html;if(!entered){entered=true;CampusUI.reveal(box);}return true;};
   const heading=CampusUI.heading(pageTitles[name]);
   const route=name==='matching'&&query?.view==='company'?'company':name==='profile'&&query?.evidence?'evidence':['radar','watches','source_jobs','notifications','preferences','closing','changes'].includes(name)?'radar':name;
   try{await CampusAssets.ensure(route);}catch(error){if(version===pageVersion){set(heading+'<p class="empty">页面组件暂时无法读取。</p><button id="page-load-retry" class="btn">重新读取页面</button>');$('#page-load-retry').onclick=()=>page(name,query).catch(fail);}return;}
