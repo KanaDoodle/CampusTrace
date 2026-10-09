@@ -130,3 +130,7 @@ test('列表分数随排序口径切换，过期技术评分仍显示待更新',
  const local=m.jobRowHTML(high,{esc,D},false,false,false,false,'local');assert.match(local,/<strong>45\.0<\/strong><span>初筛参考分/);
  const stale=m.jobRowHTML({...high,state:'STALE'},{esc,D},false,false,false,false,'technical');assert.match(stale,/<strong>—<\/strong><span>分析待更新/);assert.ok(!stale.includes('<strong>80.0</strong>'));
 });
+test('search can match any keyword and exclude unrelated words with role aliases',()=>{
+ const rows=[{job:{id:'a',company:'合成',title:'服务端 Go',locations:['上海']}},{job:{id:'b',company:'合成',title:'Java 后端 销售',locations:['北京']}},{job:{id:'c',company:'合成',title:'前端',locations:['上海']}}];
+ const M=require('./matching.js');assert.deepEqual(M.filtered(rows,'Go Java','','','ANY','销售').map(r=>r.job.id),['a']);assert.deepEqual(M.filtered(rows,'后端 Go','','','ALL').map(r=>r.job.id),['a']);assert.equal(M.filtered(rows,'Go Java','','','ALL').length,0);
+});

@@ -3,8 +3,8 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
 
-function harness({pending=['pending-a','pending-b'],failed=['failed-a','failed-b'],analyze,exportError,compare,exportRequest,evidenceReviews=0,durable=false,taskRuns=[],taskRequest,bulkRequest,importRequest}={}){
-  const stored=new Map(),elements=new Map(),requests=[],exports=[],decisionRequests=[],taskRequests=[],bulkRequests=[],importRequests=[],timers=[],navigations=[];
+function harness({pending=['pending-a','pending-b'],failed=['failed-a','failed-b'],analyze,exportError,compare,exportRequest,evidenceReviews=0,durable=false,taskRuns=[],taskRequest,taskRead,bulkRequest,importRequest,paging=false,inventoryRequest}={}){
+  const stored=new Map(),elements=new Map(),requests=[],exports=[],decisionRequests=[],taskRequests=[],bulkRequests=[],importRequests=[],inventoryRequests=[],timers=[],navigations=[];
   const model={url:'https://model.example/chat',model:'test-model',api_key:'synthetic-test-key'};
   const modelKey=JSON.stringify([model.url,model.model,'server-model']);
   stored.set('campustrace:match-progress:v1:alice',JSON.stringify({hash:'profile',model:modelKey,pending,failed:failed.map(id=>({id,message:'上次连接失败'})),done:1,calls:1}));
@@ -25,12 +25,19 @@ function harness({pending=['pending-a','pending-b'],failed=['failed-a','failed-b
     }
     return true;
   };
-  const context={document,TextEncoder,setTimeout:(fn,delay)=>{timers.push({fn,delay});return timers.length;},FormData:class{get(k){const el=elements.get({q:'match-search',company:'match-company',state:'match-state',tier:'match-tier',workflow:'match-workflow',city:'match-city',sort:'match-sort',only_selected:'match-only-selected',show_ignored:'match-show-ignored'}[k]);return el?.tagName==='INPUT'&&['only_selected','show_ignored'].includes(k)?el.checked?'on':'':el?.value||'';}},clearTimeout:id=>{if(timers[id-1])timers[id-1].canceled=true;},crypto:{randomUUID:()=>'synthetic-task-request-00000000000'},sessionStorage:{getItem:k=>stored.get(k),setItem:(k,v)=>stored.set(k,v)},CampusModels:{bindUser(){},requestConfig:()=>model,available:()=>true,label:()=> '测试模型'},CampusMatchingChat:{readSelection:()=>new Set(),selectedRows:()=>[],pruneSelection(){},storeSelection(){}},console};
-  vm.createContext(context);vm.runInContext(fs.readFileSync(__dirname+'/ui.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/navigation.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching_decision.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching_tasks.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching_chat.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching.js','utf8'),context);
+  const context={document,TextEncoder,setTimeout:(fn,delay)=>{timers.push({fn,delay});return timers.length;},FormData:class{get(k){const el=elements.get({q:'match-search',company:'match-company',state:'match-state',tier:'match-tier',workflow:'match-workflow',city:'match-city',query_mode:'match-query-mode',exclude:'match-exclude',sort:'match-sort',only_selected:'match-only-selected',show_ignored:'match-show-ignored'}[k]);return el?.tagName==='INPUT'&&['only_selected','show_ignored'].includes(k)?el.checked?'on':'':el?.value||'';}},clearTimeout:id=>{if(timers[id-1])timers[id-1].canceled=true;},crypto:{randomUUID:()=>'synthetic-task-request-00000000000'},sessionStorage:{getItem:k=>stored.get(k),setItem:(k,v)=>stored.set(k,v)},CampusModels:{bindUser(){},requestConfig:()=>model,available:()=>true,label:()=> '测试模型'},CampusMatchingChat:{readSelection:()=>new Set(),selectedRows:()=>[],pruneSelection(){},storeSelection(){}},console};
+  vm.createContext(context);vm.runInContext(fs.readFileSync(__dirname+'/ui.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/navigation.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching_decision.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching_tasks.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching_chat.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/inventory.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching.js','utf8'),context);
   const api=async(path,method,body)=>{
-    if(path==='/api/profile/resume/capabilities')return {user_id:'alice',model:'server-model',model_available:true,durable_matching:durable};
-    if(path.startsWith('/api/matching/tasks')){if(!method||method==='GET'){return structuredClone(path==='/api/matching/tasks'?taskRuns:taskRuns.find(v=>v.id===path.split('/')[4]));}taskRequests.push({path,body});if(taskRequest)return taskRequest(path,body);throw new Error('unexpected mutation');}
+    if(path==='/api/profile/resume/capabilities')return {inventory_paging:paging,user_id:'alice',model:'server-model',model_available:true,durable_matching:durable};
+    if(path.startsWith('/api/matching/tasks')){if(!method||method==='GET'){if(path==='/api/matching/tasks'&&taskRead)return taskRead();return structuredClone(path==='/api/matching/tasks'?taskRuns:taskRuns.find(v=>v.id===path.split('/')[4]));}taskRequests.push({path,body});if(taskRequest)return taskRequest(path,body);throw new Error('unexpected mutation');}
     if(path.startsWith('/api/matching/import/')){importRequests.push({path,body});if(importRequest)return importRequest(path,body);throw new Error('Unexpected chat import');}
+    if(path==='/api/matching/inventory'){
+      inventoryRequests.push(body);if(inventoryRequest)return inventoryRequest(body,snapshot);
+      const key='inventory:'+JSON.stringify(snapshot.jobs.map(r=>[r.input_key,r.state,r.disposition]));
+      const fields=['id','company','title','cities','input_key','state','analysis_mode','excluded_reason','disposition','preliminary_score','role','tier','direction','score','priority','fit','application','text_bytes','job_type'];
+      const tuples=snapshot.jobs.map(r=>[r.job.id,r.job.company,r.job.title,r.job.locations,r.input_key,r.state,r.analysis_mode||'',r.excluded_reason,r.disposition||'',r.preliminary_score,r.local?.role||'',r.local?.tier||'',r.local?.direction?.status||'UNCERTAIN',r.score||null,r.priority||null,r.holistic?.fit||'',r.application||null,r.text_bytes,r.job.job_type]);
+      return {...snapshot,snapshot_key:key,index:{fields,full:body.known_snapshot!==key,rows:body.known_snapshot!==key?tuples:undefined},jobs:snapshot.jobs.filter(r=>(body.job_ids||[]).includes(r.job.id))};
+    }
     if(path==='/api/matching/preview')return structuredClone(snapshot);
     if(path==='/api/jobs/preferences'){
       bulkRequests.push(body);if(bulkRequest)await bulkRequest(body,bulkRequests.length);
@@ -57,7 +64,7 @@ function harness({pending=['pending-a','pending-b'],failed=['failed-a','failed-b
     throw new Error('Unexpected local test API path: '+path);
   };
   const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  return {navigations,navigation:context.CampusNavigation,start:(initial={})=>context.CampusMatching.page(set,'<h2>岗位匹配</h2>',{api,esc,D:{text:s=>s,date:()=>'',errorCode:s=>s,matchingDiagnostic:()=>'',label:(_kind,s)=>s},active:()=>true,navigate:(name,query)=>navigations.push({name,query}),...initial}),elements,requests,exports,decisionRequests,taskRequests,bulkRequests,importRequests,timers,stored,snapshot,review:()=>elements.get('match-confirm').onclick(),html:()=>html,consent:()=>elements.get('match-consent').onchange({target:{checked:true}}),progress:()=>JSON.parse(stored.get('campustrace:match-progress:v1:alice'))};
+  return {inventoryRequests,navigations,navigation:context.CampusNavigation,start:(initial={})=>context.CampusMatching.page(set,'<h2>岗位匹配</h2>',{api,esc,D:{text:s=>s,date:()=>'',errorCode:s=>s,matchingDiagnostic:()=>'',label:(_kind,s)=>s},active:()=>true,navigate:(name,query)=>navigations.push({name,query}),...initial}),elements,requests,exports,decisionRequests,taskRequests,bulkRequests,importRequests,timers,stored,snapshot,review:()=>elements.get('match-confirm').onclick(),html:()=>html,consent:()=>elements.get('match-consent').onchange({target:{checked:true}}),progress:()=>JSON.parse(stored.get('campustrace:match-progress:v1:alice'))};
 }
 
 test('returning from evidence supplementation reviews only the target job without starting a model call',async()=>{
@@ -68,6 +75,48 @@ test('returning from evidence supplementation reviews only the target job withou
   assert.deepEqual(Array.from(h.exports[0].job_ids),['pending-a']);
   assert.deepEqual(h.requests,[]);
   h.consent();assert.deepEqual(h.requests,[]);
+});
+
+test('radar renders and allows filtering and selection before slow task history arrives',async()=>{
+ let resolveTasks;
+ const read=new Promise(resolve=>resolveTasks=resolve),h=harness({durable:true,taskRead:()=>read});
+ const opening=h.start();await new Promise(setImmediate);
+ assert.match(h.html(),/pending-a/);assert.match(h.html(),/岗位可先浏览和勾选/);
+ assert.equal(h.elements.get('match-run').disabled,true);
+ await h.elements.get('match-run').onclick();assert.equal(h.exports.length,0);assert.equal(h.taskRequests.length,0);
+ h.elements.get('match-search').value='pending-b';h.elements.get('match-filter').onsubmit({preventDefault(){}});
+ h.elements.get('match-select-page').onclick();assert.match(h.html(),/1<\/strong> 个岗位已选/);
+ resolveTasks([]);await opening;
+ assert.equal(h.elements.get('match-search').value,'pending-b');assert.match(h.html(),/1<\/strong> 个岗位已选/);
+ assert.equal(h.elements.get('match-selected-run').disabled,false);
+ assert.equal(h.requests.length,0);assert.equal(h.taskRequests.length,0);
+});
+
+test('task read failures keep browsing available and recover without model calls',async()=>{
+ let attempts=0;
+ const h=harness({durable:true,taskRead:async()=>{if(++attempts===1)throw Error('synthetic slow task service');return [];}});
+ await h.start();assert.match(h.html(),/岗位列表仍可浏览/);assert.equal(h.elements.get('match-run').disabled,true);
+ assert.ok(h.elements.has('match-search'));
+ await h.elements.get('match-task-read-retry').onclick();
+ assert.equal(h.elements.get('match-run').disabled,false);assert.equal(attempts,2);
+ assert.equal(h.exports.length,0);assert.equal(h.taskRequests.length,0);assert.equal(h.requests.length,0);
+});
+
+test('late task history cannot repaint or overwrite browsing state after leaving the page',async()=>{
+ let resolveTasks,live=true;
+ const h=harness({durable:true,taskRead:()=>new Promise(resolve=>resolveTasks=resolve)});
+ const opening=h.start({active:()=>live});await new Promise(setImmediate);
+ const before=h.html(),stored=[...h.stored];live=false;
+ resolveTasks([{id:'late-task',state:'RUNNING',candidate_hash:'profile',items:[]}]);await opening;
+ assert.equal(h.html(),before);assert.deepEqual([...h.stored],stored);
+});
+
+test('lean radar opens complete candidate text from the reviewed export, before consent',async()=>{
+ const h=harness({exportRequest:(body,snap)=>({candidate_hash:snap.candidate_hash,candidate:{document:'本轮核对的完整候选人材料：Go 后端项目。'},jobs:body.job_ids.map(id=>({job_id:id,title:id,text:'完整岗位原文'}))})});
+ assert.equal(h.snapshot.candidate_document,undefined);
+ await h.start();await h.elements.get('match-continue').onclick();
+ assert.match(h.html(),/本轮核对的完整候选人材料：Go 后端项目。/);
+ assert.equal(h.elements.get('match-confirm').disabled,true);assert.equal(h.requests.length,0);
 });
 
 test('saved work opens a full outbound review before consent and an explicit start',async()=>{
@@ -415,4 +464,16 @@ test('radar company view carries the current company selection without starting 
 test('returning from a company analysis retains a direct route back to its saved selection',async()=>{
  const h=harness();await h.start({returnCompany:'测试公司',initialView:'list'});h.elements.get('match-return-company').onclick();
  const nav=h.navigations.at(-1);assert.equal(nav.name,'matching');assert.equal(nav.query.view,'company');assert.equal(nav.query.company,'测试公司');assert.deepEqual(h.requests,[]);
+});
+test('paged radar retains a global sortable index and reads only the current fifty cards',async()=>{
+ const ids=Array.from({length:125},(_,i)=>'page-'+String(i).padStart(3,'0')),h=harness({pending:ids,failed:[],paging:true});await h.start();await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(h.inventoryRequests[0].job_ids,undefined);assert.equal(h.inventoryRequests[1].job_ids.length,50);assert.match(h.html(),/125 个岗位/);assert.match(h.html(),/第 1 \/ 3 页/);
+ h.elements.get('match-select-all').onclick();assert.match(h.html(),/125<\/strong> 个岗位已选/);
+ h.elements.get('match-next').onclick();await new Promise(resolve=>setImmediate(resolve));assert.equal(h.inventoryRequests.at(-1).job_ids.length,50);assert.match(h.html(),/第 2 \/ 3 页/);assert.match(h.html(),/125<\/strong> 个岗位已选/);
+ h.elements.get('match-next').onclick();await new Promise(resolve=>setImmediate(resolve));assert.equal(h.inventoryRequests.at(-1).job_ids.length,25);assert.match(h.html(),/第 3 \/ 3 页/);
+});
+test('bulk actions start compact and undo restores only actual ignored rows',async()=>{
+ const h=harness({pending:['a','b'],failed:[]});h.snapshot.jobs[1].disposition='SAVED';await h.start();h.elements.get('match-select-all').onclick();assert.match(h.html(),/id="match-selection-actions" hidden/);
+ h.elements.get('match-actions-toggle').onclick();assert.match(h.html(),/aria-expanded="true"/);await h.elements.get('match-bulk-ignore').onclick();assert.equal(h.snapshot.jobs[0].disposition,'IGNORED');assert.equal(h.snapshot.jobs[1].disposition,'SAVED');
+ await h.elements.get('match-undo-ignore').onclick();assert.equal(h.snapshot.jobs[0].disposition,'NONE');assert.equal(h.snapshot.jobs[1].disposition,'SAVED');assert.deepEqual(Array.from(h.bulkRequests.at(-1).job_ids),['a']);
 });

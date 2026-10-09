@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
 	"github.com/KanaDoodle/CampusTrace/internal/matcheval"
@@ -180,6 +181,19 @@ func TestRadarSummaryPreviewPreservesInventoryAndLoadsEvidenceOnDemand(t *testin
 	if lean.Body.Len() >= full.Body.Len() {
 		t.Fatal("summary preview did not reduce response size")
 	}
+	for _, private := range []string{"candidate_document", "完整背景", "PRIVATE", "explanation", "role_excerpt"} {
+		if strings.Contains(lean.Body.String(), private) {
+			t.Fatal("inventory returned unused detailed materials", private)
+		}
+	}
+	repeated := matchingRequest(h, token, "/api/matching/preview", "POST", map[string]any{"summary_only": true})
+	if repeated.Code != 200 || repeated.Body.String() != lean.Body.String() {
+		t.Fatal("summary cache changed current preview")
+	}
+	export := matchingRequest(h, token, "/api/matching/export", "POST", map[string]any{"job_ids": ids, "candidate_hash": b.CandidateHash})
+	if export.Code != 200 || !strings.Contains(export.Body.String(), "保留完整背景、实现方法与结果，不拆句。") {
+		t.Fatal("lean list removed the complete outbound review", export.Code)
+	}
 	detail := matchingRequest(h, token, "/api/matching/results/"+ids[0], "POST", map[string]any{})
 	var result struct {
 		Local *matching.LocalScreen `json:"local"`
@@ -189,6 +203,57 @@ func TestRadarSummaryPreviewPreservesInventoryAndLoadsEvidenceOnDemand(t *testin
 		t.Fatal("details lost local evidence or made model calls")
 	}
 	t.Logf("synthetic preview full_bytes=%d summary_bytes=%d", full.Body.Len(), lean.Body.Len())
+}
+
+func TestInventorySummaryCacheReadsCurrentPreferencesProfileAndLatestObservation(t *testing.T) {
+	ctx, s, u, _, _, _, _, m := wholeSetup(t)
+	in := p.Ingest{Company: "Cache Synthetic", Title: "服务端开发", JobType: "FULL_TIME", ExternalID: d.ID(), Locations: []string{"上海"}, Text: "2027届本科及以上，熟悉Go。工作职责：开发后端服务。", FetchStatus: "SUCCESS", ObservedAt: time.Now().UTC()}
+	observation, err := s.IngestForUser(ctx, u, in)
+	must(t, err)
+	identity := matching.ModelIdentity("server-default", "whole-fixture")
+	read := func() p.MatchJob {
+		t.Helper()
+		v, e := s.MatchInventorySnapshot(ctx, u, identity, "")
+		must(t, e)
+		for _, row := range v.Jobs {
+			if row.Job.ID == observation.JobID {
+				return row
+			}
+		}
+		t.Fatal("current visible job disappeared")
+		return p.MatchJob{}
+	}
+	before := read()
+	must(t, s.SetPreference(ctx, u, observation.JobID, "IGNORED"))
+	ignored := read()
+	if ignored.InputKey != before.InputKey || ignored.Disposition != "IGNORED" || ignored.ExcludedReason == "" {
+		t.Fatal("warm summary hid a new preference")
+	}
+	must(t, s.SetPreference(ctx, u, observation.JobID, "NONE"))
+	if restored := read(); restored.ExcludedReason != before.ExcludedReason {
+		t.Fatal("warm summary retained ignored status")
+	}
+	must(t, s.SaveProfile(ctx, u, d.Profile{Languages: []string{"JavaScript"}, TargetRoles: []string{"前端开发"}, Degree: "MASTER", GraduationYear: 2027}))
+	profileChanged := read()
+	if profileChanged.InputKey == before.InputKey || profileChanged.Local.Direction.Status == before.Local.Direction.Status {
+		t.Fatal("warm summary reused old candidate or direction")
+	}
+	in.Text = "2027届本科及以上，熟悉JavaScript和React。工作职责：开发前端页面。"
+	in.ObservedAt = in.ObservedAt.Add(time.Second)
+	_, err = s.IngestForUser(ctx, u, in)
+	must(t, err)
+	changed := read()
+	if changed.InputKey == profileChanged.InputKey || changed.PreliminaryScore == profileChanged.PreliminaryScore {
+		t.Fatal("warm summary reused old JD screen")
+	}
+	in.FetchStatus, in.Text = "BLOCKED", ""
+	in.ObservedAt = in.ObservedAt.Add(time.Second)
+	_, err = s.IngestForUser(ctx, u, in)
+	must(t, err)
+	blocked := read()
+	if blocked.TextBytes != 0 || blocked.ExcludedReason == "" || blocked.Local != nil || m.calls.Load() != 0 {
+		t.Fatal("cached historical success hid latest failure or invoked a model")
+	}
 }
 
 func TestCompanyCandidatePickerCanNarrowMoreThanTwoHundredJobs(t *testing.T) {

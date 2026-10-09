@@ -3,7 +3,7 @@ const {test}=require('node:test'),assert=require('node:assert/strict'),fs=requir
 const D=require('./display.js');
 
 function harness({catalogCount=3,missingID=false,withReport=true,candidateJobs=null,stored=new Map(),discard=true}={}){
- const elements=new Map(),reads=[],exports=[],downloads=[],blobs=new Map(),chatCalls=[];let html='',guard,blockedRead=false,userID='synthetic-account',chatSaved=null;const navigations=[],controls=[];
+ const elements=new Map(),reads=[],exports=[],downloads=[],blobs=new Map(),chatCalls=[];let html='',guard,blockedRead=false,capReads=0,userID='synthetic-account',chatSaved=null;const navigations=[],controls=[];
  const decode=v=>String(v).replaceAll('&quot;','"').replaceAll('&#39;',"'").replaceAll('&lt;','<').replaceAll('&gt;','>').replaceAll('&amp;','&');
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const catalog=candidateJobs||Array.from({length:catalogCount},(_,i)=>({id:i===0?'a':i===1?'b':'extra-'+i,title:'测试岗位 '+i,locations:['上海']}));
@@ -28,7 +28,7 @@ function harness({catalogCount=3,missingID=false,withReport=true,candidateJobs=n
  const context={document,Blob,TextEncoder,sessionStorage:{getItem:k=>stored.get(k),setItem:(k,v)=>stored.set(k,v)},URL:{createObjectURL:blob=>{const id='blob:fixture-'+blobs.size;blobs.set(id,blob);return id;},revokeObjectURL(){}},setTimeout(){},CampusModels:{bindUser(){}},CampusMatching:{bindUser(){},matchIdentity:()=>({model_name:'fixture-model',mask_name:''})},CampusNavigation:{register:v=>guard=v,leave:async()=>true,confirmDiscard:async()=>discard},console};
  vm.createContext(context);for(const file of ['matching_chat.js','applications.js','campaigns.js','matching_decision.js','company_chat.js','company_decision.js'])vm.runInContext(fs.readFileSync(__dirname+'/'+file,'utf8'),context);
  const api=async(path,method,body)=>{
-  if(path==='/api/profile/resume/capabilities')return {user_id:userID};
+  if(path==='/api/profile/resume/capabilities'){capReads++;return {user_id:userID};}
   if(path==='/api/matching/company-catalog')return catalog.length?[{company:'测试公司',total:catalog.length}]:[];
   if(path==='/api/matching/company-candidates')return structuredClone(catalog.map(j=>({job:j,state:j.state||'BASIC',fit:j.fit||'',score:j.score??null,preliminary_score:j.preliminary_score||0,excluded_reason:j.excluded_reason||''})));
   if(path.startsWith('/api/matching/company-catalog?'))return structuredClone(catalog);
@@ -48,7 +48,7 @@ function harness({catalogCount=3,missingID=false,withReport=true,candidateJobs=n
   }
   throw Error('Unexpected API: '+path);
  };
- return {elements,reads,exports,downloads,stored,chatCalls,navigations,controls,user:id=>userID=id,html:()=>html,dirty:()=>guard.dirty(),blockRead:()=>blockedRead=true,start:initial=>context.CampusCompanyDecision.page(set,'<h1>公司投递决策</h1>',{api,esc,D,navigate:(name,query)=>navigations.push({name,query}),initialCompany:'测试公司',...initial}),submit:()=>elements.get('company-eval-form').onsubmit({preventDefault(){},target:elements.get('company-eval-form')})};
+ return {elements,reads,exports,downloads,stored,chatCalls,navigations,controls,capReads:()=>capReads,user:id=>userID=id,html:()=>html,dirty:()=>guard.dirty(),blockRead:()=>blockedRead=true,start:initial=>context.CampusCompanyDecision.page(set,'<h1>公司投递决策</h1>',{api,esc,D,navigate:(name,query)=>navigations.push({name,query}),initialCompany:'测试公司',...initial}),submit:()=>elements.get('company-eval-form').onsubmit({preventDefault(){},target:elements.get('company-eval-form')})};
 }
 
 test('visible export entry opens and focuses the form without calling a model or preparing a download',async()=>{
@@ -186,4 +186,11 @@ test('quick selection size survives filtering and returning to the same company'
  assert.equal(h.elements.get('company-picker-search').value,'测试');
  h.user('another-account');await h.start();
  assert.equal(h.elements.get('company-quick-count').value,'4');
+});
+
+
+test('entering company view from radar reuses freshly read capabilities',async()=>{
+ const h=harness();await h.start({capabilities:{user_id:'synthetic-account'}});
+ assert.equal(h.capReads(),0);assert.match(h.html(),/测试公司/);
+ const normal=harness();await normal.start();assert.equal(normal.capReads(),1);
 });

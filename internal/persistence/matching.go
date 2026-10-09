@@ -196,12 +196,22 @@ func (s *Store) MatchCompanyCandidates(ctx context.Context, user, model, maskNam
 }
 
 func (s *Store) matchSnapshot(ctx context.Context, user, model, maskName string, ids []string, screen bool, company string, fullResults bool, workspace ...bool) (MatchSnapshot, error) {
-	v := MatchSnapshot{Jobs: []MatchJob{}}
 	tx, err := s.DB.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true})
+	if err != nil {
+		return MatchSnapshot{}, err
+	}
+	defer tx.Rollback()
+	v, err := s.matchSnapshotTx(ctx, tx, user, model, maskName, ids, screen, company, fullResults, workspace...)
 	if err != nil {
 		return v, err
 	}
-	defer tx.Rollback()
+	return v, tx.Commit()
+}
+
+func (s *Store) matchSnapshotTx(ctx context.Context, tx *sql.Tx, user, model, maskName string, ids []string, screen bool, company string, fullResults bool, workspace ...bool) (MatchSnapshot, error) {
+	v := MatchSnapshot{Jobs: []MatchJob{}}
+	summary := screen && len(workspace) > 1 && workspace[1]
+	var err error
 	v.Profile, v.Candidate, err = matchCandidate(ctx, tx, user, maskName)
 	if err != nil {
 		return v, err
@@ -396,13 +406,8 @@ func (s *Store) matchSnapshot(ctx context.Context, user, model, maskName string,
 			row.Text = input.Text
 			row.TextBytes = len(row.Text)
 			row.RequirementsKey, row.InputKey = input.RequirementsKey, matching.JobInputKey(job, input.RequirementsKey, v.CandidateHash)
-			if screen {
-				var local matching.LocalScreen
-				if len(workspace) > 1 && workspace[1] {
-					local = screener.ScreenSummary(job, row.Text)
-				} else {
-					local = screener.Screen(job, row.Text)
-				}
+			if screen && !summary {
+				local := screener.Screen(job, row.Text)
 				row.Local = &local
 				row.PreliminaryScore, row.ExcludedReason = local.Score, local.ExcludedReason
 			}
@@ -472,6 +477,11 @@ func (s *Store) matchSnapshot(ctx context.Context, user, model, maskName string,
 		}
 		v.Jobs = append(v.Jobs, row)
 	}
+	if summary {
+		if err := s.screenInventory(ctx, user, &v, screener); err != nil {
+			return v, err
+		}
+	}
 	if screen && len(ids) == 0 && company == "" {
 		inputs := make([]matching.PriorityInput, 0, len(v.Jobs))
 		for _, row := range v.Jobs {
@@ -514,7 +524,7 @@ func (s *Store) matchSnapshot(ctx context.Context, user, model, maskName string,
 			}
 		}
 	}
-	return v, tx.Commit()
+	return v, nil
 }
 func (s *Store) CachedRequirements(ctx context.Context, user, key string) (matching.Requirements, error) {
 	return One[matching.Requirements](ctx, s.DB, "SELECT body FROM job_requirement_cache WHERE user_id=? AND content_key=?", user, key)

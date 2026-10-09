@@ -21,9 +21,11 @@ var ErrBackendUnavailable = errors.New("backend unavailable")
 var ErrValidation = errors.New("business validation")
 
 type Store struct {
-	Metrics *observability.Metrics
-	DB      *sql.DB
-	Weights rules.Weights
+	Metrics          *observability.Metrics
+	DB               *sql.DB
+	Weights          rules.Weights
+	inventoryScreens inventoryScreenCache
+	inventoryViews   inventoryViewCache
 }
 
 func Open(ctx context.Context, dsn string) (*Store, error) {

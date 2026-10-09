@@ -12,18 +12,21 @@ const CampusApplications=(function(root){
   }
   function pageSlice(rows,page=1,size=25){const pages=Math.max(1,Math.ceil(rows.length/size)),current=Math.max(1,Math.min(pages,page));return {rows:rows.slice((current-1)*size,current*size),page:current,pages};}
   async function page(set,heading,{api,esc,D,formAction,navigate,scheduleInterview,table,initialApplication='',active=()=>true}){
-    let rows=await api('/api/applications');if(!active())return;
+    const [cap,records]=await Promise.all([api('/api/profile/resume/capabilities'),api('/api/applications')]);if(!active())return;
+    let rows=records;const N=root.CampusNavigation,saved=N?.readWorkflow(cap.user_id,'applications')||{};
     let initialNotice='';
     if(initialApplication&&!rows.some(row=>row.id===initialApplication)){try{rows.push(await api('/api/applications/'+encodeURIComponent(initialApplication)));}catch(error){initialNotice=error.message;}}
     if(!active())return;
-    let query='',company='',stage='',openEnded=false,ongoingPage=1,endedPage=1,busy=false,campaigns=null;
+    let query=initialApplication?'':saved.query||'',company=initialApplication?'':saved.company||'',stage=initialApplication?'':saved.stage||'',openEnded=!!saved.openEnded,ongoingPage=saved.ongoingPage||1,endedPage=saved.endedPage||1,busy=false,campaigns=null;
     const editors=new Set(),drafts=root.CampusNavigation?.forms(document,{selector:'#application-records form',retainMissing:true});
     const companies=[...new Set(rows.map(a=>a.job?.company).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'zh'));
+    if(company&&!companies.includes(company))company='';if(stage&&!Object.hasOwn(D.enums.application,stage))stage='';
     const select=(values,blank)=>`<option value="">${blank}</option>${values.map(([v,label])=>`<option value="${esc(v)}">${esc(label)}</option>`).join('')}`;
     if(!set(heading+`<p class="form-note">记录实际投递与后续进展。岗位关闭不会自动结束已提交的申请。</p><form id="application-filter" class="workflow-filter"><label>搜索公司或岗位<input id="application-search" type="search" placeholder="例如：小红书、后端开发"></label><label>公司<select id="application-company">${select(companies.map(c=>[c,c]),'所有公司')}</select></label><label>投递阶段<select id="application-stage">${select(Object.entries(D.enums.application),'所有阶段')}</select></label><button type="button" id="application-reset" class="btn btn-subtle">清除筛选</button></form><p id="application-summary" class="meta" role="status"></p><section id="application-records"></section>`+(root.CampusCampaigns?'<section id="application-campaigns"></section>':'')))return;
     const q=s=>document.querySelector(s),notify=message=>root.CampusUI.notify(message);
     const go=(...args)=>Promise.resolve(navigate(...args)).catch(error=>notify(error.message));
-    root.CampusNavigation?.register({active,dirty:()=>busy||drafts?.dirty()||campaigns?.dirty()});
+    const checkpoint=()=>N?.storeWorkflow(cap.user_id,'applications',{query:q('#application-search').value,company,stage,openEnded,ongoingPage,endedPage,scroll:root.scrollY||0});
+    root.CampusNavigation?.register({active,checkpoint,dirty:()=>busy||drafts?.dirty()||campaigns?.dirty()});
     const pager=(v,group)=>v.pages>1?`<div class="workflow-pagination"><span>第 ${v.page} / ${v.pages} 页</span><button class="btn btn-small" data-application-page="${group}" data-number="${v.page-1}" ${v.page===1?'disabled':''}>上一页</button><button class="btn btn-small" data-application-page="${group}" data-number="${v.page+1}" ${v.page===v.pages?'disabled':''}>下一页</button></div>`:'';
     const capture=()=>{drafts?.capture();for(const el of q('#application-records').querySelectorAll('[data-application-editor]'))el.open?editors.add(el.dataset.applicationEditor):editors.delete(el.dataset.applicationEditor);};
     function draw(){
@@ -61,7 +64,9 @@ const CampusApplications=(function(root){
     q('#application-filter').onsubmit=e=>{e.preventDefault();applyFilters();};q('#application-search').oninput=applyFilters;q('#application-company').onchange=applyFilters;q('#application-stage').onchange=applyFilters;
     q('#application-reset').onclick=()=>{q('#application-search').value=q('#application-company').value=q('#application-stage').value='';applyFilters();};
     if(initialApplication){const a=rows.find(a=>a.id===initialApplication);if(a){const group=rows.filter(row=>ended(row)===ended(a));if(ended(a)){openEnded=true;endedPage=Math.floor(group.indexOf(a)/25)+1;}else ongoingPage=Math.floor(group.indexOf(a)/25)+1;}}
+    q('#application-search').value=query;q('#application-company').value=company;q('#application-stage').value=stage;
     draw();
+    if(!initialApplication)root.requestAnimationFrame?.(()=>{if(active())root.scrollTo?.({top:saved.scroll||0,behavior:'instant'});});
     if(initialNotice)notify(initialNotice);
     if(initialApplication){const article=q(`[data-application-id="${initialApplication}"]`);if(article){article.classList.add('application-current');article.scrollIntoView({block:'center',behavior:'instant'});article.querySelector('[data-application-job]').focus({preventScroll:true});}}
     if(root.CampusCampaigns)root.CampusCampaigns.mount(q('#application-campaigns'),{api,esc,active,notify}).then(controller=>{if(active())campaigns=controller;}).catch(error=>{if(active())notify(error.message);});

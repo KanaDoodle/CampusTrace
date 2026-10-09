@@ -134,6 +134,7 @@ func (m *budgetedMatchModel) CompleteJSON(ctx context.Context, messages, tools a
 }
 
 func (a *API) matchingRoutes(on func(string, http.HandlerFunc)) {
+	a.inventoryRoute(on)
 	on("POST /api/matching/preview", func(w http.ResponseWriter, r *http.Request) {
 		var in struct {
 			matchPreviewRequest
@@ -162,16 +163,11 @@ func (a *API) matchingRoutes(on func(string, http.HandlerFunc)) {
 			}
 			return
 		}
-		if in.SummaryOnly {
-			for i := range v.Jobs {
-				if local := v.Jobs[i].Local; local != nil {
-					local.Checks = nil
-					local.RoleExcerpt = ""
-					local.Direction.Evidence = nil
-				}
-			}
-		}
 		w.Header().Set("Cache-Control", "no-store")
+		if in.SummaryOnly {
+			write(w, inventoryPreview(v), nil)
+			return
+		}
 		write(w, v, nil)
 	})
 	on("PUT /api/matching/settings", func(w http.ResponseWriter, r *http.Request) {

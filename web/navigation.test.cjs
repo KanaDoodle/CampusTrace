@@ -63,3 +63,13 @@ test('choosing an action is not an unsaved edit; changing its input still is',()
 test('radar remembers its company view per account without changing list filters',()=>{
  const h=harness();h.N.storeBrowse('alice',{radarView:'company',company:'哔哩哔哩',query:'后端',page:2});assert.equal(h.N.readBrowse('alice').radarView,'company');assert.equal(h.N.readBrowse('alice').query,'后端');assert.equal(h.N.readBrowse('bob').radarView,'list');
 });
+test('named presets isolate accounts and discard selections, permissions and private documents',()=>{
+ const h=harness();assert.equal(h.N.savePreset('alice','上海后端',{query:'Go Java',queryMode:'ANY',excludeQuery:'销售',cities:['上海','北京','上海'],onlySelected:true,page:8,authorized:true,api_key:'PRIVATE',resume:'PRIVATE'}),true);
+ const p=h.N.readPresets('alice')[0];assert.equal(p.name,'上海后端');assert.equal(p.filters.queryMode,'ANY');assert.equal(p.filters.onlySelected,false);assert.equal(p.filters.page,1);assert.equal(p.filters.cities.length,2);assert.ok(!JSON.stringify(p).includes('PRIVATE'));assert.equal(h.N.readPresets('bob').length,0);
+ h.N.savePreset('alice','上海后端',{query:'后端'});assert.equal(h.N.readPresets('alice').length,1);assert.equal(h.N.readPresets('alice')[0].filters.query,'后端');h.N.deletePreset('alice','上海后端');assert.equal(h.N.readPresets('alice').length,0);
+});
+test('workflow location and ignore undo are scoped and never retain form drafts',()=>{
+ const h=harness();h.N.storeWorkflow('alice','applications',{query:'后端',company:'合成公司',ongoingPage:3,endedPage:2,scroll:512,notes:'PRIVATE',resume:'PRIVATE'});
+ const v=h.N.readWorkflow('alice','applications');assert.equal(v.ongoingPage,3);assert.equal(v.scroll,512);assert.equal(h.N.readWorkflow('alice','interviews').query,'');assert.equal(h.N.readWorkflow('bob','applications').query,'');assert.ok(![...h.stored.values()].join().includes('PRIVATE'));
+ h.N.storeUndo('alice',['a','b','a']);assert.equal(h.N.readUndo('alice').length,2);assert.equal(h.N.readUndo('bob').length,0);
+});

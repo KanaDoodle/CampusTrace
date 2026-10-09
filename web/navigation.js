@@ -46,9 +46,33 @@ const CampusNavigation=(function(root){
   const memory=new Map(),key=user=>'campustrace:job-browse:v1:'+user;
   const text=(v,max=200)=>typeof v==='string'?v.slice(0,max):'';
   function clean(value={}){
-    return {radarView:value.radarView==='company'?'company':'list',query:text(value.query),filter:['BASIC','ANALYZED','STALE','FAILED'].includes(value.filter)?value.filter:'',tier:['HIGH','POSSIBLE','UNCERTAIN','LOW'].includes(value.tier)?value.tier:'',workflow:['UNHANDLED','SAVED','PLANNED','APPLIED','IGNORED','ENDED'].includes(value.workflow)?value.workflow:'',direction:['MAIN','ALL','MATCH','RELATED','UNCERTAIN','UNRELATED'].includes(value.direction)?value.direction:'',showIgnored:value.showIgnored===true,sort:['deep','technical','local','updated','created','company'].includes(value.sort)?value.sort:'deep',sortOrder:value.sortOrder==='asc'?'asc':'desc',company:text(value.company),city:text(value.city),onlySelected:value.onlySelected===true,page:Number.isInteger(value.page)&&value.page>0?Math.min(value.page,20000):1,lastJob:text(value.lastJob,128),lastTab:['overview','evidence','source','preparation'].includes(value.lastTab)?value.lastTab:'overview',drawerOpen:value.drawerOpen===true};
+    return {radarView:value.radarView==='company'?'company':'list',query:text(value.query),queryMode:value.queryMode==='ANY'?'ANY':'ALL',excludeQuery:text(value.excludeQuery),cities:Array.isArray(value.cities)?[...new Set(value.cities.filter(v=>typeof v==='string').map(v=>text(v,80)))].filter(Boolean).slice(0,30):[],filter:['BASIC','ANALYZED','STALE','FAILED'].includes(value.filter)?value.filter:'',tier:['HIGH','POSSIBLE','UNCERTAIN','LOW'].includes(value.tier)?value.tier:'',workflow:['UNHANDLED','SAVED','PLANNED','APPLIED','IGNORED','ENDED'].includes(value.workflow)?value.workflow:'',direction:['MAIN','ALL','MATCH','RELATED','UNCERTAIN','UNRELATED'].includes(value.direction)?value.direction:'',showIgnored:value.showIgnored===true,sort:['deep','technical','local','updated','created','company'].includes(value.sort)?value.sort:'deep',sortOrder:value.sortOrder==='asc'?'asc':'desc',company:text(value.company),city:text(value.city),onlySelected:value.onlySelected===true,page:Number.isInteger(value.page)&&value.page>0?Math.min(value.page,20000):1,lastJob:text(value.lastJob,128),lastTab:['overview','evidence','source','preparation'].includes(value.lastTab)?value.lastTab:'overview',drawerOpen:value.drawerOpen===true};
   }
   function readBrowse(user){try{const value=root.sessionStorage?.getItem(key(user));if(value)return clean(JSON.parse(value)||{});}catch{}return clean(memory.get(user));}
   function storeBrowse(user,value){const safe=clean(value);memory.set(user,safe);try{root.sessionStorage?.setItem(key(user),JSON.stringify(safe));}catch{}}
-  const api={register,leave,confirmDiscard,dirty,forms,readBrowse,storeBrowse};if(typeof module==='object'&&module.exports)module.exports=api;root.CampusNavigation=api;return api;
+  const presetMemory=new Map(),workflowMemory=new Map(),undoMemory=new Map();
+  const presetKey=user=>'campustrace:filter-presets:v1:'+user;
+  function readPresets(user){
+    let values=presetMemory.get(user)||[];try{const raw=root.localStorage?.getItem(presetKey(user));if(raw)values=JSON.parse(raw);}catch{}
+    return (Array.isArray(values)?values:[]).filter(v=>v&&typeof v.name==='string'&&v.name.trim()).slice(0,20).map(v=>({name:text(v.name.trim(),60),filters:clean(v.filters||{})}));
+  }
+  function savePreset(user,name,filters){
+    name=text(String(name||'').trim(),60);if(!name)return false;
+    const values=readPresets(user),index=values.findIndex(v=>v.name===name),item={name,filters:clean(filters)};
+    // Presets describe filters, never a selection, detail drawer, or permission.
+    item.filters.onlySelected=false;item.filters.page=1;item.filters.lastJob='';item.filters.drawerOpen=false;
+    if(index>=0)values[index]=item;else if(values.length<20)values.push(item);else return false;
+    presetMemory.set(user,values);try{root.localStorage?.setItem(presetKey(user),JSON.stringify(values));}catch{}return true;
+  }
+  function deletePreset(user,name){const values=readPresets(user).filter(v=>v.name!==name);presetMemory.set(user,values);try{root.localStorage?.setItem(presetKey(user),JSON.stringify(values));}catch{}}
+  function cleanWorkflow(value={}){
+    const page=n=>Number.isInteger(n)&&n>0?Math.min(n,20000):1;
+    return {query:text(value.query),company:text(value.company),stage:text(value.stage,30),view:['all','pending','review','completed'].includes(value.view)?value.view:'all',openEnded:value.openEnded===true,ongoingPage:page(value.ongoingPage),endedPage:page(value.endedPage),page:page(value.page),scroll:Number.isFinite(value.scroll)?Math.max(0,Math.min(value.scroll,1e7)):0};
+  }
+  const workflowKey=(user,type)=>'campustrace:workflow-browse:v1:'+user+':'+type;
+  function readWorkflow(user,type){const k=workflowKey(user,type);let value=workflowMemory.get(k)||{};try{const raw=root.sessionStorage?.getItem(k);if(raw)value=JSON.parse(raw);}catch{}return cleanWorkflow(value||{});}
+  function storeWorkflow(user,type,value){const k=workflowKey(user,type),safe=cleanWorkflow(value);workflowMemory.set(k,safe);try{root.sessionStorage?.setItem(k,JSON.stringify(safe));}catch{}}
+  function readUndo(user){let value=undoMemory.get(user)||[];try{const raw=root.sessionStorage?.getItem('campustrace:ignore-undo:v1:'+user);if(raw)value=JSON.parse(raw);}catch{}return Array.isArray(value)?[...new Set(value.filter(v=>typeof v==='string'&&v.length<=128))].slice(0,10000):[];}
+  function storeUndo(user,ids){const safe=[...new Set(ids)].slice(0,10000);undoMemory.set(user,safe);try{root.sessionStorage?.setItem('campustrace:ignore-undo:v1:'+user,JSON.stringify(safe));}catch{}}
+  const api={register,leave,confirmDiscard,dirty,forms,readBrowse,storeBrowse,readPresets,savePreset,deletePreset,readWorkflow,storeWorkflow,readUndo,storeUndo};if(typeof module==='object'&&module.exports)module.exports=api;root.CampusNavigation=api;return api;
 })(typeof window==='undefined'?globalThis:window);
