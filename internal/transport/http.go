@@ -228,6 +228,7 @@ func (a *API) Handler() http.Handler {
 	a.matchingRoutes(on)
 	a.agentWorkspaceRoutes(on)
 	a.practiceRoutes(on)
+	a.knowledgeRoutes(on)
 	a.matchingTaskRoutes(on)
 	a.campaignRoutes(on)
 	on("GET /api/jobs", func(w http.ResponseWriter, r *http.Request) {
@@ -404,7 +405,7 @@ func (a *API) Handler() http.Handler {
 		slog.InfoContext(r.Context(), "resume draft reviewed", "suggestions", len(draft.Suggestions), "educations", len(draft.Educations), "projects", len(draft.Projects), "excluded", len(draft.Warnings), "normalized_excerpts", draft.NormalizedExcerpts)
 		write(w, draft, nil)
 	})
-	for _, table := range []string{"reviews", "weak_topics", "projects", "project_facts", "documents"} {
+	for _, table := range []string{"reviews", "weak_topics", "projects", "project_facts"} {
 		on("GET /api/"+table, func(w http.ResponseWriter, r *http.Request) {
 			v, err := a.Store.Owned(r.Context(), table, user(r))
 			write(w, v, err)
@@ -546,7 +547,7 @@ func (a *API) Handler() http.Handler {
 	})
 	on("POST /api/documents", func(w http.ResponseWriter, r *http.Request) {
 		var v rag.Document
-		if err := decode(r, &v); err != nil {
+		if err := decodeKnowledgeDocument(r, &v); err != nil {
 			write(w, nil, err)
 			return
 		}
@@ -578,6 +579,7 @@ func (a *API) Handler() http.Handler {
 				LocalLookup    bool                `json:"local_lookup,omitempty"`
 				TokenBudget    int                 `json:"token_budget,omitempty"`
 				MCPCredentials map[string]string   `json:"mcp_credentials,omitempty"`
+				Retrieval      rag.Options         `json:"retrieval,omitempty"`
 			}
 			if err := decode(r, &v); err != nil || v.Session == "" || v.Message == "" || len(v.Message) > 4000 || len(v.Session) > 64 {
 				write(w, nil, p.ErrValidation)
@@ -611,6 +613,13 @@ func (a *API) Handler() http.Handler {
 			copy.SkillID = v.SkillID
 			copy.MaxTotalTokens = v.TokenBudget
 			toolCopy := *a.Tools
+			v.Retrieval.MaskName = v.MaskName
+			ragCopy, retrievalErr := a.requestRAG(v.Retrieval)
+			if retrievalErr != nil {
+				knowledgeWrite(w, nil, retrievalErr)
+				return
+			}
+			toolCopy.RAG = ragCopy
 			identity := matchPreviewRequest{MaskName: v.MaskName}
 			if v.Model != nil {
 				client, err := a.customModel(*v.Model)

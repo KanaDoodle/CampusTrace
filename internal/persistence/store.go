@@ -70,7 +70,7 @@ func (s *Store) Migrate(ctx context.Context) error {
 	if err := s.migrateBackend(ctx); err != nil {
 		return err
 	}
-	for _, stmt := range strings.Split(migrations.LocalReliabilitySQL+";"+migrations.SourceImportSQL+";"+migrations.HolisticSQL+";"+migrations.AgentWorkspaceSQL+";"+migrations.AgentHarnessSQL, ";") {
+	for _, stmt := range strings.Split(migrations.LocalReliabilitySQL+";"+migrations.SourceImportSQL+";"+migrations.HolisticSQL+";"+migrations.AgentWorkspaceSQL+";"+migrations.AgentHarnessSQL+";"+migrations.KnowledgeRetrievalSQL, ";") {
 		if strings.TrimSpace(stmt) != "" {
 			if _, err := s.DB.ExecContext(ctx, stmt); err != nil {
 				return err

@@ -90,7 +90,7 @@ func cleanupFixture(ctx context.Context, s *p.Store, owner, source string) error
 		if _, e := tx.ExecContext(ctx, "DELETE FROM agent_events WHERE owner_id=?", owner); e != nil {
 			return e
 		}
-		for _, table := range []string{"agent_todos", "agent_feed_settings", "agent_connectors", "agent_executions", "practice_runs", "agent_tasks", "agent_memories", "agent_memory_state"} {
+		for _, table := range []string{"knowledge_vectors", "agent_todos", "agent_feed_settings", "agent_connectors", "agent_executions", "practice_runs", "agent_tasks", "agent_memories", "agent_memory_state", "knowledge_state"} {
 			if _, err := tx.ExecContext(ctx, "DELETE FROM "+table+" WHERE user_id=?", owner); err != nil {
 				return err
 			}

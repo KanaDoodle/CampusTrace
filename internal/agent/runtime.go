@@ -61,6 +61,7 @@ type Result struct {
 	Executed      int            `json:"executed_tool_count"`
 	LatencyMS     int64          `json:"latency_ms"`
 	Facts         []any          `json:"grounded_observations"`
+	NextActions   []NextAction   `json:"next_actions,omitempty"`
 }
 type Event struct {
 	Type string `json:"type"`
@@ -113,7 +114,7 @@ func (r *Runtime) Run(parent context.Context, user, session, question string, em
 	key := r.Prefix + "agent:session:" + user + ":" + session
 	memory := Memory{Turns: []Turn{}, JobIDs: []string{}}
 	var epoch uint64
-	var profileHash, memoryHash string
+	var profileHash, memoryHash, knowledgeRevision, retrievalIdentity string
 	taskStarted := false
 	safeText := func(s string, limit int) string {
 		if t, ok := r.Tools.(*Tools); ok && t.MaskName != "" {
@@ -139,11 +140,12 @@ func (r *Runtime) Run(parent context.Context, user, session, question string, em
 		if r.Store != nil && taskStarted {
 			result.TaskID = result.RunID
 		}
+		result.NextActions = NextActions(result.Facts)
 		r.limitFinal(&result, answerBudget, finalBudget)
 		if r.Store != nil && taskStarted {
 			cleanup, done := context.WithTimeout(context.WithoutCancel(parent), 2*time.Second)
 			now := time.Now().UTC()
-			v := p.AgentTask{ID: result.RunID, ParentID: r.ResumeTask, Goal: safeText(question, 4000), Summary: safeText(result.Answer, 16000), State: result.Terminal, CandidateHash: profileHash, MemoryRevision: epoch, MemoryHash: memoryHash, ModelCalls: result.ModelSteps, ToolCalls: result.Executed, CreatedAt: now, ExpiresAt: now.Add(30 * 24 * time.Hour)}
+			v := p.AgentTask{ID: result.RunID, ParentID: r.ResumeTask, Goal: safeText(question, 4000), Summary: safeText(result.Answer, 16000), State: result.Terminal, CandidateHash: profileHash, MemoryRevision: epoch, MemoryHash: memoryHash, KnowledgeRevision: knowledgeRevision, RetrievalIdentity: retrievalIdentity, ModelCalls: result.ModelSteps, ToolCalls: result.Executed, CreatedAt: now, ExpiresAt: now.Add(30 * 24 * time.Hour)}
 			current, err := r.Store.MemoryRevision(cleanup, user)
 			if err == nil && current == epoch && r.Store.SaveAgentTask(cleanup, user, v) == nil {
 				result.TaskID = v.ID
@@ -194,6 +196,14 @@ func (r *Runtime) Run(parent context.Context, user, session, question string, em
 			return
 		}
 		memoryHash = d.Hash(d.JSON(retained))
+		knowledgeRevision, err = r.Store.KnowledgeIdentity(ctx, user)
+		if err != nil {
+			return
+		}
+		if t, ok := r.Tools.(*Tools); ok && t.RAG != nil {
+			retrievalIdentity = t.RAG.Options.Identity()
+		}
+		key += ":" + knowledgeRevision + ":" + retrievalIdentity
 		key += ":" + fmt.Sprint(epoch) + ":" + memoryHash + ":" + profileHash
 		taskStarted = true
 	}
@@ -224,8 +234,8 @@ func (r *Runtime) Run(parent context.Context, user, session, question string, em
 		if err != nil {
 			return
 		}
-		if v.CandidateHash != profileHash || v.MemoryRevision != epoch || v.MemoryHash != memoryHash {
-			result.MemoryNotice = "资料或记忆已变化，旧讨论摘要未载入；本次重新查询当前记录。"
+		if v.CandidateHash != profileHash || v.MemoryRevision != epoch || v.MemoryHash != memoryHash || v.KnowledgeRevision != knowledgeRevision || v.RetrievalIdentity != retrievalIdentity {
+			result.MemoryNotice = "资料、记忆或知识检索设置已变化，旧讨论摘要未载入；本次重新查询当前记录。"
 		} else {
 			v.Goal = safeText(v.Goal, 4000)
 			v.Summary = safeText(v.Summary, 16000)

@@ -36,7 +36,7 @@
     interview_id:'面试编号', round:'面试轮次', scheduled_at:'面试时间', finished_at:'完成时间', notes:'备注', actual_questions:'实际被问到的问题', self_evaluation:'自我复盘', missed_points:'未答好的要点', follow_up_notes:'后续复习计划', weak_topics:'待加强知识点',
     topic:'知识点', weight:'加强程度', severity:'薄弱程度', evidence_sources:'复盘依据', first_seen:'首次发现时间', last_seen:'最近出现时间', occurrence_count:'累计出现次数',
     project_id:'项目编号', kind:'事实类型', claim:'事实内容', verified:'是否已核验', reference:'参考依据', verified_facts:'已核验的项目事实', unverified_not_facts:'尚未核验，不能作为已确认事实', project_facts:'项目事实',
-    document_id:'资料编号', index:'分块序号', embedding_version:'索引版本', cosine:'向量相似度', keyword:'关键词匹配度', knowledge:'复习资料', requirements:'岗位要求', current_requirements:'当前岗位要求', current_observations:'当前观察', input_identity:'评估输入版本', historical_requirements:'历史岗位要求', recommended_topics:'建议优先准备', priority:'复习优先级', weak_evidence:'薄弱点依据', policy:'使用说明',
+    hits:'相关学习片段',retrieval:'检索过程',total_chunks:'材料总片段数',indexed_chunks:'已建索引片段数',candidates:'候选片段数',embedding_calls:'语义检索请求次数',rerank_calls:'重排序请求次数',query_cache_hit:'已复用问题向量',milliseconds:'检索耗时（毫秒）',input_tokens:'服务报告的输入 token',warnings:'检索提示',rerank_score:'重排序相关性',document_id:'资料编号', index:'分块序号', embedding_version:'索引版本', cosine:'向量相似度', keyword:'关键词匹配度', knowledge:'复习资料', requirements:'岗位要求', current_requirements:'当前岗位要求', current_observations:'当前观察', input_identity:'评估输入版本', historical_requirements:'历史岗位要求', recommended_topics:'建议优先准备', priority:'复习优先级', weak_evidence:'薄弱点依据', policy:'使用说明',
     action_id:'待确认操作编号', action_type:'拟执行操作', args:'操作预览', expires_at:'确认截止时间', state:'目标进展', job:'岗位', interviews:'面试安排', reviews:'面试复盘', chunks:'资料片段', saved:'保存结果', success:'执行结果', synthetic:'演示数据', notice:'说明', error:'提示',
     run_id:'本次查询编号', terminal_reason:'查询结果', model_steps:'分析轮次', executed_tool_count:'资料查询次数', grounded_observations:'本次查询依据',
     job_status:'招聘状态',coverage:'核心依据覆盖度',analyzed:'已分析岗位数',pending:'待分析岗位数',stale:'待更新岗位数',total:'岗位总数',shown:'摘要展示数',recommended:'优先候选',recommended_count:'优先候选数',recommendation:'对比结论',blocked_reason:'暂不可推荐原因',strengths:'已有依据',gaps:'待核对要求',requirement_id:'岗位要求编号',requirement_excerpt:'岗位原文摘录预览',fact_id:'资料依据编号',fact_excerpt:'资料依据摘录预览',scope:'对比范围',items:'岗位进度',stage:'失败阶段',code:'错误分类',locally_refreshed:'已按当前资料本地更新',evidence_reviews:'已撤销错误引用数'
@@ -101,6 +101,8 @@
     return new Intl.DateTimeFormat('zh-CN',options).format(date)+(onlyDate?'':'（北京时间）');
   }
   function scalar(key,value,context={}) {
+    if(key==='mode'&&globalThis.CampusKnowledge){const modes={keyword:'关键词检索',hybrid:'关键词＋语义检索','keyword+rerank':'关键词检索＋重排序','hybrid+rerank':'关键词＋语义检索＋重排序'};if(modes[value])return modes[value];}
+    if(key==='warnings'&&globalThis.CampusKnowledge?.notices?.[value])return globalThis.CampusKnowledge.notices[value];
     if (key==='requirement'||key==='candidate_value') {
       if(key==='requirement'&&(value==null||value==='')&&context.explanation==='Conflicting requirements require verification')return '要求存在冲突，待核验';
       return requirement(value,context.rule||context.type,key);
@@ -153,6 +155,7 @@
   // A machine-readable code from the API wins over the status-code fallback: a
   // taken email is not a formatting mistake the user can fix by retyping.
   function errorCode(code, status, path='') {
+    if(globalThis.CampusKnowledge?.notices?.[code])return globalThis.CampusKnowledge.notices[code];
     if(code==='MCP_UNAVAILABLE')return '暂时无法读取 MCP 资料服务，请检查公共 HTTPS 地址、令牌及资源支持。';
     if(code==='MATCH_EXPORT_CAPACITY')return '每次最多导出 1,000 个岗位，文字总量不超过 5 MB；请减少选择后重试。';
     if(code==='MATCH_EXPORT_TEXT_REQUIRED')return '所选岗位中有原文缺失或最近读取失败的项，请移除这些岗位后再导出。';

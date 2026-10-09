@@ -5,6 +5,7 @@ import (
 	"fmt"
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
 	"github.com/KanaDoodle/CampusTrace/internal/matching"
+	"github.com/KanaDoodle/CampusTrace/internal/rag"
 	"strings"
 	"time"
 )
@@ -73,8 +74,50 @@ func GroundedAnswer(facts []any) string {
 			}
 		case "get_agent_tasks":
 			lines = append(lines, "已读取最近的讨论记录。只有你选择继续时才会载入旧摘要；业务结论仍需重新查询。")
+		case "get_interview_history":
+			var v struct {
+				Interviews []d.Interview `json:"interviews"`
+				Reviews    []d.Review    `json:"reviews"`
+			}
+			if json.Unmarshal(item.Data, &v) != nil {
+				continue
+			}
+			lines = append(lines, fmt.Sprintf("当前有 %d 条面试记录、%d 份真实复盘。", len(v.Interviews), len(v.Reviews)))
+			if len(v.Reviews) == 0 {
+				lines = append(lines, "还没有面试复盘；可先记录实际问题与回答情况，再整理需要复习的地方。")
+			}
 		case "get_practice_runs":
 			lines = append(lines, "已读取实际执行的练习记录；练习通过不代表有生产项目经验。")
+			var rows []struct {
+				State string `json:"state"`
+			}
+			if json.Unmarshal(item.Data, &rows) == nil {
+				if len(rows) == 0 {
+					lines = append(lines, "还没有实际练习记录。")
+				} else {
+					passed := 0
+					for _, v := range rows {
+						if v.State == "PASSED" {
+							passed++
+						}
+					}
+					lines = append(lines, fmt.Sprintf("本次读取最近 %d 条练习，其中 %d 条用例通过；其余结果请核对原始记录。", len(rows), passed))
+				}
+			}
+		case "get_weak_topics":
+			var rows []d.WeakTopic
+			if json.Unmarshal(item.Data, &rows) != nil {
+				continue
+			}
+			rows = PrioritizeTopics(rows, 5)
+			if len(rows) == 0 {
+				lines = append(lines, "目前还没有可核对的复盘薄弱点。")
+			} else {
+				lines = append(lines, "优先复习这些历史薄弱点（不是对本岗位能力的判定）：")
+				for i, v := range rows {
+					lines = append(lines, fmt.Sprintf("%d. %s：加强程度 %d，出现 %d 次，有 %d 条复盘依据。", i+1, v.Topic, v.Weight, v.Count, len(v.Evidence)))
+				}
+			}
 		case "get_match_result":
 			var v struct {
 				Mode        string       `json:"mode"`
@@ -327,9 +370,42 @@ func GroundedAnswer(facts []any) string {
 			json.Unmarshal(item.Data, &pending)
 			lines = append(lines, fmt.Sprintf("仅生成待确认操作 %s（%s），尚未写入业务状态。请检查预览后显式确认。", pending.ID, item.Tool))
 		case "get_preparation_context":
-			lines = append(lines, "已将目标岗位要求、资格/技术匹配、已核验项目事实、历史薄弱点和检索知识合并。准备主题与优先级见 recommended_topics；不虚构个人经历或面试答案。")
+			var v struct {
+				Job       d.Job     `json:"job"`
+				Knowledge []rag.Hit `json:"knowledge"`
+			}
+			if json.Unmarshal(item.Data, &v) == nil {
+				lines = append(lines, "准备岗位："+v.Job.Company+" · "+v.Job.Title+"。先在准备清单里核对岗位重点、现有项目依据与需要补充的地方。")
+				for _, h := range v.Knowledge[:min(len(v.Knowledge), 2)] {
+					lines = append(lines, "可参考学习材料："+h.Title+"。")
+				}
+			}
+			lines = append(lines, "历史薄弱点来自过去的面试复盘，不等于本岗位必考或个人能力不足；学习材料不作为项目实现的证明。不虚构个人经历或面试答案。")
 		case "search_knowledge":
-			lines = append(lines, "已检索学习材料，引用位于 knowledge chunk ID；检索文本是参考资料，不用于判断岗位状态或资格。")
+			lines = append(lines, "已检索学习材料，结果与出处见下方。")
+			var result rag.SearchResult
+			if json.Unmarshal(item.Data, &result) == nil {
+				if len(result.Hits) == 0 {
+					lines = append(lines, "当前没有检索到相关学习材料。可以补充笔记或换一种问题表达。")
+				} else {
+					for i, h := range result.Hits {
+						if i >= 3 {
+							break
+						}
+						text := []rune(h.Text)
+						if len(text) > 350 {
+							text = append(text[:350], []rune("…")...)
+						}
+						lines = append(lines, fmt.Sprintf("学习参考：%s（材料 %s，片段 %s）\n%s", h.Title, h.DocumentID, h.ID, string(text)))
+					}
+				}
+				if len(result.Retrieval.Warnings) > 0 {
+					for _, code := range result.Retrieval.Warnings {
+						lines = append(lines, rag.WarningMessage(code))
+					}
+				}
+			}
+			lines = append(lines, "检索文本用于学习参考，不作为个人经历、岗位状态或资格的证明。")
 		default:
 			lines = append(lines, "已查询 "+item.Tool+"；原始记录见 grounded_observations。")
 		}

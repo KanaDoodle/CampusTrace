@@ -18,7 +18,11 @@ type SkillRunner struct {
 
 func (r SkillRunner) binding(identity string) string {
 	if t, ok := r.Tools.(*Tools); ok {
-		return d.Hash(identity + d.JSON(t.MatchModel) + t.MaskName)
+		retrieval := ""
+		if t.RAG != nil {
+			retrieval = t.RAG.Options.Identity()
+		}
+		return d.Hash(identity + d.JSON(t.MatchModel) + t.MaskName + retrieval)
 	}
 	return identity
 }

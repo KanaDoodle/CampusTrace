@@ -2,6 +2,7 @@ package transport
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"time"
 
@@ -9,7 +10,24 @@ import (
 	"github.com/KanaDoodle/CampusTrace/internal/mcpclient"
 	"github.com/KanaDoodle/CampusTrace/internal/modelconfig"
 	p "github.com/KanaDoodle/CampusTrace/internal/persistence"
+	"github.com/KanaDoodle/CampusTrace/internal/rag"
 )
+
+func executionResponse(v p.AgentExecution) any {
+	facts := []any{}
+	if v.State != "STALE" && v.State != "CANCELLED" {
+		for _, o := range v.Observations {
+			var data any
+			if json.Unmarshal(o.Data, &data) == nil {
+				facts = append(facts, map[string]any{"tool": o.Tool, "data": data})
+			}
+		}
+	}
+	return struct {
+		p.AgentExecution
+		NextActions []agent.NextAction `json:"next_actions,omitempty"`
+	}{v, agent.NextActions(facts)}
+}
 
 func (a *API) agentHarnessRoutes(on func(string, http.HandlerFunc)) {
 	on("GET /api/agent/skills", func(w http.ResponseWriter, r *http.Request) { write(w, agent.Skills(), nil) })
@@ -21,19 +39,27 @@ func (a *API) agentHarnessRoutes(on func(string, http.HandlerFunc)) {
 	on("GET /api/agent/executions/{id}", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		v, e := a.Store.AgentExecution(r.Context(), user(r), r.PathValue("id"))
-		write(w, v, e)
+		write(w, executionResponse(v), e)
 	})
 	on("POST /api/agent/executions", func(w http.ResponseWriter, r *http.Request) {
 		var v struct {
 			agent.SkillInput
-			MaskName string              `json:"mask_name"`
-			Model    *modelconfig.Config `json:"model_config,omitempty"`
+			MaskName  string              `json:"mask_name"`
+			Model     *modelconfig.Config `json:"model_config,omitempty"`
+			Retrieval rag.Options         `json:"retrieval,omitempty"`
 		}
 		if decode(r, &v) != nil || len(v.MaskName) > 200 {
 			write(w, nil, p.ErrValidation)
 			return
 		}
 		tools := *a.Tools
+		v.Retrieval.MaskName = v.MaskName
+		ragCopy, retrievalErr := a.requestRAG(v.Retrieval)
+		if retrievalErr != nil {
+			knowledgeWrite(w, nil, retrievalErr)
+			return
+		}
+		tools.RAG = ragCopy
 		tools.MaskName = v.MaskName
 		identity := matchPreviewRequest{MaskName: v.MaskName}
 		if v.Model != nil {
@@ -51,18 +77,26 @@ func (a *API) agentHarnessRoutes(on func(string, http.HandlerFunc)) {
 		}
 		tools.MatchModel = model
 		out, e := (agent.SkillRunner{Store: a.Store, Tools: &tools}).Start(r.Context(), user(r), v.SkillInput)
-		write(w, out, e)
+		write(w, executionResponse(out), e)
 	})
 	on("POST /api/agent/executions/{id}/resume", func(w http.ResponseWriter, r *http.Request) {
 		var v struct {
-			MaskName string              `json:"mask_name"`
-			Model    *modelconfig.Config `json:"model_config,omitempty"`
+			MaskName  string              `json:"mask_name"`
+			Model     *modelconfig.Config `json:"model_config,omitempty"`
+			Retrieval rag.Options         `json:"retrieval,omitempty"`
 		}
 		if decode(r, &v) != nil || len(v.MaskName) > 200 {
 			write(w, nil, p.ErrValidation)
 			return
 		}
 		tools := *a.Tools
+		v.Retrieval.MaskName = v.MaskName
+		ragCopy, retrievalErr := a.requestRAG(v.Retrieval)
+		if retrievalErr != nil {
+			knowledgeWrite(w, nil, retrievalErr)
+			return
+		}
+		tools.RAG = ragCopy
 		tools.MaskName = v.MaskName
 		identity := matchPreviewRequest{MaskName: v.MaskName}
 		if v.Model != nil {
@@ -80,7 +114,7 @@ func (a *API) agentHarnessRoutes(on func(string, http.HandlerFunc)) {
 		}
 		tools.MatchModel = model
 		out, e := (agent.SkillRunner{Store: a.Store, Tools: &tools}).Resume(r.Context(), user(r), r.PathValue("id"))
-		write(w, out, e)
+		write(w, executionResponse(out), e)
 	})
 	on("POST /api/agent/executions/{id}/cancel", func(w http.ResponseWriter, r *http.Request) {
 		e := a.Store.CancelAgentExecution(r.Context(), user(r), r.PathValue("id"))

@@ -1,0 +1,20 @@
+{
+ "name":"中文后端复习检索样例",
+ "kind":"synthetic",
+ "documents":[
+  {"id":"pending","title":"Redis Streams 消费恢复","text":"消费者崩溃后，已投递未确认的消息保留在 PEL。使用 XAUTOCLAIM 转移空闲 pending 消息；处理持久化成功后再 ACK。"},
+  {"id":"idempotency","title":"数据库幂等","text":"唯一约束约束同一业务标识，事务提交后才确认队列消息。进程重启导致重复消费时，唯一键使再次处理不重复创建业务记录。"},
+  {"id":"quota","title":"投递计划名额","text":"同公司同批次最多两个计划，同时进入两个页面时，需要锁住同一用户记录，把读取规则、计算占用、创建计划放入同一事务。"},
+  {"id":"context","title":"Go context 取消与截止时间","text":"请求上下文向下传递取消信号。SQL 查询、HTTP 请求、RPC 调用使用同一个 context，以限制等待时间并释放资源。"},
+  {"id":"rag","title":"检索与重排序","text":"关键词检索保留精确术语，语义向量检索召回同义表达。RRF 合并两路排名，重排序器仅处理小范围候选。"},
+  {"id":"goroutine","title":"Go 并发基础","text":"goroutine 用来并发执行函数；channel 传递数据。sync.Mutex 保护内存共享状态；它不能跨进程锁住数据库里的名额。"}
+ ],
+ "queries":[
+  {"id":"exact-pel","query":"Redis PEL XAUTOCLAIM 恢复","relevant":{"pending":3},"reviewed":true},
+  {"id":"paraphrase-message","query":"接收方挂了，已经取走却没回执的事件怎么办","relevant":{"pending":3,"idempotency":1},"reviewed":true},
+  {"id":"duplicate","query":"重复消费 唯一键 幂等","relevant":{"idempotency":3},"reviewed":true},
+  {"id":"quota","query":"名额 事务 两个页面","relevant":{"quota":3},"reviewed":true},
+  {"id":"deadline","query":"如何让下游及时终止等待","relevant":{"context":3},"reviewed":true},
+  {"id":"retrieval","query":"同义表达 RRF 重排序","relevant":{"rag":3},"reviewed":true}
+ ]
+}

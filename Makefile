@@ -46,3 +46,7 @@ dev-workspace:
 	go work edit -go=1.25.9 -replace=github.com/KanaDoodle/KanaRPC-Go=../KanaRPC-Go
 verify-boundary:
 	./scripts/verify-release-boundary.sh
+
+.PHONY: retrieval-eval
+retrieval-eval:
+	go run ./cmd/retrieval-eval

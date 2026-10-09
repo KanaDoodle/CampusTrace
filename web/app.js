@@ -54,9 +54,9 @@ $('#register').onclick=async()=>{
   if (size<10||size>72) {fail(new UserError('密码长度需为 10—72 字节；汉字通常占多个字节，建议使用字母、数字和符号组合。'));return;}
   try {await api('/auth/register','POST',data);$('#notice').textContent='账号已创建，请使用刚填写的邮箱和密码登录。';}catch(error){fail(error);}
 };
-$('#logout').onclick=async()=>{if(!await CampusNavigation.leave())return;CampusUI.closeAll();pageVersion++;token='';sessionStorage.removeItem('campustrace-token');CampusModels.lock();CampusMatching.lock();$('#content').replaceChildren();$('#notice').textContent='';show();};
+$('#logout').onclick=async()=>{if(!await CampusNavigation.leave())return;CampusUI.closeAll();pageVersion++;token='';sessionStorage.removeItem('campustrace-token');CampusModels.lock();CampusMatching.lock();CampusKnowledge.lock();$('#content').replaceChildren();$('#notice').textContent='';show();};
 for (const b of document.querySelectorAll('[data-page]')) b.onclick=()=>page(b.dataset.page).catch(fail);
-const pageTitles={radar:'我的校招雷达',watches:'关注源',source_jobs:'来源岗位',notifications:'通知收件箱',preferences:'稍后看与忽略',closing:'截止雷达',changes:'最近变化',jobs:'校招岗位',matching:'岗位雷达',company_decision:'公司投递决策',applications:'投递进展',interviews:'面试与复盘',weak_topics:'待加强知识点',project_facts:'项目事实',practice:'Go 练习',agent:'求职问答',profile:'求职资料',models:'模型设置',ingest:'录入岗位'};
+const pageTitles={radar:'我的校招雷达',watches:'关注源',source_jobs:'来源岗位',notifications:'通知收件箱',preferences:'稍后看与忽略',closing:'截止雷达',changes:'最近变化',jobs:'校招岗位',matching:'岗位雷达',company_decision:'公司投递决策',applications:'投递进展',interviews:'面试与复盘',weak_topics:'待加强知识点',project_facts:'项目事实',practice:'Go 练习',agent:'求职问答',knowledge:'学习资料',profile:'求职资料',models:'模型设置',ingest:'录入岗位'};
 function input(name,label,value='',type='text',extra='') {return `<label>${esc(label)}<input name="${esc(name)}" type="${type}" value="${esc(value)}" ${extra}></label>`;}
 function area(name,label,value='',extra='') {return `<label>${esc(label)}<textarea name="${esc(name)}" ${extra}>${esc(value)}</textarea></label>`;}
 function displayQuery(query) {
@@ -77,6 +77,7 @@ async function page(name,query='') {
   document.title=`${pageTitles[name]||'求职记录'} · CampusTrace`;
   const set=html=>{if(version!==pageVersion)return false;box.innerHTML=html;return true;};
   const heading=CampusUI.heading(pageTitles[name]);
+  if(name==='knowledge'){await CampusKnowledge.page(set,heading,{api,esc,formAction,UserError,navigate:page,initialDocument:query?.documentID||'',active:()=>version===pageVersion});return;}
   if(name==='practice'){await CampusPractice.page(set,heading,{api,esc,formAction,UserError,active:()=>version===pageVersion});return;}
   if (name==='models') {await CampusModels.page(set,heading,{api,esc,formAction,UserError});return;}
   if (name==='matching') {await CampusMatching.page(set,heading,{api,esc,D,UserError,navigate:page,openRecord:detail,initialQuery:typeof query==='string'?query:'',initialJob:query?.jobID||'',initialView:query?.view||'overview',initialAnalyze:!!query?.analyze,initialTask:query?.taskID||'',initialComparison:query?.comparison||null,initialWorkflow:query?.workflow||'',active:()=>version===pageVersion});return;}
@@ -86,6 +87,7 @@ async function page(name,query='') {
     const capabilities=await api('/api/profile/resume/capabilities');
     if(version!==pageVersion)return;
     CampusModels.bindUser(capabilities.user_id);
+    CampusKnowledge.bindUser(capabilities.user_id);
     CampusMatching.bindUser(capabilities.user_id);
     const composer=`<section class="agent-panel agent-composer"><div class="agent-section-head"><h2>接下来，先做哪件事？</h2><button id="agent-model-settings" type="button" class="text-btn">选择模型</button></div><p class="agent-intro">比较岗位、查投递记录，或从面试复盘里找出下一步。</p><form id="ask" novalidate><label class="visually-hidden" for="agent-question">你的问题</label><textarea id="agent-question" name="message" rows="4" required maxlength="4000" placeholder="例如：小红书这几个后端岗位，我应该优先投哪一个？">${esc(query?.message||'')}</textarea><div class="agent-question-footer"><span class="meta">${esc(CampusModels.available(capabilities)?CampusModels.label(capabilities):'离线演示模型')}</span><button type="submit" class="btn btn-primary">查询求职记录</button></div></form><div class="agent-examples" aria-label="试着这样问">${['今天有什么值得处理？','我最近的深度分析进度如何？','我投过哪些岗位？','未来三天哪些岗位截止？'].map(q=>`<button type="button" data-example="${esc(q)}">${esc(q)}</button>`).join('')}</div><details class="agent-privacy"><summary>助手会使用哪些资料？</summary><p>使用外部模型时，问题、相关记忆及工具返回的脱敏资料会发给所选服务商。查询已有分析不会重新付费分析岗位；修改记录前会先展示预览，等你确认。</p></details><div id="agent-context-note" class="meta" aria-live="polite"></div></section><section id="agent-result" class="agent-result" aria-live="polite"></section>`;
     if(!set(`${heading}<p class="agent-page-intro">用已有资料和记录，帮你把求职的下一步理清楚。</p>${CampusAgentHarness.markup({composer,workspace:CampusAgentWorkspace.markup()})}`))return;
@@ -94,9 +96,9 @@ async function page(name,query='') {
     const agentDrafts=CampusNavigation.forms(document,{selector:'#memory-editor, #agent-skill-form, #agent-connector-form',ignoreNames:['skill_id']});agentDrafts.restore();CampusNavigation.register({active:()=>version===pageVersion,dirty:()=>agentDrafts.dirty()});
     const workspace=await CampusAgentWorkspace.bind({api,esc,formAction,UserError,fail,drafts:agentDrafts,active:()=>version===pageVersion});
     if(version!==pageVersion)return;
-    const harness=await CampusAgentHarness.bind({api,esc,formAction,UserError,fail,D,renderData:translated,navigate:page,drafts:agentDrafts,user:capabilities.user_id,active:()=>version===pageVersion});
+    const harness=await CampusAgentHarness.bind({api,esc,formAction,UserError,fail,D,renderData:translated,navigate:page,drafts:agentDrafts,user:capabilities.user_id,initialSkill:query?.skill,active:()=>version===pageVersion});
     if(version!==pageVersion)return;
-    formAction('#ask',async (data,form)=>{const button=form.querySelector('button[type="submit"]');button.textContent='正在查询…';form.setAttribute('aria-busy','true');try{const result=await api('/agent/decide','POST',{...harness.options(),task_id:workspace.taskID()||undefined,session_id:CampusModels.sessionID(capabilities),message:data.get('message'),model_config:CampusModels.requestConfig(),mask_name:CampusMatching.matchIdentity().mask_name});if(version!==pageVersion)return;renderAgent(result,$('#agent-result'),()=>workspace.refresh());await Promise.all([workspace.refresh(),harness.refresh()]);}finally{button.textContent='查询求职记录';form.removeAttribute('aria-busy');}});return;
+    formAction('#ask',async (data,form)=>{const button=form.querySelector('button[type="submit"]');button.textContent='正在查询…';form.setAttribute('aria-busy','true');try{const result=await api('/agent/decide','POST',{...harness.options(),retrieval:CampusKnowledge.requestOptions(),task_id:workspace.taskID()||undefined,session_id:CampusModels.sessionID(capabilities),message:data.get('message'),model_config:CampusModels.requestConfig(),mask_name:CampusMatching.matchIdentity().mask_name});if(version!==pageVersion)return;harness.showQuestion();renderAgent(result,$('#agent-result'),()=>workspace.refresh());await Promise.all([workspace.refresh(),harness.refresh()]);}finally{button.textContent='查询求职记录';form.removeAttribute('aria-busy');}});return;
   }
   if (name==='profile') {const helpers={api,esc,D,formAction,UserError,navigate:page,active:()=>version===pageVersion};if(query?.evidence)await CampusEvidence.page(set,heading,helpers,query.evidence);else await CampusProfile.page(set,heading,helpers);return;}
   if (name==='interviews') {await CampusInterviews.page(set,heading,{api,esc,D,formAction,navigate:page,reviewInterview,initialInterview:query?.interviewID||'',initialView:query?.view||'all',active:()=>version===pageVersion});return;}
@@ -137,6 +139,7 @@ function renderAgent(result,box,onConfirmed) {
   // Render original structured observations in Chinese; leave API answer/contract untouched.
   box.innerHTML=`<h3>${esc(D.label('terminal',terminal))}</h3><p>${esc(notices[terminal]||'本次查询暂时无法完成，请稍后重试。')}</p>${result.answer?`<div class="agent-answer">${esc(D.text(result.answer))}</div>`:''}${result.memory_notice?`<p class="callout">${esc(result.memory_notice)}</p>`:''}<p class="meta">分析 ${Number(result.model_steps)||0} 轮 · 查询资料或生成预览 ${Number(result.executed_tool_count)||0} 次</p>`;
   if(result.route){const route={LOCAL_LOOKUP:'本地记录查询',PRIMARY:'当前模型',COMPLEX:'复杂问题模型'}[result.route]||'当前执行方式';box.insertAdjacentHTML('beforeend',`<p class="meta">${esc(route)} · 外部模型请求 ${Number(result.provider_calls)||0} 次${CampusAgentHarness.usageText(result)?' · '+esc(CampusAgentHarness.usageText(result)):''}</p>`);}
+  box.insertAdjacentHTML('beforeend',CampusAgentActions.markup(result.next_actions,esc));CampusAgentActions.bind(box,result.next_actions,{navigate:page,fail,active:()=>box.isConnected});
   if(result.context)box.insertAdjacentHTML('beforeend',`<details><summary>本次用了哪些上下文和工具</summary><p>带入 ${result.context.memory_ids?.length||0} 条相关记忆、${Number(result.context.history_turns)||0} 轮历史。</p><p>${(result.context.available_tools||[]).map(v=>esc(D.label('tool',v))).join('、')}</p></details>`);
   for(const item of result.grounded_observations||[]) {
     const article=document.createElement('article');article.className='card';const pending=item.data?.action_id;const memoryAction=item.data?.action_type==='remember_memory';

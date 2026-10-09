@@ -19,7 +19,7 @@ func ClassifyToolFailure(err error) ToolFailure {
 	switch {
 	case errors.Is(err, p.ErrNotFound):
 		return ToolFailure{"NOT_FOUND", false, "核对岗位或记录编号；存在多个候选时请用户选择。"}
-	case errors.Is(err, p.ErrConflict):
+	case errors.Is(err, p.ErrConflict) || errors.Is(err, p.ErrStaleInput):
 		return ToolFailure{"STALE_INPUT", false, "资料或记录已变化，请重新查询；不要重放写操作。"}
 	case errors.Is(err, p.ErrValidation):
 		return ToolFailure{"INVALID_ARGUMENTS", false, "核对参数和允许范围，必要时请用户补充。"}

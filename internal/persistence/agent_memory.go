@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
 	"github.com/KanaDoodle/CampusTrace/internal/resume"
 	"strings"
@@ -163,18 +164,20 @@ func (s *Store) ForgetMemory(ctx context.Context, user, id string, version uint6
 }
 
 type AgentTask struct {
-	ID             string    `json:"id"`
-	ParentID       string    `json:"parent_id,omitempty"`
-	Goal           string    `json:"goal"`
-	Summary        string    `json:"summary"`
-	State          string    `json:"state"`
-	CandidateHash  string    `json:"candidate_hash"`
-	MemoryRevision uint64    `json:"memory_revision"`
-	MemoryHash     string    `json:"memory_hash"`
-	ModelCalls     int       `json:"model_calls"`
-	ToolCalls      int       `json:"tool_calls"`
-	CreatedAt      time.Time `json:"created_at"`
-	ExpiresAt      time.Time `json:"expires_at"`
+	ID                string    `json:"id"`
+	ParentID          string    `json:"parent_id,omitempty"`
+	Goal              string    `json:"goal"`
+	Summary           string    `json:"summary"`
+	State             string    `json:"state"`
+	CandidateHash     string    `json:"candidate_hash"`
+	MemoryRevision    uint64    `json:"memory_revision"`
+	MemoryHash        string    `json:"memory_hash"`
+	KnowledgeRevision string    `json:"knowledge_revision,omitempty"`
+	RetrievalIdentity string    `json:"retrieval_identity,omitempty"`
+	ModelCalls        int       `json:"model_calls"`
+	ToolCalls         int       `json:"tool_calls"`
+	CreatedAt         time.Time `json:"created_at"`
+	ExpiresAt         time.Time `json:"expires_at"`
 }
 
 func (s *Store) AgentTask(ctx context.Context, user, id string) (AgentTask, error) {
@@ -198,6 +201,16 @@ func (s *Store) SaveAgentTask(ctx context.Context, user string, v AgentTask) err
 		}
 		if epoch != v.MemoryRevision {
 			return ErrConflict
+		}
+		if v.KnowledgeRevision != "" {
+			var revision uint64
+			err := tx.QueryRowContext(ctx, "SELECT revision FROM knowledge_state WHERE user_id=?", user).Scan(&revision)
+			if err != nil && !errors.Is(err, sql.ErrNoRows) {
+				return err
+			}
+			if fmt.Sprint(revision) != v.KnowledgeRevision {
+				return ErrConflict
+			}
 		}
 		if _, e = tx.ExecContext(ctx, "DELETE FROM agent_tasks WHERE user_id=? AND expires_at<=UTC_TIMESTAMP(6)", user); e != nil {
 			return e

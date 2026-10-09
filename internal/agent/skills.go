@@ -10,7 +10,7 @@ import (
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
 )
 
-const HarnessVersion = "harness-2026-10-09-v1"
+const HarnessVersion = "harness-2026-10-09-v2"
 
 type Skill struct {
 	ID          string   `json:"id"`

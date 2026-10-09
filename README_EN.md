@@ -165,3 +165,5 @@ Enable optional Go exercises with `./campustrace practice start`, then open Go p
 ### Recruiting assistant workflows
 
 The assistant now has four versioned read workflows: company choices, interview preparation, review planning, and daily recruiting tasks. MySQL checkpoints preserve completed steps across interruptions. Relevant memory/tool selection, bounded read retries, optional public HTTPS MCP text resources, explicit model routing, usage reporting, and opt-in event reminders are documented in [the assistant guide](docs/agent-harness.md). Workflows reuse existing records and do not start paid job analysis or submit applications.
+
+Learning notes now have their own page. Local BM25 is the default; an explicitly configured embedding service supports semantic retrieval, with optional reranking of up to 20 candidates. Indexing requires a redacted-text preview. Keys stay in the browser. [Usage, retrieval evaluation and limits](docs/knowledge-retrieval.md).

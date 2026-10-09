@@ -35,7 +35,7 @@ API binds localhost by default. JSON requests are strict and limited to 64KiB ex
 | GET, POST /api/project_facts | IMPLEMENTED/LIMITATION/PLANNED facts; ownership checked against project |
 | PUT /api/project_facts/{id} | edit one owned fact, retaining its project and creation time; explicit `verified` flag |
 | GET, POST /api/documents | owner knowledge documents |
-| GET /api/knowledge?q=Redis | hybrid Top-5 chunks |
+| GET /api/knowledge?q=Redis | local keyword Top-5 chunks |
 | GET /api/jobs/{id}/preparation | job + current_requirements + current_observations + input_identity + eligibility/fit + project facts + weak topics + knowledge |
 | POST /agent/decide | session_id, message, optional per-request model_config; synchronous final result |
 | POST /agent/stream | same body; SSE lifecycle |
@@ -207,3 +207,18 @@ Agent execution responses include server-computed `can_resume` and optional `lea
 - `POST /api/matching/evaluation/export`：明确选择 1～16 个岗位，提交 expected_scope_key 与人工 reference（acceptable_top_job_ids、reason、reviewed=true；可附 pairs），返回 `campustrace-matching-eval-v1` 案例与当前可复用报告。输入变化返回 MATCH_INPUT_CHANGED，越界参考结论拒绝；不创建任务、不调用模型、不修改个人资料。前端展示完整脱敏文字后再下载。
 
 这几个接口沿用账号认证、资料脱敏和岗位可见性检查。公司比较缓存仍单独绑定精确范围；名额、截止与应用状态使用资料快照的只读事务。创建计划复用已有写接口的事务与限投检查，不以页面显示的剩余数量作为授权。
+
+
+### Learning retrieval
+
+- `GET /api/documents?offset=0`: account-owned summaries, up to 51 for 50-item pagination.
+- `GET /api/documents/{id}`, `DELETE /api/documents/{id}`: read/delete an owned document and its vectors.
+- `POST /api/knowledge/search`: `{query,k,retrieval:{embedding?,rerank?,mask_name?}}`; returns `hits` plus retrieval mode, coverage, warnings, latency and model-call counts. Defaults to local keyword retrieval.
+- `POST /api/knowledge/index/preview`: `{retrieval}`; returns sanitized inputs, model, endpoint, coverage and an input-bound preview key without calling a provider.
+- `POST /api/knowledge/index`: `{retrieval,key,confirm:true}`; account lease and atomic commit, up to 32 inputs; stale previews refuse before dispatch.
+- `DELETE /api/knowledge/index`: clear this account’s vectors and fence in-flight index writes, preserving documents.
+
+`retrieval.embedding` and `retrieval.rerank` each use `{url,model,api_key}`. Keys are transient. They may also be supplied with `/agent/decide`, `/agent/stream`, or task start/resume; the server binds the account and reviewed name mask. The existing `GET /api/knowledge?q=...` remains a local keyword-only array response. Standalone stdio MCP also defaults to local retrieval because it does not have browser-held retrieval credentials. See [retrieval guide](knowledge-retrieval.md).
+# Agent 下一步入口
+
+问答结果与 `GET /api/agent/executions/{id}`、任务开始/继续响应包含可选 `next_actions`。每项含 `kind`、`label`、`reason`、`source_tool` 及适用的 `job_id`、`company`、`document_id`、`topic` 或 `run_id`，最多六项。它们是程序从成功业务工具观察中生成的只读导航提示，没有外部 URL、执行指令或写操作确认编号；进入目标页面时按当前账号重新查询。失效或取消的常用任务不生成提示，列表摘要不携带完整观察与提示。

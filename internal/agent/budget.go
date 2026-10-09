@@ -44,6 +44,8 @@ func (r *Runtime) limitFinal(v *Result, answer, final int) {
 	}
 	v.Terminal = "OUTPUT_LIMIT"
 	v.Answer = "Output budget reached; narrow the query."
+	// Do not leave destinations whose supporting observations get discarded.
+	v.NextActions = nil
 	for size() > final && len(v.Facts) > 0 {
 		v.Facts = v.Facts[:len(v.Facts)-1]
 	}

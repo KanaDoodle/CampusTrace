@@ -288,7 +288,7 @@ func (t *Tools) Execute(ctx context.Context, user, name string, raw json.RawMess
 	case "get_project_facts":
 		return t.Facts(ctx, user)
 	case "search_knowledge":
-		return t.RAG.Search(ctx, user, a.Query, 5)
+		return t.RAG.SearchDetailed(ctx, user, a.Query, 5)
 	case "get_preparation_context":
 		return t.Prepare(ctx, user, a.JobID)
 	}
@@ -325,15 +325,15 @@ func (t *Tools) Prepare(ctx context.Context, user, job string) (any, error) {
 	}
 	query := j.Title
 	topics := []map[string]any{}
-	for _, w := range weak {
+	for _, w := range PrioritizeTopics(weak, 5) {
 		query += " " + w.Topic
 		topics = append(topics, map[string]any{"topic": w.Topic, "priority": w.Weight * w.Count, "weak_evidence": w.Evidence})
 	}
 	if len(query) > 1000 {
-		query = query[:1000]
+		query = prefixUTF8(query, 1000)
 	}
-	hits, err := t.RAG.Search(ctx, user, query, 5)
-	return map[string]any{"job": j, "current_requirements": es, "current_observations": v.Observations, "input_identity": v.InputIdentity, "eligibility": e, "ranking": r, "go_fit": fit, "project_facts": facts, "weak_topics": weak, "recommended_topics": topics, "knowledge": hits, "policy": "Preparation suggestions; never invent personal experience or interview answers."}, err
+	retrieval, err := t.RAG.SearchDetailed(ctx, user, query, 5)
+	return map[string]any{"job": j, "current_requirements": es, "current_observations": v.Observations, "input_identity": v.InputIdentity, "eligibility": e, "ranking": r, "go_fit": fit, "project_facts": facts, "weak_topics": weak, "recommended_topics": topics, "knowledge": retrieval.Hits, "retrieval": retrieval.Retrieval, "policy": "Preparation suggestions; never invent personal experience or interview answers."}, err
 }
 
 type Pending struct {

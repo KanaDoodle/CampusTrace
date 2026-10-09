@@ -8,7 +8,6 @@ import (
 	p "github.com/KanaDoodle/CampusTrace/internal/persistence"
 	"hash/fnv"
 	"math"
-	"sort"
 	"strings"
 	"time"
 	"unicode"
@@ -31,15 +30,16 @@ type Chunk struct {
 	DocumentID       string    `json:"document_id"`
 	Title            string    `json:"title"`
 	Text             string    `json:"text"`
-	Vector           []float64 `json:"embedding"`
+	Vector           []float64 `json:"embedding,omitempty"`
 	EmbeddingVersion string    `json:"embedding_version"`
 	Index            int       `json:"index"`
 }
 type Hit struct {
 	Chunk
-	Score   float64 `json:"score"`
-	Cosine  float64 `json:"cosine"`
-	Keyword float64 `json:"keyword"`
+	Score       float64  `json:"score"`
+	Cosine      float64  `json:"cosine"`
+	Keyword     float64  `json:"keyword"`
+	RerankScore *float64 `json:"rerank_score,omitempty"`
 }
 
 func Tokens(text string) []string {
@@ -105,21 +105,22 @@ func Score(query string, c Chunk) Hit {
 }
 
 type Service struct {
-	Store *p.Store
-	Sem   chan struct{}
-	Allow func(context.Context) (bool, error)
+	Store    *p.Store
+	Sem      chan struct{}
+	Allow    func(context.Context) (bool, error)
+	Options  Options
+	Provider Provider
+	Cache    *QueryCache
 }
 
 func (s *Service) Ingest(ctx context.Context, user string, doc Document) (Document, error) {
-	if doc.Title == "" || len(doc.Title) > 200 || len(doc.Text) == 0 || len(doc.Text) > 60000 {
+	if strings.TrimSpace(doc.Title) == "" || len(doc.Title) > 200 || strings.TrimSpace(doc.Text) == "" || len(doc.Text) > 60000 {
 		return doc, errors.New("invalid document")
 	}
-	select {
-	case s.Sem <- struct{}{}:
-		defer func() { <-s.Sem }()
-	case <-ctx.Done():
-		return doc, ctx.Err()
+	if err := s.acquire(ctx); err != nil {
+		return doc, err
 	}
+	defer s.release()
 	if s.Allow != nil {
 		ok, err := s.Allow(ctx)
 		if err != nil {
@@ -160,29 +161,73 @@ func (s *Service) Ingest(ctx context.Context, user string, doc Document) (Docume
 				return err
 			}
 		}
-		return nil
+		return bumpKnowledge(ctx, tx, user)
 	})
 	return doc, err
 }
 func (s *Service) Search(ctx context.Context, user, query string, k int) ([]Hit, error) {
-	if len(query) == 0 || len(query) > 1000 || k < 1 || k > 20 {
-		return nil, errors.New("invalid knowledge query")
+	out, err := s.SearchDetailed(ctx, user, query, k)
+	return out.Hits, err
+}
+func (s *Service) SearchDetailed(ctx context.Context, user, query string, k int) (SearchResult, error) {
+	if strings.TrimSpace(query) == "" || len(query) > 1000 || k < 1 || k > 20 {
+		return SearchResult{}, p.ErrValidation
+	}
+	if err := s.Options.Validate(); err != nil {
+		return SearchResult{}, err
+	}
+	if err := s.acquire(ctx); err != nil {
+		return SearchResult{}, err
+	}
+	defer s.release()
+	revision, err := s.Store.KnowledgeIdentity(ctx, user)
+	if err != nil {
+		return SearchResult{}, err
+	}
+	chunks, err := s.chunks(ctx, user)
+	if err != nil {
+		return SearchResult{}, err
+	}
+	vectors := map[string]SemanticVector{}
+	if s.Options.Embedding != nil {
+		rows, e := p.Many[SemanticVector](ctx, s.Store.DB, "SELECT body FROM knowledge_vectors WHERE user_id=? AND model_key=? ORDER BY chunk_id LIMIT 10001", user, modelKey(s.Options.Embedding))
+		if e != nil {
+			return SearchResult{}, e
+		}
+		for _, v := range rows {
+			vectors[v.ChunkID] = v
+		}
+	}
+	out, err := s.Rank(ctx, user+":"+revision, query, chunks, vectors, k)
+	if err != nil {
+		return out, err
+	}
+	current, err := s.Store.KnowledgeIdentity(ctx, user)
+	if err != nil {
+		return SearchResult{}, err
+	}
+	if current != revision {
+		return SearchResult{}, p.ErrStaleInput
+	}
+	return out, nil
+}
+func (s *Service) acquire(ctx context.Context) error {
+	if s.Sem == nil {
+		return nil
 	}
 	select {
 	case s.Sem <- struct{}{}:
-		defer func() { <-s.Sem }()
+		return nil
 	case <-ctx.Done():
-		return nil, ctx.Err()
+		return ctx.Err()
 	}
-	if s.Allow != nil {
-		ok, err := s.Allow(ctx)
-		if err != nil {
-			return nil, err
-		}
-		if !ok {
-			return nil, errors.New("429 embedding rate limit")
-		}
+}
+func (s *Service) release() {
+	if s.Sem != nil {
+		<-s.Sem
 	}
+}
+func (s *Service) chunks(ctx context.Context, user string) ([]Chunk, error) {
 	chunks, err := p.Many[Chunk](ctx, s.Store.DB, "SELECT body FROM chunks WHERE user_id=? ORDER BY id LIMIT 10001", user)
 	if err != nil {
 		return nil, err
@@ -190,27 +235,11 @@ func (s *Service) Search(ctx context.Context, user, query string, k int) ([]Hit,
 	if len(chunks) > SearchCapacity {
 		return nil, ErrCapacity
 	}
-	hits := []Hit{}
+	out := []Chunk{}
 	for _, c := range chunks {
-		if err = ctx.Err(); err != nil {
-			return nil, err
-		}
-		if c.EmbeddingVersion != EmbeddingVersion {
-			continue
-		}
-		h := Score(query, c)
-		if h.Keyword > 0 {
-			hits = append(hits, h)
+		if c.EmbeddingVersion == EmbeddingVersion {
+			out = append(out, c)
 		}
 	}
-	sort.Slice(hits, func(i, j int) bool {
-		if hits[i].Score == hits[j].Score {
-			return hits[i].ID < hits[j].ID
-		}
-		return hits[i].Score > hits[j].Score
-	})
-	if len(hits) > k {
-		hits = hits[:k]
-	}
-	return hits, nil
+	return out, nil
 }

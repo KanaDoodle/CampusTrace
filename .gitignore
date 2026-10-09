@@ -27,6 +27,7 @@ __debug_bin*
 !/docs/recovery.md
 !/docs/agent-evaluation.md
 !/docs/matching-evaluation.md
+!/docs/knowledge-retrieval.md
 !/docs/agent-harness.md
 !/docs/agent-workspace.md
 !/docs/campus-sources.md

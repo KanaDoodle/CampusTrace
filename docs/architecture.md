@@ -57,7 +57,7 @@ flowchart TD
   Agent --> Pending[PendingAction preview]
   Pending --> Confirm[Authenticated user confirmation]
   Confirm --> DB
-  Tools --> RAG[MySQL chunks / lexical hash vector + keyword hybrid retrieval]
+  Tools --> RAG[MySQL chunks / BM25 + optional semantic vectors / RRF + rerank]
 ```
 
 MySQL 事务与唯一约束承担业务正确性；Redis 承担队列、重试、限流、缓存及短期 Agent 状态。**Analysis 是唯一远程业务服务**：它通过 KanaRPC 返回候选 claims，主后端保留决策与 CRUD 职责。
@@ -157,11 +157,11 @@ RPC wire protocol 没有提前远程取消信号；CampusTrace 传递显式 dead
 
 常用 Skills 使用审核过的固定查询计划、MySQL 逐步检查点和带令牌的运行租约。问答按问题选择工具和相关记忆，临时只读网络失败最多重试一次；公共 HTTPS MCP 客户端只能读取用户选定的文本资源。模型分工和预算在每次请求前检查，usage 与估计分开。招聘变化使用事务事件与持久游标生成站内待办，不自动触发分析或投递。使用方法和具体限制见 [求职助手说明](agent-harness.md)。
 
-### RAG：lexical hash vector + keyword hybrid retrieval
+### RAG：关键词、语义检索与可选重排序
 
-文档、chunks 与 vectors 存在 MySQL。默认是 **128 维 deterministic lexical hashing**，结合 brute-force cosine 和 keyword overlap；中文 bigram 提供基础词法支持。它不是 semantic embedding，不依赖 ANN、向量数据库或隐式外部 embedding 调用。
+默认 BM25 在本地检索当前账号的材料，中文 bigram 保留基础词法支持。用户可单独配置外部 Embedding 服务，预览确认材料后分批建立语义索引；两路按 RRF 合并，再可选对最多 20 个候选片段重排序，默认 Top5。旧 128 维 lexical-hash 字段保留兼容，不再参与新关键词排名。
 
-每次最多扫描 10,000 个 owner-scoped chunks，Top-K ≤20，迁移提供 `chunks(user_id,id)` 索引。超容量导入原子拒绝并返回 `CORPUS_CAPACITY`；已有超容量语料也明确报错，HTTP/UI 会展示该错误，不声称返回完整语料的 Top-K。重复导入、文档更新和删除生命周期尚未实现。
+材料和模型版本隔离的向量仍存在 MySQL，没有新增 ANN 或独立向量数据库。每账号最多 10,000 段；索引输入与保存均有身份核对、账号租约和原子提交，删除会清理对应向量。模型失败明确显示回退，付费检索不自动重试。密钥留在浏览器、只随本次请求临时传递。完整用法、容量、评测与边界见 [学习资料检索](knowledge-retrieval.md)。
 
 ### SSE 与 MCP
 
@@ -227,7 +227,7 @@ Scripted eval 不代表真实模型准确率，synthetic loadgen 不代表线上
 - **数据模型与管理**：JSON-backed SQL aggregates 配合 relational ownership/FK/unique keys，优先满足个人规模的实现清晰度；没有 schema downgrade、文档 revisions、丰富分页或多租户管理角色。
 - **历史与时效**：历史 Evidence 保留，显式调度决定 active generation；旧结果不能覆盖 current，未重新处理的 legacy Observation 需要显式 reanalysis。没有全历史版本选择界面；旧官方矛盾保守产生核验/未知，freshness 状态缓存可能滞后一小时；只对已启用且适配器支持的关注源自动重抓。
 - **RPC**：KanaRPC 为教育性 v0.x 框架，API 稳定性及提前远程取消存在上述限制。
-- **Agent 与检索**：自由生成事实回答被刻意限制。可选 live provider 未完成效果评估；当前没有 semantic embedding provider，也未评估其质量。弱点提取依赖经过验证的显式输入，非 LLM extractor。RAG 容量、重复导入和文档更新/删除限制见上文。
+- **Agent 与检索**：自由生成事实回答被刻意限制。可选 live provider 未完成效果评估；可选语义 Embedding 与重排序已接入协议，但未用真实账号材料和真实模型评估检索质量。弱点提取依赖经过验证的显式输入，非 LLM extractor。RAG 容量、重复导入和文档更新/删除限制见上文。
 - **会话与认证**：SSE 无 replay/reconnect；MCP 认证仅在启动时进行；没有邮箱验证、密码重置或撤销服务。Redis 故障可影响短期状态与 trace 保存。
 - **队列与运维**：没有自动队列/历史归档或 Redis Cluster 支持；DLQ 仅通过 operator CLI 管理。Redis 相关 metrics 是进程内计数，重启重置；API 与 Worker 保留 `/metrics` JSON，新增 `/metrics/prometheus`；应用任务阶段事件保存在 MySQL，尚未安装独立监控或告警服务。
 - **UI**：中文优先，使用结构化资料与复盘表单；岗位雷达最多 10,000 条、每页 50 条；独立普通搜索最多 100 条。没有使用前端框架。

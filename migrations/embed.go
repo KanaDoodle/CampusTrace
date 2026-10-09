@@ -34,3 +34,6 @@ var AgentWorkspaceSQL string
 
 //go:embed 011_agent_harness.sql
 var AgentHarnessSQL string
+
+//go:embed 012_knowledge_retrieval.sql
+var KnowledgeRetrievalSQL string

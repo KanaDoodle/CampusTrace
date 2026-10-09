@@ -279,5 +279,9 @@ func (s *Store) AgentExecutionIdentity(ctx context.Context, user, company, job s
 		}
 		versions = append(versions, v)
 	}
-	return d.Hash(d.JSON([]any{profile, rev, notes, rows, versions, time.Now().UTC().Truncate(time.Hour)})), rev, nil
+	knowledge, e := s.KnowledgeIdentity(ctx, user)
+	if e != nil {
+		return "", 0, e
+	}
+	return d.Hash(d.JSON([]any{profile, rev, notes, rows, versions, knowledge, time.Now().UTC().Truncate(time.Hour)})), rev, nil
 }
