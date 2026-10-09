@@ -16,7 +16,7 @@ import (
 	p "github.com/KanaDoodle/CampusTrace/internal/persistence"
 )
 
-var financeCustomAdapters = []string{"bankcomm_tech", "cms_securities", "htsc_securities"}
+var financeCustomAdapters = []string{"bankcomm_tech", "cms_securities", "htsc_securities", "yonyou"}
 
 func financeRow(adapter string, n int) map[string]any {
 	if adapter == "bankcomm_tech" {
@@ -26,7 +26,7 @@ func financeRow(adapter string, n int) map[string]any {
 		}
 		return map[string]any{"positionId": n, "pubName": fmt.Sprintf("软件开发工程师 %d", n), "engageType": "1", "bankNumber": bankcommHead, "bankName": "总行", "deptName": "软件开发中心", "deptNumber": 123, "projectName": project, "workPlace": "上海", "endDate": "2026-10-18", "responsibility": "<p>开发 Go 服务</p>", "require": "应届生；Go、Linux；英语六级；实习考察"}
 	}
-	project := securitiesProjects[adapter]
+	project := hotjobCampusProjects[adapter]
 	id, _ := strconv.Atoi(project.Project)
 	return map[string]any{"postId": fmt.Sprintf("%024x", n), "postName": fmt.Sprintf("金融科技工程师 %d", n), "recruitType": 1, "projectId": id, "projectName": project.Name, "workTypeStr": "全职", "workPlaceStr": "北京", "workContent": "<p>开发 Go 服务</p>", "serviceCondition": "2027届；Go、Linux；英语六级；实习考察", "endDate": "2026-10-18", "canDelivery": false}
 }
@@ -103,12 +103,13 @@ func financeFixture(t *testing.T, adapter, scenario string) *httptest.Server {
 				page, size, total = int(paging["pageNum"].(float64)), 50, 51
 			}
 		} else {
-			project := securitiesProjects[adapter]
+			project := hotjobCampusProjects[adapter]
+			size = project.PageSize
 			if !strings.Contains(r.URL.Path, "/"+project.Suite) || r.Form.Get("recruitType") != "1" {
 				t.Error("wrong securities tenant or campus category")
 			}
 			if !detail {
-				if r.Form.Get("projectCode") != project.Project || r.Form.Get("pageSize") != "15" || r.Form.Get("isFrompb") != "true" {
+				if r.Form.Get("projectCode") != project.Project || r.Form.Get("pageSize") != strconv.Itoa(size) || r.Form.Get("isFrompb") != "true" {
 					t.Error("wrong fixed securities project or page size")
 				}
 				page, _ = strconv.Atoi(r.Form.Get("currentPage"))
@@ -227,7 +228,7 @@ func TestFinanceCampusCompleteScopesAndOriginals(t *testing.T) {
 			client := &http.Client{Transport: rewriteTransport{srv.URL}, Jar: jar}
 			a := PublicPlatform{Client: client, Allow: func(_ context.Context, key string, limit int) (bool, error) {
 				want := "wecruit:public-site"
-				if adapter == "bankcomm_tech" {
+				if adapter == "bankcomm_tech" || adapter == "yonyou" {
 					want = adapter + ":public-site"
 				}
 				if key != want || limit != 30 {

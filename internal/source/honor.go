@@ -29,6 +29,8 @@ type honorPost struct {
 	Duties       string `json:"workContent"`
 	Requirements string `json:"serviceCondition"`
 	Deadline     string `json:"endDate"`
+	Education    string `json:"educationStr"`
+	Subject      string `json:"subject"`
 }
 
 func honorOK[T any](v honorEnvelope[T]) error {

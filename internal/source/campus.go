@@ -56,8 +56,8 @@ func CampusSites() []CampusSite {
 		{"hikvision", "海康威视", HikvisionCampusURL, "2027 常规校园招聘（不含智先锋、实习）", 1800, false},
 		{"ths", "同花顺", THSCampusURL, "2027 届校园招聘（含实习转正，用工形式以原文为准）", 1800, false},
 		{"bankcomm_tech", "交通银行 · 总行金融科技", BankcommCampusURL, "官网总行 2026 年秋季校招（金科类）项目；官网入口需筛选总行，具体毕业范围及签约单位见原文", 1800, false},
-		{"cms_securities", "招商证券", securitiesCampusURL("cms_securities"), "2027 校园招聘固定项目（含实习考察要求，见原文）", 1800, false},
-		{"htsc_securities", "华泰证券 · 总部", securitiesCampusURL("htsc_securities"), "官网 2026 年秋招（总部）固定项目，2027 毕业范围以岗位原文为准（不混入分公司、专项与实习项目）", 1800, false},
+		{"cms_securities", "招商证券", hotjobCampusURL("cms_securities"), "2027 校园招聘固定项目（含实习考察要求，见原文）", 1800, false},
+		{"htsc_securities", "华泰证券 · 总部", hotjobCampusURL("htsc_securities"), "官网 2026 年秋招（总部）固定项目，2027 毕业范围以岗位原文为准（不混入分公司、专项与实习项目）", 1800, false},
 		{"csc_securities", "中信建投证券", "https://csc108.zhiye.com/campus/jobs", "官网校招分类（含实习考察；具体毕业范围、用工形式见原文）", 1800, false},
 		{"guosen_securities", "国信证券", "https://guosen.zhiye.com/campus/jobs", "官网校招分类（不同届别及经验要求以原文为准）", 1800, false},
 		{"galaxy_securities", "中国银河证券", "https://chinastock.zhiye.com/custom/campus", "官网校招分类（具体毕业范围、招聘单位及实习考察见原文）", 1800, false},
@@ -80,6 +80,17 @@ func CampusSites() []CampusSite {
 		{"cmhome", "中国移动智慧家庭运营中心", mobileCampusURL("cmhome"), "官网校园招聘 · 智慧家庭运营中心（含博士岗位，届别见原文）", 1800, false},
 		{"hundsun", "恒生电子", "https://campus.hundsun.com/campus/jobs", "官网校招分类（具体毕业年份见岗位原文）", 1800, false},
 		{"yuewen", "阅文集团", "https://yuewen.zhiye.com/campus/jobs", "官网应届生校招分类（不含实习、社招）", 1800, false},
+		{"mthreads", "摩尔线程", "https://mthreads.zhiye.com/", "官网校招分类（AI、软件、芯片等方向，具体届别见原文）", 1800, false},
+		{"h3c", "新华三集团", "https://career.h3c.com/campus/jobs", "官网校招分类（含专项和海外地点，具体届别、工作地点见原文）", 1800, false},
+		{"yusys", "宇信科技", "https://yusys-campus.zhiye.com/", "官网校招分类（含高潜人才项目，具体届别见原文）", 1800, false},
+		{"cksic", "中科芯", "https://cksic.zhiye.com/campus/jobs", "官网校招分类（软件、AI 与芯片方向，具体届别见原文）", 1800, false},
+		{"whxmc", "新芯股份", "https://whxmc.zhiye.com/campus/jobs", "官网校招分类（软件、信息安全与制造研发，具体届别见原文）", 1800, false},
+		{"neusoft", "东软集团", "https://neusoft-campus.zhiye.com/", "官网校招分类（含软件研发，具体届别见原文）", 1800, false},
+		{"kedacom", "苏州科达", KedacomCampusURL, "官网校园招聘类别（不含实习，包含不同届别，以原文为准）", 1800, false},
+		{"games37", "三七互娱", Games37CampusURL, "官网校园招聘分类（含游戏研发、AI 等方向，具体届别见原文）", 1800, false},
+		{"nexchip", "晶合集成", "https://nexchip.zhiye.com/campus/jobs", "官网校招分类（包含软件及制造研发方向，具体届别见原文）", 1800, false},
+		{"yonyou", "用友网络", hotjobCampusURL("yonyou"), "2027 届校招（北京）固定项目（北京为项目名，工作城市见岗位；不含其他项目）", 1800, false},
+		{"sangfor", "深信服", SangforCampusURL, "2027 届常规校园招聘（不含 X-STAR 专项、实习及社招）", 1800, false},
 		{"gbits", "吉比特&雷霆游戏", GBitsCampusURL, "2027 届秋季校招正式岗位（含提前实习要求，用工形式见原文）", 1800, false},
 		{"tcl_digital", "TCL · 流程与数字化转型中心", tclCampusURL("tcl_digital"), "2027 届全球校招 · 流程与数字化转型中心", 1800, false},
 		{"tcl_honghu", "TCL · 鸿鹄实验室", tclCampusURL("tcl_honghu"), "2027 届全球校招 · 鸿鹄实验室", 1800, false},
@@ -113,7 +124,7 @@ func campusSite(raw string) (CampusSite, error) {
 		if u.Fragment != "" {
 			continue
 		}
-		if cfg, ok := beisenCompanies[site.Adapter]; ok && u.Host == strings.TrimPrefix(cfg.Origin, "https://") && (u.String() == site.URL || path == "" || path == "/campus" || path == "/campus/jobs" || (site.Adapter == "sgm" && path == "/campusjobs")) && u.RawQuery == "" {
+		if cfg, ok := beisenCompanies[site.Adapter]; ok && (u.Host == strings.TrimPrefix(cfg.Origin, "https://") || (site.Adapter == "h3c" && u.Host == "h3c.zhiye.com")) && (u.String() == site.URL || path == "" || strings.EqualFold(path, "/campus") || strings.EqualFold(path, "/campus/jobs") || (site.Adapter == "sgm" && path == "/campusjobs")) && u.RawQuery == "" {
 			return site, nil
 		}
 		switch site.Adapter {

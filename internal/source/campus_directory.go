@@ -16,11 +16,15 @@ func CampusDirectory() []CampusDirectoryEntry {
 		"xiaohongshu": "互联网", "tencent": "互联网", "baidu": "互联网", "meituan": "互联网", "jd": "互联网", "netease": "互联网", "alibaba": "互联网", "bilibili": "互联网", "kuaishou": "互联网", "qihoo360": "互联网",
 		"oppo": "消费电子与制造", "vivo": "消费电子与制造", "honor": "消费电子与制造", "lenovo": "消费电子与制造",
 		"sap": "外企与软件", "siemens": "外企与工业", "haier": "制造业", "sany": "制造业", "sgm": "汽车与制造", "inovance": "制造业", "midea": "制造业", "byd": "汽车与制造", "hikvision": "智能物联与制造",
+		"mthreads": "芯片与制造", "nexchip": "芯片与制造",
+		"h3c": "通信与制造", "yusys": "金融科技", "cksic": "国央企", "whxmc": "芯片与制造",
+		"neusoft": "互联网", "kedacom": "智能物联与制造", "games37": "游戏",
+		"yonyou": "互联网", "sangfor": "互联网",
 		"bankcomm_tech": "银行", "cms_securities": "证券", "htsc_securities": "证券", "csc_securities": "证券", "guosen_securities": "证券", "galaxy_securities": "证券", "cicc_securities": "证券",
 		"cmb_tech": "银行", "citic_tech": "银行", "boc_software": "银行", "boc_operations": "银行",
 		"ths": "金融科技", "cmbnt": "金融科技", "netease_game": "游戏", "leihuo": "游戏", "ctyun": "国央企", "ctcloud": "国央企", "mihoyo": "游戏", "pingan_tech": "金融科技", "pingan_oneconnect": "金融科技", "pingan_wallet": "金融科技", "cmcloud": "国央企", "cmiot": "国央企", "cmhome": "国央企", "hundsun": "金融科技", "yuewen": "互联网", "gbits": "游戏", "tcl_digital": "消费电子与制造", "tcl_honghu": "消费电子与制造", "cec_software": "国央企",
 	}
-	out := make([]CampusDirectoryEntry, 0, 96)
+	out := make([]CampusDirectoryEntry, 0, 108)
 	for _, site := range CampusSites() {
 		entry := CampusDirectoryEntry{CampusSite: site, Category: categories[site.Adapter], AutoImport: true, Status: "已接入", Note: "预览时实时核验官网范围与岗位数量。", CheckedAt: "2026-10-05"}
 		if _, ok := sectorScopes[site.Adapter]; ok {
@@ -55,6 +59,33 @@ func CampusDirectory() []CampusDirectoryEntry {
 		case "hundsun", "yuewen":
 			entry.CheckedAt = "2026-10-06"
 			entry.Note = "按官网应届生校招分类读取；不混入实习、社招。地点字段为空时保留未知，具体毕业年份见岗位原文。"
+		case "h3c":
+			entry.CheckedAt = "2026-10-10"
+			entry.Note = "完整读取官网校招分类，含锐进等专项和部分海外地点；保留原始职责、要求、城市、学历及工作性质。具体届别以原文为准。"
+		case "yusys":
+			entry.CheckedAt = "2026-10-10"
+			entry.Note = "完整读取官网校招分类，含高潜人才项目；保留大模型应用、软件研发等岗位的完整原文及公开城市、学历、工作性质。届别以原文为准。"
+		case "cksic", "whxmc":
+			entry.CheckedAt = "2026-10-10"
+			entry.Note = "完整读取官网校招分类，保留软件、AI 与芯片制造等方向的职责、要求、城市、学历及工作性质；具体届别以原文为准。"
+		case "neusoft":
+			entry.CheckedAt = "2026-10-10"
+			entry.Note = "完整读取官网校招分类，保留软件研发等方向的职责与要求；地点为空时保留未知，具体毕业年份见岗位原文。"
+		case "kedacom":
+			entry.CheckedAt = "2026-10-10"
+			entry.Note = "完整读取校园招聘类别 r=2，排除页面混列的实习；保留完整城市、职责、要求及公开截止日期。包含不同届别，以岗位原文为准。"
+		case "games37":
+			entry.CheckedAt = "2026-10-10"
+			entry.Note = "按官网校园招聘查询完整分页读取公开职责与要求，保留官网提供的 Moka 投递链接；不读取候选人数据。具体毕业年份和用工形式以原文为准。"
+		case "mthreads", "nexchip":
+			entry.CheckedAt = "2026-10-09"
+			entry.Note = "按官网校招分类完整分页读取，保留职责与要求；不混入社招、实习。地点字段为空时保留未知，具体毕业年份见岗位原文。"
+		case "yonyou":
+			entry.CheckedAt = "2026-10-09"
+			entry.Note = "仅 2027 届校招（北京）项目；北京为项目名，实际工作城市以岗位为准。保留职责、学历及官网截止时间，不将当前预设视为用友集团或子公司的全部招聘。"
+		case "sangfor":
+			entry.CheckedAt = "2026-10-09"
+			entry.Note = "限定官网 27 届校园招聘常规频道，实时核对频道名称；不混入 X-STAR 专项、实习与社招。保留完整原文、工作城市及全职类型。"
 		case "gbits":
 			entry.Note = "限定 2027 秋招正式岗位，保留职责、要求、加分项与提前实习说明；用工类型保留未知。官网链接打开标题搜索页，同名岗位通过编号分别读取原文。"
 		case "meituan":
@@ -78,9 +109,13 @@ func CampusDirectory() []CampusDirectoryEntry {
 		case "ctyun", "ctcloud":
 			entry.Note = "按招聘单位限定 2027 秋招，避免混入集团其他单位；官网链接打开该岗位的标题搜索页。"
 		}
+		if _, ok := beisenCompanies[site.Adapter]; ok {
+			entry.CheckedAt = "2026-10-10"
+		}
 		out = append(out, entry)
 	}
 	manual := []struct{ company, category, url, status, note string }{
+		{"紫光展锐", "芯片与制造", "https://www.unisoc.com/cn/about/join-us", "公开查询受限", "官网招聘页可读，但官网链接的校招入口与公开查询本次均返回 405，尚未完成完整岗位与详情核验。"},
 		{"字节跳动", "互联网", "https://jobs.bytedance.com/campus/position", "公开查询受限", "官网可读；按公开客户端发送匿名岗位查询返回 405，尚未完成校招范围、完整分页与详情核验。"},
 		{"携程/Trip.com", "互联网", CtripCampusURL, "官网验证阻断", "公开接口曾返回 56 个应届生岗位；正式安全抓取器收到官网验证跳转，当前不可自动导入。"},
 		{"滴滴", "互联网", "https://talent.didiglobal.com/campus/", "访问受限", "官网链接的 Moka 校招入口在本机出现重定向循环。"},
@@ -99,6 +134,9 @@ func CampusDirectory() []CampusDirectoryEntry {
 	}
 	for _, s := range manual {
 		checked := "2026-10-05"
+		if s.company == "紫光展锐" {
+			checked = "2026-10-10"
+		}
 		switch s.company {
 		case "字节跳动", "携程/Trip.com", "滴滴", "华为", "小米", "爱立信":
 			checked = "2026-10-06"

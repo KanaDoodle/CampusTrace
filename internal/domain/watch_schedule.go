@@ -2,6 +2,8 @@ package domain
 
 func IsCampusSource(adapter string) bool {
 	switch adapter {
+	case "h3c", "yusys", "cksic", "whxmc", "neusoft", "kedacom", "games37", "sangfor", "yonyou", "mthreads", "nexchip":
+		return true
 	case "xiaohongshu", "baidu", "meituan", "jd", "netease", "alibaba", "bilibili", "kuaishou", "oppo", "siemens", "haier", "lenovo", "midea", "byd", "hikvision", "qihoo360", "sany", "inovance", "vivo", "honor", "sgm", "ctrip", "tencent", "sap", "ths", "cmbnt", "netease_game", "leihuo", "ctyun", "ctcloud", "mihoyo", "pingan_tech", "pingan_oneconnect", "pingan_wallet", "cmcloud", "cmiot", "cmhome", "gbits", "hundsun", "yuewen", "tcl_digital", "tcl_honghu", "cec_software", "cmb_tech", "citic_tech", "boc_software", "boc_operations", "bankcomm_tech", "cms_securities", "htsc_securities", "csc_securities", "guosen_securities", "galaxy_securities", "cicc_securities":
 		return true
 	default:

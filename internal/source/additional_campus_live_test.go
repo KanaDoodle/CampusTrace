@@ -16,7 +16,7 @@ func TestAdditionalCampusLiveReadOnly(t *testing.T) {
 	if os.Getenv("CAMPUS_LIVE_SOURCES") != "1" {
 		t.Skip("explicit public read-only verification")
 	}
-	for _, adapter := range []string{"hundsun", "yuewen", "gbits", "tcl_digital", "tcl_honghu", "cec_software"} {
+	for _, adapter := range []string{"kedacom", "games37", "sangfor", "yonyou", "hundsun", "yuewen", "gbits", "tcl_digital", "tcl_honghu", "cec_software"} {
 		t.Run(adapter, func(t *testing.T) {
 			a := PublicPlatform{}
 			s := d.Source{ID: adapter + "-live", Adapter: adapter, Tenant: moreTenant(adapter)}
@@ -35,7 +35,11 @@ func TestAdditionalCampusLiveReadOnly(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			for _, r := range []PostingRef{refs[0], refs[len(refs)-1]} {
+			selected := []PostingRef{refs[0], refs[len(refs)-1]}
+			if os.Getenv("CAMPUS_LIVE_ALL_DETAILS") == "1" {
+				selected = refs
+			}
+			for _, r := range selected {
 				ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 				res, err := a.FetchPosting(ctx, s, r)
 				cancel()
