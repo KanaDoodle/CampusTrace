@@ -77,7 +77,7 @@ func (a *API) executeMatchBatch(ctx context.Context, user string, in matchBatchI
 	}
 	results, err := matching.AnalyzeHolistically(ctx, budget, snapshot.Candidate, jobs)
 	if err != nil {
-		return out, &MatchStageError{"ANALYZE", err}
+		return out, &MatchStageError{"ANALYZE", matchValidationPosition(err, jobs, in.JobIDs)}
 	}
 	for _, job := range remaining {
 		assessment := results[job.Job.ID]
@@ -143,7 +143,7 @@ func (a *API) executeCompanyBatch(ctx context.Context, user string, in matchBatc
 	}
 	report, err := matching.CompareHolistically(ctx, budget, snapshot.Candidate, jobs, identity)
 	if err != nil {
-		return out, &MatchStageError{"COMPANY", err}
+		return out, &MatchStageError{"COMPANY", matchValidationPosition(err, jobs, in.JobIDs)}
 	}
 	if hook != nil {
 		if err := hook("SAVE", "", 0); err != nil {
@@ -163,4 +163,22 @@ func (a *API) executeCompanyBatch(ctx context.Context, user string, in matchBatc
 		}
 	}
 	return out, nil
+}
+
+// Snapshots are sorted by ID and may omit cached jobs from the model request.
+// Diagnostics must refer to the caller's batch, rather than provider order.
+func matchValidationPosition(err error, jobs []matching.HolisticJob, ids []string) error {
+	var v *matching.ValidationError
+	if !errors.As(err, &v) || v.JobIndex <= 0 || v.JobIndex > len(jobs) {
+		return err
+	}
+	id := jobs[v.JobIndex-1].ID
+	for i, candidate := range ids {
+		if candidate == id {
+			copy := *v
+			copy.JobIndex = i + 1
+			return &copy
+		}
+	}
+	return err
 }

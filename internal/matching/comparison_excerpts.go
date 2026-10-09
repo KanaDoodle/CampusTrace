@@ -134,10 +134,14 @@ func resolveComparisonCitations(c Candidate, reqs []Requirement, wire []comparis
 // when it identifies one source span. No paraphrases, aliases or punctuation
 // changes are accepted. The final stored quote is a literal source substring.
 func restoreComparisonExcerpt(source, quote string) (string, string) {
+	return restoreSourceExcerpt(source, quote, maxComparisonExcerpt)
+}
+
+func restoreSourceExcerpt(source, quote string, limit int) (string, string) {
 	if strings.TrimSpace(quote) == "" {
 		return "", "EXCERPT_EMPTY"
 	}
-	if len(quote) > maxComparisonExcerpt {
+	if len(quote) > limit {
 		return "", "EXCERPT_LENGTH"
 	}
 	if !utf8.ValidString(source) || !utf8.ValidString(quote) || strings.ContainsRune(quote, '\x00') {
@@ -172,7 +176,7 @@ func restoreComparisonExcerpt(source, quote string) (string, string) {
 		return "", "EXCERPT_AMBIGUOUS"
 	}
 	actual := source[starts[i]:ends[i+len(value)-1]]
-	if len(actual) > maxComparisonExcerpt {
+	if len(actual) > limit {
 		return "", "EXCERPT_LENGTH"
 	}
 	return actual, ""

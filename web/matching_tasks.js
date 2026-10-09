@@ -2,7 +2,7 @@
 const CampusMatchTasks=(function(root){
  const states={RUNNING:'正在分析',PAUSING:'完成当前批次后暂停',PAUSED:'已暂停',WAITING_AUTH:'需要重新核对后继续',COMPLETED:'本轮已完成',COMPLETED_WITH_ERRORS:'已完成，部分失败',CANCELLED:'已取消'};
  const active=v=>['RUNNING','PAUSING'].includes(v?.state);
- function progress(run,D){return {pending:(run.items||[]).filter(i=>['QUEUED','PAUSED','INTERRUPTED'].includes(i.state)).map(i=>i.job_id),failed:(run.items||[]).filter(i=>i.state==='FAILED').map(i=>({id:i.job_id,message:D.errorCode(i.code,502,'/api/matching/tasks')+D.matchingDiagnostic(i.diagnostic)})),done:(run.items||[]).filter(i=>['SUCCEEDED','REUSED'].includes(i.state)).length,calls:run.calls||0};}
+ function progress(run,D){const items=run.items||[];return {pending:items.filter(i=>['QUEUED','PAUSED','INTERRUPTED'].includes(i.state)).map(i=>i.job_id),failed:items.filter(i=>i.state==='FAILED').map(i=>{const source=items.find(v=>v.job_id===i.diagnostic?.source_job_id);return {id:i.job_id,message:D.errorCode(i.code,502,'/api/matching/tasks')+D.matchingDiagnostic(i.diagnostic)+(source?.job?.title?' 本批核对失败的引用来自：'+source.job.title+'。':'')};}),done:items.filter(i=>['SUCCEEDED','REUSED'].includes(i.state)).length,calls:run.calls||0};}
  function render(run,runs,{esc,D},notice=''){
   if(!run)return notice?`<section class="match-progress" role="status">${esc(notice)}</section>`:'';
   const p=progress(run,D),live=active(run),canResume=!live&&!['COMPLETED','CANCELLED'].includes(run.state);

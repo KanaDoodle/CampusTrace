@@ -43,7 +43,58 @@ func (a *API) companyWorkspaceRoutes(on func(string, http.HandlerFunc)) {
 		decisionWrite(w, v)
 	})
 	on("POST /api/matching/company-workspace", a.companyWorkspace)
+	on("POST /api/matching/company-candidates", a.companyCandidates)
 	on("POST /api/matching/evaluation/export", a.exportMatchingEvaluation)
+}
+
+func (a *API) companyCandidates(w http.ResponseWriter, r *http.Request) {
+	var in companyWorkspaceRequest
+	if err := decode(r, &in); err != nil {
+		write(w, nil, err)
+		return
+	}
+	in.Company = strings.TrimSpace(in.Company)
+	if in.Company == "" || len(in.Company) > 1024 || len(in.JobIDs) != 0 {
+		write(w, nil, p.ErrValidation)
+		return
+	}
+	identity, err := a.matchIdentity(in.matchPreviewRequest)
+	if err != nil {
+		write(w, nil, err)
+		return
+	}
+	snapshot, err := a.Store.MatchCompanyCandidates(r.Context(), user(r), identity, strings.TrimSpace(in.MaskName), in.Company)
+	if err != nil {
+		matchFailure(w, err)
+		return
+	}
+	// This picker needs no candidate document, private facts, or model excerpts.
+	type candidateRow struct {
+		Job              p.ApplicationJob    `json:"job"`
+		State            string              `json:"state"`
+		AnalysisMode     string              `json:"analysis_mode,omitempty"`
+		Fit              string              `json:"fit,omitempty"`
+		Score            *float64            `json:"score"`
+		Priority         *matching.Priority  `json:"priority,omitempty"`
+		PreliminaryScore float64             `json:"preliminary_score"`
+		Direction        string              `json:"direction"`
+		ExcludedReason   string              `json:"excluded_reason,omitempty"`
+		Disposition      string              `json:"disposition"`
+		Application      *p.MatchApplication `json:"application,omitempty"`
+	}
+	rows := make([]candidateRow, 0, len(snapshot.Jobs))
+	for _, row := range snapshot.Jobs {
+		job := row.Job
+		v := candidateRow{Job: p.ApplicationJob{ID: job.ID, CompanyID: job.CompanyID, Company: job.Company, Title: job.Title, Locations: row.Cities, JobType: job.JobType, CurrentStatus: job.CurrentStatus}, State: row.State, AnalysisMode: row.AnalysisMode, Score: row.Score, Priority: row.Priority, PreliminaryScore: row.PreliminaryScore, ExcludedReason: row.ExcludedReason, Disposition: row.Disposition, Application: row.Application}
+		if row.Holistic != nil {
+			v.Fit = row.Holistic.Fit
+		}
+		if row.Local != nil {
+			v.Direction = row.Local.Direction.Status
+		}
+		rows = append(rows, v)
+	}
+	decisionWrite(w, rows)
 }
 
 func (a *API) workspaceSnapshot(r *http.Request, in companyWorkspaceRequest) (p.MatchSnapshot, string, error) {

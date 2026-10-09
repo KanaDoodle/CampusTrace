@@ -45,14 +45,15 @@ func (m *wholeModel) Complete(_ context.Context, messages, _ any) (json.RawMessa
 	if project.ID == "" || !strings.Contains(input.Candidate.Document, "保留完整背景、实现方法与结果，不拆句。") {
 		return nil, errors.New("complete saved project missing")
 	}
-	evidence := []matching.Citation{{ID: project.ID, Excerpt: project.Text}}
+	// Simulate a provider removing PDF line wraps while retaining all words.
+	evidence := []matching.Citation{{ID: project.ID, Excerpt: strings.ReplaceAll(project.Text, "\n", "")}}
 	if m.bad.Load() {
 		evidence[0].Excerpt = "invented production scale"
 	}
 	if strings.Contains(msgs[0]["content"], "company comparison") {
 		choices := []matching.CompanyChoice{}
 		for i, j := range input.Jobs {
-			choices = append(choices, matching.CompanyChoice{ID: j.ID, Rank: i + 1, Reason: "核心工作与项目服务开发相关", Advantage: "可迁移事务与重试经验", Tradeoff: "需要确认业务规模与领域知识", JobExcerpt: j.Text, Evidence: evidence})
+			choices = append(choices, matching.CompanyChoice{ID: j.ID, Rank: i + 1, Reason: "核心工作与项目服务开发相关", Advantage: "可迁移事务与重试经验", Tradeoff: "需要确认业务规模与领域知识", JobExcerpt: strings.ReplaceAll(j.Text, "\n", ""), Evidence: evidence})
 		}
 		return json.Marshal(map[string]string{"content": d.JSON(map[string]any{"summary": "按本次候选岗位核心工作比较，不按技术名词计数", "choices": choices, "questions": []string{"确认公司实际限投规则"}})})
 	}
@@ -63,13 +64,13 @@ func (m *wholeModel) Complete(_ context.Context, messages, _ any) (json.RawMessa
 	return json.Marshal(map[string]string{"content": d.JSON(map[string]any{"jobs": jobs})})
 }
 func wholeAssessment(source string, evidence []matching.Citation) matching.HolisticAssessment {
-	return matching.HolisticAssessment{Version: matching.HolisticVersion, Fit: "RELATED", Summary: "后端服务实践相关，可以考虑投递", CoreWork: "开发后端服务并处理可靠性问题", Strengths: []matching.HolisticFinding{{Point: "工程经验可以迁移", Explanation: "完整项目具有事务与重试处理，不虚构线上规模", JobExcerpt: source, Evidence: evidence}}, Gaps: []matching.HolisticFinding{}, Blockers: []matching.HolisticFinding{}, Questions: []string{"领域知识与规模需要确认"}, NextSteps: []string{"准备讲解任务处理与故障恢复"}, IgnoredFactors: []string{"热爱技术"}, Gates: []matching.HolisticGate{}}
+	return matching.HolisticAssessment{Version: matching.HolisticVersion, Fit: "RELATED", Summary: "后端服务实践相关，可以考虑投递", CoreWork: "开发后端服务并处理可靠性问题", Strengths: []matching.HolisticFinding{{Point: "工程经验可以迁移", Explanation: "完整项目具有事务与重试处理，不虚构线上规模", JobExcerpt: strings.ReplaceAll(source, "\n", ""), Evidence: evidence}}, Gaps: []matching.HolisticFinding{}, Blockers: []matching.HolisticFinding{}, Questions: []string{"领域知识与规模需要确认"}, NextSteps: []string{"准备讲解任务处理与故障恢复"}, IgnoredFactors: []string{"热爱技术"}, Gates: []matching.HolisticGate{}}
 }
 func wholeSetup(t *testing.T) (context.Context, *p.Store, string, string, []string, *transport.API, http.Handler, *wholeModel) {
 	t.Helper()
 	ctx, s, q, u, _ := setup(t)
 	must(t, s.SaveProfile(ctx, u, d.Profile{Languages: []string{"Go"}, TargetRoles: []string{"后端开发"}, Degree: "MASTER", GraduationYear: 2027}))
-	_, err := s.SaveProject(ctx, u, d.Project{Name: "任务服务", Description: "张小明使用 Go 实现任务服务，通过事务和重试处理失败。", Bullets: []string{"保留完整背景、实现方法与结果，不拆句。"}})
+	_, err := s.SaveProject(ctx, u, d.Project{Name: "任务服务", Description: "张小明使用 Go 实现任务服\n务，通过事务和重试处理消费中\n断。", Bullets: []string{"保留完整背景、实现方法与结果，不拆句。"}})
 	must(t, err)
 	// Older local records can predate the contact filter on project writes.
 	var project d.Project
@@ -80,7 +81,7 @@ func wholeSetup(t *testing.T) (context.Context, *p.Store, string, string, []stri
 	must(t, err)
 	ids := []string{}
 	for _, title := range []string{"服务端开发", "基础平台开发"} {
-		o, err := s.IngestForUser(ctx, u, p.Ingest{Company: "Whole Synthetic", Title: title, JobType: "FULL_TIME", ExternalID: d.ID(), Locations: []string{"上海市"}, Text: "任职要求：熟悉Go。工作职责：开发后端服务并处理可靠性问题。热爱技术。", FetchStatus: "SUCCESS", ObservedAt: time.Now().UTC()})
+		o, err := s.IngestForUser(ctx, u, p.Ingest{Company: "Whole Synthetic", Title: title, JobType: "FULL_TIME", ExternalID: d.ID(), Locations: []string{"上海市"}, Text: "任职要求：熟悉Go。工作职责：开发后端服\n务并处理可靠性问题。热爱技术。", FetchStatus: "SUCCESS", ObservedAt: time.Now().UTC()})
 		must(t, err)
 		ids = append(ids, o.JobID)
 	}
@@ -106,6 +107,23 @@ func TestWholeAnalysisSavesNarrativeReportAndInvalidatesOnProjectEdit(t *testing
 		must(t, err)
 		if r.Holistic == nil || r.Score != nil || len(r.Matches) != 0 {
 			t.Fatal("whole report still counted requirements", r)
+		}
+		if !strings.Contains(r.Holistic.Strengths[0].JobExcerpt, "服\n务") || !strings.Contains(r.Holistic.Strengths[0].Evidence[0].Excerpt, "消费中\n断") {
+			t.Fatal("model formatting survived persistence instead of original quotes")
+		}
+		original := d.JSON(r)
+		invalid := r
+		assessment := *r.Holistic
+		assessment.Strengths = append([]matching.HolisticFinding{}, assessment.Strengths...)
+		assessment.Strengths[0].JobExcerpt = strings.ReplaceAll(assessment.Strengths[0].JobExcerpt, "\n", "")
+		invalid.Holistic = &assessment
+		if err := s.SaveMatchResult(ctx, u, "", invalid); !errors.Is(err, matching.ErrInvalid) {
+			t.Fatal("storage validator was loosened", err)
+		}
+		unchanged, err := s.MatchResult(ctx, u, id)
+		must(t, err)
+		if d.JSON(unchanged) != original {
+			t.Fatal("rejected nonliteral quote changed stored report")
 		}
 	}
 	rec = matchingRequest(h, token, "/api/matching/analyze", "POST", body)
@@ -149,6 +167,9 @@ func TestCompanyWholeTaskWorksBeforeSingleAnalysisAndCachesExactScope(t *testing
 	must(t, err)
 	if len(report.Choices) != 2 || report.AnalyzedAt == "" {
 		t.Fatal(report)
+	}
+	if !strings.Contains(report.Choices[0].JobExcerpt, "服\n务") || !strings.Contains(report.Choices[0].Evidence[0].Excerpt, "消费中\n断") {
+		t.Fatal("company report did not persist literal source spans")
 	}
 	for _, id := range ids {
 		if _, err := s.MatchResult(ctx, u, id); !errors.Is(err, p.ErrNotFound) {
@@ -243,7 +264,7 @@ func TestWholeChatRoundTripPreservesCompanyRankingAndPartialImports(t *testing.T
 	var evidence []matching.Citation
 	for _, f := range fixtureDocumentFacts(exported.Candidate) {
 		if strings.HasSuffix(f.ID, "-description") {
-			evidence = []matching.Citation{{ID: f.ID, Excerpt: f.Text}}
+			evidence = []matching.Citation{{ID: f.ID, Excerpt: strings.ReplaceAll(f.Text, "\n", "")}}
 			break
 		}
 	}
@@ -251,7 +272,7 @@ func TestWholeChatRoundTripPreservesCompanyRankingAndPartialImports(t *testing.T
 	for i, j := range exported.Jobs {
 		assessment := wholeAssessment(j.Text, evidence)
 		doc.Jobs = append(doc.Jobs, matching.ChatJob{ID: j.ID, InputKey: j.InputKey, Assessment: &assessment})
-		choices = append(choices, matching.CompanyChoice{ID: j.ID, Rank: i + 1, Reason: "核心工作相关", Advantage: "工程经验可以迁移", Tradeoff: "领域知识需要准备", JobExcerpt: j.Text, Evidence: evidence})
+		choices = append(choices, matching.CompanyChoice{ID: j.ID, Rank: i + 1, Reason: "核心工作相关", Advantage: "工程经验可以迁移", Tradeoff: "领域知识需要准备", JobExcerpt: strings.ReplaceAll(j.Text, "\n", ""), Evidence: evidence})
 	}
 	doc.Comparisons = []matching.HolisticCompanyReport{{Version: matching.HolisticVersion, Company: "Whole Synthetic", InputKey: exported.CompanyInputs[0].InputKey, CandidateHash: doc.CandidateHash, Summary: "先考虑工程经验更贴合的岗位", Choices: choices, Questions: []string{}}}
 	rec = matchingRequest(h, token, "/api/matching/import/preview", "POST", map[string]any{"document": doc, "mask_name": "张小明"})
@@ -275,6 +296,9 @@ func TestWholeChatRoundTripPreservesCompanyRankingAndPartialImports(t *testing.T
 	if rec.Code != 200 || report.Holistic == nil || report.Holistic.Model != matching.ChatIdentity {
 		t.Fatal("manual comparison lost", rec.Code, rec.Body.String())
 	}
+	if !strings.Contains(report.Holistic.Choices[0].Evidence[0].Excerpt, "消费中\n断") {
+		t.Fatal("chat company import failed to restore literal evidence")
+	}
 	old, err := s.MatchResult(ctx, u, ids[0])
 	must(t, err)
 	doc.Comparisons = nil
@@ -292,5 +316,52 @@ func TestWholeChatRoundTripPreservesCompanyRankingAndPartialImports(t *testing.T
 	must(t, err)
 	if d.JSON(old) != d.JSON(unchanged) {
 		t.Fatal("failed import overwrote valid report")
+	}
+}
+
+func TestCompanyQuoteFailureKeepsExactSourceLocationAndRetryScope(t *testing.T) {
+	ctx, s, u, token, ids, api, h, m := wholeSetup(t)
+	runner := api.StartMatchTasks(ctx, 1)
+	t.Cleanup(runner.Close)
+	m.bad.Store(true)
+	identity := matching.ModelIdentity("server-default", "whole-fixture")
+	snap, err := s.MatchSnapshot(ctx, u, identity, "", ids)
+	must(t, err)
+	key := matching.CompanyInputKey(snap.Candidate, p.WholeJobs(snap.Jobs), identity)
+	body := map[string]any{"kind": "COMPANY", "company": "Whole Synthetic", "scope_key": key, "job_ids": ids, "input_keys": taskInputKeys(snap, ids), "candidate_hash": snap.CandidateHash, "request_key": d.ID()}
+	rec := matchingRequest(h, token, "/api/matching/tasks", "POST", body)
+	if rec.Code != 202 {
+		t.Fatal(rec.Code, rec.Body.String())
+	}
+	var run p.MatchRun
+	must(t, json.Unmarshal(rec.Body.Bytes(), &run))
+	failed := awaitRun(t, s, u, run.ID, "COMPLETED_WITH_ERRORS")
+	if failed.Calls != 1 || m.calls.Load() != 1 {
+		t.Fatal("one invalid quote incurred additional model calls", failed.Calls, m.calls.Load())
+	}
+	// The model received the snapshot's ID order, rather than selection order.
+	sourceID := snap.Jobs[0].Job.ID
+	for _, item := range failed.Items {
+		if item.State != "FAILED" || item.Diagnostic["source_job_id"] != sourceID || item.Diagnostic["item_scope"] != "COMPANY_CHOICE" || item.Diagnostic["validation_reason"] != "HOLISTIC_EVIDENCE_EXCERPT_NOT_EXACT" {
+			t.Fatal("persisted task lost the actual failure location", item.Diagnostic)
+		}
+		if d.JSON(item.Diagnostic["citation_index"]) != "1" {
+			t.Fatal("citation position missing", item.Diagnostic)
+		}
+	}
+	if _, err := s.CompanyReport(ctx, u, "Whole Synthetic", key); !errors.Is(err, p.ErrNotFound) {
+		t.Fatal("invalid company report was saved", err)
+	}
+	m.bad.Store(false)
+	body["version"], body["retry"] = failed.Version, true
+	rec = matchingRequest(h, token, "/api/matching/tasks/"+run.ID+"/resume", "POST", body)
+	if rec.Code != 202 {
+		t.Fatal(rec.Code, rec.Body.String())
+	}
+	done := awaitRun(t, s, u, run.ID, "COMPLETED")
+	report, err := s.CompanyReport(ctx, u, "Whole Synthetic", key)
+	must(t, err)
+	if m.calls.Load() != 2 || len(done.Items) != len(ids) || len(report.Choices) != len(ids) {
+		t.Fatal("retry shrank the original comparison scope or added a repair call")
 	}
 }

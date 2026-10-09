@@ -9,3 +9,26 @@ test('no company comparison produces no guessed numerical ranking',()=>{const da
 test('plan confirmation is explicit and official links reject executable URLs',()=>{const data=fixture();data.workflow.jobs[0].campaign_id='';data.workflow.jobs[0].official_url='javascript:alert(1)';const html=C.renderWorkspace(data,{esc,D},'a');assert.match(html,/确认加入计划/);assert.match(html,/这里只登记计划/);assert.ok(!html.includes('href="javascript:'));assert.match(html,/未登记此岗位的限投规则/);});
 
 test('source date-only deadline is displayed as end of that day',()=>{const data=fixture();data.workflow.jobs[0].deadline='2026-10-13T00:00:00+08:00';data.workflow.jobs[0].deadline_date='2026-10-12';const html=C.renderWorkspace(data,{esc,D});assert.match(html,/截止 2026-10-12（当天结束）/);assert.ok(!html.includes('截止 2026-10-13'));});
+
+test('candidate ordering keeps current holistic tiers separate from historical numeric scores',()=>{
+ const row=(id,state,fit,score)=>({job:{id,title:id,locations:['上海']},state,fit,score});
+ const rows=[row('old','ANALYZED','',96),row('related','ANALYZED','RELATED',null),row('strong','ANALYZED','STRONG',null),row('stale','STALE','STRONG',100),row('basic','BASIC','',null)];
+ assert.deepEqual(C.candidateRows(rows).map(r=>r.job.id),['strong','related','old','basic','stale']);
+ assert.deepEqual(C.candidateRows(rows,{state:'ANALYZED',fit:'RELEVANT'}).map(r=>r.job.id),['strong','related']);
+ assert.equal(C.candidateScore(rows[3],'technical'),null);
+ assert.deepEqual(C.candidateRows(rows,{sort:'technical'}).map(r=>r.job.id),['old','basic','related','stale','strong']);
+});
+
+test('picker state is scoped to account and company and contains only bounded navigation preferences',()=>{
+ C.storeState('alice','A',{selected:['a','a'],scope:['b'],selectedScope:true,search:'后端',state:'ANALYZED',sort:'deep',page:2,api_key:'should-not-save',document:'private'});
+ assert.deepEqual(C.readState('alice','A').selected,['a']);assert.equal(C.readState('alice','A').page,2);assert.deepEqual(C.readState('bob','A').selected,[]);assert.deepEqual(C.readState('alice','B').selected,[]);
+ assert.ok(!JSON.stringify(C.readState('alice','A')).includes('private'));assert.ok(!JSON.stringify(C.readState('alice','A')).includes('should-not-save'));
+});
+
+test('quick selection preferences accept only the supported batch sizes',()=>{
+ C.storeState('quick-user','A',{quickCount:16});
+ assert.equal(C.readState('quick-user','A').quickCount,16);
+ assert.equal(C.readState('quick-user','B').quickCount,4);
+ C.storeState('quick-user','A',{quickCount:1000});
+ assert.equal(C.readState('quick-user','A').quickCount,4);
+});

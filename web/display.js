@@ -205,10 +205,16 @@
     Object.assign(reasons,{CHAT_VERSION:'结果来自旧版分析包，请重新导出并按新版格式返回 JSON',CHAT_REQUIREMENTS_EMPTY:'岗位未返回可核对的要求，暂不能导入空分析',CHAT_REQUIREMENT_INVALID:'岗位要求的分类、资格值或原文摘录无效，请核对连续原文',CHAT_REQUIREMENT_COMPOSITE:'复合要求需要分别返回要求与匹配结论，请让 ChatGPT 按分析包指令拆开',CHAT_REVIEW_NOTE:'聊天结果含程序内部复核字段，请移除 review_note',CHAT_GROUP_CONFLICT:'任选组的类别、软性标记或范围摘录不一致，请统一同一组选项',CHAT_MATCH_MISSING:'这项岗位要求缺少对应匹配结论，请补齐 match',CHAT_REQUIREMENTS_LIMIT:'岗位要求超过64项或标记为未完整分析，请完成分析后再导入',CHAT_MATCHES_LIMIT:'匹配结论超过64项，请移除重复结论并与岗位要求一一对应',CHAT_JOB_STALE:'这个岗位的原文快照已变化或 input_key 不一致，请重新导出该岗位分析包',EXCERPT_ID_UNKNOWN:'模型选择的原文片段编号不存在，或不属于对应资料',EXCERPT_REFERENCE_CONFLICT:'模型同时返回片段编号和摘录文字，无法确定引用方式',EXCERPT_AMBIGUOUS:'空白格式不同的摘录对应多处原文，无法确定引用位置'});
     Object.assign(reasons,{CHAT_REQUIREMENT_ID_INVALID:'岗位要求编号为空或过长，请为每条要求填写唯一编号',CHAT_REQUIREMENT_ID_DUPLICATE:'岗位要求编号重复，请修改编号并同步对应的匹配项',CHAT_REQUIREMENT_CONTENT_DUPLICATE:'同一种岗位条件被重复列出，请保留一条要求及对应的匹配项'});
     Object.assign(reasons,{CHAT_REQUIREMENT_TEXT_LENGTH:'岗位要求说明 text 超过 600 个 UTF-8 字节，请缩短本项说明并保留要求含义',CHAT_REQUIREMENT_EXCERPT_LENGTH:'岗位原文摘录 excerpt 超过 600 个 UTF-8 字节（纯汉字约 200 字），请选取支持本项要求的较短连续原文，保留程度与范围限定',CHAT_REQUIREMENT_EXCERPT_EMPTY:'岗位要求没有原文摘录 excerpt，请补上对应岗位中的连续原文',CHAT_REQUIREMENT_EXCERPT_NOT_EXACT:'岗位原文摘录 excerpt 不是对应岗位的连续原文，请直接复制原句，不改写、翻译或拼接'});
-    const reason=reasons[value.validation_reason];if(!reason)return '';
+    for(const [scope,label] of [['JOB','岗位原文'],['EVIDENCE','个人材料']]){
+      Object.assign(reasons,{[`HOLISTIC_${scope}_EXCERPT_EMPTY`]:`${label}引用为空，请复制一段连续原文`,[`HOLISTIC_${scope}_EXCERPT_LENGTH`]:`${label}引用超过长度上限，请选择较短的连续原文`,[`HOLISTIC_${scope}_EXCERPT_NOT_EXACT`]:`${label}引用无法对应连续原文，可能被改写、拼接或引用了其他来源；请直接复制对应原文`,[`HOLISTIC_${scope}_EXCERPT_AMBIGUOUS`]:`${label}引用对应多处原文，无法确定位置；请保留原文排版或补充相邻上下文`});
+    }
+    const reason=Object.prototype.hasOwnProperty.call(reasons,value.validation_reason)?reasons[value.validation_reason]:'';if(!reason)return '';
     const integer=(n,max)=>Number.isInteger(n)&&n>=0&&n<=max;
     let location='';if(integer(value.job_index,100)&&value.job_index>0)location+=`本批第 ${value.job_index} 个岗位`;
-    if(integer(value.item_index,1000)&&value.item_index>0)location+=(location?'，':'')+`${value.item_scope==='REQUIREMENT'?'岗位要求':value.item_scope==='MATCH'?'匹配结论':'结果'}第 ${value.item_index} 项`;
+    const scopes={REQUIREMENT:'岗位要求',MATCH:'匹配结论',HOLISTIC_STRENGTH:'优势',HOLISTIC_GAP:'差距',HOLISTIC_BLOCKER:'资格障碍',HOLISTIC_GATE:'资格条件',COMPANY_CHOICE:'公司比较条目'};
+    const scope=Object.prototype.hasOwnProperty.call(scopes,value.item_scope)?scopes[value.item_scope]:'结果';
+    if(integer(value.item_index,1000)&&value.item_index>0)location+=(location?'，':'')+`${scope}第 ${value.item_index} 项`;
+    if(integer(value.citation_index,4)&&value.citation_index>0)location+=(location?'，':'')+`个人引用第 ${value.citation_index} 条`;
     const counts=['JOB_COUNT','MATCH_COUNT'].includes(value.validation_reason)&&integer(value.expected,1000)&&integer(value.actual,1000)?`（应有 ${value.expected} 项，返回 ${value.actual} 项）`:'';
     const related=['CHAT_REQUIREMENT_ID_DUPLICATE','CHAT_REQUIREMENT_CONTENT_DUPLICATE','CHAT_GROUP_CONFLICT','REQUIREMENT_DUPLICATE'].includes(value.validation_reason)&&integer(value.related_item_index,1000)&&value.related_item_index>0?`（关联${value.validation_reason==='REQUIREMENT_DUPLICATE'?'匹配结论':'岗位要求'}第 ${value.related_item_index} 项${value.validation_reason==='CHAT_GROUP_CONFLICT'?'的任选组':'重复'}）`:'';
     return ` 具体原因：${location?location+'：':''}${reason}${related}${counts}。`;

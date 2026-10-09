@@ -67,6 +67,7 @@ async function page(name,query='') {
   if(!await CampusNavigation.leave())return;
   if(name==='project_facts')name='profile';
   if(name==='jobs')name='matching';
+  if(name==='company_decision'){name='matching';query={...(typeof query==='object'?query:{}),view:'company'};}
   CampusUI.closeAll();
   const navName=name==='source_jobs'?'watches':['closing','changes'].includes(name)?'radar':name;
   for(const b of document.querySelectorAll('nav [data-page]')){if(b.dataset.page===navName)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');}
@@ -80,9 +81,9 @@ async function page(name,query='') {
   if(name==='knowledge'){await CampusKnowledge.page(set,heading,{api,esc,formAction,UserError,navigate:page,initialDocument:query?.documentID||'',active:()=>version===pageVersion});return;}
   if(name==='practice'){await CampusPractice.page(set,heading,{api,esc,formAction,UserError,active:()=>version===pageVersion});return;}
   if (name==='models') {await CampusModels.page(set,heading,{api,esc,formAction,UserError});return;}
-  if (name==='matching') {await CampusMatching.page(set,heading,{api,esc,D,UserError,navigate:page,openRecord:detail,initialQuery:typeof query==='string'?query:'',initialJob:query?.jobID||'',initialView:query?.view||'overview',initialAnalyze:!!query?.analyze,initialTask:query?.taskID||'',initialComparison:query?.comparison||null,initialWorkflow:query?.workflow||'',active:()=>version===pageVersion});return;}
+  if(name==='matching'&&query?.view==='company'){await CampusCompanyDecision.page(set,heading,{api,esc,D,navigate:page,active:()=>version===pageVersion,initialCompany:query?.company||'',initialIDs:query?.jobIDs||[],initialEvaluation:!!query?.evaluation});return;}
+  if (name==='matching') {await CampusMatching.page(set,heading,{api,esc,D,UserError,navigate:page,openRecord:detail,initialQuery:typeof query==='string'?query:'',initialJob:query?.jobID||'',initialView:query?.view||'overview',initialAnalyze:!!query?.analyze,initialTask:query?.taskID||'',initialComparison:query?.comparison||null,initialWorkflow:query?.workflow||'',returnCompany:query?.returnCompany||'',active:()=>version===pageVersion});return;}
   if(['radar','watches','source_jobs','notifications','preferences','closing','changes'].includes(name)){await radarPage(name,set,box,query,{active:()=>version===pageVersion,reviewInterview});return;}
-  if(name==='company_decision'){await CampusCompanyDecision.page(set,heading,{api,esc,D,navigate:page,active:()=>version===pageVersion,initialCompany:query?.company||''});return;}
   if (name==='agent') {
     const capabilities=await api('/api/profile/resume/capabilities');
     if(version!==pageVersion)return;

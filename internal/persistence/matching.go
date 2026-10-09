@@ -160,6 +160,10 @@ func (s *Store) MatchSnapshot(ctx context.Context, user, model, maskName string,
 	return s.matchSnapshot(ctx, user, model, maskName, ids, true, "", false)
 }
 
+func (s *Store) MatchInventorySnapshot(ctx context.Context, user, model, maskName string) (MatchSnapshot, error) {
+	return s.matchSnapshot(ctx, user, model, maskName, nil, true, "", false, false, true)
+}
+
 // Manual export needs the current texts and candidate, without running the
 // preliminary rules again over potentially megabytes of selected descriptions.
 func (s *Store) MatchExportSnapshot(ctx context.Context, user, model, maskName string, ids []string) (MatchSnapshot, error) {
@@ -180,6 +184,15 @@ func (s *Store) MatchWorkspaceSnapshot(ctx context.Context, user, model, maskNam
 		return MatchSnapshot{}, ErrValidation
 	}
 	return s.matchSnapshot(ctx, user, model, maskName, ids, true, company, true, true)
+}
+
+// Candidate picking uses current score summaries for one employer, without the
+// 200 full-report limit or loading every historical citation into the response.
+func (s *Store) MatchCompanyCandidates(ctx context.Context, user, model, maskName, company string) (MatchSnapshot, error) {
+	if strings.TrimSpace(company) == "" {
+		return MatchSnapshot{}, ErrValidation
+	}
+	return s.matchSnapshot(ctx, user, model, maskName, nil, true, company, false, false, true)
 }
 
 func (s *Store) matchSnapshot(ctx context.Context, user, model, maskName string, ids []string, screen bool, company string, fullResults bool, workspace ...bool) (MatchSnapshot, error) {
@@ -384,7 +397,12 @@ func (s *Store) matchSnapshot(ctx context.Context, user, model, maskName string,
 			row.TextBytes = len(row.Text)
 			row.RequirementsKey, row.InputKey = input.RequirementsKey, matching.JobInputKey(job, input.RequirementsKey, v.CandidateHash)
 			if screen {
-				local := screener.Screen(job, row.Text)
+				var local matching.LocalScreen
+				if len(workspace) > 1 && workspace[1] {
+					local = screener.ScreenSummary(job, row.Text)
+				} else {
+					local = screener.Screen(job, row.Text)
+				}
 				row.Local = &local
 				row.PreliminaryScore, row.ExcludedReason = local.Score, local.ExcludedReason
 			}

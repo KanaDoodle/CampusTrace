@@ -59,3 +59,7 @@ test('choosing an action is not an unsaved edit; changing its input still is',()
  form.elements[1].value='腾讯';const point=tracker.savepoint('#task');assert.equal(tracker.dirty(),true);
  form.elements[1].value='小红书';tracker.saved('#task',point);assert.equal(tracker.dirty(),true);
 });
+
+test('radar remembers its company view per account without changing list filters',()=>{
+ const h=harness();h.N.storeBrowse('alice',{radarView:'company',company:'哔哩哔哩',query:'后端',page:2});assert.equal(h.N.readBrowse('alice').radarView,'company');assert.equal(h.N.readBrowse('alice').query,'后端');assert.equal(h.N.readBrowse('bob').radarView,'list');
+});

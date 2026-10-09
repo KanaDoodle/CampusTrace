@@ -76,7 +76,7 @@ func TestMatchingExcerptRetryReusesRequirementsAndPersistsOnlyOriginalProjectTex
 	must(t, s.SaveRequirements(ctx, u, snap.Jobs[0].RequirementsKey, matching.Requirements{Items: reqs}))
 	body := map[string]any{"job_ids": []string{o.JobID}, "candidate_hash": snap.CandidateHash}
 	rec := matchingRequest(handler, token, "/api/matching/analyze", "POST", body)
-	if rec.Code != 502 || model.calls != 1 || !strings.Contains(rec.Body.String(), "EXCERPT_NOT_CONTIGUOUS") || strings.Contains(rec.Body.String(), "Kafka") {
+	if rec.Code != 502 || model.calls != 1 || !strings.Contains(rec.Body.String(), "HOLISTIC_EVIDENCE_EXCERPT_NOT_EXACT") || !strings.Contains(rec.Body.String(), `"item_scope":"HOLISTIC_STRENGTH"`) || !strings.Contains(rec.Body.String(), `"citation_index":1`) || strings.Contains(rec.Body.String(), "Kafka") {
 		t.Fatal("paraphrased quote was accepted, retried or echoed", rec.Code, rec.Body.String())
 	}
 	_, err = s.MatchResult(ctx, u, o.JobID)

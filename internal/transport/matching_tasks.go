@@ -461,6 +461,9 @@ func (r *MatchTaskRunner) process(ctx context.Context, user string, run p.MatchR
 }
 func (r *MatchTaskRunner) fail(ctx context.Context, user string, g p.MatchRunGuard, ids []string, err error, stage string, calls int) bool {
 	code, diagnostic := matchTaskFailure(err, stage)
+	if job, ok := diagnostic["job_index"].(int); ok && job > 0 && job <= len(ids) {
+		diagnostic["source_job_id"] = ids[job-1]
+	}
 	stop := errors.Is(err, p.ErrStaleInput) || errors.Is(err, p.ErrMatchQuota) || errors.Is(err, p.ErrMatchRunLease) || errors.Is(err, context.Canceled) || errors.Is(err, p.ErrMatchRunBusy) || errors.Is(err, p.ErrBackendUnavailable) || code == "MODEL_PROVIDER_FAILED" || code == "MODEL_RESPONSE_INVALID" || code == "MODEL_AUTH_FAILED" || code == "MODEL_BALANCE_LOW" || code == "MODEL_PROVIDER_BUSY" || code == "MODEL_CONNECTION_FAILED" || code == "MODEL_TIMEOUT"
 	_ = r.api.Store.AddMatchRunEvent(ctx, user, g, p.MatchRunEvent{RequestID: observability.From(ctx).RequestID, Stage: stage, JobIDs: ids, Code: code})
 	persistErr := r.api.Store.UpdateMatchRun(ctx, user, g, func(v *p.MatchRun) error {
@@ -512,6 +515,7 @@ func matchTaskFailure(err error, stage string) (string, map[string]any) {
 	var v *matching.ValidationError
 	if errors.As(err, &v) {
 		diag["validation_reason"] = v.Reason
+		addWholeDiagnostic(diag, v)
 		diag["job_index"] = v.JobIndex
 		diag["item_index"] = v.ItemIndex
 		if v.Reason == "MATCH_COUNT" || v.Reason == "JOB_COUNT" {
@@ -572,9 +576,15 @@ func (r *MatchTaskRunner) executeLeasedBatch(ctx context.Context, user string, i
 	}
 	fields := observability.From(ctx)
 	code := ""
+	var diagnostic map[string]any
 	if err != nil {
-		code, _ = matchTaskFailure(err, "")
+		stage := ""
+		var phase *MatchStageError
+		if errors.As(err, &phase) {
+			stage = phase.Stage
+		}
+		code, diagnostic = matchTaskFailure(err, stage)
 	}
-	slog.InfoContext(ctx, "matching batch completed", "request_id", fields.RequestID, "run_id", fields.RunID, "jobs", len(in.JobIDs), "duration_ms", time.Since(started).Milliseconds(), "model_calls", out.Calls, "error_code", code)
+	slog.InfoContext(ctx, "matching batch completed", "request_id", fields.RequestID, "run_id", fields.RunID, "jobs", len(in.JobIDs), "duration_ms", time.Since(started).Milliseconds(), "model_calls", out.Calls, "error_code", code, "diagnostic", diagnostic)
 	return out, err
 }

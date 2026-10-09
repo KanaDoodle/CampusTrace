@@ -45,6 +45,7 @@ type chatImportDiagnostic struct {
 	Item     int    `json:"item_index"`
 	Scope    string `json:"item_scope,omitempty"`
 	Related  int    `json:"related_item_index,omitempty"`
+	Citation int    `json:"citation_index,omitempty"`
 	Expected int    `json:"expected,omitempty"`
 	Actual   int    `json:"actual,omitempty"`
 }
@@ -88,6 +89,7 @@ func chatImportFailure(w http.ResponseWriter, err error, job int) {
 	var v *matching.ValidationError
 	if errors.As(err, &v) {
 		diagnostic := map[string]any{"validation_reason": v.Reason, "job_index": job, "item_index": v.ItemIndex, "related_item_index": v.RelatedItemIndex}
+		addWholeDiagnostic(diagnostic, v)
 		slog.Warn("chat matching import rejected", "request_id", w.Header().Get("X-Request-ID"), "diagnostic", diagnostic)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(400)
@@ -170,7 +172,7 @@ func (a *API) reviewChatImport(r *http.Request, in chatImportRequest) (chatImpor
 		}
 		if e != nil {
 			for _, v := range chatImportDiagnostics(e) {
-				out.Issues = append(out.Issues, chatImportIssue{row.Job.ID, row.Job.Title, row.Job.Company, chatImportDiagnostic{v.Reason, i + 1, v.ItemIndex, v.Scope, v.RelatedItemIndex, v.Expected, v.Actual}})
+				out.Issues = append(out.Issues, chatImportIssue{row.Job.ID, row.Job.Title, row.Job.Company, chatImportDiagnostic{Reason: v.Reason, Job: i + 1, Item: v.ItemIndex, Scope: v.Scope, Related: v.RelatedItemIndex, Citation: v.CitationIndex, Expected: v.Expected, Actual: v.Actual}})
 			}
 			continue
 		}
@@ -201,10 +203,16 @@ func (a *API) reviewChatImport(r *http.Request, in chatImportRequest) (chatImpor
 		if report.CandidateHash != snapshot.CandidateHash || report.InputKey != matching.CompanyInputKey(snapshot.Candidate, jobs, matching.ChatIdentity) {
 			valid = false
 		}
-		if !valid || matching.ValidateHolisticInput(snapshot.Candidate, jobs, true) != nil || matching.ValidateCompanyReport(report, snapshot.Candidate, jobs) != nil {
+		if !valid || matching.ValidateHolisticInput(snapshot.Candidate, jobs, true) != nil {
 			out.CompanyIssues = append(out.CompanyIssues, "同公司比较未保存：请核对 "+report.Company+" 的比较范围、编号和关键引用。单岗有效结果仍可导入。")
 			continue
 		}
+		prepared, err := matching.PrepareCompanyReport(report, snapshot.Candidate, jobs)
+		if err != nil {
+			out.CompanyIssues = append(out.CompanyIssues, "同公司比较未保存：请核对 "+report.Company+" 的比较范围、编号和关键引用。单岗有效结果仍可导入。")
+			continue
+		}
+		report = prepared
 		report.Company = rows[report.Choices[0].ID].Job.Company
 		out.Comparisons = append(out.Comparisons, report)
 	}

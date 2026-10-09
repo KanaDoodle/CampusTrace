@@ -144,3 +144,40 @@ func TestMatchingCapacityDiagnosticsExplainProfileVersusComparison(t *testing.T)
 		}
 	}
 }
+
+func TestWholeQuoteDiagnosticsSurviveHTTPTasksAndChat(t *testing.T) {
+	err := &matching.ValidationError{Reason: "HOLISTIC_EVIDENCE_EXCERPT_NOT_EXACT", Scope: "HOLISTIC_STRENGTH", JobIndex: 3, ItemIndex: 2, CitationIndex: 1}
+	for _, chat := range []bool{false, true} {
+		w := httptest.NewRecorder()
+		if chat {
+			chatImportFailure(w, err, 3)
+		} else {
+			matchFailure(w, err, "ANALYZE")
+		}
+		var out struct {
+			Diagnostic map[string]any `json:"diagnostic"`
+		}
+		if json.Unmarshal(w.Body.Bytes(), &out) != nil || out.Diagnostic["job_index"] != float64(3) || out.Diagnostic["item_index"] != float64(2) || out.Diagnostic["item_scope"] != "HOLISTIC_STRENGTH" || out.Diagnostic["citation_index"] != float64(1) {
+			t.Fatal("lost quote location", w.Body.String())
+		}
+	}
+	code, diag := matchTaskFailure(err, "ANALYZE")
+	if code != "MATCH_OUTPUT_INVALID" || diag["item_scope"] != "HOLISTIC_STRENGTH" || diag["citation_index"] != 1 {
+		t.Fatal("persisted task diagnostic lost quote location", diag)
+	}
+	unsafe := &matching.ValidationError{Reason: "FACT_UNKNOWN", Scope: "private-candidate-text", CitationIndex: 99}
+	_, diag = matchTaskFailure(unsafe, "ANALYZE")
+	wire, marshalErr := json.Marshal(diag)
+	if marshalErr != nil || diag["item_scope"] != nil || diag["citation_index"] != nil || strings.Contains(string(wire), "private-candidate-text") {
+		t.Fatal("diagnostic emitted an unrecognized scope", diag)
+	}
+}
+
+func TestWholeQuotePositionMapsThroughCacheAndSnapshotOrdering(t *testing.T) {
+	err := &matching.ValidationError{Reason: "HOLISTIC_JOB_EXCERPT_NOT_EXACT", JobIndex: 1, Scope: "HOLISTIC_GAP", ItemIndex: 2}
+	mapped := matchValidationPosition(err, []matching.HolisticJob{{ID: "bad"}, {ID: "other"}}, []string{"cached", "other", "bad"})
+	var v *matching.ValidationError
+	if !errors.As(mapped, &v) || v.JobIndex != 3 || v.ItemIndex != 2 || v.Scope != "HOLISTIC_GAP" || err.JobIndex != 1 {
+		t.Fatal("snapshot or cache changed diagnostic position", mapped)
+	}
+}

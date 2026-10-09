@@ -255,3 +255,39 @@ func TestLocalCityPreferenceUsesSameCanonicalChoicesAsRadar(t *testing.T) {
 		t.Fatal("province or unknown place inferred as preferred city", plain, got)
 	}
 }
+
+func TestLocalSummaryPreservesScoresAndDecisionsWithoutBuildingCitations(t *testing.T) {
+	s := localFixture(t, localProfile(), []d.ProjectFact{{ID: "project", Kind: "IMPLEMENTED", Verified: true, Claim: "实现 Go 并发服务和 Redis 任务队列"}})
+	for _, text := range []string{"熟悉 Go 和 Redis", "熟悉 Go、Java 任意一种语言；Go 优先", "要求掌握C++，Go优先", "本科以上，2027届；任职要求：熟悉 Go；工作职责：开发后端服务", "热爱技术", "只招博士，2026届"} {
+		full, summary := s.Screen(localJob(), text), s.ScreenSummary(localJob(), text)
+		full.Checks = []LocalCheck{}
+		if !reflect.DeepEqual(full, summary) {
+			t.Fatalf("summary changed scoring or eligibility for %q", text)
+		}
+	}
+}
+
+func BenchmarkLocalInventoryEvidence(b *testing.B) {
+	p := localProfile()
+	c, err := CandidateFrom(p, []d.ProjectFact{{ID: "project", Kind: "IMPLEMENTED", Verified: true, Claim: "实现 Go 并发服务和 Redis 任务队列"}}, "")
+	if err != nil {
+		b.Fatal(err)
+	}
+	s := NewLocalScreener(p, c)
+	text := "任职要求：熟悉 Go、Java 任意一种语言；熟悉 Redis、MySQL；掌握网络、并发编程、数据库；工作职责：实现消息队列和后端接口。Go 优先。"
+	for _, tc := range []struct {
+		name    string
+		summary bool
+	}{{"full", false}, {"summary", true}} {
+		b.Run(tc.name, func(b *testing.B) {
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				if tc.summary {
+					s.ScreenSummary(localJob(), text)
+				} else {
+					s.Screen(localJob(), text)
+				}
+			}
+		})
+	}
+}

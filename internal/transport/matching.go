@@ -70,6 +70,7 @@ func matchFailure(w http.ResponseWriter, err error, stage ...string) {
 	var validation *matching.ValidationError
 	if errors.As(err, &validation) {
 		diagnostic["validation_reason"] = validation.Reason
+		addWholeDiagnostic(diagnostic, validation)
 		if validation.JobIndex > 0 {
 			diagnostic["job_index"] = validation.JobIndex
 		}
@@ -134,17 +135,25 @@ func (m *budgetedMatchModel) CompleteJSON(ctx context.Context, messages, tools a
 
 func (a *API) matchingRoutes(on func(string, http.HandlerFunc)) {
 	on("POST /api/matching/preview", func(w http.ResponseWriter, r *http.Request) {
-		var in matchPreviewRequest
+		var in struct {
+			matchPreviewRequest
+			SummaryOnly bool `json:"summary_only"`
+		}
 		if err := decode(r, &in); err != nil {
 			write(w, nil, err)
 			return
 		}
-		identity, err := a.matchIdentity(in)
+		identity, err := a.matchIdentity(in.matchPreviewRequest)
 		if err != nil {
 			write(w, nil, err)
 			return
 		}
-		v, err := a.Store.MatchSnapshot(r.Context(), user(r), identity, strings.TrimSpace(in.MaskName), nil)
+		var v p.MatchSnapshot
+		if in.SummaryOnly {
+			v, err = a.Store.MatchInventorySnapshot(r.Context(), user(r), identity, strings.TrimSpace(in.MaskName))
+		} else {
+			v, err = a.Store.MatchSnapshot(r.Context(), user(r), identity, strings.TrimSpace(in.MaskName), nil)
+		}
 		if err != nil {
 			if errors.Is(err, p.ErrNotFound) {
 				codedError(w, 409, "MATCH_PROFILE_REQUIRED")
@@ -153,6 +162,16 @@ func (a *API) matchingRoutes(on func(string, http.HandlerFunc)) {
 			}
 			return
 		}
+		if in.SummaryOnly {
+			for i := range v.Jobs {
+				if local := v.Jobs[i].Local; local != nil {
+					local.Checks = nil
+					local.RoleExcerpt = ""
+					local.Direction.Evidence = nil
+				}
+			}
+		}
+		w.Header().Set("Cache-Control", "no-store")
 		write(w, v, nil)
 	})
 	on("PUT /api/matching/settings", func(w http.ResponseWriter, r *http.Request) {

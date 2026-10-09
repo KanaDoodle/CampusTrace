@@ -124,6 +124,16 @@ func (s *LocalScreener) localRole(j d.Job, direction Direction) (score float64, 
 }
 
 func (s *LocalScreener) Screen(j d.Job, text string) LocalScreen {
+	return s.screen(j, text, true)
+}
+
+// Inventory scores use exactly the same checks but do not build the citation
+// lists that are only needed when a user opens one job's details.
+func (s *LocalScreener) ScreenSummary(j d.Job, text string) LocalScreen {
+	return s.screen(j, text, false)
+}
+
+func (s *LocalScreener) screen(j d.Job, text string, citations bool) LocalScreen {
 	parsed := localJobCache.get(text)
 	v := LocalScreen{Version: LocalVersion, Tier: "UNCERTAIN", Reasons: []string{}, Warnings: []string{}, Checks: []LocalCheck{}}
 	v.Direction = s.direction(j, parsed)
@@ -162,7 +172,10 @@ func (s *LocalScreener) Screen(j d.Job, text string) LocalScreen {
 	for _, req := range parsed.Requirements {
 		check := LocalCheck{Category: req.Category, Mode: req.Mode, Excerpt: req.Excerpt, Terms: []string{}, Evidence: []LocalEvidence{}, Result: "NO_EVIDENCE"}
 		hits, projects := 0.0, 0.0
-		seen := map[string]bool{}
+		var seen map[string]bool
+		if citations {
+			seen = map[string]bool{}
+		}
 		for _, id := range req.Terms {
 			name := termByID[id].Name
 			evidence := s.evidence[id]
@@ -174,7 +187,9 @@ func (s *LocalScreener) Screen(j d.Job, text string) LocalScreen {
 					}
 				}
 			}
-			check.Terms = append(check.Terms, name)
+			if citations {
+				check.Terms = append(check.Terms, name)
+			}
 			if len(evidence) == 0 {
 				continue
 			}
@@ -184,10 +199,12 @@ func (s *LocalScreener) Screen(j d.Job, text string) LocalScreen {
 				if e.Kind == "IMPLEMENTED" {
 					project = true
 				}
-				key := e.ID + "\n" + e.Excerpt
-				if !seen[key] {
-					check.Evidence = append(check.Evidence, e)
-					seen[key] = true
+				if citations {
+					key := e.ID + "\n" + e.Excerpt
+					if !seen[key] {
+						check.Evidence = append(check.Evidence, e)
+						seen[key] = true
+					}
 				}
 			}
 			if project {
@@ -231,7 +248,9 @@ func (s *LocalScreener) Screen(j d.Job, text string) LocalScreen {
 		matched += ratio * weight
 		projectMatched += projectRatio * weight
 		total += weight
-		v.Checks = append(v.Checks, check)
+		if citations {
+			v.Checks = append(v.Checks, check)
+		}
 	}
 	capabilityScore, projectScore := 0.0, 0.0
 	if total > 0 {

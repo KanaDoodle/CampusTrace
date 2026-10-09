@@ -8,6 +8,7 @@ type ValidationError struct {
 	JobIndex         int
 	ItemIndex        int
 	RelatedItemIndex int
+	CitationIndex    int
 	Expected         int
 	Actual           int
 }

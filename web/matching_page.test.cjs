@@ -4,7 +4,7 @@ const fs=require('node:fs');
 const vm=require('node:vm');
 
 function harness({pending=['pending-a','pending-b'],failed=['failed-a','failed-b'],analyze,exportError,compare,exportRequest,evidenceReviews=0,durable=false,taskRuns=[],taskRequest,bulkRequest,importRequest}={}){
-  const stored=new Map(),elements=new Map(),requests=[],exports=[],decisionRequests=[],taskRequests=[],bulkRequests=[],importRequests=[],timers=[];
+  const stored=new Map(),elements=new Map(),requests=[],exports=[],decisionRequests=[],taskRequests=[],bulkRequests=[],importRequests=[],timers=[],navigations=[];
   const model={url:'https://model.example/chat',model:'test-model',api_key:'synthetic-test-key'};
   const modelKey=JSON.stringify([model.url,model.model,'server-model']);
   stored.set('campustrace:match-progress:v1:alice',JSON.stringify({hash:'profile',model:modelKey,pending,failed:failed.map(id=>({id,message:'上次连接失败'})),done:1,calls:1}));
@@ -57,7 +57,7 @@ function harness({pending=['pending-a','pending-b'],failed=['failed-a','failed-b
     throw new Error('Unexpected local test API path: '+path);
   };
   const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  return {navigation:context.CampusNavigation,start:(initial={})=>context.CampusMatching.page(set,'<h2>岗位匹配</h2>',{api,esc,D:{text:s=>s,date:()=>'',errorCode:s=>s,matchingDiagnostic:()=>'',label:(_kind,s)=>s},active:()=>true,navigate(){},...initial}),elements,requests,exports,decisionRequests,taskRequests,bulkRequests,importRequests,timers,stored,snapshot,review:()=>elements.get('match-confirm').onclick(),html:()=>html,consent:()=>elements.get('match-consent').onchange({target:{checked:true}}),progress:()=>JSON.parse(stored.get('campustrace:match-progress:v1:alice'))};
+  return {navigations,navigation:context.CampusNavigation,start:(initial={})=>context.CampusMatching.page(set,'<h2>岗位匹配</h2>',{api,esc,D:{text:s=>s,date:()=>'',errorCode:s=>s,matchingDiagnostic:()=>'',label:(_kind,s)=>s},active:()=>true,navigate:(name,query)=>navigations.push({name,query}),...initial}),elements,requests,exports,decisionRequests,taskRequests,bulkRequests,importRequests,timers,stored,snapshot,review:()=>elements.get('match-confirm').onclick(),html:()=>html,consent:()=>elements.get('match-consent').onchange({target:{checked:true}}),progress:()=>JSON.parse(stored.get('campustrace:match-progress:v1:alice'))};
 }
 
 test('returning from evidence supplementation reviews only the target job without starting a model call',async()=>{
@@ -393,4 +393,26 @@ test('a completed company task opens its captured job scope without sending a mo
  const task={id:'company-complete',kind:'COMPANY',company:'测试公司',state:'COMPLETED',version:3,candidate_hash:'profile',calls:1,items:[{job_id:'a',input_key:'a',state:'SUCCEEDED'},{job_id:'b',input_key:'b',state:'SUCCEEDED'}]};
  const h=harness({pending:['a','b','extra'],failed:[],durable:true,taskRuns:[task]});await h.start();await h.elements.get('match-task-company-result').onclick();
  assert.equal(h.decisionRequests.length,1);assert.equal(h.decisionRequests[0].scope,'SELECTED');assert.deepEqual(Array.from(h.decisionRequests[0].job_ids),['a','b']);assert.equal(h.taskRequests.length,0);assert.equal(h.requests.length,0);
+});
+
+test('company comparison export opens evaluation with the captured candidate scope rather than the full company',async()=>{
+ const ids=['a','b'],h=harness({pending:[...ids,'extra'],failed:[],compare:body=>({company:body.company,scope:'SELECTED',total:2,holistic_job_ids:ids,holistic_input_key:'scope',jobs:[]})});
+ await h.start();await h.elements.get('match-open-comparison').onclick();
+ assert.equal(h.elements.get('match-company-export-evaluation').disabled,true);
+ await h.elements.get('match-comparison-form').onsubmit({preventDefault(){}});
+ assert.equal(h.elements.get('match-company-export-evaluation').disabled,false);
+ h.elements.get('match-company-export-evaluation').onclick();
+ assert.equal(h.navigations.length,1);assert.equal(h.navigations[0].name,'company_decision');
+ assert.equal(h.navigations[0].query.company,'测试公司');assert.equal(h.navigations[0].query.evaluation,true);assert.deepEqual(Array.from(h.navigations[0].query.jobIDs),ids);
+ assert.equal(h.requests.length,0);assert.equal(h.taskRequests.length,0);assert.equal(h.exports.length,0);
+});
+
+test('radar company view carries the current company selection without starting analysis',async()=>{
+ const h=harness();h.stored.set('campustrace:match-selection:v1:alice',JSON.stringify(['pending-a','failed-a']));await h.start();h.elements.get('match-company-view').onclick();
+ const nav=h.navigations.at(-1);assert.equal(nav.name,'matching');assert.equal(nav.query.view,'company');assert.equal(nav.query.company,'测试公司');assert.deepEqual(Array.from(nav.query.jobIDs).sort(),['failed-a','pending-a']);assert.deepEqual(h.requests,[]);
+});
+
+test('returning from a company analysis retains a direct route back to its saved selection',async()=>{
+ const h=harness();await h.start({returnCompany:'测试公司',initialView:'list'});h.elements.get('match-return-company').onclick();
+ const nav=h.navigations.at(-1);assert.equal(nav.name,'matching');assert.equal(nav.query.view,'company');assert.equal(nav.query.company,'测试公司');assert.deepEqual(h.requests,[]);
 });

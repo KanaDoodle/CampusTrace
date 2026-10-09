@@ -166,3 +166,13 @@ test('chat batch diagnostics distinguish requirement and match positions and exp
  for(const reason of ['CHAT_GROUP_CONFLICT','CHAT_MATCH_MISSING','CHAT_REQUIREMENTS_LIMIT','CHAT_JOB_STALE'])assert.ok(D.matchingDiagnostic({validation_reason:reason}));
  assert.match(D.errorCode('MATCH_CHAT_CAPACITY',400,'/api/matching/import/preview'),/64 项/);
 });
+
+test('whole-context diagnostics distinguish job and personal quotes with finding and citation positions',()=>{
+ assert.match(D.matchingDiagnostic({validation_reason:'HOLISTIC_EVIDENCE_EXCERPT_NOT_EXACT',job_index:3,item_index:2,item_scope:'HOLISTIC_STRENGTH',citation_index:1}),/第 3 个岗位.*优势第 2 项.*个人引用第 1 条.*个人材料引用.*连续原文/);
+ assert.match(D.matchingDiagnostic({validation_reason:'HOLISTIC_JOB_EXCERPT_NOT_EXACT',item_index:1,item_scope:'HOLISTIC_GAP'}),/差距第 1 项.*岗位原文引用/);
+ assert.match(D.matchingDiagnostic({validation_reason:'HOLISTIC_EVIDENCE_EXCERPT_AMBIGUOUS',item_index:2,item_scope:'COMPANY_CHOICE'}),/公司比较条目第 2 项.*多处原文/);
+ assert.match(D.matchingDiagnostic({validation_reason:'HOLISTIC_JOB_EXCERPT_LENGTH',item_index:1,item_scope:'HOLISTIC_GATE'}),/资格条件第 1 项.*长度上限/);
+ assert.doesNotMatch(D.matchingDiagnostic({validation_reason:'FACT_UNKNOWN',item_index:1,item_scope:'<private>',citation_index:'secret'}),/private|secret/);
+ assert.equal(D.matchingDiagnostic({validation_reason:'constructor'}),'');
+ assert.doesNotMatch(D.matchingDiagnostic({validation_reason:'FACT_UNKNOWN',item_index:1,item_scope:'constructor'}),/function|Object/);
+});

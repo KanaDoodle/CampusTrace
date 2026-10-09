@@ -36,14 +36,15 @@ func ImportChatJob(in ChatJob, text string, job d.Job, profile d.Profile, c Cand
 		if len(in.Requirements) > 0 || len(in.Matches) > 0 || in.Truncated {
 			return Result{}, invalid("HOLISTIC_MIXED_FORMAT", 0)
 		}
-		if err := ValidateHolistic(*in.Assessment, text, c); err != nil {
-			return Result{}, err
-		}
-		reqs, err := HolisticRequirements(*in.Assessment, text)
+		prepared, err := PrepareHolisticAssessment(*in.Assessment, text, c)
 		if err != nil {
 			return Result{}, err
 		}
-		return Result{QualityVersion: QualityVersion, Holistic: in.Assessment, JobID: in.ID, InputKey: in.InputKey, RequirementsKey: RequirementKey(text, ChatIdentity), CandidateHash: c.Hash(), Model: ChatIdentity, Source: ChatSource, AnalyzedAt: now, Requirements: reqs, Matches: []Match{}, CandidateFacts: c.Facts, Qualifications: Qualification(job, profile, reqs, now), Breakdown: []SectionScore{}}, nil
+		reqs, err := HolisticRequirements(prepared, text)
+		if err != nil {
+			return Result{}, err
+		}
+		return Result{QualityVersion: QualityVersion, Holistic: &prepared, JobID: in.ID, InputKey: in.InputKey, RequirementsKey: RequirementKey(text, ChatIdentity), CandidateHash: c.Hash(), Model: ChatIdentity, Source: ChatSource, AnalyzedAt: now, Requirements: reqs, Matches: []Match{}, CandidateFacts: c.Facts, Qualifications: Qualification(job, profile, reqs, now), Breakdown: []SectionScore{}}, nil
 	}
 	if in.Truncated || len(in.Requirements) > MaxRequirements {
 		return Result{}, ErrCapacity
