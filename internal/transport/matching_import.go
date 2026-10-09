@@ -30,11 +30,13 @@ type chatImportRow struct {
 	Result   matching.Result `json:"result"`
 }
 type chatImportPreview struct {
-	Key             string            `json:"preview_key"`
-	Total           int               `json:"total"`
-	Jobs            []chatImportRow   `json:"jobs"`
-	Issues          []chatImportIssue `json:"issues"`
-	EvidenceReviews int               `json:"evidence_reviews"`
+	Comparisons     []matching.HolisticCompanyReport `json:"comparisons"`
+	CompanyIssues   []string                         `json:"company_issues"`
+	Key             string                           `json:"preview_key"`
+	Total           int                              `json:"total"`
+	Jobs            []chatImportRow                  `json:"jobs"`
+	Issues          []chatImportIssue                `json:"issues"`
+	EvidenceReviews int                              `json:"evidence_reviews"`
 }
 
 type chatImportDiagnostic struct {
@@ -105,7 +107,7 @@ func chatImportFailure(w http.ResponseWriter, err error, job int) {
 func (a *API) reviewChatImport(r *http.Request, in chatImportRequest) (chatImportPreview, []matching.Result, map[string]string, error) {
 	out := chatImportPreview{Jobs: []chatImportRow{}, Issues: []chatImportIssue{}}
 	doc := in.Document
-	if doc.Version != matching.ChatVersion {
+	if doc.Version != matching.ChatVersion && doc.Version != matching.HolisticChatVersion {
 		return out, nil, nil, &matching.ValidationError{Reason: "CHAT_VERSION"}
 	}
 	if len(doc.Jobs) == 0 || len(doc.Jobs) > maxChatImportJobs {
@@ -160,7 +162,11 @@ func (a *API) reviewChatImport(r *http.Request, in chatImportRequest) (chatImpor
 		if row.Text == "" || job.InputKey != row.InputKey {
 			e = p.ErrStaleInput
 		} else {
-			result, e = matching.ImportChatJob(job, row.Text, row.Job, snapshot.Profile, snapshot.Candidate, time.Time{})
+			if (doc.Version == matching.HolisticChatVersion) != (job.Assessment != nil) {
+				e = &matching.ValidationError{Reason: "HOLISTIC_MIXED_FORMAT"}
+			} else {
+				result, e = matching.ImportChatJob(job, row.Text, row.Job, snapshot.Profile, snapshot.Candidate, time.Time{})
+			}
 		}
 		if e != nil {
 			for _, v := range chatImportDiagnostics(e) {
@@ -168,11 +174,39 @@ func (a *API) reviewChatImport(r *http.Request, in chatImportRequest) (chatImpor
 			}
 			continue
 		}
-		result.SourceContextKey = matching.InputKey(matching.RequirementKey(baseRows[job.ID].Text, matching.ChatIdentity), baseSnapshot.CandidateHash)
+		result.SourceContextKey = matching.JobInputKey(baseRows[job.ID].Job, matching.RequirementKey(baseRows[job.ID].Text, matching.ChatIdentity), baseSnapshot.CandidateHash)
 		results = append(results, result)
 		validIDs = append(validIDs, job.ID)
 		out.EvidenceReviews += matching.EvidenceReviewCount(result.Matches)
 		out.Jobs = append(out.Jobs, chatImportRow{row.Job.ID, row.Job.Title, row.Job.Company, false, result})
+	}
+	accepted := map[string]bool{}
+	for _, id := range validIDs {
+		accepted[id] = true
+	}
+	seenReports := map[string]bool{}
+	for _, report := range doc.Comparisons {
+		jobs := []matching.HolisticJob{}
+		valid := doc.Version == matching.HolisticChatVersion && !seenReports[report.Company]
+		seenReports[report.Company] = true
+		for _, choice := range report.Choices {
+			row, ok := rows[choice.ID]
+			if !ok || !accepted[choice.ID] || row.ExcludedReason != "" {
+				valid = false
+				break
+			}
+			jobs = append(jobs, p.WholeJobs([]p.MatchJob{row}, in.MaskName)...)
+		}
+		report.Model = matching.ChatIdentity
+		if report.CandidateHash != snapshot.CandidateHash || report.InputKey != matching.CompanyInputKey(snapshot.Candidate, jobs, matching.ChatIdentity) {
+			valid = false
+		}
+		if !valid || matching.ValidateHolisticInput(snapshot.Candidate, jobs, true) != nil || matching.ValidateCompanyReport(report, snapshot.Candidate, jobs) != nil {
+			out.CompanyIssues = append(out.CompanyIssues, "同公司比较未保存：请核对 "+report.Company+" 的比较范围、编号和关键引用。单岗有效结果仍可导入。")
+			continue
+		}
+		report.Company = rows[report.Choices[0].ID].Job.Company
+		out.Comparisons = append(out.Comparisons, report)
 	}
 	previous, err := a.Store.MatchResultVersions(r.Context(), user(r), validIDs)
 	if err != nil {
@@ -190,7 +224,7 @@ func (a *API) reviewChatImport(r *http.Request, in chatImportRequest) (chatImpor
 	if len(results) > 0 {
 		// Bind the complete submitted document as well as the accepted subset.
 		// An edit, changed input, or newly accepted job requires a new preview.
-		out.Key = d.Hash(user(r) + "\n" + strings.TrimSpace(in.MaskName) + "\n" + d.JSON(doc) + "\n" + d.JSON(keyRows) + "\n" + d.JSON(out.Issues) + "\n" + d.JSON(previous))
+		out.Key = d.Hash(user(r) + "\n" + strings.TrimSpace(in.MaskName) + "\n" + d.JSON(doc) + "\n" + d.JSON(keyRows) + "\n" + d.JSON(out.Issues) + "\n" + d.JSON(out.Comparisons) + "\n" + d.JSON(previous))
 	}
 	return out, results, previous, nil
 }
@@ -250,9 +284,9 @@ func (a *API) importChatMatches(w http.ResponseWriter, r *http.Request) {
 	for i := range results {
 		results[i].AnalyzedAt = now
 	}
-	if err = a.Store.SaveChatMatches(r.Context(), user(r), strings.TrimSpace(in.MaskName), results, previous); err != nil {
+	if err = a.Store.SaveChatMatches(r.Context(), user(r), strings.TrimSpace(in.MaskName), results, previous, preview.Comparisons...); err != nil {
 		chatImportFailure(w, err, 0)
 		return
 	}
-	write(w, map[string]any{"imported": len(results), "skipped": preview.Total - len(results), "evidence_reviews": preview.EvidenceReviews}, nil)
+	write(w, map[string]any{"imported": len(results), "skipped": preview.Total - len(results), "evidence_reviews": preview.EvidenceReviews, "comparisons": len(preview.Comparisons)}, nil)
 }

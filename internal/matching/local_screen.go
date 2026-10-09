@@ -48,12 +48,12 @@ func NewLocalScreener(p d.Profile, candidate Candidate) *LocalScreener {
 	p = p.EducationProfile()
 	s := &LocalScreener{profile: p, evidence: map[string][]LocalEvidence{}, preferredCities: map[string]bool{}, acceptableCities: map[string]bool{}}
 	s.directionTargets, s.directionUnknown = directionTargets(p.TargetRoles)
-	for _, city := range p.PreferredCities {
+	for _, city := range d.CanonicalCities(p.PreferredCities) {
 		if norm := Normalize(city); norm != "" {
 			s.preferredCities[norm] = true
 		}
 	}
-	for _, city := range p.AcceptableCities {
+	for _, city := range d.CanonicalCities(p.AcceptableCities) {
 		if norm := Normalize(city); norm != "" {
 			s.acceptableCities[norm] = true
 		}
@@ -132,7 +132,8 @@ func (s *LocalScreener) Screen(j d.Job, text string) LocalScreen {
 	v.Reasons = append(v.Reasons, roleReason)
 	prefScore := 0.0
 	preferred, acceptable := false, false
-	for _, city := range j.Locations {
+	cities := d.CanonicalCities(j.Locations)
+	for _, city := range cities {
 		norm := Normalize(city)
 		preferred = preferred || s.preferredCities[norm]
 		acceptable = acceptable || s.acceptableCities[norm]
@@ -144,7 +145,7 @@ func (s *LocalScreener) Screen(j d.Job, text string) LocalScreen {
 	case acceptable:
 		prefScore += 8
 		v.Reasons = append(v.Reasons, "工作地点包含可接受城市。")
-	case len(j.Locations) == 0:
+	case len(cities) == 0:
 		v.Reasons = append(v.Reasons, "岗位地点未知，未计城市偏好。")
 	case len(s.profile.PreferredCities)+len(s.profile.AcceptableCities) == 0:
 		v.Reasons = append(v.Reasons, "未设置城市偏好。")

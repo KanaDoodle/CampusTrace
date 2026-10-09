@@ -16,13 +16,14 @@
     degree: {ASSOCIATE:'大专', BACHELOR:'本科', MASTER:'硕士', PHD:'博士'},
     signal: {PRESENT:'发现申请入口', ABSENT:'未发现申请入口', UNKNOWN:'入口情况待确认'},
     fact: {IMPLEMENTED:'已实现', LIMITATION:'已知局限', PLANNED:'计划实现'},
-    terminal: {COMPLETED:'查询完成', ERROR:'查询失败', TIMEOUT:'查询超时', CANCELLED:'查询已取消', UNGROUNDED:'暂无充分依据', TOOL_LIMIT:'已达本次查询上限', STEP_LIMIT:'已达本次分析上限', OUTPUT_LIMIT:'查询内容超过本次输出上限，请缩小范围'},
+    terminal: {BUDGET_LIMIT:'已达本次上下文或调用预算',COMPLETED:'查询完成', ERROR:'查询失败', TIMEOUT:'查询超时', CANCELLED:'查询已取消', UNGROUNDED:'暂无充分依据', TOOL_LIMIT:'已达本次查询上限', STEP_LIMIT:'已达本次分析上限', OUTPUT_LIMIT:'查询内容超过本次输出上限，请缩小范围'},
     change: {JD_CONTENT_CHANGED:'岗位描述有更新', GRADUATION_CHANGED:'毕业届别要求有更新', LOCATION_CHANGED:'工作地点有更新', APPLY_SIGNAL_CHANGED:'申请入口有变化', DEADLINE_CHANGED:'截止日期有更新', TECH_REQUIREMENT_CHANGED:'技术要求有更新'},
     evidence: {OTHER_QUALIFICATION:'其他投递条件', GRADUATION_REQUIREMENT:'毕业届别要求', EDUCATION_REQUIREMENT:'学历要求', JOB_TYPE:'岗位类型', LOCATION:'工作地点', EXPERIENCE_REQUIREMENT:'经验要求', TECH_STACK:'技术要求', LANGUAGE_REQUIREMENT:'语言要求', MAJOR_REQUIREMENT:'专业要求', APPLY_ACTION:'申请入口', DEADLINE:'投递截止日期', OPEN_SIGNAL:'开放招聘信号', CLOSED_SIGNAL:'结束招聘信号'},
-    tool: {get_daily_digest:'查询每日雷达',get_recent_changes:'查询最近变化',get_closing_jobs:'查询截止雷达',get_watched_sources:'查询关注源',watch_source:'关注招聘来源',unwatch_source:'取消关注来源',search_jobs:'检索校招岗位', get_job:'查询岗位详情', get_job_evidence:'核对岗位证据', get_job_eligibility:'核对投递条件',get_match_result:'查看深度匹配',compare_company_jobs:'对比同公司岗位',get_match_tasks:'查询深度分析进度', list_applications:'查询投递记录', get_application_history:'查询投递进展', get_interview_history:'查询面试与复盘', get_weak_topics:'查询待加强知识点', search_knowledge:'检索复习资料', get_project_facts:'核对项目事实', get_preparation_context:'整理面试准备内容', create_application:'加入投递计划', transition_application:'更新投递进展', record_interview_review:'保存面试复盘'},
+    tool: {get_candidate_document:'读取完整核对资料',get_agent_todos:'查看招聘变化待办',list_mcp_resources:'查看授权学习资料',read_mcp_resource:'读取选定学习资料',remember_memory:'保存记忆预览',search_memories:'查询我的记忆',get_agent_tasks:'查询讨论记录',get_practice_runs:'查看练习结果',get_daily_digest:'查询每日雷达',get_recent_changes:'查询最近变化',get_closing_jobs:'查询截止雷达',get_watched_sources:'查询关注源',watch_source:'关注招聘来源',unwatch_source:'取消关注来源',search_jobs:'检索校招岗位', get_job:'查询岗位详情', get_job_evidence:'核对岗位证据', get_job_eligibility:'核对投递条件',get_match_result:'查看深度匹配',compare_company_jobs:'对比同公司岗位',get_match_tasks:'查询深度分析进度', list_applications:'查询投递记录', get_application_history:'查询投递进展', get_interview_history:'查询面试与复盘', get_weak_topics:'查询待加强知识点', search_knowledge:'检索复习资料', get_project_facts:'核对项目事实', get_preparation_context:'整理面试准备内容', create_application:'加入投递计划', transition_application:'更新投递进展', record_interview_review:'保存面试复盘'},
     ranking: {status:'岗位可投递情况', eligibility:'投递条件匹配', city:'意向城市匹配', type:'岗位类型偏好', go_fit:'Go 技术方向匹配', role:'意向职能匹配', freshness:'岗位信息时效'}
   });
   const fields = Object.freeze({
+    resource_id:'资料编号',resource_count:'资料份数',candidate_document:'已核对资料正文',candidate_hash:'资料版本',connector_id:'资料连接编号',allowed_resources:'允许读取的资料',uri:'资料地址',source:'来源',mime_type:'资料类型',more:'还有更多待办',
     counts:'雷达统计',as_of:'数据时间',new_jobs:'今日新增',recommended_jobs:'优先投递',closing_soon:'即将截止',status_changes:'状态变化',recent_changes:'最近变化',upcoming_interviews:'近期面试',disposition:'岗位偏好',deadline:'截止时间',deadline_version:'截止版本',check_interval:'检查间隔（秒）',enabled:'是否启用',next_check_at:'下次检查',last_checked_at:'上次检查',schedule_version:'调度版本',last_outcome:'检查结果',truncated:'已精简首页展示',watch_id:'关注编号',
     id:'记录编号', job_id:'岗位编号', company_id:'公司编号', user_id:'账号编号', title:'名称', company:'公司', name:'名称', job_type:'岗位类型', locations:'工作地点', current_status:'岗位状态', created_at:'创建时间', updated_at:'更新时间', fingerprint:'岗位识别标记',
     source_id:'来源编号', source_posting_id:'来源发布编号', external_id:'来源岗位编号', url:'来源网址', first_seen_at:'首次发现时间', last_seen_at:'最近发现时间', merge_reason:'岗位归并依据',
@@ -41,6 +42,7 @@
     job_status:'招聘状态',coverage:'核心依据覆盖度',analyzed:'已分析岗位数',pending:'待分析岗位数',stale:'待更新岗位数',total:'岗位总数',shown:'摘要展示数',recommended:'优先候选',recommended_count:'优先候选数',recommendation:'对比结论',blocked_reason:'暂不可推荐原因',strengths:'已有依据',gaps:'待核对要求',requirement_id:'岗位要求编号',requirement_excerpt:'岗位原文摘录预览',fact_id:'资料依据编号',fact_excerpt:'资料依据摘录预览',scope:'对比范围',items:'岗位进度',stage:'失败阶段',code:'错误分类',locally_refreshed:'已按当前资料本地更新',evidence_reviews:'已撤销错误引用数'
   });
   const messages = Object.freeze({
+    'MCP_UNAVAILABLE':'暂时无法读取 MCP 资料服务，请检查公共 HTTPS 地址、令牌及资源支持。',
     'No recent usable observation':'目前没有近期可用的观察记录。',
     'Recent official sources conflict':'近期官方来源的信息存在冲突，需要进一步核验。',
     'Official explicit closure or elapsed deadline':'官方来源已明确结束招聘，或投递截止日期已过。',
@@ -151,6 +153,7 @@
   // A machine-readable code from the API wins over the status-code fallback: a
   // taken email is not a formatting mistake the user can fix by retyping.
   function errorCode(code, status, path='') {
+    if(code==='MCP_UNAVAILABLE')return '暂时无法读取 MCP 资料服务，请检查公共 HTTPS 地址、令牌及资源支持。';
     if(code==='MATCH_EXPORT_CAPACITY')return '每次最多导出 1,000 个岗位，文字总量不超过 5 MB；请减少选择后重试。';
     if(code==='MATCH_EXPORT_TEXT_REQUIRED')return '所选岗位中有原文缺失或最近读取失败的项，请移除这些岗位后再导出。';
     const chatErrors={MATCH_CHAT_FORMAT:'结果格式无法读取，请使用完整的 JSON 文件或代码块。',MATCH_CHAT_INVALID:'聊天结果未通过原文与资料核对，请查看具体原因并让 ChatGPT 修正对应条目。',MATCH_CHAT_CAPACITY:'单次最多导入 100 个岗位、2 MB 结果，每岗最多 64 项要求；请分批导入或重新拆解要求。',MATCH_CHAT_STALE:'资料、岗位或已有结果发生变化，或者预览已失效。请重新核对；分析包过期时需重新导出。'};if(chatErrors[code])return chatErrors[code];
@@ -191,10 +194,11 @@
     return error(status, path);
   }
   function matchingDiagnostic(value={}) {
-    const capacity={CANDIDATE_BYTES:['个人匹配资料','字节'],CANDIDATE_FACTS:['个人资料条目','项'],COMPARISON_BYTES:['本批岗位要求与个人资料的比较输入','字节']};
+    const capacity={CANDIDATE_BYTES:['个人匹配资料','字节'],CANDIDATE_FACTS:['个人资料条目','项'],COMPARISON_BYTES:['本批岗位要求与个人资料的比较输入','字节'],HOLISTIC_BYTES:['本批完整岗位与个人资料','字节'],HOLISTIC_JOBS:['本次比较范围','个岗位'],JOB_BYTES:['单个岗位完整文字','字节']};
     const bounds=typeof value.capacity_reason==='string'&&Object.hasOwn(capacity,value.capacity_reason)?capacity[value.capacity_reason]:null;
     if(bounds&&Number.isInteger(value.actual)&&value.actual>=0&&value.actual<=10000000&&Number.isInteger(value.limit)&&value.limit>0&&value.limit<=10000000)return ` 具体原因：${bounds[0]}共 ${value.actual.toLocaleString('en-US')} ${bounds[1]}，上限 ${value.limit.toLocaleString('en-US')} ${bounds[1]}${value.capacity_reason.startsWith('CANDIDATE_')?'；减少岗位数量不会减少这部分资料':''}。`;
     const reasons={EDUCATION_FORMAT:'教育经历的学历、专业、日期或就读状态格式不符合约定',VALUE_CONFLICT:'同一资料字段出现多个不同值，已排除以避免相互覆盖',RESPONSE_MESSAGE:'模型服务未返回可读取的最终答案',RESPONSE_SIZE:'模型答案为空或超过结果长度上限',RESPONSE_JSON:'模型答案不是完整的 JSON，可能含格式文字或被截断',RESPONSE_SCHEMA:'模型答案不符合约定结构（多余字段、空值或类型不正确）',JOB_UNKNOWN:'模型返回了不属于本批的岗位编号',JOB_DUPLICATE:'模型重复返回了同一个岗位',JOB_COUNT:'模型遗漏了本批岗位',INPUT_JOB_DUPLICATE:'分析输入包含重复岗位',MATCH_COUNT:'模型返回的匹配项数与岗位要求数不一致',REQUIREMENT_UNKNOWN:'模型引用了不存在的岗位要求编号',REQUIREMENT_DUPLICATE:'模型重复返回了同一岗位要求',EXPLANATION_EMPTY:'模型未给出判断说明',EXPLANATION_LENGTH:'模型判断说明超过长度上限',EXPLANATION_SENSITIVE:'模型判断说明包含疑似敏感标识，已拒绝保存',EVIDENCE_COUNT:'模型引用的资料条数超过上限',RESULT_UNKNOWN:'模型返回了不支持的匹配结论',EVIDENCE_REQUIRED:'模型给出肯定或明确不符结论，却没有引用个人依据',FACT_UNKNOWN:'模型引用了不存在的个人资料或项目事实编号',EXCERPT_EMPTY:'模型引用了资料，却没有提供摘录',EXCERPT_LENGTH:'模型资料摘录超过长度上限',EXCERPT_NOT_EXACT:'模型摘录不是对应资料的连续原文，可能改写、翻译或拼接了内容',FACT_NOT_ABILITY:'模型将意向、城市偏好或项目局限当成能力证明'};
+    Object.assign(reasons,{HOLISTIC_VERSION:'整体分析版本不一致，请按当前分析包格式返回',HOLISTIC_FIT:'整体适配结论超出允许范围',HOLISTIC_SUMMARY:'整体结论或核心工作为空或过长',HOLISTIC_FINDINGS:'关键结论或后续建议的格式、数量或长度不符合约定',HOLISTIC_GATES:'资格条件的类型、取值或引用不明确；复杂条件请放入待确认事项',HOLISTIC_EVIDENCE_REQUIRED:'优势结论缺少可核对的个人材料依据',HOLISTIC_MIXED_FORMAT:'请使用本包的整体分析格式，不混入旧版逐项要求与匹配',EXCERPT_NOT_CONTIGUOUS:'关键摘录不是对应岗位或个人材料的连续原文，请直接复制原文',INVALID_ABILITY_EVIDENCE:'意向、偏好或项目局限不能作为能力证明',COMPANY_SCOPE:'比较岗位范围不一致、重复或遗漏',COMPANY_REPORT:'公司比较格式或关键引用不符合约定',COMPANY_RANK:'公司排序分组应从1开始连续编号，支持并列'});
     Object.assign(reasons,{CHAT_VERSION:'结果来自旧版分析包，请重新导出并按新版格式返回 JSON',CHAT_REQUIREMENTS_EMPTY:'岗位未返回可核对的要求，暂不能导入空分析',CHAT_REQUIREMENT_INVALID:'岗位要求的分类、资格值或原文摘录无效，请核对连续原文',CHAT_REQUIREMENT_COMPOSITE:'复合要求需要分别返回要求与匹配结论，请让 ChatGPT 按分析包指令拆开',CHAT_REVIEW_NOTE:'聊天结果含程序内部复核字段，请移除 review_note',CHAT_GROUP_CONFLICT:'任选组的类别、软性标记或范围摘录不一致，请统一同一组选项',CHAT_MATCH_MISSING:'这项岗位要求缺少对应匹配结论，请补齐 match',CHAT_REQUIREMENTS_LIMIT:'岗位要求超过64项或标记为未完整分析，请完成分析后再导入',CHAT_MATCHES_LIMIT:'匹配结论超过64项，请移除重复结论并与岗位要求一一对应',CHAT_JOB_STALE:'这个岗位的原文快照已变化或 input_key 不一致，请重新导出该岗位分析包',EXCERPT_ID_UNKNOWN:'模型选择的原文片段编号不存在，或不属于对应资料',EXCERPT_REFERENCE_CONFLICT:'模型同时返回片段编号和摘录文字，无法确定引用方式',EXCERPT_AMBIGUOUS:'空白格式不同的摘录对应多处原文，无法确定引用位置'});
     Object.assign(reasons,{CHAT_REQUIREMENT_ID_INVALID:'岗位要求编号为空或过长，请为每条要求填写唯一编号',CHAT_REQUIREMENT_ID_DUPLICATE:'岗位要求编号重复，请修改编号并同步对应的匹配项',CHAT_REQUIREMENT_CONTENT_DUPLICATE:'同一种岗位条件被重复列出，请保留一条要求及对应的匹配项'});
     Object.assign(reasons,{CHAT_REQUIREMENT_TEXT_LENGTH:'岗位要求说明 text 超过 600 个 UTF-8 字节，请缩短本项说明并保留要求含义',CHAT_REQUIREMENT_EXCERPT_LENGTH:'岗位原文摘录 excerpt 超过 600 个 UTF-8 字节（纯汉字约 200 字），请选取支持本项要求的较短连续原文，保留程度与范围限定',CHAT_REQUIREMENT_EXCERPT_EMPTY:'岗位要求没有原文摘录 excerpt，请补上对应岗位中的连续原文',CHAT_REQUIREMENT_EXCERPT_NOT_EXACT:'岗位原文摘录 excerpt 不是对应岗位的连续原文，请直接复制原句，不改写、翻译或拼接'});

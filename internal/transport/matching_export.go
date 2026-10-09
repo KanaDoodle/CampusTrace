@@ -2,11 +2,13 @@ package transport
 
 import (
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
 	"github.com/KanaDoodle/CampusTrace/internal/matching"
+	p "github.com/KanaDoodle/CampusTrace/internal/persistence"
 	"github.com/KanaDoodle/CampusTrace/internal/resume"
 )
 
@@ -75,21 +77,38 @@ func (a *API) exportMatches(w http.ResponseWriter, r *http.Request) {
 			codedError(w, 409, "MATCH_EXPORT_TEXT_REQUIRED")
 			return
 		}
-		byID[row.Job.ID] = chatExportJob{row.Job.ID, matching.InputKey(matching.RequirementKey(row.Text, matching.ChatIdentity), snapshot.CandidateHash), clean(row.Job.Company), clean(row.Job.Title), cleanList(row.Job.Locations), row.Job.JobType, row.Job.CurrentStatus, row.ExcludedReason, row.Text}
+		byID[row.Job.ID] = chatExportJob{row.Job.ID, matching.JobInputKey(row.Job, matching.RequirementKey(row.Text, matching.ChatIdentity), snapshot.CandidateHash), clean(row.Job.Company), clean(row.Job.Title), cleanList(row.Job.Locations), row.Job.JobType, row.Job.CurrentStatus, row.ExcludedReason, row.Text}
 	}
 	jobs := make([]chatExportJob, 0, len(in.JobIDs))
 	for _, id := range in.JobIDs {
 		jobs = append(jobs, byID[id])
 	}
+	companyInputs := []matching.HolisticCompanyInput{}
+	groups := map[string][]p.MatchJob{}
+	for _, row := range snapshot.Jobs {
+		groups[row.Job.Company] = append(groups[row.Job.Company], row)
+	}
+	for company, rows := range groups {
+		whole := p.WholeJobs(rows, mask)
+		modelKey := matching.CompanyInputKey(snapshot.Candidate, whole, identity)
+		ids := []string{}
+		for i := range whole {
+			ids = append(ids, whole[i].ID)
+			whole[i].InputKey = matching.JobInputKey(rows[i].Job, matching.RequirementKey(whole[i].Text, matching.ChatIdentity), snapshot.CandidateHash)
+		}
+		companyInputs = append(companyInputs, matching.HolisticCompanyInput{Company: clean(company), InputKey: matching.CompanyInputKey(snapshot.Candidate, whole, matching.ChatIdentity), ModelInputKey: modelKey, JobIDs: ids})
+	}
+	sort.Slice(companyInputs, func(i, j int) bool { return companyInputs[i].Company < companyInputs[j].Company })
 	out := struct {
-		Version        string              `json:"version"`
-		PromptRevision string              `json:"prompt_revision"`
-		ExportedAt     time.Time           `json:"exported_at"`
-		CandidateHash  string              `json:"candidate_hash"`
-		Candidate      matching.Candidate  `json:"candidate"`
-		Preferences    map[string][]string `json:"preferences"`
-		Jobs           []chatExportJob     `json:"jobs"`
-	}{matching.ChatVersion, matching.ChatPromptRevision, time.Now().UTC(), snapshot.CandidateHash, snapshot.Candidate, map[string][]string{
+		CompanyInputs  []matching.HolisticCompanyInput `json:"company_inputs"`
+		Version        string                          `json:"version"`
+		PromptRevision string                          `json:"prompt_revision"`
+		ExportedAt     time.Time                       `json:"exported_at"`
+		CandidateHash  string                          `json:"candidate_hash"`
+		Candidate      matching.Candidate              `json:"candidate"`
+		Preferences    map[string][]string             `json:"preferences"`
+		Jobs           []chatExportJob                 `json:"jobs"`
+	}{companyInputs, matching.HolisticChatVersion, matching.HolisticPromptRevision, time.Now().UTC(), snapshot.CandidateHash, matching.ReviewedCandidate(snapshot.Candidate), map[string][]string{
 		"preferred_job_types": cleanList(snapshot.Profile.PreferredTypes),
 		"preferred_cities":    cleanList(snapshot.Profile.PreferredCities),
 		"acceptable_cities":   cleanList(snapshot.Profile.AcceptableCities),

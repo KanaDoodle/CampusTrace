@@ -31,6 +31,10 @@ integration:
 eval:
 	go run ./cmd/eval
 	go run ./cmd/eval -mode journey
+
+.PHONY: matching-eval
+matching-eval:
+	go run ./cmd/match-eval -dataset internal/matcheval/testdata/examples.json -strict
 loadgen:
 	go run ./cmd/loadgen -n 100
 

@@ -9,8 +9,11 @@ import (
 // OfficialJobURL exposes only an official posting visible to the current user.
 // A manually supplied URL does not acquire official trust by being imported.
 func (s *Store) OfficialJobURL(ctx context.Context, user, jobID string) (string, error) {
+	return officialJobURL(ctx, s.DB, user, jobID)
+}
+func officialJobURL(ctx context.Context, q Queryer, user, jobID string) (string, error) {
 	var link string
-	err := s.DB.QueryRowContext(ctx, `SELECT JSON_UNQUOTE(JSON_EXTRACT(p.body,'$.url'))
+	err := q.QueryRowContext(ctx, `SELECT JSON_UNQUOTE(JSON_EXTRACT(p.body,'$.url'))
  FROM postings p JOIN sources src ON src.id=p.source_id JOIN jobs j ON j.id=p.job_id
  WHERE p.job_id=? AND (j.visibility='GLOBAL' OR (j.visibility='PRIVATE' AND j.owner_id=?))
  AND JSON_UNQUOTE(JSON_EXTRACT(src.body,'$.trust'))='OFFICIAL'

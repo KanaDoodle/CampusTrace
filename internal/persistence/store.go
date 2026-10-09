@@ -70,7 +70,7 @@ func (s *Store) Migrate(ctx context.Context) error {
 	if err := s.migrateBackend(ctx); err != nil {
 		return err
 	}
-	for _, stmt := range strings.Split(migrations.LocalReliabilitySQL+";"+migrations.SourceImportSQL, ";") {
+	for _, stmt := range strings.Split(migrations.LocalReliabilitySQL+";"+migrations.SourceImportSQL+";"+migrations.HolisticSQL+";"+migrations.AgentWorkspaceSQL+";"+migrations.AgentHarnessSQL, ";") {
 		if strings.TrimSpace(stmt) != "" {
 			if _, err := s.DB.ExecContext(ctx, stmt); err != nil {
 				return err
@@ -154,6 +154,9 @@ func (s *Store) Profile(ctx context.Context, user string) (d.Profile, error) {
 	return One[d.Profile](ctx, s.DB, "SELECT body FROM profiles WHERE user_id=?", user)
 }
 func (s *Store) SaveProfile(ctx context.Context, user string, p d.Profile) error {
+	if p.AdditionalExperience != nil && (len(*p.AdditionalExperience) > 16000 || resume.HasSensitive(*p.AdditionalExperience)) {
+		return ErrValidation
+	}
 	if p.NormalizeFoundationSkills() != nil {
 		return ErrValidation
 	}
@@ -196,6 +199,9 @@ func (s *Store) SaveProfile(ctx context.Context, user string, p d.Profile) error
 		if p.FoundationSkills == nil {
 			p.FoundationSkills = old.FoundationSkills
 		}
+		if p.AdditionalExperience == nil {
+			p.AdditionalExperience = old.AdditionalExperience
+		}
 		if err := p.NormalizeEducations(); err != nil {
 			return ErrValidation
 		}
@@ -208,6 +214,9 @@ func (s *Store) SaveProfile(ctx context.Context, user string, p d.Profile) error
 		}
 		p.Revision = old.Revision + 1
 		_, err = tx.ExecContext(ctx, "INSERT INTO profiles(id,user_id,body) VALUES(?,?,?) ON DUPLICATE KEY UPDATE body=VALUES(body)", user, user, d.JSON(p))
+		if err == nil {
+			err = agentEvent(ctx, tx, user, "", "PROFILE_CHANGED")
+		}
 		return err
 	})
 }

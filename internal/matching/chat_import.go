@@ -16,20 +16,35 @@ const ChatSource = "CHATGPT_IMPORT"
 // Scores and qualifications supplied by chat are intentionally absent here.
 // They are computed locally from checked requirements and candidate citations.
 type ChatJob struct {
-	ID           string        `json:"job_id"`
-	InputKey     string        `json:"input_key"`
-	Truncated    bool          `json:"truncated,omitempty"`
-	Requirements []Requirement `json:"requirements"`
-	Matches      []Match       `json:"matches"`
+	Assessment   *HolisticAssessment `json:"assessment,omitempty"`
+	ID           string              `json:"job_id"`
+	InputKey     string              `json:"input_key"`
+	Truncated    bool                `json:"truncated,omitempty"`
+	Requirements []Requirement       `json:"requirements,omitempty"`
+	Matches      []Match             `json:"matches,omitempty"`
 }
 type ChatDocument struct {
-	Version        string    `json:"version"`
-	PromptRevision string    `json:"prompt_revision,omitempty"`
-	CandidateHash  string    `json:"candidate_hash"`
-	Jobs           []ChatJob `json:"jobs"`
+	Comparisons    []HolisticCompanyReport `json:"comparisons,omitempty"`
+	Version        string                  `json:"version"`
+	PromptRevision string                  `json:"prompt_revision,omitempty"`
+	CandidateHash  string                  `json:"candidate_hash"`
+	Jobs           []ChatJob               `json:"jobs"`
 }
 
 func ImportChatJob(in ChatJob, text string, job d.Job, profile d.Profile, c Candidate, now time.Time) (Result, error) {
+	if in.Assessment != nil {
+		if len(in.Requirements) > 0 || len(in.Matches) > 0 || in.Truncated {
+			return Result{}, invalid("HOLISTIC_MIXED_FORMAT", 0)
+		}
+		if err := ValidateHolistic(*in.Assessment, text, c); err != nil {
+			return Result{}, err
+		}
+		reqs, err := HolisticRequirements(*in.Assessment, text)
+		if err != nil {
+			return Result{}, err
+		}
+		return Result{QualityVersion: QualityVersion, Holistic: in.Assessment, JobID: in.ID, InputKey: in.InputKey, RequirementsKey: RequirementKey(text, ChatIdentity), CandidateHash: c.Hash(), Model: ChatIdentity, Source: ChatSource, AnalyzedAt: now, Requirements: reqs, Matches: []Match{}, CandidateFacts: c.Facts, Qualifications: Qualification(job, profile, reqs, now), Breakdown: []SectionScore{}}, nil
+	}
 	if in.Truncated || len(in.Requirements) > MaxRequirements {
 		return Result{}, ErrCapacity
 	}
@@ -246,7 +261,7 @@ func ImportChatJob(in ChatJob, text string, job d.Job, profile d.Profile, c Cand
 	key := RequirementKey(text, ChatIdentity)
 	scope := ComparisonScope(reqs)
 	score, coverage := Score(reqs, matches)
-	return Result{QualityVersion: QualityVersion, IgnoredHeadings: len(ignored), RestoredCategories: restoredCategories, JobID: job.ID, InputKey: InputKey(key, c.Hash()), RequirementsKey: key, CandidateHash: c.Hash(), ComparisonScope: scope, ComparisonKey: ComparisonKey(key, ComparisonCandidateHash(c, scope), scope), Model: ChatIdentity, Source: ChatSource, AnalyzedAt: now, Requirements: reqs, Matches: matches, CandidateFacts: c.Facts, Score: score, Coverage: coverage, Breakdown: ScoreBreakdown(reqs, matches), Qualifications: Qualification(job, profile, reqs, now)}, nil
+	return Result{QualityVersion: QualityVersion, IgnoredHeadings: len(ignored), RestoredCategories: restoredCategories, JobID: job.ID, InputKey: JobInputKey(job, key, c.Hash()), RequirementsKey: key, CandidateHash: c.Hash(), ComparisonScope: scope, ComparisonKey: ComparisonKey(key, ComparisonCandidateHash(c, scope), scope), Model: ChatIdentity, Source: ChatSource, AnalyzedAt: now, Requirements: reqs, Matches: matches, CandidateFacts: c.Facts, Score: score, Coverage: coverage, Breakdown: ScoreBreakdown(reqs, matches), Qualifications: Qualification(job, profile, reqs, now)}, nil
 }
 
 // Explain repairable quote failures without returning any source or candidate

@@ -30,10 +30,10 @@ const CampusNavigation=(function(root){
     if(dirty()){event.preventDefault();event.returnValue='';}
   });
   // Drafts live only in this page's memory. They are never written to storage.
-  function forms(document,{selector='#content form',retainMissing=false}={}){
+  function forms(document,{selector='#content form',retainMissing=false,ignoreNames=[]}={}){
     const baselines=new Map(),drafts=new Map();
     const key=form=>form.dataset?.formKey||form.id||Object.entries(form.dataset||{}).map(([k,v])=>k+':'+v).join('|');
-    const fields=form=>[...(form.elements||[])].filter(el=>el.name&&!['submit','button','file'].includes(el.type));
+    const fields=form=>[...(form.elements||[])].filter(el=>el.name&&!ignoreNames.includes(el.name)&&!['submit','button','file'].includes(el.type));
     const snapshot=form=>fields(form).map(el=>({name:el.name,type:el.type,value:el.value,checked:!!el.checked}));
     const all=()=>[...(document.querySelectorAll(selector)||[])];
     function capture(){for(const form of all()){const id=key(form),value=snapshot(form);if(!id)continue;if(!baselines.has(id))baselines.set(id,value);if(JSON.stringify(value)===JSON.stringify(baselines.get(id)))drafts.delete(id);else drafts.set(id,value);}}
@@ -46,7 +46,7 @@ const CampusNavigation=(function(root){
   const memory=new Map(),key=user=>'campustrace:job-browse:v1:'+user;
   const text=(v,max=200)=>typeof v==='string'?v.slice(0,max):'';
   function clean(value={}){
-    return {query:text(value.query),filter:['BASIC','ANALYZED','STALE','FAILED'].includes(value.filter)?value.filter:'',tier:['HIGH','POSSIBLE','UNCERTAIN','LOW'].includes(value.tier)?value.tier:'',workflow:['UNHANDLED','SAVED','PLANNED','APPLIED','IGNORED','ENDED'].includes(value.workflow)?value.workflow:'',direction:['MAIN','ALL','MATCH','RELATED','UNCERTAIN','UNRELATED'].includes(value.direction)?value.direction:'',showIgnored:value.showIgnored===true,sort:value.sort==='deep'?'deep':'local',company:text(value.company),city:text(value.city),onlySelected:value.onlySelected===true,page:Number.isInteger(value.page)&&value.page>0?Math.min(value.page,20000):1,lastJob:text(value.lastJob,128),lastTab:['overview','evidence','source','preparation'].includes(value.lastTab)?value.lastTab:'overview',drawerOpen:value.drawerOpen===true};
+    return {query:text(value.query),filter:['BASIC','ANALYZED','STALE','FAILED'].includes(value.filter)?value.filter:'',tier:['HIGH','POSSIBLE','UNCERTAIN','LOW'].includes(value.tier)?value.tier:'',workflow:['UNHANDLED','SAVED','PLANNED','APPLIED','IGNORED','ENDED'].includes(value.workflow)?value.workflow:'',direction:['MAIN','ALL','MATCH','RELATED','UNCERTAIN','UNRELATED'].includes(value.direction)?value.direction:'',showIgnored:value.showIgnored===true,sort:['deep','technical','local','updated','created','company'].includes(value.sort)?value.sort:'deep',sortOrder:value.sortOrder==='asc'?'asc':'desc',company:text(value.company),city:text(value.city),onlySelected:value.onlySelected===true,page:Number.isInteger(value.page)&&value.page>0?Math.min(value.page,20000):1,lastJob:text(value.lastJob,128),lastTab:['overview','evidence','source','preparation'].includes(value.lastTab)?value.lastTab:'overview',drawerOpen:value.drawerOpen===true};
   }
   function readBrowse(user){try{const value=root.sessionStorage?.getItem(key(user));if(value)return clean(JSON.parse(value)||{});}catch{}return clean(memory.get(user));}
   function storeBrowse(user,value){const safe=clean(value);memory.set(user,safe);try{root.sessionStorage?.setItem(key(user),JSON.stringify(safe));}catch{}}

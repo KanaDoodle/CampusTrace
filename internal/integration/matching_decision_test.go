@@ -44,8 +44,8 @@ func TestDecisionViewsUseCurrentOwnedResultsWithoutModelCalls(t *testing.T) {
 	for _, row := range inventory.Jobs {
 		if row.State == "ANALYZED" {
 			ranked++
-			if row.Priority == nil || row.CompanyPlacement == nil || row.CompanyPlacement.Rank != 1 || row.CompanyPlacement.Total != 2 || row.CompanyPlacement.Pending != 1 || !row.CompanyPlacement.Tied {
-				t.Fatal("inventory does not expose scoped application ordering", row.Job.ID, row.Priority, row.CompanyPlacement)
+			if row.Holistic == nil || row.Priority != nil || row.CompanyPlacement != nil {
+				t.Fatal("single whole report generated numeric ordering", row.Job.ID)
 			}
 		} else if row.Priority != nil || row.CompanyPlacement != nil {
 			t.Fatal("pending job has a current rank")
@@ -69,14 +69,14 @@ func TestDecisionViewsUseCurrentOwnedResultsWithoutModelCalls(t *testing.T) {
 		return v
 	}
 	report := compare(token, compareBody)
-	if report.Total != 3 || report.Pending != 1 || report.Analyzed != 2 || len(report.RecommendedIDs) != 2 {
+	if report.Total != 3 || report.Pending != 1 || report.Analyzed != 2 || len(report.RecommendedIDs) != 0 || len(report.HolisticJobIDs) != 3 || report.Holistic != nil {
 		t.Fatalf("bad comparison: %+v", report)
 	}
 	agentTools := &agent.Tools{Store: s, Queue: q, MatchModel: matching.ModelIdentity("server-default", "fixture")}
 	read, err := agentTools.MatchResult(ctx, u, ids[0])
 	must(t, err)
 	current := read.(map[string]any)
-	if current["state"] != "ANALYZED" || current["score"] == nil || strings.Contains(d.JSON(current), "candidate_facts") {
+	if current["state"] != "ANALYZED" || current["fit"] != "RELATED" || current["score"] != nil || strings.Contains(d.JSON(current), "candidate_facts") {
 		t.Fatal("agent deep match is missing or exposes full profile", current)
 	}
 	otherModelTools := *agentTools
@@ -90,7 +90,7 @@ func TestDecisionViewsUseCurrentOwnedResultsWithoutModelCalls(t *testing.T) {
 	view, err := agentTools.CompareCompanyJobs(ctx, u, "Decision fixture", nil)
 	must(t, err)
 	comparison := view.(map[string]any)
-	if comparison["total"] != 3 || comparison["pending"] != 1 || comparison["recommended_count"] != 2 {
+	if comparison["total"] != 3 || comparison["pending"] != 1 || comparison["recommended_count"] != 0 {
 		t.Fatal("agent company comparison differs from workspace", comparison)
 	}
 	if _, err := agentTools.CompareCompanyJobs(ctx, u, "", []string{ids[0], ids[1]}); err != nil {
@@ -105,7 +105,7 @@ func TestDecisionViewsUseCurrentOwnedResultsWithoutModelCalls(t *testing.T) {
 	}
 	var chatAnswer agent.Result
 	must(t, json.Unmarshal(chatRec.Body.Bytes(), &chatAnswer))
-	if chatAnswer.Terminal != "COMPLETED" || !strings.Contains(chatAnswer.Answer, "核心匹配度") || !strings.Contains(chatRec.Body.String(), "get_match_result") {
+	if chatAnswer.Terminal != "COMPLETED" || !strings.Contains(chatAnswer.Answer, "整体适配") || !strings.Contains(chatRec.Body.String(), "get_match_result") {
 		t.Fatal("agent route did not read current matching result", chatRec.Body.String())
 	}
 	chatRec = matchingRequest(chatHandler, token, "/agent/decide", "POST", map[string]any{"session_id": "decision-test", "message": "请对比这两个岗位 " + ids[0] + " " + ids[1]})
@@ -120,7 +120,7 @@ func TestDecisionViewsUseCurrentOwnedResultsWithoutModelCalls(t *testing.T) {
 	rec = matchingRequest(handler, token, prepPath, "POST", map[string]any{})
 	var plan matching.PreparationPlan
 	must(t, json.Unmarshal(rec.Body.Bytes(), &plan))
-	if rec.Code != 200 || plan.State != "ANALYZED" || len(plan.Tasks) == 0 || plan.InputKey == "" {
+	if rec.Code != 200 || plan.State != "ANALYZED" || plan.Holistic == nil || plan.InputKey == "" {
 		t.Fatal(rec.Code, rec.Body.String())
 	}
 	for _, task := range plan.Tasks {

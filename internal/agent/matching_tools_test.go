@@ -53,3 +53,19 @@ func TestMatchingAnswerUsesCurrentProjectedEvidenceOnly(t *testing.T) {
 		t.Fatal(comparison)
 	}
 }
+
+func TestWholeGroundingUsesQualitativeFitAndNamedRelativeChoices(t *testing.T) {
+	answer := GroundedAnswer([]any{map[string]any{"tool": "get_match_result", "data": map[string]any{"job_id": "a", "company": "示例公司", "title": "服务端开发", "state": "ANALYZED", "mode": "holistic-v1", "fit": "RELATED", "summary": "服务实践相关，可考虑投递", "core_work": "服务开发", "strengths": []any{map[string]any{"point": "可靠性经验", "explanation": "保持实践范围"}}, "score": 100.0, "coverage": 100.0}}})
+	if !strings.Contains(answer, "整体适配 值得考虑") || !strings.Contains(answer, "可靠性经验") || strings.Contains(answer, "100") {
+		t.Fatal("whole report invented numeric score", answer)
+	}
+	answer = GroundedAnswer([]any{map[string]any{"tool": "compare_company_jobs", "data": map[string]any{"company": "示例公司", "mode": "holistic-v1", "total": 2, "summary": "仅本次候选范围", "choices": []any{map[string]any{"job_id": "a", "title": "服务端开发", "rank": 1, "reason": "核心工作相近", "advantage": "服务实践", "tradeoff": "规模需要核实"}}, "notice": "未覆盖官网全部岗位"}}})
+	for _, want := range []string{"服务端开发", "第 1 组", "规模需要核实", "未覆盖官网全部岗位"} {
+		if !strings.Contains(answer, want) {
+			t.Fatal(want, answer)
+		}
+	}
+	if strings.Contains(answer, "评分") || strings.Contains(answer, "覆盖 100") {
+		t.Fatal(answer)
+	}
+}

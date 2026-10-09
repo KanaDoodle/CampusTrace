@@ -55,6 +55,17 @@ func CampusSites() []CampusSite {
 		{"byd", "比亚迪", BYDCampusURL, "2027 应届生（不含实习、外派专项）", 1800, false},
 		{"hikvision", "海康威视", HikvisionCampusURL, "2027 常规校园招聘（不含智先锋、实习）", 1800, false},
 		{"ths", "同花顺", THSCampusURL, "2027 届校园招聘（含实习转正，用工形式以原文为准）", 1800, false},
+		{"bankcomm_tech", "交通银行 · 总行金融科技", BankcommCampusURL, "官网总行 2026 年秋季校招（金科类）项目；官网入口需筛选总行，具体毕业范围及签约单位见原文", 1800, false},
+		{"cms_securities", "招商证券", securitiesCampusURL("cms_securities"), "2027 校园招聘固定项目（含实习考察要求，见原文）", 1800, false},
+		{"htsc_securities", "华泰证券 · 总部", securitiesCampusURL("htsc_securities"), "官网 2026 年秋招（总部）固定项目，2027 毕业范围以岗位原文为准（不混入分公司、专项与实习项目）", 1800, false},
+		{"csc_securities", "中信建投证券", "https://csc108.zhiye.com/campus/jobs", "官网校招分类（含实习考察；具体毕业范围、用工形式见原文）", 1800, false},
+		{"guosen_securities", "国信证券", "https://guosen.zhiye.com/campus/jobs", "官网校招分类（不同届别及经验要求以原文为准）", 1800, false},
+		{"galaxy_securities", "中国银河证券", "https://chinastock.zhiye.com/custom/campus", "官网校招分类（具体毕业范围、招聘单位及实习考察见原文）", 1800, false},
+		{"cicc_securities", "中金公司", "https://cicc.zhiye.com/campus/jobs", "官网校招分类（包含公开单位及地区，毕业与用工要求以原文为准）", 1800, false},
+		{"cmb_tech", "招商银行 · 科技与研发", CMBCampusURL, "官网应届生分类 · 按岗位名称筛选信息技术、研发、金融科技等方向（含培养生和集团单位；轮岗、届别见原文）", 1800, false},
+		{"citic_tech", "中信银行 · 信息科技", CITICCampusURL, "官网校园招聘 · 岗位名称含信息科技的岗位（具体届别与培养方式见原文）", 1800, false},
+		{"boc_software", "中国银行 · 软件中心", bocCampusURL("boc_software"), "2027 校招 · 软件中心七个城市单位（官网链接打开集团目录，按单位查看；资格附件需另行核对）", 1800, false},
+		{"boc_operations", "中国银行 · 信息科技运营中心", bocCampusURL("boc_operations"), "2027 校招 · 信息科技运营中心四个城市单位（官网链接打开集团目录，按单位查看；资格附件需另行核对）", 1800, false},
 		{"cmbnt", "招银网络科技", CMBNTCampusURL, "官网应届毕业生分类（不含社招、实习；具体届别见原文）", 1800, false},
 		{"netease_game", "网易游戏互娱", NeteaseGameCampusURL, "网易互娱 2027 届校园招聘（独立于网易互联网、雷火）", 1800, false},
 		{"leihuo", "网易游戏雷火", LeihuoCampusURL, "雷火 2027 届应届生（不含研究型、转正或日常实习）", 1800, false},
@@ -102,7 +113,7 @@ func campusSite(raw string) (CampusSite, error) {
 		if u.Fragment != "" {
 			continue
 		}
-		if cfg, ok := beisenCompanies[site.Adapter]; ok && u.Host == strings.TrimPrefix(cfg.Origin, "https://") && (path == "" || path == "/campus" || path == "/campus/jobs" || (site.Adapter == "sgm" && path == "/campusjobs")) && u.RawQuery == "" {
+		if cfg, ok := beisenCompanies[site.Adapter]; ok && u.Host == strings.TrimPrefix(cfg.Origin, "https://") && (u.String() == site.URL || path == "" || path == "/campus" || path == "/campus/jobs" || (site.Adapter == "sgm" && path == "/campusjobs")) && u.RawQuery == "" {
 			return site, nil
 		}
 		switch site.Adapter {

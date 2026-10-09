@@ -50,6 +50,17 @@ func (r *Runtime) limitFinal(v *Result, answer, final int) {
 	for size() > final && len(v.Steps) > 0 {
 		v.Steps = v.Steps[:len(v.Steps)-1]
 	}
+	if size() > final {
+		v.Context = nil
+		v.Budget = nil
+		v.Route = ""
+	}
+	if size() > final {
+		v.MemoryNotice = ""
+	}
+	if size() > final {
+		v.Answer = ""
+	}
 	if len(v.Answer) > answer {
 		v.Answer = prefixUTF8(v.Answer, answer)
 	}

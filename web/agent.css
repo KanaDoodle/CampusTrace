@@ -1,0 +1,48 @@
+/* Personal recruiting desk, using the existing violet workbench palette. */
+.agent-page-intro{margin:0 0 24px;color:var(--muted);font-size:14px}
+.agent-layout{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:24px;align-items:start}
+.agent-main,.agent-side{min-width:0}
+.agent-panel{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:24px;margin-bottom:20px;min-width:0}
+.agent-section-head{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.agent-section-head h2{font-size:18px;line-height:1.6;margin:0;font-weight:600;letter-spacing:-.3px}
+.agent-section-head .meta{margin:0;font-size:11px}.agent-section-head .text-btn{font-size:12px;white-space:nowrap}
+.agent-composer{border-top:3px solid var(--accent);padding-top:21px}
+.agent-intro{font-size:13px;line-height:1.8;color:var(--muted);margin:8px 0 20px}
+.agent-composer #ask{margin:0}
+.agent-composer textarea{display:block;resize:vertical;height:108px;min-height:108px;font-size:15px;line-height:1.8;background:var(--canvas);border-color:transparent;padding:16px;box-shadow:none;border-radius:8px}
+.agent-composer textarea:focus{border-color:var(--accent);background:var(--paper)}
+.agent-question-footer{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-top:14px}
+.agent-question-footer .meta{font-size:12px;overflow-wrap:anywhere}.agent-question-footer .btn{flex-shrink:0}
+.agent-examples{display:flex;flex-wrap:wrap;gap:5px 12px;margin-top:12px}
+.agent-examples button{min-height:28px;border:0;background:transparent;text-align:left;color:var(--muted);font-size:12px;line-height:1.8;padding:3px 0;border-radius:0}
+.agent-examples button:hover{color:var(--accent);text-decoration:underline;background:transparent}
+#content .agent-privacy{border-top:1px solid var(--line);margin:12px 0 0;padding-top:10px;font-size:11px;color:var(--muted)}
+.agent-privacy summary{cursor:pointer}.agent-privacy p{font-size:12px;line-height:1.9;margin:10px 0 0;max-width:65ch}
+#agent-context-note:empty{display:none}#agent-context-note{margin-top:14px;font-size:12px}#agent-context-note button{margin-left:8px}
+.agent-task-picker{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 18px;margin:18px 0 10px}
+.agent-task-picker button{display:flex;flex-direction:column;gap:4px;border:0;border-left:3px solid transparent;border-bottom:1px solid var(--line);padding:13px 12px;background:transparent;border-radius:0;text-align:left;white-space:normal}
+.agent-task-picker strong{font-size:13px;font-weight:500;color:var(--ink)}.agent-task-picker span{font-size:11px;color:var(--muted);line-height:1.7}
+.agent-task-picker button[aria-pressed="true"]{background:var(--accent-soft);border-left-color:var(--accent)}
+.agent-task-picker button[aria-pressed="true"] strong{color:var(--accent);font-weight:600}.agent-task-picker button:hover{background:var(--canvas)}
+.agent-skills form{margin:20px 0 0}.agent-skills label{font-size:12px}.agent-skills input{font-size:14px}
+.agent-task-submit{display:flex;align-items:center;gap:20px;justify-content:space-between}
+.agent-task-submit .meta{font-size:12px;line-height:1.8;max-width:55ch;margin:0}.agent-task-submit .btn{flex-shrink:0}
+.agent-execution{border-top:1px solid var(--line);padding:20px 0;margin-top:20px;font-size:13px;overflow-wrap:anywhere}
+.agent-execution-head{display:flex;justify-content:space-between;align-items:start;gap:12px}.agent-execution-head h3{font-size:14px;font-weight:600;margin:0;line-height:1.8}.agent-execution-head h3 span{display:block;font-size:12px;color:var(--muted);font-weight:400}.agent-execution-head .meta{font-size:11px;margin:5px 0 0}
+.agent-state{font-size:10px;background:var(--canvas);color:var(--muted);padding:3px 7px;border-radius:4px;white-space:nowrap}.agent-state.is-completed{background:var(--green-soft);color:var(--green)}.agent-state.is-paused,.agent-state.is-failed{background:var(--amber-soft);color:var(--amber)}
+.agent-execution-answer{font-size:13px;line-height:1.95;max-height:340px;overflow:auto;margin:18px 0}
+.agent-execution details{margin-top:12px;font-size:12px}.agent-execution summary{cursor:pointer;color:var(--accent)}.agent-recovered summary,.agent-diagnostics summary{color:var(--muted)}.agent-execution .actions{margin:12px 0 0;gap:12px}.agent-execution .actions:empty{display:none}
+.agent-step-list{padding-left:22px;line-height:2}.agent-evidence{padding:12px 0;border-top:1px solid var(--line)}.agent-execution pre{max-height:320px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px}
+.agent-history>summary,.agent-settings>summary{font-size:14px;font-weight:600;cursor:pointer;line-height:1.8}.agent-history>summary span{margin-left:12px;font-size:11px;font-weight:400}.agent-history .is-compact{margin:0;padding:18px 0}.agent-history>p{margin:16px 0}.agent-history .agent-execution:last-child{padding-bottom:10px}
+.agent-side .agent-panel{padding:20px}.agent-side .agent-section-head h2{font-size:16px}.agent-side .meta{font-size:12px;line-height:1.9}.agent-side .agent-panel>p{margin:9px 0 16px}
+.agent-count{color:var(--accent);font-size:12px;font-variant-numeric:tabular-nums}.agent-feed>.btn{margin:0 0 5px}
+.agent-empty{border-top:1px solid var(--line);margin-top:16px;padding:20px 0 4px}.agent-empty p{font-size:13px;margin:0 0 6px}.agent-empty span{font-size:12px;line-height:1.9;color:var(--muted)}
+.agent-todo{border-top:1px solid var(--line);padding:16px 0}.agent-todo h3{font-size:13px;font-weight:600;line-height:1.8;margin:4px 0;overflow-wrap:anywhere}.agent-todo>p{font-size:12px;line-height:1.9;color:var(--muted);margin:8px 0}.agent-todo .meta{font-size:11px;margin:0}.agent-todo .actions{margin:12px 0 0;gap:18px}.agent-todo button{font-size:12px}
+.agent-settings{border-radius:8px}.agent-settings[open]>summary{padding-bottom:16px;border-bottom:1px solid var(--line);margin-bottom:16px}.agent-settings label{font-size:12px;margin:16px 0}.agent-settings input,.agent-settings select,.agent-settings textarea{font-size:13px}.agent-settings form{margin:0}.agent-settings .form-grid{grid-template-columns:1fr}.agent-settings button{font-size:12px}.agent-settings .actions{gap:10px;flex-wrap:wrap}.agent-settings .actions button{padding-inline:10px}
+.agent-setting-fields .check{align-items:start;line-height:1.8}.agent-setting-fields .check input{margin-top:4px}
+.agent-memory-row,.agent-connection{border-top:1px solid var(--line);padding:16px 0;font-size:12px;overflow-wrap:anywhere}.agent-memory-row p{line-height:1.9}.agent-memory-row:first-child{margin-top:20px}.agent-memory h3{font-size:14px;margin:24px 0 8px}.agent-memory-row details{margin:12px 0}
+.agent-result:empty{display:none}.agent-result{padding:24px;background:var(--paper);border:1px solid var(--line);border-radius:12px;margin-bottom:20px;font-size:13px;line-height:1.9;overflow-wrap:anywhere}.agent-result>h3{font-size:16px;margin-top:0}.agent-result .agent-answer{background:var(--accent-soft);border:0;border-radius:6px;color:var(--ink)}.agent-result .card{border:0;border-top:1px solid var(--line);border-radius:0;padding:16px 0;margin:12px 0 0;background:transparent}.agent-result .meta{font-size:11px}
+.agent-layout [hidden]{display:none!important}.agent-layout :is(button,input,textarea,select,summary):focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+@media(max-width:1150px){.agent-layout{grid-template-columns:minmax(0,1fr) 280px;gap:18px}.agent-panel{padding:20px}.agent-skills .agent-section-head{display:block}.agent-skills .agent-section-head .meta{display:block;margin-top:5px}}
+@media(max-width:950px){.agent-layout{grid-template-columns:minmax(0,1fr)}.agent-side{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 18px;align-items:start}.agent-feed{grid-column:1/-1}}
+@media(max-width:600px){.agent-side{display:block}.agent-panel{padding:20px 16px}.agent-section-head h2{font-size:17px}.agent-page-intro{font-size:12px;margin-bottom:18px}.agent-task-picker{gap:0 8px}.agent-task-picker button{padding:12px 8px}.agent-task-picker span{font-size:11px}.agent-task-submit{display:block}.agent-task-submit .btn{margin-top:14px}.agent-question-footer .btn{font-size:12px;padding-inline:12px}.agent-execution-head{gap:8px}.agent-result{padding:20px 16px}}

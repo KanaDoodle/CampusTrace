@@ -33,7 +33,7 @@ func TestCandidateProjectContextIsRedactedAndInvalidatesOnRename(t *testing.T) {
 	}
 }
 
-func TestMatchingKeepsCompleteClaimButDoesNotSendUnselectedProjectContent(t *testing.T) {
+func TestMatchingKeepsCompleteNarrativeSeparateFromVerifiedFacts(t *testing.T) {
 	claim := "使用 Redis Streams 实现异步任务处理，\n通过消费者组和失败重试提高可靠性。"
 	projects := []d.Project{{ID: "p", Name: "任务队列", Description: "未选择的简介", Bullets: []string{"计划实现 Kafka", "未选择的完整经历"}}}
 	facts := []d.ProjectFact{{ID: "f", ProjectID: "p", Kind: "IMPLEMENTED", Claim: claim, Reference: claim, Verified: true}}
@@ -44,11 +44,15 @@ func TestMatchingKeepsCompleteClaimButDoesNotSendUnselectedProjectContent(t *tes
 	if candidate.Facts[len(candidate.Facts)-1].Text != claim {
 		t.Fatal("matching lost the mechanism and result", candidate)
 	}
-	for _, text := range []string{"未选择", "Kafka"} {
-		if strings.Contains(d.JSON(candidate), text) {
-			t.Fatal("display-only project content became ability evidence")
+	if len(candidate.Projects) != 1 || candidate.Projects[0].Description != projects[0].Description || candidate.Projects[0].Bullets[0].Text != "计划实现 Kafka" {
+		t.Fatal("complete reviewed narrative was lost", candidate)
+	}
+	for _, f := range candidate.Facts {
+		if strings.Contains(f.Text, "Kafka") {
+			t.Fatal("project context was promoted into a verified fact")
 		}
 	}
+
 }
 
 func TestExtractionKeepsPreferencesSoftTraitsAndSelectableDirectionsSeparate(t *testing.T) {

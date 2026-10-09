@@ -174,3 +174,36 @@ OPPO 仅接收 `https://careers.oppo.com/university/oppo/campus/post`，可无�
 Import is bounded to 100 jobs, a 2 MiB request and 36 requirements per job; each supplied job is processed once, incomplete per-requirement matches and duplicate IDs are rejected. It does not assert that an uploaded result includes every exported job. Fixed `MATCH_CHAT_FORMAT`, `MATCH_CHAT_INVALID`, `MATCH_CHAT_CAPACITY`, `MATCH_CHAT_STALE` errors carry only validation codes and numeric positions. Larger bodies use an explicitly bounded strict decoder; other routes retain their 64 KiB decoder limit. Nulls and unknown fields remain invalid.
 
 Saved results have `source=CHATGPT_IMPORT` and a local `source_context_key` covering current default-redacted inputs. This hash lets an additionally name-masked export survive page reload without storing the mask. Imported results remain readable with another selected API model, while any candidate revision or job-text change marks them stale. Their existing paid-analysis record is replaced only after an explicit preview confirmation. Import does not populate paid requirement caches, run a model or increment daily model usage.
+
+## Agent tasks and resources
+
+All routes below require the current account token. Keys and MCP tokens are transient request fields, never stored in execution records. Full limits and request semantics: [assistant guide](agent-harness.md).
+
+| Route | Behavior |
+| --- | --- |
+| `GET /api/agent/skills` | Reviewed, versioned task definitions |
+| `GET /api/agent/executions` | Latest twenty task summaries |
+| `POST /api/agent/executions` | Start or replay `{skill_id, request_key, company?, job_id?, topic?, mask_name?, model_config?}` |
+| `GET /api/agent/executions/{id}` | Current account task details |
+| `POST /api/agent/executions/{id}/resume` | Explicitly resume remaining reads; optional current model/mask identity |
+| `POST /api/agent/executions/{id}/cancel` | Cancel and fence late worker writes |
+| `GET /api/agent/todos` | Refresh event cursor and list local reminders |
+| `POST /api/agent/todos/settings` | Set `{enabled}` |
+| `POST /api/agent/todos/{id}/dismiss` | Mark current account reminder done |
+| `GET /api/agent/connectors` | Current account resource configuration, without tokens |
+| `POST /api/agent/connectors/discover` | Bounded catalog read `{name,url,token?}` |
+| `POST /api/agent/connectors` | Save selected `allowed_resources`; repeat catalog check; optional `id,version` for updates |
+| `DELETE /api/agent/connectors/{id}` | Remove current account connection |
+
+`/agent/decide` and its streaming route accept optional `skill_id`, `local_lookup`, `token_budget`, `complex_model_config`, and account-scoped `mcp_credentials`. Tool resource reads use opaque `resource_id`, not arbitrary URIs. Budget exhaustion returns `BUDGET_LIMIT`; recorded provider usage is separated from conservative admission estimates.
+
+Agent execution responses include server-computed `can_resume` and optional `lease_until`. `can_resume` follows the SQL lease and five-attempt limit; clients must not infer it from `updated_at`. A fifth unsuccessful attempt transitions to `FAILED`; replay of a terminal task never executes more tools. Execution details, summaries and connector listings return `Cache-Control: no-store`.
+
+
+## 公司投递决策与匹配评测
+
+- `GET /api/matching/company-catalog`：当前账号可见公司的数量目录；加 `?company=...` 返回该公司岗位元数据，可在读取完整决策前缩小范围。公司目录上限 1,000，公司岗位目录上限 10,000，超限明确拒绝。
+- `POST /api/matching/company-workspace`：接收匹配模型身份、company 与可选 job_ids，返回 comparison 和 workflow。完整读取上限 200 个岗位；workflow 包含当前范围岗位的截止、官网链接、投递状态，以及整家公司的个人限投规则和可见投递记录。只读、不调用模型，响应禁止缓存。
+- `POST /api/matching/evaluation/export`：明确选择 1～16 个岗位，提交 expected_scope_key 与人工 reference（acceptable_top_job_ids、reason、reviewed=true；可附 pairs），返回 `campustrace-matching-eval-v1` 案例与当前可复用报告。输入变化返回 MATCH_INPUT_CHANGED，越界参考结论拒绝；不创建任务、不调用模型、不修改个人资料。前端展示完整脱敏文字后再下载。
+
+这几个接口沿用账号认证、资料脱敏和岗位可见性检查。公司比较缓存仍单独绑定精确范围；名额、截止与应用状态使用资料快照的只读事务。创建计划复用已有写接口的事务与限投检查，不以页面显示的剩余数量作为授权。

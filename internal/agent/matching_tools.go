@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"sort"
 	"strings"
 	"time"
 
@@ -74,6 +75,20 @@ func (t *Tools) MatchResult(ctx context.Context, user, id string) (any, error) {
 		return out, nil
 	}
 	plan := matching.BuildPreparation(matching.DecisionInput{Job: row.Job, State: row.State, ExcludedReason: row.ExcludedReason, Local: row.Local, Result: row.Result}, s.Profile, time.Now().UTC())
+	if row.Result.Holistic != nil {
+		h := row.Result.Holistic
+		points := func(items []matching.HolisticFinding) []map[string]string {
+			v := []map[string]string{}
+			for _, f := range items[:min(len(items), 3)] {
+				v = append(v, map[string]string{"point": t.safeText(f.Point), "explanation": t.safeText(f.Explanation), "job_excerpt": t.safeText(f.JobExcerpt)})
+			}
+			return v
+		}
+		out["mode"], out["fit"], out["summary"], out["core_work"] = matching.HolisticVersion, h.Fit, t.safeText(h.Summary), t.safeText(h.CoreWork)
+		out["strengths"], out["gaps"], out["blockers"], out["eligibility"] = points(h.Strengths), points(h.Gaps), points(h.Blockers), plan.Eligibility.Status
+		out["notice"] = "仅读取完整材料的整体分析；引用可追溯不代表推断必然正确，没有重新调用分析模型。"
+		return out, nil
+	}
 	out["score"], out["coverage"], out["eligibility"] = plan.Score, plan.Coverage, plan.Eligibility.Status
 	out["analyzed_at"], out["locally_refreshed"], out["evidence_reviews"] = plan.AnalyzedAt, row.Result.LocallyRefreshed, plan.EvidenceReviews
 	out["strengths"], out["gaps"] = t.matchPoints(filterTasks(plan.Tasks, "DIRECT")), t.matchPoints(filterTasks(plan.Tasks, "GAP"))
@@ -125,29 +140,24 @@ func (t *Tools) CompareCompanyJobs(ctx context.Context, user, company string, id
 		scope = "SELECTED"
 	}
 	report := matching.BuildCompanyComparison(company, scope, inputs, s.Profile, time.Now().UTC())
-	rows := make([]map[string]any, 0, min(len(report.Jobs), 8))
-	for _, job := range report.Jobs[:min(len(report.Jobs), 8)] {
-		row := map[string]any{"job_id": job.Job.ID, "title": t.safeText(job.Job.Title), "job_status": job.Job.CurrentStatus, "state": job.State, "recommended": job.Recommended, "blocked_reason": t.safeText(job.BlockedReason)}
-		if job.State == "ANALYZED" {
-			row["score"], row["coverage"], row["eligibility"] = job.Score, job.Coverage, job.Eligibility
-			row["direction"], row["city_preference"] = job.Direction, job.City
-			strengths, gaps := t.matchPoints(job.Strengths), t.matchPoints(job.Gaps)
-			if len(strengths) > 1 {
-				strengths = strengths[:1]
-			}
-			if len(gaps) > 1 {
-				gaps = gaps[:1]
-			}
-			row["strengths"], row["gaps"] = strengths, gaps
-			row["evidence_reviews"] = job.EvidenceReviews
+	if err := t.Store.AttachCompanyReport(ctx, user, s, company, t.MatchModel, &report, t.MaskName); err != nil {
+		return nil, err
+	}
+	if report.Holistic != nil {
+		h := report.Holistic
+		choices := []map[string]any{}
+		ordered := append([]matching.CompanyChoice{}, h.Choices...)
+		sort.SliceStable(ordered, func(i, j int) bool { return ordered[i].Rank < ordered[j].Rank })
+		titles := map[string]string{}
+		for _, job := range s.Jobs {
+			titles[job.Job.ID] = t.safeText(job.Job.Title)
 		}
-		rows = append(rows, row)
+		for _, v := range ordered[:min(len(ordered), 8)] {
+			choices = append(choices, map[string]any{"job_id": v.ID, "title": titles[v.ID], "rank": v.Rank, "reason": t.safeText(v.Reason), "advantage": t.safeText(v.Advantage), "tradeoff": t.safeText(v.Tradeoff)})
+		}
+		return map[string]any{"company": t.safeText(company), "mode": matching.HolisticVersion, "scope": scope, "total": len(h.Choices), "shown": len(choices), "truncated": len(choices) < len(h.Choices), "summary": t.safeText(h.Summary), "choices": choices, "notice": "复用本次完整材料比较，不重新调用分析；推荐仅适用于报告中的岗位范围，不代表官网全部岗位。"}, nil
 	}
-	reasons := make([]string, 0, len(report.Reasons))
-	for _, reason := range report.Reasons {
-		reasons = append(reasons, t.safeText(reason))
-	}
-	return map[string]any{"company": t.safeText(company), "scope": scope, "total": report.Total, "analyzed": report.Analyzed, "pending": report.Pending, "stale": report.Stale, "recommendation": report.Recommendation, "recommended_count": len(report.RecommendedIDs), "shown": len(rows), "truncated": len(rows) < report.Total, "reasons": reasons, "jobs": rows, "notice": "仅比较本次范围；待分析、待更新和未展示的岗位不可从摘要推断。分数不是录用概率，招聘是否开放须另核验。"}, nil
+	return map[string]any{"company": t.safeText(company), "scope": scope, "mode": matching.HolisticVersion, "total": report.Total, "analyzed": report.Analyzed, "pending": report.Pending, "stale": report.Stale, "recommended_count": 0, "shown": 0, "choices": []matching.CompanyChoice{}, "summary": "本次范围还没有可复用的整体比较。请在岗位雷达核对完整材料后生成同公司比较。", "notice": "单岗结论或旧版条目分数不作为本次公司排序；读取没有调用分析模型。"}, nil
 }
 
 func (t *Tools) MatchTasks(ctx context.Context, user string) (any, error) {

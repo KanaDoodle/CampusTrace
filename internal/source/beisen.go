@@ -11,13 +11,17 @@ import (
 // Beisen separates campus (2), social (1) and intern (3). Never infer a cohort
 // from a job title: these presets describe the official campus category only.
 var beisenCompanies = map[string]struct{ Origin, Company string }{
-	"qihoo360": {"https://360campus.zhiye.com", "360集团"},
-	"sany":     {"https://sanycampus.zhiye.com", "三一集团"},
-	"inovance": {"https://inovance.zhiye.com", "汇川技术"},
-	"vivo":     {"https://hr-campus.vivo.com", "vivo"},
-	"sgm":      {"https://sgm.zhiye.com", "上汽通用/泛亚"},
-	"hundsun":  {"https://campus.hundsun.com", "恒生电子"},
-	"yuewen":   {"https://yuewen.zhiye.com", "阅文集团"},
+	"qihoo360":          {"https://360campus.zhiye.com", "360集团"},
+	"sany":              {"https://sanycampus.zhiye.com", "三一集团"},
+	"inovance":          {"https://inovance.zhiye.com", "汇川技术"},
+	"vivo":              {"https://hr-campus.vivo.com", "vivo"},
+	"sgm":               {"https://sgm.zhiye.com", "上汽通用/泛亚"},
+	"hundsun":           {"https://campus.hundsun.com", "恒生电子"},
+	"csc_securities":    {"https://csc108.zhiye.com", "中信建投证券"},
+	"guosen_securities": {"https://guosen.zhiye.com", "国信证券"},
+	"galaxy_securities": {"https://chinastock.zhiye.com", "中国银河证券"},
+	"cicc_securities":   {"https://cicc.zhiye.com", "中金公司"},
+	"yuewen":            {"https://yuewen.zhiye.com", "阅文集团"},
 }
 
 type beisenEnvelope[T any] struct {
@@ -54,6 +58,9 @@ func beisenRef(adapter string, row beisenPost) (PostingRef, error) {
 		return PostingRef{}, fail("SCHEMA_INVALID", false, 200)
 	}
 	ref := PostingRef{ExternalID: row.ID, URL: beisenURL(adapter, row.ID), Title: row.Name, Company: company.Company, JobType: "FULL_TIME", Locations: row.Places}
+	if isSecuritiesBeisen(adapter) {
+		ref.JobType = "UNKNOWN"
+	}
 	return ref, validateRef(ref)
 }
 func (a PublicPlatform) discoverBeisen(ctx context.Context, s d.Source) ([]PostingRef, error) {
@@ -96,6 +103,9 @@ func (a PublicPlatform) fetchBeisen(ctx context.Context, s d.Source, r PostingRe
 	ref, err := beisenRef(s.Adapter, v.Data)
 	if err != nil || ref.ExternalID != r.ExternalID || ref.Title != r.Title {
 		return "", fail("SCHEMA_INVALID", false, 200)
+	}
+	if isSecuritiesBeisen(s.Adapter) {
+		return bankPostingText(ref, "官网校园招聘分类（用工形式、实习考察、毕业范围及经验要求以原文为准）", v.Data.Duties, v.Data.Requirements)
 	}
 	return campusText(ref, "官网校园招聘分类（不含社招、实习；具体毕业年份以岗位原文为准）", v.Data.Duties, v.Data.Requirements)
 }

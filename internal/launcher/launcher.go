@@ -322,6 +322,11 @@ func (m *manager) start(ctx context.Context, rebuild, open bool, timeout int) (r
 	if err = ready(rows); err != nil {
 		return err
 	}
+	if rebuild && previous["sandbox-runner"] {
+		if e := m.run(ctx, m.compose("--profile", "practice", "up", "--detach", "--no-deps", "--wait", "--wait-timeout", "45", "sandbox-runner")...); e != nil {
+			return errors.New("应用已启动，但 Go 练习组件更新失败；请查看 practice status 与 logs sandbox-runner")
+		}
+	}
 	address := "http://127.0.0.1:" + port
 	fmt.Fprintln(m.out, "CampusTrace 已启动：", address)
 	fmt.Fprintln(m.out, "关闭终端后服务继续运行。首次使用请在网页注册账号；已有账号和数据继续沿用。")
@@ -352,9 +357,17 @@ func (m *manager) stop(ctx context.Context, all bool) error {
 	if err := m.stopLegacy(ctx); err != nil {
 		return err
 	}
-	services := appServices
+	services := append([]string{}, appServices...)
 	if all {
-		services = allServices
+		services = append([]string{}, allServices...)
+	}
+	if rows, e := m.states(ctx); e == nil {
+		for _, row := range rows {
+			if row.Service == "sandbox-runner" {
+				services = append(services, "sandbox-runner")
+				break
+			}
+		}
 	}
 	if err := m.run(ctx, m.compose(append([]string{"stop"}, services...)...)...); err != nil {
 		return err
@@ -374,7 +387,11 @@ func (m *manager) status(ctx context.Context) error {
 	for _, row := range rows {
 		byName[row.Service] = row
 	}
-	for _, name := range allServices {
+	names := append([]string{}, allServices...)
+	if _, ok := byName["sandbox-runner"]; ok {
+		names = append(names, "sandbox-runner")
+	}
+	for _, name := range names {
 		row, ok := byName[name]
 		state := "未启动"
 		if ok {
@@ -479,6 +496,7 @@ const help = `CampusTrace — 统一启动入口
   status                  查看所有组件状态
   logs [组件] [--follow]   查看日志；组件为 api/worker/analysis-1/analysis-2/mysql/redis/etcd
   doctor                  检查 Docker、配置与服务状态
+  practice start|stop|status  启用、停止或查看 Go 练习组件（可选）
   backup [--file 路径] [--verify] 备份数据库；可同时验证恢复
   verify-backup --file 路径 将备份恢复到隔离库，验证后删除隔离库
   restore --file 路径      验证并保留新数据库副本，不覆盖当前数据
@@ -519,7 +537,7 @@ func Run(ctx context.Context, args []string, out, errOut io.Writer) error {
 	}
 	name := args[0]
 	switch name {
-	case "start", "stop", "restart", "status", "logs", "doctor", "backup", "verify-backup", "restore", "retention", "open", "probe":
+	case "start", "stop", "restart", "status", "logs", "doctor", "backup", "verify-backup", "restore", "retention", "open", "probe", "practice":
 	default:
 		return fmt.Errorf("未知命令 %q，运行 help 查看用法", name)
 	}
@@ -557,7 +575,7 @@ func Run(ctx context.Context, args []string, out, errOut io.Writer) error {
 		flags.StringVar(&address, "url", "", "本机健康检查地址")
 	}
 	flagArgs := args[1:]
-	if name == "logs" {
+	if name == "logs" || name == "practice" {
 		flagArgs = logArgs(flagArgs)
 	}
 	if err := flags.Parse(flagArgs); errors.Is(err, flag.ErrHelp) {
@@ -575,7 +593,7 @@ func Run(ctx context.Context, args []string, out, errOut io.Writer) error {
 	if days < 30 || days > 3650 {
 		return errors.New("保留天数范围 30—3650")
 	}
-	if name != "logs" && len(extra) > 0 {
+	if name != "logs" && name != "practice" && len(extra) > 0 {
 		return errors.New("存在无法识别的参数，请运行 help 查看用法")
 	}
 	if name == "probe" {
@@ -594,6 +612,8 @@ func Run(ctx context.Context, args []string, out, errOut io.Writer) error {
 		defer unlock()
 	}
 	switch name {
+	case "practice":
+		return m.practice(ctx, extra)
 	case "restore", "verify-backup":
 		if err = m.check(ctx); err != nil {
 			return err
@@ -610,6 +630,14 @@ func Run(ctx context.Context, args []string, out, errOut io.Writer) error {
 	case "stop":
 		return m.stop(ctx, all)
 	case "restart":
+		optionalPractice := false
+		before, e := m.states(ctx)
+		if e != nil {
+			return e
+		}
+		for _, v := range before {
+			optionalPractice = optionalPractice || (v.Service == "sandbox-runner" && v.State == "running")
+		}
 		if err = m.check(ctx); err != nil {
 			return err
 		}
@@ -624,7 +652,13 @@ func Run(ctx context.Context, args []string, out, errOut io.Writer) error {
 		if err = m.stop(ctx, false); err != nil {
 			return err
 		}
-		return m.start(ctx, false, open, timeout)
+		if err = m.start(ctx, false, open, timeout); err != nil {
+			return err
+		}
+		if optionalPractice {
+			return m.run(ctx, m.compose("--profile", "practice", "up", "--detach", "--no-deps", "--wait", "--wait-timeout", "45", "sandbox-runner")...)
+		}
+		return nil
 	case "status":
 		return m.status(ctx)
 	case "doctor":
@@ -659,7 +693,7 @@ func Run(ctx context.Context, args []string, out, errOut io.Writer) error {
 			return errors.New("logs 最多指定一个组件")
 		}
 		if len(extra) == 1 {
-			valid := false
+			valid := extra[0] == "sandbox-runner"
 			for _, service := range allServices {
 				valid = valid || service == extra[0]
 			}

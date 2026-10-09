@@ -22,7 +22,7 @@ test('bulk selected jobs still use the API round limit and skip cached or exclud
   const jobs=M.shortlist(C.selectedRows(rows,selected),30);
   assert.equal(jobs.length,30);assert.equal(jobs[0].job.id,'2');assert.equal(jobs.at(-1).job.id,'31');
 });
-const payload=jobs=>({version:'campustrace-chat-v3',candidate_hash:'reviewed-profile',exported_at:'2026-09-28T00:00:00Z',candidate:{revision:1,facts:[{id:'go',kind:'LANGUAGE',text:'Go'},{id:'queue',kind:'IMPLEMENTED',text:'实现任务队列'}]},preferences:{preferred_cities:['上海']},jobs});
+const payload=jobs=>({version:'campustrace-chat-v4',candidate_hash:'reviewed-profile',exported_at:'2026-09-28T00:00:00Z',candidate:{revision:1,facts:[{id:'go',kind:'LANGUAGE',text:'Go'},{id:'queue',kind:'IMPLEMENTED',text:'实现任务队列'}]},preferences:{preferred_cities:['上海']},jobs});
 const job=i=>({job_id:String(i),company:'小红书',title:'服务端开发 '+i,text:'熟悉 Go，参与任务队列开发'});
 function data(file){return JSON.parse(file.text.split('以下 JSON 为本包完整数据：\n')[1]);}
 test('137 jobs split into complete self-contained packages with consistent facts and no lost or duplicated IDs',()=>{
@@ -33,7 +33,7 @@ test('137 jobs split into complete self-contained packages with consistent facts
     const v=data(file);assert.deepEqual(v.candidate,input.candidate);assert.deepEqual(v.preferences,input.preferences);
     assert.equal(v.candidate_hash,input.candidate_hash);assert.ok(v.jobs.length<=8);
     assert.ok(new TextEncoder().encode(file.text).length<=48000);ids.push(...v.jobs.map(j=>j.job_id));
-    assert.equal(v.prompt_revision,C.promptRevision);assert.match(file.text,/无需计算 score、coverage/);
+    assert.equal(v.prompt_revision,C.promptRevision);assert.match(file.text,/不按满足条数计分/);
   }
   assert.deepEqual(ids,input.jobs.map(j=>j.job_id));assert.equal(new Set(ids).size,137);
 });
@@ -84,7 +84,7 @@ test('chat results accept full JSON or one fenced block, merge consistent files 
 test('new export instructions bind round-trip IDs and omit externally calculated scores from the wire result',()=>{
   const file=C.makeFiles({...payload([{...job(1),input_key:'literal-input-key'}]),version:'campustrace-chat-v3'})[0];
   assert.equal(data(file).jobs[0].input_key,'literal-input-key');
-  assert.match(file.text,/claim_type\/value/);assert.match(file.text,/本地重新计算/);
+  assert.match(file.text,/完整阅读/);assert.match(file.text,/不按满足条数计分/);
   assert.match(C.instructions([file]),/导入聊天分析/);
 });
 
@@ -97,38 +97,24 @@ test('merged chat jobs retain source positions locally without adding fields to 
 });
 
 
-test('export guides practical company ranking, scoped proficiency and declaration-only partial matches',()=>{
- const text=C.makeFiles(payload([job(1)]))[0].text;
- for(const phrase of ['实用的相对排序','每岗最多64项','实践未确认','Planning','限定对象','概括性父项'])assert.ok(text.includes(phrase),phrase);
- assert.match(C.mergePrompt,/未知不等于不会/);assert.match(C.mergePrompt,/无需计算分数、覆盖度或资格结论/);
- assert.ok(!text.includes('每岗最多36项'));
+test('whole packages preserve project narratives and bind optional company comparison to its complete scope',()=>{
+ const input={...payload([job(1),job(2)]),candidate:{facts:[],projects:[{id:'p',name:'队列',description:'完整背景与取舍',bullets:[{id:'b',text:'实现消费确认并保留失败重试'}]}]},company_inputs:[{company:'小红书',input_key:'scope',job_ids:['1','2']}]};
+ const files=C.makeFiles(input);
+ assert.deepEqual(data(files[0]).candidate,input.candidate);
+ assert.equal(data(files[0]).company_inputs[0].input_key,'scope');
+ const split=C.makeFiles(input,1);assert.equal(data(split[0]).company_inputs.length,0);
+ assert.match(files[0].text,/不按技术名词拆成清单/);assert.match(files[0].text,/资料没写不等于不会/);
 });
-
-test('chat instructions exclude section headings and distinguish technical ability from an academic major',()=>{
- const text=C.makeFiles(payload([job(1)]))[0].text;
- for(const phrase of ['章节标题不是要求','专业性不是所学专业','MAJOR_REQUIREMENT=明确专业','不明确时两个字段都不填'])assert.ok(text.includes(phrase),phrase);
-});
-
-test('chat instructions distinguish source sections and avoid repeated soft and language labels',()=>{
- const text=C.makeFiles(payload([job(1)]))[0].text;
- for(const phrase of ['REQUIRED（必需能力）','SOFT','不按逗号、动词或技术名词机械拆碎','真正任选语言/框架保持一项','投递日期不直接生成技术条件'])assert.ok(text.includes(phrase),phrase);
-});
-
-
-test('result example covers valid optional combinations and revision remains compatible with old v3 results',()=>{
- const e=C.resultExample,j=e.jobs[0];
- assert.equal(e.prompt_revision,C.promptRevision);assert.equal(j.truncated,false);
- const reqs=new Map(j.requirements.map(r=>[r.id,r]));assert.equal(reqs.size,j.requirements.length);
- assert.equal(j.matches.length,j.requirements.length);for(const m of j.matches)assert.ok(reqs.has(m.requirement_id));
- const qualification=j.requirements.find(r=>r.claim_type);assert.equal(qualification.category,'QUALIFICATION');assert.equal(qualification.value,'BACHELOR');
- const group=j.requirements.filter(r=>r.group_id);assert.equal(group.length,2);assert.equal(group[0].group_excerpt,group[1].group_excerpt);assert.ok(group.every(r=>!r.claim_type));
- const old={version:'campustrace-chat-v3',candidate_hash:'same',jobs:[{job_id:'old'}]},fresh={...old,prompt_revision:C.promptRevision,jobs:[{job_id:'new'}]};
- assert.equal(C.parseDocuments([JSON.stringify(fresh)]).prompt_revision,C.promptRevision);
- assert.equal(C.parseDocuments([JSON.stringify(old),JSON.stringify(fresh)]).prompt_revision,undefined);
- assert.equal(C.parseDocuments([JSON.stringify(fresh),JSON.stringify(old)]).prompt_revision,undefined);
- const text=C.makeFiles(payload([job(1)]))[0].text;
- assert.match(text,/最短但含义完整的连续片段/);assert.doesNotMatch(text,/保留完整连续原文|excerpt 可以引用相同的完整/);
- assert.match(text,/不能用关键词命中、正则拆句/);assert.match(text,/结构检查通过不代表分析完成/);
+test('whole result schema and manual merge preserve assessments and company ranking without scores',()=>{
+ const e=structuredClone(C.resultExample),j=e.jobs[0];
+ assert.equal(e.version,'campustrace-chat-v4');assert.equal(e.prompt_revision,C.promptRevision);
+ assert.ok(j.assessment);assert.ok(!('requirements' in j));assert.ok(!('score' in j.assessment));
+ j.job_id='a';e.comparisons=[{company:'小红书',input_key:'scope',choices:[{job_id:'a',rank:1}]}];
+ const b={...e,jobs:[{...j,job_id:'b'}],comparisons:[]};
+ const merged=C.parseDocuments([JSON.stringify(e),JSON.stringify(b)]);
+ assert.equal(merged.jobs.length,2);assert.equal(merged.comparisons.length,1);
+ assert.throws(()=>C.parseDocuments([JSON.stringify(e),JSON.stringify({...b,version:'campustrace-chat-v3'})]),/不同/);
+ assert.throws(()=>C.parseDocuments([JSON.stringify(e),JSON.stringify({...b,comparisons:e.comparisons})]),/比较重复/);
 });
 
 test('repair checklist points to each original file and exact requirement without re-exporting private facts',()=>{

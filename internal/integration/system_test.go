@@ -87,6 +87,17 @@ func cleanupFixture(ctx context.Context, s *p.Store, owner, source string) error
 				return err
 			}
 		}
+		if _, e := tx.ExecContext(ctx, "DELETE FROM agent_events WHERE owner_id=?", owner); e != nil {
+			return e
+		}
+		for _, table := range []string{"agent_todos", "agent_feed_settings", "agent_connectors", "agent_executions", "practice_runs", "agent_tasks", "agent_memories", "agent_memory_state"} {
+			if _, err := tx.ExecContext(ctx, "DELETE FROM "+table+" WHERE user_id=?", owner); err != nil {
+				return err
+			}
+		}
+		if _, err := tx.ExecContext(ctx, "DELETE FROM company_match_reports WHERE user_id=?", owner); err != nil {
+			return err
+		}
 		if _, err := tx.ExecContext(ctx, "DELETE FROM source_import_batches WHERE user_id=?", owner); err != nil {
 			return err
 		}
@@ -125,6 +136,7 @@ func cleanupFixture(ctx context.Context, s *p.Store, owner, source string) error
 				`DELETE FROM eligibilities WHERE job_id IN ` + in,
 				`DELETE FROM rankings WHERE job_id IN ` + in,
 				`DELETE FROM changes WHERE job_id IN ` + in,
+				`DELETE FROM agent_events WHERE job_id IN ` + in,
 				`DELETE FROM assessments WHERE job_id IN ` + in,
 				`DELETE FROM watch_results WHERE observation_id IN (SELECT id FROM observations WHERE job_id IN ` + in + `)`,
 				`DELETE FROM evidence WHERE job_id IN ` + in,
@@ -615,7 +627,7 @@ func TestAgentConfirmationSSEMCP(t *testing.T) {
 	defer session.Close()
 	listed, err := session.ListTools(ctx, nil)
 	must(t, err)
-	if len(listed.Tools) != 5 {
+	if len(listed.Tools) != 10 {
 		t.Fatal("MCP tools", len(listed.Tools))
 	}
 	for _, tool := range listed.Tools {

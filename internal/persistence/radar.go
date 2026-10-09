@@ -100,6 +100,9 @@ func (s *Store) radarJobs(ctx context.Context, q Queryer, user string, now time.
 	if len(jobs) > 500 {
 		return nil, ErrRadarCapacity
 	}
+	return s.radarJobRows(ctx, q, user, now, jobs)
+}
+func (s *Store) radarJobRows(ctx context.Context, q Queryer, user string, now time.Time, jobs []d.Job) ([]d.RadarJob, error) {
 	apps, err := Many[d.Application](ctx, q, "SELECT body FROM applications WHERE user_id=?", user)
 	if err != nil {
 		return nil, err
@@ -197,7 +200,16 @@ func (s *Store) ClosingJobs(ctx context.Context, user string, days int) ([]d.Rad
 	}
 	var out []d.RadarJob
 	err := s.radarSnapshot(ctx, func(q Queryer, now time.Time) error {
-		jobs, err := s.radarJobs(ctx, q, user, now)
+		// Narrow by any plausible deadline first, then apply the identical current
+		// evidence/status checks. Unrelated catalog size cannot block this query.
+		candidates, err := Many[d.Job](ctx, q, `SELECT j.body FROM jobs j WHERE (j.visibility='GLOBAL' OR (j.visibility='PRIVATE' AND j.owner_id=?)) AND EXISTS (SELECT 1 FROM evidence e WHERE e.job_id=j.id AND JSON_UNQUOTE(JSON_EXTRACT(e.body,'$.type'))='DEADLINE' AND JSON_UNQUOTE(JSON_EXTRACT(e.body,'$.value'))>=? AND JSON_UNQUOTE(JSON_EXTRACT(e.body,'$.value'))<=?) ORDER BY j.id LIMIT 501`, user, now.Add(-24*time.Hour).Format("2006-01-02"), now.Add(time.Duration(days+1)*24*time.Hour).Format("2006-01-02"))
+		if err != nil {
+			return err
+		}
+		if len(candidates) > 500 {
+			return ErrRadarCapacity
+		}
+		jobs, err := s.radarJobRows(ctx, q, user, now, candidates)
 		if err != nil {
 			return err
 		}

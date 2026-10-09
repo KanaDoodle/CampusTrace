@@ -61,6 +61,8 @@ const CampusModels=(function(root){
     const item=presets.find(entry=>entry.id===active);
     return item&&keys[item.provider]?{url:item.url,model:item.model,api_key:keys[item.provider]}:undefined;
   }
+  function configuredChoices(){return presets.filter(v=>!!keys[v.provider]).map(({id,name})=>({id,name}));}
+  function requestConfigFor(id){const item=presets.find(v=>v.id===id);return item&&keys[item.provider]?{url:item.url,model:item.model,api_key:keys[item.provider]}:undefined;}
   function available(capabilities){return !!requestConfig()||!!capabilities?.model_available;}
   function label(capabilities){
     const item=presets.find(entry=>entry.id===active);
@@ -86,7 +88,7 @@ const CampusModels=(function(root){
     };
     render();
   }
-  const api={presets,bindUser,saveKey,removeKey,select,lock,requestConfig,available,label,sessionID,page};
+  const api={presets,bindUser,saveKey,removeKey,select,lock,requestConfig,requestConfigFor,configuredChoices,available,label,sessionID,page};
   if(typeof module==='object'&&module.exports)module.exports=api;
   root.CampusModels=api;
   return api;

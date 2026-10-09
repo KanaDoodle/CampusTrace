@@ -32,7 +32,7 @@ func (m LiveModel) Next(ctx context.Context, messages []Message, definitions []D
 	for _, v := range definitions {
 		defs = append(defs, map[string]any{"type": "function", "function": v})
 	}
-	raw, err := m.Client.Complete(ctx, ms, defs)
+	raw, usage, err := m.Client.CompleteWithUsage(ctx, ms, defs)
 	if err != nil {
 		return Reply{}, err
 	}
@@ -49,7 +49,7 @@ func (m LiveModel) Next(ctx context.Context, messages []Message, definitions []D
 	if err = json.Unmarshal(raw, &v); err != nil {
 		return Reply{}, err
 	}
-	reply := Reply{Text: v.Content}
+	reply := Reply{Text: v.Content, Usage: usage, Model: m.Client.Model}
 	for _, c := range v.Calls {
 		reply.Calls = append(reply.Calls, Call{ID: c.ID, Name: c.Function.Name, Args: json.RawMessage(c.Function.Arguments)})
 	}
@@ -79,6 +79,21 @@ func (DemoModel) Next(ctx context.Context, msgs []Message, defs []Definition) (R
 		calls = append(calls, Call{ID: fmt.Sprintf("call-%d", len(calls)), Name: name, Args: []byte(d.JSON(args))})
 	}
 	switch {
+	case Has(q, "求职待办", "招聘待办", "变化待办"):
+		add("get_agent_todos", struct{}{})
+	case Has(q, "外部资料", "MCP资料", "MCP 资料"):
+		add("list_mcp_resources", struct{}{})
+	case Has(q, "完整资料", "完整简历", "核对资料"):
+		add("get_candidate_document", struct{}{})
+	case strings.HasPrefix(q, "记住：") || strings.HasPrefix(q, "记住:"):
+		content := strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(q, "记住："), "记住:"))
+		add("remember_memory", map[string]string{"kind": "PREFERENCE", "content": content})
+	case Has(q, "记忆", "记住了什么"):
+		add("search_memories", map[string]string{"query": ""})
+	case Has(q, "练习结果", "练习记录"):
+		add("get_practice_runs", struct{}{})
+	case Has(q, "历史讨论", "讨论记录"):
+		add("get_agent_tasks", struct{}{})
 	case Has(q, "深度分析进度", "匹配任务", "分析任务") || Has(q, "深度分析") && Has(q, "失败", "进度", "还在", "完成"):
 		add("get_match_tasks", struct{}{})
 	case len(ids) >= 2 && len(ids) <= 8 && Has(q, "比较", "对比", "哪个", "选择"):

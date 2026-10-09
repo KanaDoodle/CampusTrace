@@ -46,3 +46,12 @@ test('company comparison displays low-coverage priority and uncertainty without 
  const stale=Decision.renderCompany({...report,jobs:[{...row,state:'STALE',score:99,priority:{score:99,lower:99,upper:99}}]},{esc,D});
  assert.ok(!stale.includes('99.0'));assert.ok(stale.includes('待分析或更新'));
 });
+
+test('whole assessments and company ranking escape content and never expose item-count scores',()=>{
+ const finding={point:'工程能力<script>',explanation:'通过事务处理失败',job_excerpt:'Go开发服务',evidence:[{id:'p',excerpt:'事务与重试'}]};
+ const whole={version:'holistic-v1',fit:'RELATED',summary:'可考虑投递',core_work:'服务开发',strengths:[finding],gaps:[],blockers:[],questions:['确认规模'],next_steps:['讲解恢复机制'],ignored_factors:['热爱技术']};
+ const html=Decision.renderHolistic(whole,{esc});assert.match(html,/可考虑投递/);assert.match(html,/工程能力&lt;script&gt;/);assert.match(html,/事务与重试/);assert.ok(!html.includes('<script>'));assert.ok(!html.includes('100%'));
+ const report={company:'公司',total:2,holistic_job_ids:['a','b'],holistic:{summary:'首选后端，基础平台备选',analyzed_at:'now',choices:[{job_id:'b',rank:2,reason:'基础可迁移',advantage:'系统知识',tradeoff:'领域需准备',job_excerpt:'原文',evidence:[]},{job_id:'a',rank:1,reason:'核心工作更相近',advantage:'服务实践',tradeoff:'规模需核实',job_excerpt:'原文',evidence:[]}]},jobs:[{job:{id:'a',title:'后端'},state:'ANALYZED'},{job:{id:'b',title:'基础平台'},state:'BASIC'}]};
+ const comparison=Decision.renderCompany(report,{esc,D});assert.match(comparison,/首选/);assert.match(comparison,/备选/);assert.ok(comparison.indexOf('核心工作更相近')<comparison.indexOf('基础可迁移'));assert.ok(!comparison.includes('投递优先度'));assert.match(comparison,/未覆盖官网全部岗位/);
+ const prep=Decision.renderPreparation({...plan(),holistic:whole,history_topics:[{topic:'复盘知识点'}]},{esc,D},new Set(['task']));assert.match(prep,/data-prep-count/);assert.match(prep,/prep-task is-done/);assert.match(prep,/复盘知识点/);assert.ok(!prep.includes('暂无可靠评分'));
+});

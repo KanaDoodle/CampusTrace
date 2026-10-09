@@ -29,34 +29,28 @@ func (m *projectExcerptFixtureModel) Complete(_ context.Context, messages, _ any
 	if strings.Contains(msgs[0]["content"], "Extract explicit requirements") {
 		return nil, errors.New("cached requirements must not be re-extracted")
 	}
-	var input struct {
-		Candidate matchFixtureCandidate `json:"candidate"`
-		Jobs      []matching.MatchInput `json:"jobs"`
-	}
+	var input matching.HolisticRequest
 	if err := json.Unmarshal([]byte(msgs[1]["content"]), &input); err != nil {
 		return nil, err
 	}
-	var selected matchFixtureFact
-	for _, f := range input.Candidate.Facts {
+	var selected matching.Fact
+	for _, f := range fixtureDocumentFacts(input.Candidate) {
 		if f.Kind == "IMPLEMENTED" {
 			selected = f
 			break
 		}
 	}
-	if len(selected.Excerpts) < 2 {
-		return nil, errors.New("complete long project fact was not provided")
+	if !strings.Contains(selected.Text, strings.Repeat("通过 Redis Streams 实现任务重试。\n", 20)) {
+		return nil, errors.New("complete project fact was not provided")
 	}
-	evidence := []map[string]string{{"id": selected.ID, "excerpt_id": selected.Excerpts[1].ID}}
+	excerpt := "通过 Redis Streams 实现任务重试。"
 	if m.invalid {
-		evidence = []map[string]string{{"id": selected.ID, "excerpt": "以 Kafka 实现高可用生产队列"}}
+		excerpt = "以 Kafka 实现高可用生产队列"
 	}
-	jobs := []map[string]any{}
+	evidence := []matching.Citation{{ID: selected.ID, Excerpt: excerpt}}
+	jobs := []matching.HolisticJobReply{}
 	for _, j := range input.Jobs {
-		matches := []map[string]any{}
-		for _, r := range j.Requirements {
-			matches = append(matches, map[string]any{"requirement_id": r.ID, "result": "DIRECT", "explanation": "已记录任务重试的具体实现", "evidence": evidence})
-		}
-		jobs = append(jobs, map[string]any{"job_id": j.ID, "matches": matches})
+		jobs = append(jobs, matching.HolisticJobReply{ID: j.ID, Assessment: wholeAssessment(j.Text, evidence)})
 	}
 	return json.Marshal(map[string]string{"content": d.JSON(map[string]any{"jobs": jobs})})
 }
@@ -82,7 +76,7 @@ func TestMatchingExcerptRetryReusesRequirementsAndPersistsOnlyOriginalProjectTex
 	must(t, s.SaveRequirements(ctx, u, snap.Jobs[0].RequirementsKey, matching.Requirements{Items: reqs}))
 	body := map[string]any{"job_ids": []string{o.JobID}, "candidate_hash": snap.CandidateHash}
 	rec := matchingRequest(handler, token, "/api/matching/analyze", "POST", body)
-	if rec.Code != 502 || model.calls != 1 || !strings.Contains(rec.Body.String(), "EXCERPT_NOT_EXACT") || strings.Contains(rec.Body.String(), "Kafka") {
+	if rec.Code != 502 || model.calls != 1 || !strings.Contains(rec.Body.String(), "EXCERPT_NOT_CONTIGUOUS") || strings.Contains(rec.Body.String(), "Kafka") {
 		t.Fatal("paraphrased quote was accepted, retried or echoed", rec.Code, rec.Body.String())
 	}
 	_, err = s.MatchResult(ctx, u, o.JobID)
@@ -96,13 +90,13 @@ func TestMatchingExcerptRetryReusesRequirementsAndPersistsOnlyOriginalProjectTex
 		RequirementsReused int `json:"requirements_reused"`
 	}
 	must(t, json.Unmarshal(rec.Body.Bytes(), &response))
-	if rec.Code != 200 || response.Calls != 1 || response.RequirementsReused != 1 || model.calls != 2 {
+	if rec.Code != 200 || response.Calls != 1 || response.RequirementsReused != 0 || model.calls != 2 {
 		t.Fatal("explicit retry lost its cached requirements", rec.Code, rec.Body.String())
 	}
 	result, err := s.MatchResult(ctx, u, o.JobID)
 	must(t, err)
-	quote := result.Matches[0].Evidence[0]
-	if quote.ID != fact.ID || quote.Excerpt == "" || len(quote.Excerpt) > 600 || !strings.Contains(source, quote.Excerpt) || result.Score == nil || *result.Score != 100 || matching.ValidateMatches(snap.Candidate, result.Requirements, result.Matches) != nil {
+	quote := result.Holistic.Strengths[0].Evidence[0]
+	if quote.ID != fact.ID || quote.Excerpt == "" || len(quote.Excerpt) > 600 || !strings.Contains(source, quote.Excerpt) || result.Score != nil || matching.ValidateHolistic(*result.Holistic, snap.Jobs[0].Text, snap.Candidate) != nil {
 		t.Fatal("stored quote is not a bounded original source span")
 	}
 	found := false

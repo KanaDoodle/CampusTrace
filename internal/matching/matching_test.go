@@ -11,11 +11,16 @@ import (
 
 type fakeModel struct {
 	output any
+	input  string
 	calls  int
 }
 
-func (m *fakeModel) Complete(_ context.Context, _ any, _ any) (json.RawMessage, error) {
+func (m *fakeModel) Complete(_ context.Context, messages any, _ any) (json.RawMessage, error) {
 	m.calls++
+	var input []map[string]string
+	if json.Unmarshal([]byte(d.JSON(messages)), &input) == nil && len(input) > 1 {
+		m.input = input[1]["content"]
+	}
 	return json.Marshal(map[string]string{"content": d.JSON(m.output)})
 }
 

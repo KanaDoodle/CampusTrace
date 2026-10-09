@@ -8,6 +8,7 @@ import (
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
 	"github.com/KanaDoodle/CampusTrace/internal/observability"
 	"github.com/KanaDoodle/CampusTrace/internal/persistence"
+	"github.com/KanaDoodle/CampusTrace/internal/source"
 	"github.com/KanaDoodle/CampusTrace/internal/transport"
 	"github.com/redis/go-redis/v9"
 	"net/http/httptest"
@@ -106,14 +107,33 @@ func TestGraduateSourceRegistrationIsScopedPrivateAndIdempotent(t *testing.T) {
 	ctx, s, q, owner, _ := radarSetup(t)
 	other, err := s.NewUser(ctx, d.ID()+"@graduate-source.test", "unused")
 	must(t, err)
-	for adapter, tenant := range map[string]string{"sap": "CN_Graduate", "tencent": "2027_cn_1", "baidu": "GRADUATE", "meituan": "graduate", "jd": "present", "netease": "103", "alibaba": "100000760001", "bilibili": "freshmen", "kuaishou": "20271779425607", "oppo": "30", "siemens": "CAMPUSRECRUITMENT", "haier": "68", "lenovo": "1", "midea": "055bb05d-1957-4ea0-bb21-873ca0164d84", "byd": "2076475538687475714", "hikvision": "e198653730e14820b9e95b29fbc2223f", "qihoo360": "campus", "sany": "campus", "inovance": "campus", "vivo": "campus", "honor": "101801", "ctrip": "campus", "sgm": "campus", "ths": "61", "cmbnt": "graduate", "netease_game": "102", "leihuo": "77", "ctyun": "101101_581854", "ctcloud": "101101_581851", "mihoyo": "13", "pingan_tech": "graduate_PA011", "pingan_oneconnect": "graduate_PA038", "pingan_wallet": "graduate_PA027", "cmcloud": "79", "cmiot": "77", "cmhome": "81", "gbits": "8a82ac07a057a3ea01a0617904b4100c", "hundsun": "campus", "yuewen": "campus", "tcl_digital": "308501_101206", "tcl_honghu": "308501_364906", "cec_software": "graduate_software"} {
+	for adapter, tenant := range map[string]string{"sap": "CN_Graduate", "tencent": "2027_cn_1", "baidu": "GRADUATE", "meituan": "graduate", "jd": "present", "netease": "103", "alibaba": "100000760001", "bilibili": "freshmen", "kuaishou": "20271779425607", "oppo": "30", "siemens": "CAMPUSRECRUITMENT", "haier": "68", "lenovo": "1", "midea": "055bb05d-1957-4ea0-bb21-873ca0164d84", "byd": "2076475538687475714", "hikvision": "e198653730e14820b9e95b29fbc2223f", "qihoo360": "campus", "sany": "campus", "inovance": "campus", "vivo": "campus", "honor": "101801", "ctrip": "campus", "sgm": "campus", "ths": "61", "cmbnt": "graduate", "netease_game": "102", "leihuo": "77", "ctyun": "101101_581854", "ctcloud": "101101_581851", "mihoyo": "13", "pingan_tech": "graduate_PA011", "pingan_oneconnect": "graduate_PA038", "pingan_wallet": "graduate_PA027", "cmcloud": "79", "cmiot": "77", "cmhome": "81", "gbits": "8a82ac07a057a3ea01a0617904b4100c", "hundsun": "campus", "yuewen": "campus", "tcl_digital": "308501_101206", "tcl_honghu": "308501_364906", "cec_software": "graduate_software", "cmb_tech": "graduate_tech", "citic_tech": "campus_it", "boc_software": "2027_software", "boc_operations": "2027_operations", "bankcomm_tech": "campus_head_it", "cms_securities": "101501", "htsc_securities": "107301", "csc_securities": "campus", "guosen_securities": "campus", "galaxy_securities": "campus", "cicc_securities": "campus"} {
 		input := d.WatchInput{CheckInterval: 3600, Enabled: true, Adaptive: true}
-		reg, err := s.CreateCampusSource(ctx, owner, adapter, tenant, "校招来源测试", input)
+		name := ""
+		for _, site := range source.CampusSites() {
+			if site.Adapter == adapter {
+				preset, resolveErr := (source.PublicPlatform{}).ResolveCampusImport(ctx, site.URL)
+				must(t, resolveErr)
+				if preset.ProjectCode != tenant {
+					t.Fatal("preset tenant disagrees with registration")
+				}
+				name = preset.Name
+			}
+		}
+		// Ctrip's implemented adapter remains callable, but its public preview is
+		// currently blocked and therefore it is not an automatic directory preset.
+		if name == "" && adapter == "ctrip" {
+			name = "携程 · 校招"
+		}
+		if name == "" {
+			t.Fatalf("missing server preset %s", adapter)
+		}
+		reg, err := s.CreateCampusSource(ctx, owner, adapter, tenant, name, input)
 		must(t, err)
 		if reg.Existing || reg.Source.Adapter != adapter || reg.Source.Visibility != "PRIVATE" || reg.Source.OwnerID != owner || reg.Source.Trust != "MANUAL" {
 			t.Fatalf("unexpected registration %+v", reg)
 		}
-		again, err := s.CreateCampusSource(ctx, owner, adapter, tenant, "校招来源测试", input)
+		again, err := s.CreateCampusSource(ctx, owner, adapter, tenant, name, input)
 		must(t, err)
 		if !again.Existing || again.Watch.ID != reg.Watch.ID || again.Source.ID != reg.Source.ID {
 			t.Fatalf("duplicate source %+v", again)
@@ -152,7 +172,7 @@ func TestGraduateSourceRegistrationIsScopedPrivateAndIdempotent(t *testing.T) {
 		Auto    bool   `json:"auto_import"`
 	}
 	must(t, json.Unmarshal(response.Body.Bytes(), &directory))
-	if len(directory) != 75 {
+	if len(directory) != 96 {
 		t.Fatalf("directory contains %d entries", len(directory))
 	}
 	automatic := 0
@@ -166,7 +186,7 @@ func TestGraduateSourceRegistrationIsScopedPrivateAndIdempotent(t *testing.T) {
 			t.Fatal("manual entry exposes import adapter")
 		}
 	}
-	if automatic != 42 {
+	if automatic != 53 {
 		t.Fatalf("automatic sources %d", automatic)
 	}
 

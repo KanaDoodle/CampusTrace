@@ -24,11 +24,11 @@ func TestChatPromptExamplePassesStrictSchemaAndMatchingValidation(t *testing.T) 
 	if err = d.StrictLimit(raw, &doc, 2<<20); err != nil {
 		t.Fatal("export example violates import schema", err)
 	}
-	if doc.PromptRevision != matching.ChatPromptRevision || doc.Version != matching.ChatVersion {
+	if doc.PromptRevision != matching.HolisticPromptRevision || doc.Version != matching.HolisticChatVersion {
 		t.Fatal("prompt and API revision differ")
 	}
-	c := matching.Candidate{Facts: []matching.Fact{{ID: "示例语言事实编号", Kind: "LANGUAGE", Text: "Go"}}}
-	_, err = matching.ImportChatJob(doc.Jobs[0], "熟悉 Go。本科及以上学历。有以下方向至少一种经验：后端开发、检索优化", d.Job{ID: "example"}, d.Profile{}, c, time.Time{})
+	c := matching.Candidate{Facts: []matching.Fact{{ID: "照抄真实材料编号", Kind: "IMPLEMENTED", Text: "照抄对应材料原文"}}}
+	_, err = matching.ImportChatJob(doc.Jobs[0], "开发后端服务", d.Job{ID: "example"}, d.Profile{}, c, time.Time{})
 	if err != nil {
 		var all *matching.ChatValidationErrors
 		if errors.As(err, &all) {

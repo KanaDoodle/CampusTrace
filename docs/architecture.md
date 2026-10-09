@@ -139,9 +139,9 @@ RPC wire protocol 没有提前远程取消信号；CampusTrace 传递显式 dead
 
 默认 `DemoModel` 是确定性的离线自然语言路由器；可在网页「模型设置」中选择外部模型，或由部署者通过 `LLM_URL`、`LLM_API_KEY`、`LLM_MODEL` 提供服务器默认的 OpenAI-compatible chat endpoint。普通测试使用 scripted models，不需要外部凭据。
 
-`make eval` 还会运行 [Agent 评测基线](agent-evaluation.md)：24 例运行时边界检查和 40 例合成中文求职问题，逐项报告工具选择、参数、依据与拒答、调用次数及延迟。离线评测无需密钥或用户数据；可明确传入外部模型配置，在同一批合成问题上单独评测，不能把离线通过率当作真实模型准确率。
+`make eval` 还会运行 [Agent 评测基线](agent-evaluation.md)：24 例运行时边界检查和 43 例合成中文求职问题，逐项报告工具选择、参数、依据与拒答、调用次数及延迟。离线评测无需密钥或用户数据；可明确传入外部模型配置，在同一批合成问题上单独评测，不能把离线通过率当作真实模型准确率。
 
-「更多工具 → 求职问答」现在显示由成功工具观察确定性生成的简短回答，原始结构化记录折叠保留供核对。岗位雷达选择同一公司 2–8 个岗位后，可点「问 Agent」带入岗位编号。`get_match_result`、`compare_company_jobs` 复用岗位雷达相同的当前资料、岗位文字、模型身份与本轮额外姓名遮盖，只读取已有的深度匹配并返回有界脱敏摘要；待分析或已过期的结果不会显示旧分数或充当推荐。按公司全量比较最多读取既有的 200 个岗位，Agent 回传其中最多 8 个摘要并标明总数与截断；已有的同分并列、待更新和资料不足规则保持不变。`get_match_tasks` 只查询最近任务及失败阶段，不继续或重试付费分析。外部模型的本次求职问答仍会产生其自身的 API 调用；上述读取不会额外启动岗位深度分析。新增工具限于网页 Agent，独立 stdio MCP 的五个只读工具不变。
+「更多工具 → 求职问答」现在显示由成功工具观察确定性生成的简短回答，原始结构化记录折叠保留供核对。岗位雷达选择同一公司 2–8 个岗位后，可点「问 Agent」带入岗位编号。`get_match_result`、`compare_company_jobs` 复用岗位雷达相同的当前资料、岗位文字、模型身份与本轮额外姓名遮盖，只读取已有的深度匹配并返回有界脱敏摘要；待分析或已过期的结果不会显示旧分数或充当推荐。按公司全量比较最多读取既有的 200 个岗位，Agent 回传其中最多 8 个摘要并标明总数与截断；已有的同分并列、待更新和资料不足规则保持不变。`get_match_tasks` 只查询最近任务及失败阶段，不继续或重试付费分析。外部模型的本次求职问答仍会产生其自身的 API 调用；上述读取不会额外启动岗位深度分析。独立 stdio MCP 也提供匹配、公司比较、分析进度、待办和练习查询，共十个只读工具。
 
 默认预算最多 4 次模型调用、8 次工具执行，总 deadline 35s、单工具 timeout 8s，时间限制可配置。运行时校验未知字段、尾随 JSON、null、必填项、枚举、范围和大小；最后一步提案只记录 trace，不执行。
 
@@ -153,6 +153,10 @@ RPC wire protocol 没有提前远程取消信号；CampusTrace 传递显式 dead
 
 输出预算默认为：`AGENT_MAX_TOOL_RESULT_BYTES=32768`、`AGENT_MAX_FACTS_BYTES=98304`、`AGENT_MAX_ANSWER_BYTES=32768`、`AGENT_MAX_FINAL_BYTES=163840`。非正值回到默认；final 最小有效预算为 512 bytes，包含 JSON 与 SSE framing。超限工具结果不进入 Facts，无法容纳的输出以 `OUTPUT_LIMIT` 结束，不伪装成完整答案。同一步重复 call ID 只执行一次；验证后的相同规范化参数复用首次结果与 pending action，后续模型步骤仍可重新读取。
 
+### 任务执行与资料客户端
+
+常用 Skills 使用审核过的固定查询计划、MySQL 逐步检查点和带令牌的运行租约。问答按问题选择工具和相关记忆，临时只读网络失败最多重试一次；公共 HTTPS MCP 客户端只能读取用户选定的文本资源。模型分工和预算在每次请求前检查，usage 与估计分开。招聘变化使用事务事件与持久游标生成站内待办，不自动触发分析或投递。使用方法和具体限制见 [求职助手说明](agent-harness.md)。
+
 ### RAG：lexical hash vector + keyword hybrid retrieval
 
 文档、chunks 与 vectors 存在 MySQL。默认是 **128 维 deterministic lexical hashing**，结合 brute-force cosine 和 keyword overlap；中文 bigram 提供基础词法支持。它不是 semantic embedding，不依赖 ANN、向量数据库或隐式外部 embedding 调用。
@@ -163,7 +167,7 @@ RPC wire protocol 没有提前远程取消信号；CampusTrace 传递显式 dead
 
 `POST /agent/decide` 返回最终结果；`/agent/stream` 通过有界直接 SSE 写入发送 run_start、model_start/end、tool_start/result、final 和 error。断开连接取消 Context；不支持 token streaming、重放或断线续传。
 
-独立 stdio MCP server 使用官方 Go MCP SDK `v1.7.0`，提供五个业务只读工具：`search_jobs`、`get_job`、`get_job_evidence`、`get_job_eligibility`、`search_knowledge`。stdout 仅输出协议，日志走 stderr；本地 Agent 工具不经 MCP 绕行。
+独立 stdio MCP server 使用官方 Go MCP SDK `v1.7.0`，提供十个业务只读工具：`search_jobs`、`get_job`、`get_job_evidence`、`get_job_eligibility`、`search_knowledge`、`get_match_result`、`compare_company_jobs`、`get_match_tasks`、`get_agent_todos`、`get_practice_runs`。stdout 仅输出协议，日志走 stderr；本地 Agent 工具不经 MCP 绕行。
 
 MCP/Agent 查询复用相同输入的未过期 Assessment，或计算当前结果而不插入 Eligibility/Ranking/history；Redis 知识限流计数仍可能变化。显式/后台 Assessment 通过 input-identity CAS 与相同输入去重持久化。输入身份包含 profile revision、当前 Observation/generation、岗位元数据及规则/权重版本；时间相关缓存在一分钟内或下一个 deadline/freshness 边界过期。
 

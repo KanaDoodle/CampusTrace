@@ -18,7 +18,7 @@ func TestMatchingLocalFactsPreferencesAndOwnerScopeWithoutModelCalls(t *testing.
 	profile := d.Profile{Degree: "MASTER", GraduationYear: 2027, Skills: []string{"Go"}, TargetRoles: []string{"后端开发"}, AcceptableCities: []string{"杭州"}}
 	must(t, s.SaveProfile(ctx, u, profile))
 	now := time.Now().UTC()
-	one, err := s.IngestForUser(ctx, u, p.Ingest{Company: "Synthetic local screen", Title: "研发工程师", Locations: []string{"杭州市"}, JobType: "FULL_TIME", ExternalID: d.ID(), Text: "岗位职责\n负责服务接口、数据库和异步任务处理\n任职要求\n熟悉 Go", FetchStatus: "SUCCESS", ObservedAt: now})
+	one, err := s.IngestForUser(ctx, u, p.Ingest{Company: "Synthetic local screen", Title: "研发工程师", Locations: []string{"浙江省-杭州市-余杭区", "Hangzhou"}, JobType: "FULL_TIME", ExternalID: d.ID(), Text: "岗位职责\n负责服务接口、数据库和异步任务处理\n任职要求\n熟悉 Go", FetchStatus: "SUCCESS", ObservedAt: now})
 	must(t, err)
 	two, err := s.IngestForUser(ctx, u, p.Ingest{Company: "Synthetic local screen", Title: "服务端开发", JobType: "FULL_TIME", ExternalID: d.ID(), Text: "熟悉 C++\nGo 加分", FetchStatus: "SUCCESS", ObservedAt: now})
 	must(t, err)
@@ -45,6 +45,9 @@ func TestMatchingLocalFactsPreferencesAndOwnerScopeWithoutModelCalls(t *testing.
 		return p.MatchJob{}
 	}
 	a, b := get(before, one.JobID), get(after, one.JobID)
+	if len(b.Cities) != 1 || b.Cities[0] != "杭州" || b.Job.Locations[0] != "浙江省-杭州市-余杭区" || after.CityAliases["Hangzhou"][0] != "杭州" || after.CityAliases["杭州"][0] != "杭州" {
+		t.Fatal("city projection differs from preferences or modified source locations", b.Cities, b.Job.Locations, after.CityAliases)
+	}
 	if b.Local == nil || b.Local.RoleSource != "BODY" || b.PreliminaryScore <= a.PreliminaryScore || after.Jobs[0].Job.ID != one.JobID {
 		t.Fatal(a, b, after.Jobs)
 	}

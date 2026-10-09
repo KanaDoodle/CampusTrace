@@ -1,8 +1,8 @@
 'use strict';
 (function(root){
- const groups=['互联网','游戏','金融科技','国央企','制造业与消费电子','外企'];
+ const groups=['互联网','游戏','金融科技','银行','证券','国央企','制造业与消费电子','外企'];
  const ready=s=>s.auto_import!==false;
- const group=s=>String(s.category||'').startsWith('外企')?'外企':['互联网','游戏','金融科技','国央企'].includes(s.category)?s.category:'制造业与消费电子';
+ const group=s=>String(s.category||'').startsWith('外企')?'外企':['互联网','游戏','金融科技','银行','证券','国央企'].includes(s.category)?s.category:'制造业与消费电子';
  function officialURL(value){try{const u=new URL(value);return u.protocol==='https:'&&!u.username&&!u.password?u.href:'';}catch{return '';}}
  function select(catalog,state={}){
   const query=String(state.search||'').trim().toLocaleLowerCase();

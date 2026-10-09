@@ -113,7 +113,9 @@ func (a PublicPlatform) previewMore(ctx context.Context, site CampusSite) (Campu
 	if err != nil {
 		return CampusPreview{}, err
 	}
-	return CampusPreview{URL: site.URL, Name: site.Company + " · " + site.Scope, ProjectCode: s.Tenant, Total: len(refs), Samples: refs[:min(5, len(refs))]}, nil
+	// The complete scope belongs in preview metadata. It can exceed the source
+	// name limit, so use the same short label as bulk preset registration.
+	return CampusPreview{URL: site.URL, Name: site.Company + " · 校招", ProjectCode: s.Tenant, Total: len(refs), Samples: refs[:min(5, len(refs))]}, nil
 }
 func (a PublicPlatform) discoverMore(ctx context.Context, s d.Source, w d.WatchTarget) ([]PostingRef, error) {
 	if w.Direction != "" {

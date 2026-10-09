@@ -41,7 +41,7 @@ func (s *Store) MatchResultVersions(ctx context.Context, user string, ids []stri
 
 // A preview confirms the validated subset. Any concurrent profile, accepted job
 // or saved result change aborts all subset writes; rejected jobs remain untouched.
-func (s *Store) SaveChatMatches(ctx context.Context, user, mask string, results []matching.Result, previous map[string]string) error {
+func (s *Store) SaveChatMatches(ctx context.Context, user, mask string, results []matching.Result, previous map[string]string, reports ...matching.HolisticCompanyReport) error {
 	if len(results) == 0 || len(results) > 100 || len(previous) != len(results) {
 		return ErrValidation
 	}
@@ -78,6 +78,34 @@ func (s *Store) SaveChatMatches(ctx context.Context, user, mask string, results 
 				return err
 			}
 		}
+		for _, report := range reports {
+			jobs := []matching.HolisticJob{}
+			for _, choice := range report.Choices {
+				if !seen[choice.ID] {
+					return ErrValidation
+				}
+				job, err := One[d.Job](ctx, tx, "SELECT body FROM jobs WHERE id=?", choice.ID)
+				if err != nil {
+					return err
+				}
+				o, err := One[d.Observation](ctx, tx, "SELECT body FROM observations WHERE job_id=? ORDER BY observed_at DESC,id DESC LIMIT 1", choice.ID)
+				if err != nil {
+					return err
+				}
+				var key string
+				for _, r := range results {
+					if r.JobID == choice.ID {
+						key = r.InputKey
+						break
+					}
+				}
+				jobs = append(jobs, WholeJobs([]MatchJob{{Job: job, InputKey: key, Cities: d.CanonicalCities(job.Locations), Text: cleanJobText(o.Text, mask)}}, mask)...)
+			}
+			if err := s.saveCompanyReport(ctx, tx, user, mask, report, jobs); err != nil {
+				return err
+			}
+		}
+
 		return nil
 	})
 }

@@ -3,7 +3,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
 
-function harness({pending=['pending-a','pending-b'],failed=['failed-a','failed-b'],analyze,exportError,compare,evidenceReviews=0,durable=false,taskRuns=[],taskRequest,bulkRequest,importRequest}={}){
+function harness({pending=['pending-a','pending-b'],failed=['failed-a','failed-b'],analyze,exportError,compare,exportRequest,evidenceReviews=0,durable=false,taskRuns=[],taskRequest,bulkRequest,importRequest}={}){
   const stored=new Map(),elements=new Map(),requests=[],exports=[],decisionRequests=[],taskRequests=[],bulkRequests=[],importRequests=[],timers=[];
   const model={url:'https://model.example/chat',model:'test-model',api_key:'synthetic-test-key'};
   const modelKey=JSON.stringify([model.url,model.model,'server-model']);
@@ -18,9 +18,14 @@ function harness({pending=['pending-a','pending-b'],failed=['failed-a','failed-b
       const [,tag,attributes,id]=match;
       elements.set(id,{tagName:tag.toUpperCase(),disabled:/\sdisabled(?:\s|>|$)/.test(attributes),checked:/\schecked(?:\s|>|$)/.test(attributes),value:attributes.match(/\bvalue="([^"]*)"/)?.[1]||'',isConnected:true,innerHTML:'',dataset:{},getClientRects:()=>[],showModal(){this.open=true;},close(){this.open=false;this.onclose?.();}});
     }
+    for(const match of value.matchAll(/<select\b[^>]*id="([^"]+)"[^>]*>([\s\S]*?)<\/select>/gi)){
+      const options=[...match[2].matchAll(/<option\b([^>]*)>([^<]*)<\/option>/gi)];
+      const chosen=options.find(o=>/\bselected\b/.test(o[1]))||options[0];
+      if(chosen)elements.get(match[1]).value=chosen[1].match(/\bvalue="([^"]*)"/)?.[1]??chosen[2];
+    }
     return true;
   };
-  const context={document,TextEncoder,setTimeout:(fn,delay)=>{timers.push({fn,delay});return timers.length;},FormData:class{get(k){const el=elements.get({q:'match-search',state:'match-state',tier:'match-tier',workflow:'match-workflow',city:'match-city',sort:'match-sort',only_selected:'match-only-selected',show_ignored:'match-show-ignored'}[k]);return el?.tagName==='INPUT'&&['only_selected','show_ignored'].includes(k)?el.checked?'on':'':el?.value||'';}},clearTimeout:id=>{if(timers[id-1])timers[id-1].canceled=true;},crypto:{randomUUID:()=>'synthetic-task-request-00000000000'},sessionStorage:{getItem:k=>stored.get(k),setItem:(k,v)=>stored.set(k,v)},CampusModels:{bindUser(){},requestConfig:()=>model,available:()=>true,label:()=> '测试模型'},CampusMatchingChat:{readSelection:()=>new Set(),selectedRows:()=>[],pruneSelection(){},storeSelection(){}},console};
+  const context={document,TextEncoder,setTimeout:(fn,delay)=>{timers.push({fn,delay});return timers.length;},FormData:class{get(k){const el=elements.get({q:'match-search',company:'match-company',state:'match-state',tier:'match-tier',workflow:'match-workflow',city:'match-city',sort:'match-sort',only_selected:'match-only-selected',show_ignored:'match-show-ignored'}[k]);return el?.tagName==='INPUT'&&['only_selected','show_ignored'].includes(k)?el.checked?'on':'':el?.value||'';}},clearTimeout:id=>{if(timers[id-1])timers[id-1].canceled=true;},crypto:{randomUUID:()=>'synthetic-task-request-00000000000'},sessionStorage:{getItem:k=>stored.get(k),setItem:(k,v)=>stored.set(k,v)},CampusModels:{bindUser(){},requestConfig:()=>model,available:()=>true,label:()=> '测试模型'},CampusMatchingChat:{readSelection:()=>new Set(),selectedRows:()=>[],pruneSelection(){},storeSelection(){}},console};
   vm.createContext(context);vm.runInContext(fs.readFileSync(__dirname+'/ui.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/navigation.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching_decision.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching_tasks.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching_chat.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching.js','utf8'),context);
   const api=async(path,method,body)=>{
     if(path==='/api/profile/resume/capabilities')return {user_id:'alice',model:'server-model',model_available:true,durable_matching:durable};
@@ -39,7 +44,7 @@ function harness({pending=['pending-a','pending-b'],failed=['failed-a','failed-b
 
     if(path==='/api/matching/company'){decisionRequests.push(body);if(compare)return compare(body);return {company:body.company,scope:body.scope,total:jobs.length,analyzed:0,pending:jobs.length,stale:0,recommendation:'NONE',reasons:['待分析不用于推荐'],jobs:[]};}
     if(path==='/api/matching/export'){
-      exports.push(body);if(exportError)throw new Error(exportError);
+      exports.push(body);if(exportRequest)return exportRequest(body,snapshot);if(exportError)throw new Error(exportError);
       return {candidate_hash:snapshot.candidate_hash,candidate:snapshot.candidate,jobs:body.job_ids.map(id=>({job_id:id,title:id,text:'完整岗位文字 '+id}))};
     }
     if(path==='/api/matching/analyze'){
@@ -337,4 +342,55 @@ test('all-failed chat preview remains reviewable and cannot be confirmed',async(
   assert.match(h.html(),/0 个可导入 · 1 个需修正/);assert.equal(h.elements.get('match-import-confirm').disabled,true);
   await h.elements.get('match-import-confirm').onclick();assert.equal(h.importRequests.length,1);
   assert.match(h.html(),/不能更换 input_key/);
+});
+
+test('常用筛选与六种排序直接可见，组合筛选逐个清除，旧城市归一，排序不发起模型请求',async()=>{
+ const h=harness({pending:[],failed:[]});
+ h.snapshot.city_aliases={'杭州市-余杭区':['杭州'],'Hangzhou':['杭州']};h.snapshot.candidate.facts=[{kind:'CITY_PREFERRED',text:'Hangzhou'}];
+ h.snapshot.jobs=[
+  {job:{id:'low',title:'Go 后端',company:'公司甲',locations:['杭州市-余杭区'],updated_at:'2026-10-01T00:00:00Z'},cities:['杭州'],state:'ANALYZED',score:20,priority:{score:40},preliminary_score:40,text_bytes:50},
+  {job:{id:'high',title:'Go 服务端',company:'公司甲',locations:['Hangzhou'],updated_at:'2026-10-08T00:00:00Z'},cities:['杭州'],state:'ANALYZED',score:90,priority:{score:70},preliminary_score:70,text_bytes:50},
+  {job:{id:'unknown',title:'Go 后端',company:'公司乙',locations:[]},cities:[],state:'STALE',score:100,priority:{score:99},preliminary_score:80,text_bytes:50},
+ ];
+ h.navigation.storeBrowse('alice',{city:'杭州市-余杭区',company:'公司甲',sort:'technical',sortOrder:'asc'});await h.start();
+ assert.equal(h.elements.get('match-city').value,'杭州');assert.match(h.html(),/我的意向城市/);assert.match(h.html(),/杭州（2）/);
+ assert.ok(h.html().indexOf('id="match-sort"')<h.html().indexOf('id="match-more-filters"'));assert.match(h.html(),/value="created"/);assert.match(h.html(),/value="company"/);
+ const ids=()=>[...h.html().matchAll(/data-match-job="([^"]+)"/g)].map(x=>x[1]);assert.deepEqual(ids(),['low','high']);
+ h.elements.get('match-select-all').onclick();const selected=JSON.parse(h.stored.get('campustrace:match-selection:v1:alice'));
+ h.elements.get('match-sort-order').onclick();assert.deepEqual(ids(),['high','low']);assert.deepEqual(JSON.parse(h.stored.get('campustrace:match-selection:v1:alice')),selected);
+ h.elements.get('match-clear-company').onclick();assert.equal(h.navigation.readBrowse('alice').city,'杭州');
+ h.elements.get('match-clear-city').onclick();assert.deepEqual(ids(),['high','low','unknown']);
+ h.elements.get('match-sort').value='updated';h.elements.get('match-filter').onchange();assert.deepEqual(ids(),['high','low','unknown']);
+ h.elements.get('match-sort-order').onclick();await h.start();assert.deepEqual(ids(),['low','high','unknown']);assert.equal(h.navigation.readBrowse('alice').sortOrder,'asc');
+ h.elements.get('match-city').value='__UNKNOWN__';h.elements.get('match-filter').onchange();assert.deepEqual(ids(),['unknown']);
+ assert.equal(h.requests.length,0);assert.equal(h.exports.length,0);assert.equal(h.taskRequests.length,0);assert.equal(h.bulkRequests.length,0);
+});
+
+test('whole company analysis reviews all candidate jobs including already analyzed ones and submits the exact scope once',async()=>{
+ const ids=['whole-a','whole-b'];
+ const h=harness({pending:ids,failed:[],durable:true,compare:body=>({company:body.company,scope:body.scope,total:2,holistic_job_ids:ids,holistic_input_key:'current-scope',jobs:[]}),exportRequest:(body,snap)=>({candidate_hash:snap.candidate_hash,candidate:snap.candidate,company_inputs:[{company:'测试公司',job_ids:ids,model_input_key:'reviewed-scope'}],jobs:body.job_ids.map(id=>({job_id:id,title:id,text:'完整岗位文字 '+id}))}),taskRequest:(_path,body)=>({id:'company-run',kind:body.kind,company:body.company,scope_key:body.scope_key,state:'RUNNING',version:1,candidate_hash:'profile',calls:0,items:body.job_ids.map(id=>({job_id:id,input_key:id,state:'QUEUED'}))})});
+ h.snapshot.candidate.projects=[{id:'p',name:'完整项目',description:'背景、实现与结果保持在同一完整叙述中。',bullets:[{text:'通过事务处理并发状态更新。'}]}];h.snapshot.candidate_document='背景、实现与结果保持在同一完整叙述中。\n通过事务处理并发状态更新。';
+ h.snapshot.jobs.forEach(j=>{j.state='ANALYZED';j.analysis_mode='holistic-v1';});
+ await h.start();await h.elements.get('match-compare-company').onclick();await h.elements.get('match-comparison-form').onsubmit({preventDefault(){}});
+ assert.equal(h.taskRequests.length,0);assert.equal(h.requests.length,0);
+ await h.elements.get('match-company-analyze').onclick();
+ assert.match(h.html(),/背景、实现与结果保持在同一完整叙述中/);assert.match(h.html(),/完整岗位文字 whole-b/);
+ assert.equal(h.elements.get('match-confirm').disabled,true);
+ h.consent();assert.equal(h.taskRequests.length,0);await h.review();
+ assert.equal(h.taskRequests.length,1);const body=h.taskRequests[0].body;
+ assert.equal(body.kind,'COMPANY');assert.equal(body.company,'测试公司');assert.equal(body.scope_key,'reviewed-scope');assert.deepEqual(Array.from(body.job_ids),ids);assert.equal(h.requests.length,0);
+});
+
+test('whole company failed tasks remain retryable even when every individual job is analyzed',async()=>{
+ const ids=['done-a','done-b'],task={id:'company-failed',kind:'COMPANY',company:'测试公司',scope_key:'current',state:'COMPLETED_WITH_ERRORS',version:3,candidate_hash:'profile',calls:1,items:ids.map(id=>({job_id:id,input_key:id,state:'FAILED',code:'MATCH_OUTPUT_INVALID',diagnostic:{}}))};
+ const h=harness({pending:ids,failed:[],durable:true,taskRuns:[task],exportRequest:(body,snap)=>({candidate_hash:snap.candidate_hash,candidate:snap.candidate,jobs:body.job_ids.map(id=>({job_id:id,title:id,text:'完整原文'})),company_inputs:[{company:'测试公司',job_ids:ids,model_input_key:'current'}]}),taskRequest:()=>({...task,state:'RUNNING',version:4})});
+ h.snapshot.jobs.forEach(j=>{j.state='ANALYZED';j.analysis_mode='holistic-v1';});
+ await h.start();assert.equal(h.elements.get('match-retry').disabled,false);await h.elements.get('match-retry').onclick();h.consent();await h.review();
+ assert.equal(h.taskRequests.length,1);assert.equal(h.taskRequests[0].path,'/api/matching/tasks/company-failed/resume');assert.equal(h.taskRequests[0].body.kind,'COMPANY');assert.deepEqual(Array.from(h.taskRequests[0].body.job_ids),ids);
+});
+
+test('a completed company task opens its captured job scope without sending a model request',async()=>{
+ const task={id:'company-complete',kind:'COMPANY',company:'测试公司',state:'COMPLETED',version:3,candidate_hash:'profile',calls:1,items:[{job_id:'a',input_key:'a',state:'SUCCEEDED'},{job_id:'b',input_key:'b',state:'SUCCEEDED'}]};
+ const h=harness({pending:['a','b','extra'],failed:[],durable:true,taskRuns:[task]});await h.start();await h.elements.get('match-task-company-result').onclick();
+ assert.equal(h.decisionRequests.length,1);assert.equal(h.decisionRequests[0].scope,'SELECTED');assert.deepEqual(Array.from(h.decisionRequests[0].job_ids),['a','b']);assert.equal(h.taskRequests.length,0);assert.equal(h.requests.length,0);
 });

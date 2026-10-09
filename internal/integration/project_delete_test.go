@@ -41,7 +41,7 @@ func TestProjectAndFactDeletionAreOwnerScopedAndInvalidateMatching(t *testing.T)
 	before, err := store.MatchSnapshot(ctx, owner, identity, "", []string{job.JobID})
 	must(t, err)
 	rec := matchingRequest(handler, token, "/api/matching/analyze", "POST", map[string]any{"job_ids": []string{job.JobID}, "candidate_hash": before.CandidateHash})
-	if rec.Code != 200 || model.calls.Load() != 2 {
+	if rec.Code != 200 || model.calls.Load() != 1 {
 		t.Fatalf("initial analysis: %d %s", rec.Code, rec.Body.String())
 	}
 	for _, path := range []string{"/api/projects/" + project.ID, "/api/project_facts/" + facts[0].ID} {
@@ -72,7 +72,7 @@ func TestProjectAndFactDeletionAreOwnerScopedAndInvalidateMatching(t *testing.T)
 	_, err = store.MatchResult(ctx, owner, job.JobID)
 	must(t, err) // Keep the previous report available as history.
 	rec = matchingRequest(handler, token, "/api/matching/analyze", "POST", map[string]any{"job_ids": []string{job.JobID}, "candidate_hash": before.CandidateHash})
-	if rec.Code != 409 || model.calls.Load() != 2 {
+	if rec.Code != 409 || model.calls.Load() != 1 {
 		t.Fatal("stale confirmation reached the model")
 	}
 	rec = matchingRequest(handler, token, "/api/projects/"+project.ID, "DELETE", nil)

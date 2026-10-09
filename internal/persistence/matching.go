@@ -18,6 +18,7 @@ var ErrMatchQuota = errors.New("daily matching call limit reached")
 // Inventory previews need cache identity and scores, not every citation and
 // historical candidate fact. Keep this smaller than matching.Result.
 type matchResultSummary struct {
+	Holistic                                                                                                          *matching.HolisticAssessment
 	JobID, InputKey, Model, RequirementsKey, ComparisonKey, ComparisonScope, Source, SourceContextKey, QualityVersion string
 	Score                                                                                                             *float64
 	Coverage                                                                                                          float64
@@ -25,24 +26,27 @@ type matchResultSummary struct {
 }
 
 type MatchJob struct {
-	Job              d.Job                      `json:"job"`
-	Text             string                     `json:"-"`
-	TextBytes        int                        `json:"text_bytes"`
-	RequirementsKey  string                     `json:"requirements_key"`
-	InputKey         string                     `json:"input_key"`
-	PreliminaryScore float64                    `json:"preliminary_score"`
-	Local            *matching.LocalScreen      `json:"local,omitempty"`
-	ExcludedReason   string                     `json:"excluded_reason"`
-	State            string                     `json:"state"`
-	Score            *float64                   `json:"score"`
-	Priority         *matching.Priority         `json:"priority,omitempty"`
-	CompanyPlacement *matching.CompanyPlacement `json:"company_placement,omitempty"`
-	Coverage         float64                    `json:"coverage"`
-	Breakdown        []matching.SectionScore    `json:"breakdown,omitempty"`
-	Source           string                     `json:"source,omitempty"`
-	Disposition      string                     `json:"disposition"`
-	Application      *MatchApplication          `json:"application,omitempty"`
-	Result           *matching.Result           `json:"-"`
+	AnalysisMode     string                       `json:"analysis_mode,omitempty"`
+	Holistic         *matching.HolisticAssessment `json:"holistic,omitempty"`
+	Job              d.Job                        `json:"job"`
+	Cities           []string                     `json:"cities"`
+	Text             string                       `json:"-"`
+	TextBytes        int                          `json:"text_bytes"`
+	RequirementsKey  string                       `json:"requirements_key"`
+	InputKey         string                       `json:"input_key"`
+	PreliminaryScore float64                      `json:"preliminary_score"`
+	Local            *matching.LocalScreen        `json:"local,omitempty"`
+	ExcludedReason   string                       `json:"excluded_reason"`
+	State            string                       `json:"state"`
+	Score            *float64                     `json:"score"`
+	Priority         *matching.Priority           `json:"priority,omitempty"`
+	CompanyPlacement *matching.CompanyPlacement   `json:"company_placement,omitempty"`
+	Coverage         float64                      `json:"coverage"`
+	Breakdown        []matching.SectionScore      `json:"breakdown,omitempty"`
+	Source           string                       `json:"source,omitempty"`
+	Disposition      string                       `json:"disposition"`
+	Application      *MatchApplication            `json:"application,omitempty"`
+	Result           *matching.Result             `json:"-"`
 }
 
 // The inventory needs workflow context, never application notes or resume names.
@@ -54,12 +58,15 @@ type MatchApplication struct {
 	AppliedAt *time.Time `json:"applied_at,omitempty"`
 }
 type MatchSnapshot struct {
-	Profile       d.Profile          `json:"-"`
-	Candidate     matching.Candidate `json:"candidate"`
-	CandidateHash string             `json:"candidate_hash"`
-	Jobs          []MatchJob         `json:"jobs"`
-	Settings      matching.Settings  `json:"settings"`
-	CallsToday    int                `json:"calls_today"`
+	CompanyWorkflow   *CompanyWorkflow    `json:"company_workflow,omitempty"`
+	Profile           d.Profile           `json:"-"`
+	Candidate         matching.Candidate  `json:"candidate"`
+	CandidateHash     string              `json:"candidate_hash"`
+	CandidateDocument string              `json:"candidate_document"`
+	Jobs              []MatchJob          `json:"jobs"`
+	Settings          matching.Settings   `json:"settings"`
+	CallsToday        int                 `json:"calls_today"`
+	CityAliases       map[string][]string `json:"city_aliases"`
 }
 
 func matchDay(now time.Time) string {
@@ -127,6 +134,19 @@ func matchCandidate(ctx context.Context, q Queryer, user, maskName string) (d.Pr
 	c, err := matching.CandidateWithProjects(p, facts, projects, maskName)
 	return p, c, err
 }
+
+func (s *Store) ReviewedDocument(ctx context.Context, user, mask string) (string, string, error) {
+	tx, err := s.DB.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true})
+	if err != nil {
+		return "", "", err
+	}
+	defer tx.Rollback()
+	_, c, err := matchCandidate(ctx, tx, user, mask)
+	if err != nil {
+		return "", "", err
+	}
+	return matching.ReviewedDocument(c), c.Hash(), nil
+}
 func cleanJobText(text, maskName string) string {
 	if maskName != "" {
 		text = strings.ReplaceAll(text, maskName, "[已遮盖姓名]")
@@ -155,7 +175,14 @@ func (s *Store) MatchDecisionSnapshot(ctx context.Context, user, model, maskName
 	return s.matchSnapshot(ctx, user, model, maskName, ids, true, company, true)
 }
 
-func (s *Store) matchSnapshot(ctx context.Context, user, model, maskName string, ids []string, screen bool, company string, fullResults bool) (MatchSnapshot, error) {
+func (s *Store) MatchWorkspaceSnapshot(ctx context.Context, user, model, maskName string, ids []string, company string) (MatchSnapshot, error) {
+	if company == "" || len(ids) > matching.MaxDecisionJobs {
+		return MatchSnapshot{}, ErrValidation
+	}
+	return s.matchSnapshot(ctx, user, model, maskName, ids, true, company, true, true)
+}
+
+func (s *Store) matchSnapshot(ctx context.Context, user, model, maskName string, ids []string, screen bool, company string, fullResults bool, workspace ...bool) (MatchSnapshot, error) {
 	v := MatchSnapshot{Jobs: []MatchJob{}}
 	tx, err := s.DB.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true})
 	if err != nil {
@@ -167,6 +194,7 @@ func (s *Store) matchSnapshot(ctx context.Context, user, model, maskName string,
 		return v, err
 	}
 	v.CandidateHash = v.Candidate.Hash()
+	v.CandidateDocument = matching.ReviewedDocument(v.Candidate)
 	var screener *matching.LocalScreener
 	if screen {
 		screener = matching.NewLocalScreener(v.Profile, v.Candidate)
@@ -216,7 +244,7 @@ func (s *Store) matchSnapshot(ctx context.Context, user, model, maskName string,
 	if len(ids) > 0 && len(jobs) != len(ids) {
 		return v, ErrNotFound
 	}
-	resultQuery := "SELECT JSON_OBJECT('QualityVersion',COALESCE(JSON_UNQUOTE(JSON_EXTRACT(body,'$.quality_version')),''),'JobID',job_id,'InputKey',JSON_UNQUOTE(JSON_EXTRACT(body,'$.input_key')),'Model',JSON_UNQUOTE(JSON_EXTRACT(body,'$.model')),'RequirementsKey',JSON_UNQUOTE(JSON_EXTRACT(body,'$.requirements_key')),'ComparisonKey',JSON_UNQUOTE(JSON_EXTRACT(body,'$.comparison_key')),'ComparisonScope',JSON_UNQUOTE(JSON_EXTRACT(body,'$.comparison_scope')),'Score',JSON_EXTRACT(body,'$.score'),'Coverage',JSON_EXTRACT(body,'$.coverage'),'Breakdown',JSON_EXTRACT(body,'$.breakdown'),'Source',JSON_UNQUOTE(JSON_EXTRACT(body,'$.source')),'SourceContextKey',JSON_UNQUOTE(JSON_EXTRACT(body,'$.source_context_key'))) FROM job_match_results WHERE user_id=?"
+	resultQuery := "SELECT JSON_OBJECT('QualityVersion',COALESCE(JSON_UNQUOTE(JSON_EXTRACT(body,'$.quality_version')),''),'Holistic',IF(JSON_EXTRACT(body,'$.holistic') IS NULL,NULL,JSON_OBJECT('version',JSON_UNQUOTE(JSON_EXTRACT(body,'$.holistic.version')),'fit',JSON_UNQUOTE(JSON_EXTRACT(body,'$.holistic.fit')))),'JobID',job_id,'InputKey',JSON_UNQUOTE(JSON_EXTRACT(body,'$.input_key')),'Model',JSON_UNQUOTE(JSON_EXTRACT(body,'$.model')),'RequirementsKey',JSON_UNQUOTE(JSON_EXTRACT(body,'$.requirements_key')),'ComparisonKey',JSON_UNQUOTE(JSON_EXTRACT(body,'$.comparison_key')),'ComparisonScope',JSON_UNQUOTE(JSON_EXTRACT(body,'$.comparison_scope')),'Score',JSON_EXTRACT(body,'$.score'),'Coverage',JSON_EXTRACT(body,'$.coverage'),'Breakdown',JSON_EXTRACT(body,'$.breakdown'),'Source',JSON_UNQUOTE(JSON_EXTRACT(body,'$.source')),'SourceContextKey',JSON_UNQUOTE(JSON_EXTRACT(body,'$.source_context_key'))) FROM job_match_results WHERE user_id=?"
 	resultArgs := []any{user}
 	if fullResults || len(ids) > 0 || company != "" {
 		if fullResults {
@@ -243,7 +271,7 @@ func (s *Store) matchSnapshot(ctx context.Context, user, model, maskName string,
 		}
 		for _, r := range results {
 			fullByID[r.JobID] = r
-			resultByID[r.JobID] = matchResultSummary{r.JobID, r.InputKey, r.Model, r.RequirementsKey, r.ComparisonKey, r.ComparisonScope, r.Source, r.SourceContextKey, r.QualityVersion, r.Score, r.Coverage, r.Breakdown}
+			resultByID[r.JobID] = matchResultSummary{Holistic: r.Holistic, JobID: r.JobID, InputKey: r.InputKey, Model: r.Model, RequirementsKey: r.RequirementsKey, ComparisonKey: r.ComparisonKey, ComparisonScope: r.ComparisonScope, Source: r.Source, SourceContextKey: r.SourceContextKey, QualityVersion: r.QualityVersion, Score: r.Score, Coverage: r.Coverage, Breakdown: r.Breakdown}
 		}
 	} else {
 		results, e := Many[matchResultSummary](ctx, tx, resultQuery, resultArgs...)
@@ -323,22 +351,30 @@ func (s *Store) matchSnapshot(ctx context.Context, user, model, maskName string,
 		rows.Close()
 	}
 	v.Jobs = make([]MatchJob, 0, len(jobs))
+	v.CityAliases = map[string][]string{}
+	for _, city := range append(append([]string{}, v.Profile.PreferredCities...), v.Profile.AcceptableCities...) {
+		v.CityAliases[city] = d.CanonicalCities([]string{city})
+	}
 	hashes := map[string]string{matching.ComparisonAbilities: matching.ComparisonCandidateHash(v.Candidate, matching.ComparisonAbilities), matching.ComparisonFull: matching.ComparisonCandidateHash(v.Candidate, matching.ComparisonFull)}
 	// This bounded memo exists only inside the current user's read snapshot.
 	// Repeated descriptions share redaction/hashing, never cross-user raw text.
-	type cleanInput struct{ Text, RequirementsKey, InputKey string }
+	type cleanInput struct{ Text, RequirementsKey string }
 	cleaned := map[string]cleanInput{}
 	memoBytes := 0
 	baseHash, baseReady := v.CandidateHash, maskName == ""
 	for _, job := range jobs {
-		row := MatchJob{Job: job, State: "BASIC", Disposition: prefByID[job.ID], Application: applicationByID[job.ID]}
+		row := MatchJob{Job: job, Cities: d.CanonicalCities(job.Locations), State: "BASIC", Disposition: prefByID[job.ID], Application: applicationByID[job.ID]}
+		for _, city := range job.Locations {
+			if _, exists := v.CityAliases[city]; !exists {
+				v.CityAliases[city] = d.CanonicalCities([]string{city})
+			}
+		}
 		o, exists := latest[job.ID]
 		if exists && o.FetchStatus == "SUCCESS" {
 			input, hit := cleaned[o.Text]
 			if !hit {
 				input.Text = cleanJobText(o.Text, maskName)
 				input.RequirementsKey = matching.RequirementKey(input.Text, model)
-				input.InputKey = matching.InputKey(input.RequirementsKey, v.CandidateHash)
 				if len(cleaned) < 256 && memoBytes+len(o.Text)+len(input.Text) <= 8<<20 {
 					cleaned[o.Text] = input
 					memoBytes += len(o.Text) + len(input.Text)
@@ -346,7 +382,7 @@ func (s *Store) matchSnapshot(ctx context.Context, user, model, maskName string,
 			}
 			row.Text = input.Text
 			row.TextBytes = len(row.Text)
-			row.RequirementsKey, row.InputKey = input.RequirementsKey, input.InputKey
+			row.RequirementsKey, row.InputKey = input.RequirementsKey, matching.JobInputKey(job, input.RequirementsKey, v.CandidateHash)
 			if screen {
 				local := screener.Screen(job, row.Text)
 				row.Local = &local
@@ -379,16 +415,29 @@ func (s *Store) matchSnapshot(ctx context.Context, user, model, maskName string,
 					}
 					baseHash, baseReady = base.Hash(), true
 				}
-				contextKey := matching.InputKey(matching.RequirementKey(cleanJobText(o.Text, ""), matching.ChatIdentity), baseHash)
+				contextKey := matching.JobInputKey(job, matching.RequirementKey(cleanJobText(o.Text, ""), matching.ChatIdentity), baseHash)
 				reusable = o.FetchStatus == "SUCCESS" && r.SourceContextKey != "" && r.SourceContextKey == contextKey
 			}
 			legacyCurrent := !manual && r.ComparisonKey == "" && r.InputKey == row.InputKey
-			if r.QualityVersion == matching.QualityVersion && row.InputKey != "" && (r.Model == model || manual) && (legacyCurrent || reusable) {
+			row.AnalysisMode = "LEGACY"
+			if r.Holistic != nil {
+				row.AnalysisMode = r.Holistic.Version
+			}
+			current := legacyCurrent || reusable
+			if r.Holistic != nil {
+				reusable = false
+				current = r.Holistic.Version == matching.HolisticVersion && r.InputKey == row.InputKey
+				if manual {
+					current = r.Holistic.Version == matching.HolisticVersion && r.SourceContextKey != "" && r.SourceContextKey == matching.JobInputKey(job, matching.RequirementKey(cleanJobText(o.Text, ""), matching.ChatIdentity), baseHash)
+				}
+			}
+			if r.QualityVersion == matching.QualityVersion && row.InputKey != "" && (r.Model == model || manual) && current {
 				row.State = "ANALYZED"
 				row.Score = r.Score
 				row.Coverage = r.Coverage
 				row.Breakdown = r.Breakdown
 				row.Source = r.Source
+				row.Holistic = r.Holistic
 				if fullResults && reusable && !manual {
 					refreshed, e := matching.RefreshResult(*row.Result, job, v.Profile, v.Candidate, row.InputKey, v.CandidateHash, time.Now().UTC(), row.Text)
 					if e != nil {
@@ -430,6 +479,23 @@ func (s *Store) matchSnapshot(ctx context.Context, user, model, maskName string,
 		}
 		return a.Job.ID < b.Job.ID
 	})
+	if len(workspace) > 0 && workspace[0] {
+		v.CompanyWorkflow, err = companyWorkflow(ctx, tx, user, company, jobs, time.Now().UTC())
+		if err != nil {
+			return v, err
+		}
+		closed := map[string]bool{}
+		for _, row := range v.CompanyWorkflow.Jobs {
+			if row.CurrentStatus == "CLOSED" {
+				closed[row.JobID] = true
+			}
+		}
+		for i := range v.Jobs {
+			if closed[v.Jobs[i].Job.ID] {
+				v.Jobs[i].ExcludedReason = "已截止或关闭，请核对官网最新状态"
+			}
+		}
+	}
 	return v, tx.Commit()
 }
 func (s *Store) CachedRequirements(ctx context.Context, user, key string) (matching.Requirements, error) {
@@ -466,11 +532,15 @@ func (s *Store) saveMatchResult(ctx context.Context, tx *sql.Tx, user, maskName 
 	if err := tx.QueryRowContext(ctx, "SELECT id FROM jobs WHERE id=? FOR UPDATE", r.JobID).Scan(&id); err != nil {
 		return err
 	}
+	currentJob, err := One[d.Job](ctx, tx, "SELECT body FROM jobs WHERE id=?", r.JobID)
+	if err != nil {
+		return err
+	}
 	_, candidate, err := matchCandidate(ctx, tx, user, maskName)
 	if err != nil {
 		return err
 	}
-	o, err := One[d.Observation](ctx, tx, "SELECT body FROM observations WHERE job_id=? ORDER BY observed_at DESC,id DESC LIMIT 1", r.JobID)
+	o, err := One[d.Observation](ctx, tx, "SELECT body FROM observations WHERE job_id=? ORDER BY observed_at DESC,id DESC LIMIT 1 FOR UPDATE", r.JobID)
 	if err != nil {
 		return err
 	}
@@ -479,7 +549,7 @@ func (s *Store) saveMatchResult(ctx context.Context, tx *sql.Tx, user, maskName 
 		if err != nil {
 			return err
 		}
-		if r.SourceContextKey != matching.InputKey(matching.RequirementKey(cleanJobText(o.Text, ""), matching.ChatIdentity), base.Hash()) {
+		if r.SourceContextKey != matching.JobInputKey(currentJob, matching.RequirementKey(cleanJobText(o.Text, ""), matching.ChatIdentity), base.Hash()) {
 			return ErrStaleInput
 		}
 		for _, req := range r.Requirements {
@@ -489,10 +559,18 @@ func (s *Store) saveMatchResult(ctx context.Context, tx *sql.Tx, user, maskName 
 		}
 	}
 	key := matching.RequirementKey(cleanJobText(o.Text, maskName), r.Model)
-	if o.FetchStatus != "SUCCESS" || matching.InputKey(key, candidate.Hash()) != r.InputKey {
+	if o.FetchStatus != "SUCCESS" || matching.JobInputKey(currentJob, key, candidate.Hash()) != r.InputKey {
 		return ErrStaleInput
 	}
-	if r.ComparisonKey != "" {
+	if r.Holistic != nil {
+		if err := matching.ValidateHolistic(*r.Holistic, cleanJobText(o.Text, maskName), candidate); err != nil {
+			return err
+		}
+		if r.CandidateHash != candidate.Hash() || r.RequirementsKey != key {
+			return ErrStaleInput
+		}
+	}
+	if r.ComparisonKey != "" && r.Holistic == nil {
 		scope := matching.ComparisonScope(r.Requirements)
 		if r.RequirementsKey != key || r.CandidateHash != candidate.Hash() || r.ComparisonScope != scope || r.ComparisonKey != matching.ComparisonKey(key, matching.ComparisonCandidateHash(candidate, scope), scope) {
 			return ErrValidation

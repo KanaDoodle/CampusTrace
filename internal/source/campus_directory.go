@@ -16,15 +16,32 @@ func CampusDirectory() []CampusDirectoryEntry {
 		"xiaohongshu": "互联网", "tencent": "互联网", "baidu": "互联网", "meituan": "互联网", "jd": "互联网", "netease": "互联网", "alibaba": "互联网", "bilibili": "互联网", "kuaishou": "互联网", "qihoo360": "互联网",
 		"oppo": "消费电子与制造", "vivo": "消费电子与制造", "honor": "消费电子与制造", "lenovo": "消费电子与制造",
 		"sap": "外企与软件", "siemens": "外企与工业", "haier": "制造业", "sany": "制造业", "sgm": "汽车与制造", "inovance": "制造业", "midea": "制造业", "byd": "汽车与制造", "hikvision": "智能物联与制造",
+		"bankcomm_tech": "银行", "cms_securities": "证券", "htsc_securities": "证券", "csc_securities": "证券", "guosen_securities": "证券", "galaxy_securities": "证券", "cicc_securities": "证券",
+		"cmb_tech": "银行", "citic_tech": "银行", "boc_software": "银行", "boc_operations": "银行",
 		"ths": "金融科技", "cmbnt": "金融科技", "netease_game": "游戏", "leihuo": "游戏", "ctyun": "国央企", "ctcloud": "国央企", "mihoyo": "游戏", "pingan_tech": "金融科技", "pingan_oneconnect": "金融科技", "pingan_wallet": "金融科技", "cmcloud": "国央企", "cmiot": "国央企", "cmhome": "国央企", "hundsun": "金融科技", "yuewen": "互联网", "gbits": "游戏", "tcl_digital": "消费电子与制造", "tcl_honghu": "消费电子与制造", "cec_software": "国央企",
 	}
-	out := make([]CampusDirectoryEntry, 0, 75)
+	out := make([]CampusDirectoryEntry, 0, 96)
 	for _, site := range CampusSites() {
 		entry := CampusDirectoryEntry{CampusSite: site, Category: categories[site.Adapter], AutoImport: true, Status: "已接入", Note: "预览时实时核验官网范围与岗位数量。", CheckedAt: "2026-10-05"}
 		if _, ok := sectorScopes[site.Adapter]; ok {
 			entry.CheckedAt = "2026-10-06"
 		}
 		switch site.Adapter {
+		case "bankcomm_tech":
+			entry.CheckedAt = "2026-10-08"
+			entry.Note = "完整读取总行校招后选择金融科技项目；不混入业务类、博士后及其他单位。官网入口需筛选总行；招聘季年份不等于毕业年份，具体毕业范围见原文。"
+		case "cms_securities", "htsc_securities":
+			entry.CheckedAt = "2026-10-08"
+			entry.Note = "限定本预设的官网固定校招项目，保留岗位职责、学历、毕业范围、实习考察和截止时间；不据匿名可投状态判断资格。"
+		case "csc_securities", "guosen_securities", "galaxy_securities", "cicc_securities":
+			entry.CheckedAt = "2026-10-08"
+			entry.Note = "完整读取官网校招分类；可能包含实习考察、不同届别、公开地区及经验要求。官网未明确用工类型时保留未知，具体条件见原文。"
+		case "cmb_tech", "citic_tech":
+			entry.CheckedAt = "2026-10-08"
+			entry.Note = "限定科技相关校招岗位，保留原始招聘单位、轮岗培养及届别要求；完整分页读取后筛选，数量以实时预览为准。"
+		case "boc_software", "boc_operations":
+			entry.CheckedAt = "2026-10-08"
+			entry.Note = "限定 2027 校招及本预设单位；官网链接打开集团目录，需按单位查看。部分资格要求引用公告附件，保留核对链接，不自动补写；官网截止时间保留北京时间。"
 		case "sap":
 			entry.CheckedAt = "2026-10-06"
 			entry.Status, entry.Note = "核验时暂无岗位", "中国 Graduate 分类核验为 0 岗，可关注后等待更新；不混入 Student 实习及 Professional 社招。Graduate 不等于统一 2027 应届项目，具体届别与经验要求见原文。"
@@ -110,6 +127,27 @@ func CampusDirectory() []CampusDirectoryEntry {
 	}
 	for _, s := range sectors {
 		out = append(out, CampusDirectoryEntry{CampusSite: CampusSite{Company: s.company, URL: s.url, Scope: "仅官网入口，暂不支持自动导入"}, Category: s.category, Status: s.status, Note: s.note, CheckedAt: "2026-10-06"})
+	}
+
+	banks := []struct{ company, url, status, note string }{
+		{"工商银行", "https://job.icbc.com.cn/", "公开查询返回异常", "招聘官网可读；匿名校招岗位查询返回系统繁忙，尚未完成完整列表及独立详情核验。"},
+		{"农业银行", "https://career.abchina.com.cn/", "客户端协议待适配", "招聘官网可读；公开客户端使用加密请求封装，当前未接通岗位列表和详情，不能视为已支持自动导入。"},
+		{"建设银行", "https://job2.ccb.com/cn/job/index.html", "岗位接口待适配", "2027 校招公告可读；按官网协议复核多个查询入口仍返回空正文，尚不能核验岗位列表及详情；建信金科独立保留公告入口。"},
+		{"交通银行", "https://job.bankcomm.com/", "需按单位接入", "已接通总行金融科技校招；集团校招总列表超过 500 岗容量，其他招聘单位需分别核验后接入。"},
+		{"邮储银行", "https://www.psbc.com/cn/gyyc/rczp/xyzp/", "公告入口", "2027 校招公告及专属网申站可读；网申站使用智联动态组件，公开单位列表与独立岗位详情协议尚未接通。"},
+		{"兴业银行", "https://job.cib.com.cn/portal/", "客户端协议待适配", "2027 校招公告已确认科技研发中心研发岗；岗位查询返回错误页面，公开客户端请求封装仍待核验，暂不能自动读取完整岗位。"},
+		{"浦发银行", "https://job.spdb.com.cn/", "岗位渠道待核验", "招聘官网可读；本次未读到可核对的公开校招岗位列表，后续需确认当前投递渠道及详情协议。"},
+	}
+	for _, b := range banks {
+		out = append(out, CampusDirectoryEntry{CampusSite: CampusSite{Company: b.company, URL: b.url, Scope: "仅官网入口，暂不支持自动导入"}, Category: "银行", Status: b.status, Note: b.note, CheckedAt: "2026-10-08"})
+	}
+	securities := []struct{ company, url, status, note string }{
+		{"中信证券", "https://careers.citics.com/", "公开协议待适配", "官网可读；公开客户端使用独立招聘网关，总部与分支项目、完整分页及详情尚未完成适配。"},
+		{"广发证券", "https://job.gf.com.cn/", "当前校招项目待核验", "官网及其发布的招聘平台可读；校园分类本次混有日常招聘，尚未核验独立当届项目，不能统一视为 2027 校招。"},
+		{"国泰海通证券", "https://hr.gtht.com/", "岗位协议待适配", "新版招聘官网可读；校招项目、完整岗位列表及独立详情协议仍待适配，不沿用旧海通或国泰君安渠道冒充当前范围。"},
+	}
+	for _, s := range securities {
+		out = append(out, CampusDirectoryEntry{CampusSite: CampusSite{Company: s.company, URL: s.url, Scope: "仅官网入口，暂不支持自动导入"}, Category: "证券", Status: s.status, Note: s.note, CheckedAt: "2026-10-08"})
 	}
 	return out
 }

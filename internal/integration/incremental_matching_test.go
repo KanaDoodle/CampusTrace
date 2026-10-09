@@ -26,11 +26,11 @@ func (m *scopeMatchModel) Complete(ctx context.Context, messages, tools any) (js
 	if err := json.Unmarshal([]byte(d.JSON(messages)), &msgs); err != nil {
 		return nil, err
 	}
-	m.scopes = append(m.scopes, strings.Contains(msgs[1]["content"], `"kind":"GRADUATION"`))
+	m.scopes = append(m.scopes, strings.Contains(msgs[1]["content"], `｜GRADUATION】`))
 	return m.inner.Complete(ctx, messages, tools)
 }
 
-func TestIncrementalMatchingUnknownQualificationKeepsFullScopeAndSeparatesBatches(t *testing.T) {
+func TestWholeMatchingReadsCompleteScopeRegardlessOfLegacyRequirements(t *testing.T) {
 	ctx, s, q, u, _ := setup(t)
 	profile := d.Profile{GraduationYear: 2027, Degree: "MASTER", Languages: []string{"Go"}}
 	must(t, s.SaveProfile(ctx, u, profile))
@@ -56,7 +56,7 @@ func TestIncrementalMatchingUnknownQualificationKeepsFullScopeAndSeparatesBatche
 	snap, err := s.MatchSnapshot(ctx, u, identity, "", ids)
 	must(t, err)
 	rec := matchingRequest(handler, token, "/api/matching/analyze", "POST", map[string]any{"job_ids": ids, "candidate_hash": snap.CandidateHash})
-	if rec.Code != 200 || len(model.scopes) != 2 || model.scopes[0] || !model.scopes[1] {
+	if rec.Code != 200 || len(model.scopes) != 1 || !model.scopes[0] {
 		t.Fatal(rec.Code, rec.Body.String(), model.scopes)
 	}
 	profile.GraduationYear = 2028
@@ -64,16 +64,13 @@ func TestIncrementalMatchingUnknownQualificationKeepsFullScopeAndSeparatesBatche
 	snap, err = s.MatchSnapshot(ctx, u, identity, "", ids)
 	must(t, err)
 	for _, j := range snap.Jobs {
-		want := "ANALYZED"
-		if j.Job.ID == ids[1] {
-			want = "STALE"
-		}
+		want := "STALE"
 		if j.State != want {
 			t.Fatal("unknown gate was incorrectly reused", j.State, want)
 		}
 	}
 	rec = matchingRequest(handler, token, "/api/matching/analyze", "POST", map[string]any{"job_ids": ids, "candidate_hash": snap.CandidateHash})
-	if rec.Code != 200 || len(model.scopes) != 3 || !model.scopes[2] {
+	if rec.Code != 200 || len(model.scopes) != 2 || !model.scopes[1] {
 		t.Fatal(rec.Code, rec.Body.String(), model.scopes)
 	}
 }
@@ -118,7 +115,7 @@ func TestIncrementalMatchingReadOnlyLocalUpdatesKeepPaidEvidenceAndFences(t *tes
 	}
 	stored, err := s.MatchResult(ctx, u, o.JobID)
 	must(t, err)
-	if stored.ComparisonScope != matching.ComparisonAbilities || stored.ComparisonKey == "" || len(stored.Matches) != 4 {
+	if stored.Holistic == nil || len(stored.Matches) != 0 || stored.Score != nil {
 		t.Fatal(stored)
 	}
 	oldBody := d.JSON(stored)
@@ -127,7 +124,7 @@ func TestIncrementalMatchingReadOnlyLocalUpdatesKeepPaidEvidenceAndFences(t *tes
 	profile.Degree = "PHD"
 	must(t, s.SaveProfile(ctx, u, profile))
 	next := snapshot()
-	if next.CandidateHash == first.CandidateHash || next.Jobs[0].State != "ANALYZED" || next.Jobs[0].Score == nil || *next.Jobs[0].Score != 100 {
+	if next.CandidateHash == first.CandidateHash || next.Jobs[0].State != "STALE" || next.Jobs[0].Score != nil {
 		t.Fatal(next)
 	}
 	// Old review authorization is stale even though the paid result is reusable.
@@ -143,7 +140,7 @@ func TestIncrementalMatchingReadOnlyLocalUpdatesKeepPaidEvidenceAndFences(t *tes
 			Result matching.Result `json:"result"`
 		}
 		must(t, json.Unmarshal(rec.Body.Bytes(), &v))
-		if rec.Code != 200 || v.State != "ANALYZED" || !v.Result.LocallyRefreshed || v.Result.Matches[1].Result != "MISMATCH" || v.Result.Matches[2].Result != "DIRECT" || v.Result.Matches[3].Result != "NO_EVIDENCE" || v.Result.AnalyzedAt != stored.AnalyzedAt || v.Result.InputKey != next.Jobs[0].InputKey {
+		if rec.Code != 200 || v.State != "STALE" || v.Result.Holistic == nil || v.Result.AnalyzedAt != stored.AnalyzedAt {
 			t.Fatal(rec.Code, rec.Body.String())
 		}
 		return v.Result
@@ -159,7 +156,6 @@ func TestIncrementalMatchingReadOnlyLocalUpdatesKeepPaidEvidenceAndFences(t *tes
 			t.Fatal(rec.Code, rec.Body.String())
 		}
 	}
-	analyze(next.CandidateHash)
 	unchanged, err := s.MatchResult(ctx, u, o.JobID)
 	must(t, err)
 	if model.calls.Load() != 1 || d.JSON(unchanged) != oldBody || snapshot().CallsToday != 1 {
@@ -192,7 +188,7 @@ func TestIncrementalMatchingReadOnlyLocalUpdatesKeepPaidEvidenceAndFences(t *tes
 	}
 }
 
-func TestIncrementalMatchingLocalOnlyRequirementsNeedNoComparisonCall(t *testing.T) {
+func TestWholeMatchingDoesNotDeriveAbilityFromLegacyQualificationOnlyCache(t *testing.T) {
 	ctx, s, q, u, _ := setup(t)
 	must(t, s.SaveProfile(ctx, u, d.Profile{GraduationYear: 2027, Degree: "MASTER"}))
 	o, err := s.IngestForUser(ctx, u, p.Ingest{Company: "Local gates synthetic", Title: "岗位", JobType: "FULL_TIME", Locations: []string{"上海"}, Text: "2027届毕业生", FetchStatus: "SUCCESS", ObservedAt: time.Now().UTC()})
@@ -207,12 +203,12 @@ func TestIncrementalMatchingLocalOnlyRequirementsNeedNoComparisonCall(t *testing
 	model := &matchFixtureModel{}
 	handler := (&transport.API{Store: s, Queue: q, Auth: authn, ResumeModel: model, ResumeModelName: "fixture"}).Handler()
 	rec := matchingRequest(handler, token, "/api/matching/analyze", "POST", map[string]any{"job_ids": []string{o.JobID}, "candidate_hash": snap.CandidateHash})
-	if rec.Code != 200 || model.calls.Load() != 0 {
+	if rec.Code != 200 || model.calls.Load() != 1 {
 		t.Fatal(rec.Code, rec.Body.String(), model.calls.Load())
 	}
 	result, err := s.MatchResult(ctx, u, o.JobID)
 	must(t, err)
-	if result.Score != nil || len(result.Matches) != 1 || result.Matches[0].Result != "DIRECT" {
+	if result.Score != nil || result.Holistic == nil || result.Holistic.Fit != "UNCERTAIN" || len(result.Matches) != 0 {
 		t.Fatal(result)
 	}
 }

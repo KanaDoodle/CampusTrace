@@ -14,6 +14,13 @@ const NeteaseGameCampusURL = "https://campus.game.163.com/app/job/position?id=10
 const LeihuoCampusURL = "https://leihuo.163.com/campus/#/full"
 
 var sectorScopes = map[string]struct{ Tenant, Origin string }{
+	"bankcomm_tech":     {"campus_head_it", bankcommOrigin},
+	"cms_securities":    {"101501", hotjobOrigin},
+	"htsc_securities":   {"107301", hotjobOrigin},
+	"cmb_tech":          {"graduate_tech", cmbOrigin},
+	"citic_tech":        {"campus_it", citicOrigin},
+	"boc_software":      {"2027_software", bocOrigin},
+	"boc_operations":    {"2027_operations", bocOrigin},
 	"ths":               {"61", "https://campus.10jqka.com.cn"},
 	"cmbnt":             {"graduate", "https://cmbntjob.cmbchina.com"},
 	"netease_game":      {"102", "https://campus.game.163.com"},
@@ -34,6 +41,15 @@ var sectorScopes = map[string]struct{ Tenant, Origin string }{
 }
 
 func sectorEntry(site CampusSite, u *url.URL) bool {
+	if _, ok := securitiesProjects[site.Adapter]; ok {
+		return u.String() == site.URL
+	}
+	if site.Adapter == "bankcomm_tech" {
+		return u.String() == BankcommCampusURL
+	}
+	if site.Adapter == "cmb_tech" || site.Adapter == "citic_tech" || site.Adapter == "boc_software" || site.Adapter == "boc_operations" {
+		return bankEntry(site, u)
+	}
 	if site.Adapter == "ctyun" || site.Adapter == "ctcloud" || site.Adapter == "gbits" {
 		return u.String() == site.URL
 	}
@@ -61,6 +77,16 @@ func sectorEntry(site CampusSite, u *url.URL) bool {
 
 func (a PublicPlatform) discoverSector(ctx context.Context, s d.Source) ([]PostingRef, error) {
 	switch s.Adapter {
+	case "bankcomm_tech":
+		return a.discoverBankcomm(ctx, s)
+	case "cms_securities", "htsc_securities":
+		return a.discoverSecurities(ctx, s)
+	case "cmb_tech":
+		return a.discoverCMB(ctx, s)
+	case "citic_tech":
+		return a.discoverCITIC(ctx, s)
+	case "boc_software", "boc_operations":
+		return a.discoverBOC(ctx, s)
 	case "tcl_digital", "tcl_honghu":
 		return a.discoverTCL(ctx, s)
 	case "cec_software":
@@ -88,6 +114,16 @@ func (a PublicPlatform) discoverSector(ctx context.Context, s d.Source) ([]Posti
 }
 func (a PublicPlatform) fetchSector(ctx context.Context, s d.Source, r PostingRef) (string, error) {
 	switch s.Adapter {
+	case "bankcomm_tech":
+		return a.fetchBankcomm(ctx, s, r)
+	case "cms_securities", "htsc_securities":
+		return a.fetchSecurities(ctx, s, r)
+	case "cmb_tech":
+		return a.fetchCMB(ctx, s, r)
+	case "citic_tech":
+		return a.fetchCITIC(ctx, s, r)
+	case "boc_software", "boc_operations":
+		return a.fetchBOC(ctx, s, r)
 	case "tcl_digital", "tcl_honghu":
 		return a.fetchTCL(ctx, s, r)
 	case "cec_software":

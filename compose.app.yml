@@ -32,6 +32,8 @@ services:
     environment:
       <<: *environment
       HTTP_ADDR: 0.0.0.0:8080
+      PRACTICE_RUNNER_URL: http://sandbox-runner:18082
+      PRACTICE_SECRET: ${PRACTICE_SECRET:-local-campus-practice-secret-change-me-2027}
     ports: ["127.0.0.1:${CAMPUS_HTTP_PORT:-8080}:8080"]
     depends_on:
       mysql: {condition: service_healthy}
@@ -79,3 +81,23 @@ services:
       api: {condition: service_healthy}
       analysis-1: {condition: service_healthy}
       analysis-2: {condition: service_healthy}
+
+  sandbox-runner:
+    image: campustrace-app:local
+    profiles: [practice]
+    command: ["/app/sandbox-runner"]
+    restart: unless-stopped
+    user: "0:0"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    volumes: ["/var/run/docker.sock:/var/run/docker.sock"]
+    environment:
+      PRACTICE_SECRET: ${PRACTICE_SECRET:-local-campus-practice-secret-change-me-2027}
+      PRACTICE_IMAGE: ${PRACTICE_IMAGE:-golang:1.25.9-bookworm}
+      PRACTICE_OWNER: campustrace-local
+    healthcheck:
+      test: ["CMD", "/app/campustrace", "probe", "--url", "http://127.0.0.1:18082/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 6

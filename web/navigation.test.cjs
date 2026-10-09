@@ -15,7 +15,7 @@ test('browsing restores per-account filters and page but never stores credential
 });
 test('malformed saved browsing is discarded and blocked storage retains only session memory',()=>{
   const h=harness();h.stored.set('campustrace:job-browse:v1:alice','not JSON');assert.equal(h.N.readBrowse('alice').page,1);
-  h.N.storeBrowse('alice',{page:-3,sort:'injected',filter:'<script>',lastTab:'unknown'});assert.equal(h.N.readBrowse('alice').page,1);assert.equal(h.N.readBrowse('alice').sort,'local');assert.equal(h.N.readBrowse('alice').filter,'');
+  h.N.storeBrowse('alice',{page:-3,sort:'injected',filter:'<script>',lastTab:'unknown'});assert.equal(h.N.readBrowse('alice').page,1);assert.equal(h.N.readBrowse('alice').sort,'deep');assert.equal(h.N.readBrowse('alice').filter,'');
   const blocked=harness({storage:false});blocked.N.storeBrowse('alice',{query:'Go',page:2});assert.equal(blocked.N.readBrowse('alice').query,'Go');assert.equal(blocked.stored.size,0);
 });
 test('canceling navigation retains edits and guard; approved leave captures browsing and releases guard',async()=>{
@@ -51,4 +51,11 @@ test('filtering hides edits without discarding them, and saving an earlier submi
 });
 test('discard confirmation leaves the page guard active and blocks competing navigation while prompting',async()=>{
   const h=harness();h.N.register({dirty:()=>true});assert.equal(await h.N.confirmDiscard(),false);assert.equal(h.N.dirty(),true);h.approve();assert.equal(await h.N.confirmDiscard(),true);assert.equal(h.N.dirty(),true);
+});
+test('choosing an action is not an unsaved edit; changing its input still is',()=>{
+ const h=harness(),form={id:'task',elements:[{name:'skill_id',type:'select-one',value:'daily-review'},{name:'value',type:'text',value:''}]};
+ const doc={querySelectorAll:()=>[form],querySelector:()=>form},tracker=h.N.forms(doc,{ignoreNames:['skill_id']});tracker.restore();
+ form.elements[0].value='company-choice';assert.equal(tracker.dirty(),false);
+ form.elements[1].value='腾讯';const point=tracker.savepoint('#task');assert.equal(tracker.dirty(),true);
+ form.elements[1].value='小红书';tracker.saved('#task',point);assert.equal(tracker.dirty(),true);
 });

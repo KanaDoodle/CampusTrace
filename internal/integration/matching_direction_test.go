@@ -53,7 +53,7 @@ func TestLocalDirectionHandlesAgentTargetsWithoutCallsAndPreservesPaidResults(t 
 		t.Fatal("preview omitted owned fixture jobs")
 	}
 	rec = matchingRequest(handler, token, "/api/matching/analyze", "POST", map[string]any{"job_ids": ids[:1], "candidate_hash": snap.CandidateHash})
-	if rec.Code != 200 || model.calls.Load() != 2 {
+	if rec.Code != 200 || model.calls.Load() != 1 {
 		t.Fatal(rec.Code, rec.Body.String())
 	}
 	profile.TargetRoles = []string{"财务"}
@@ -61,14 +61,14 @@ func TestLocalDirectionHandlesAgentTargetsWithoutCallsAndPreservesPaidResults(t 
 	current, err := s.MatchSnapshot(ctx, u, matching.ModelIdentity("server-default", "fixture"), "", ids)
 	must(t, err)
 	for _, j := range current.Jobs {
-		if j.Job.ID == ids[0] && (j.State != "ANALYZED" || j.Local.Direction.Status != "UNRELATED") {
-			t.Fatal("direction updates invalidated paid ability comparison or reused old preferences", j.State, j.Local.Direction)
+		if j.Job.ID == ids[0] && (j.State != "STALE" || j.Local.Direction.Status != "UNRELATED") {
+			t.Fatal("whole assessment failed to invalidate after preference edit", j.State, j.Local.Direction)
 		}
 		if j.Job.ID == ids[3] && j.Local.Direction.Status != "MATCH" {
 			t.Fatal("current target was not used", j.Local.Direction)
 		}
 	}
-	if model.calls.Load() != 2 || current.CallsToday != 2 {
+	if model.calls.Load() != 1 || current.CallsToday != 1 {
 		t.Fatal("local direction refresh incurred another model call")
 	}
 }

@@ -19,7 +19,7 @@ func TestCampusImportFixedScopesDoNotScanTwice(t *testing.T) {
 			continue
 		}
 		v, err := a.ResolveCampusImport(context.Background(), site.URL)
-		if err != nil || v.Adapter != site.Adapter || v.ProjectCode == "" {
+		if err != nil || v.Adapter != site.Adapter || v.ProjectCode == "" || v.Name != site.Company+" · 校招" || len(v.Name) > 160 {
 			t.Fatalf("%s: %+v %v", site.Adapter, v, err)
 		}
 	}

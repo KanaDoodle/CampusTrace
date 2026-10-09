@@ -7,6 +7,7 @@ import (
 	"github.com/KanaDoodle/CampusTrace/internal/analysis"
 	"github.com/KanaDoodle/CampusTrace/internal/auth"
 	"github.com/KanaDoodle/CampusTrace/internal/bootstrap"
+	"github.com/KanaDoodle/CampusTrace/internal/practice"
 	"github.com/KanaDoodle/CampusTrace/internal/transport"
 	"log/slog"
 	"net"
@@ -45,8 +46,9 @@ func run() error {
 	if configured, ok := app.ResumeModel.(*analysis.ChatClient); ok {
 		slots = configured.Sem
 	}
-	a := &transport.API{Store: app.Store, Queue: app.Queue, Tools: app.Tools, Agent: app.Agent, Auth: auth.Service{Store: app.Store, Secret: []byte(app.Config.JWT)}, Metrics: app.Metrics, ResumeModel: app.ResumeModel, ResumeModelName: app.Config.LLMModel, CustomModelSlots: slots}
+	a := &transport.API{Practice: &practice.Client{URL: os.Getenv("PRACTICE_RUNNER_URL"), Key: []byte(os.Getenv("PRACTICE_SECRET"))}, Store: app.Store, Queue: app.Queue, Tools: app.Tools, Agent: app.Agent, Auth: auth.Service{Store: app.Store, Secret: []byte(app.Config.JWT)}, Metrics: app.Metrics, ResumeModel: app.ResumeModel, ResumeModelName: app.Config.LLMModel, CustomModelSlots: slots}
 	runner := a.StartMatchTasks(ctx, app.Config.LLMConcurrency)
+	a.StartAgentFeed(ctx)
 	defer runner.Close()
 	srv := &http.Server{Addr: app.Config.HTTP, Handler: a.Handler(), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second, BaseContext: func(net.Listener) context.Context { return ctx }}
 	done := make(chan error, 1)

@@ -87,8 +87,8 @@ func TestMatchingExportPrivateSanitizedOrderedAndWithoutModelCalls(t *testing.T)
 		t.Fatal("export lost jobs or preferences")
 	}
 	contextFound := false
-	for _, fact := range out.Candidate.Facts {
-		if fact.Kind == "IMPLEMENTED" && strings.Contains(fact.ProjectName, "任务队列") {
+	for _, fact := range fixtureDocumentFacts(out.Candidate) {
+		if fact.Kind == "IMPLEMENTED" && strings.Contains(out.Candidate.Document, "任务队列") {
 			contextFound = true
 		}
 	}

@@ -23,3 +23,13 @@ test('搜索不重绘其他表单，展开状态在重新筛选后保留',()=>{
  const list={innerHTML:'',querySelector:()=>manual},section={querySelector:s=>s==='[data-source-search]'?search:s==='[data-source-group]'?type:list};
  const state={search:'',group:'',manualOpen:false};S.mount(section,catalog,{esc,state,bind:()=>{rebound++;}});manual.ontoggle();search.value='SAP';search.oninput();assert.equal(state.manualOpen,true);assert.equal(state.search,'SAP');assert.equal(rebound,1);assert.match(list.innerHTML,/官网查看/);type.value='互联网';type.onchange();assert.match(list.innerHTML,/没有符合筛选/);
 });
+test('银行独立筛选保留技术中心预设和四大行待接入状态',()=>{
+ const rows=[{company:'中行 · 软件中心',category:'银行',auto_import:true,scope:'2027届'}, {company:'工商银行',category:'银行',auto_import:false,url:'https://job.icbc.com.cn/',status:'公开查询返回异常'}, {company:'招银网络科技',category:'金融科技',auto_import:true}];
+ assert.deepEqual(S.select(rows,{group:'银行'}).map(v=>v.index),[0,1]);
+ const h=S.render(rows,esc,{group:'银行'});assert.match(h,/<option value="银行" selected/);assert.match(h,/可自动导入 1 个 · 官网入口 1 个/);assert.match(h,/data-campus-preset="0"/);assert.doesNotMatch(h,/data-campus-preset="1"/);assert.match(h,/公开查询返回异常/);
+});
+test('证券独立筛选保留已接通预设和待适配官网，不混入银行金融科技',()=>{
+ const rows=[{company:'中金公司',category:'证券',auto_import:true}, {company:'中信证券',category:'证券',auto_import:false,url:'https://careers.citics.com/',status:'公开协议待适配'}, {company:'中信银行',category:'银行',auto_import:true}, {company:'恒生电子',category:'金融科技',auto_import:true}];
+ assert.deepEqual(S.select(rows,{group:'证券'}).map(v=>v.index),[0,1]);
+ const h=S.render(rows,esc,{group:'证券'});assert.match(h,/<option value="证券" selected/);assert.match(h,/可自动导入 1 个 · 官网入口 1 个/);assert.match(h,/data-campus-preset="0"/);assert.doesNotMatch(h,/data-campus-preset="1"/);assert.match(h,/公开协议待适配/);
+});

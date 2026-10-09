@@ -74,6 +74,29 @@ func (m *matchFixtureModel) Complete(_ context.Context, messages, _ any) (json.R
 	if strings.Contains(msgs[1]["content"], "test-private@example.com") {
 		return nil, errors.New("sensitive identifier reached model")
 	}
+	if strings.Contains(msgs[0]["content"], "whole-context") {
+		var input matching.HolisticRequest
+		if err := json.Unmarshal([]byte(msgs[1]["content"]), &input); err != nil {
+			return nil, err
+		}
+		replies := []matching.HolisticJobReply{}
+		for _, job := range input.Jobs {
+			h := matching.HolisticAssessment{Version: matching.HolisticVersion, Fit: "UNCERTAIN", Summary: "需要核对完整经历", CoreWork: "服务开发", Strengths: []matching.HolisticFinding{}, Gaps: []matching.HolisticFinding{}, Blockers: []matching.HolisticFinding{}, Questions: []string{}, NextSteps: []string{}, IgnoredFactors: []string{}, Gates: []matching.HolisticGate{}}
+			for _, f := range fixtureDocumentFacts(input.Candidate) {
+				if f.Text == "Go" && strings.Contains(job.Text, "Go") {
+					quote := "Go"
+					if m.badCitation.Load() {
+						quote = "invented Kafka"
+					}
+					h.Fit = "RELATED"
+					h.Strengths = append(h.Strengths, matching.HolisticFinding{Point: "语言相关", Explanation: "具有相关语言基础，实践范围需要核对", JobExcerpt: "Go", Evidence: []matching.Citation{{ID: f.ID, Excerpt: quote}}})
+					break
+				}
+			}
+			replies = append(replies, matching.HolisticJobReply{ID: job.ID, Assessment: h})
+		}
+		return json.Marshal(map[string]string{"content": d.JSON(map[string]any{"jobs": replies})})
+	}
 	out := []map[string]any{}
 	if strings.Contains(msgs[0]["content"], "Extract explicit requirements") {
 		var jobs []matching.JobText
@@ -150,18 +173,18 @@ func TestMatchingBatchCachesAndInvalidatesOnlyPersonalComparison(t *testing.T) {
 	if rec.Code != 200 {
 		t.Fatalf("batch %d %s", rec.Code, rec.Body.String())
 	}
-	if model.calls.Load() != 2 {
-		t.Fatal("identical JD was not deduplicated into one extraction + one comparison", model.calls.Load())
+	if model.calls.Load() != 1 {
+		t.Fatal("identical JD was not deduplicated into one whole-context batch", model.calls.Load())
 	}
 	rec = analyze(first.CandidateHash)
-	if rec.Code != 200 || model.calls.Load() != 2 {
+	if rec.Code != 200 || model.calls.Load() != 1 {
 		t.Fatal("completed results incurred more calls", rec.Code, model.calls.Load())
 	}
 	for _, id := range ids {
 		result, err := s.MatchResult(ctx, u, id)
 		must(t, err)
-		if result.Score == nil || *result.Score != 100 {
-			t.Fatal("no evidence-based score", result)
+		if result.Holistic == nil || result.Score != nil {
+			t.Fatal("missing whole-context report", result)
 		}
 	}
 	must(t, s.SaveProfile(ctx, u, d.Profile{GraduationYear: 2027, Degree: "MASTER", Languages: []string{"Go"}, Skills: []string{"Redis"}}))
@@ -170,11 +193,11 @@ func TestMatchingBatchCachesAndInvalidatesOnlyPersonalComparison(t *testing.T) {
 		t.Fatal("profile change did not invalidate comparison")
 	}
 	rec = analyze(first.CandidateHash)
-	if rec.Code != 409 || model.calls.Load() != 2 {
+	if rec.Code != 409 || model.calls.Load() != 1 {
 		t.Fatal("stale review sent to model", rec.Code)
 	}
 	rec = analyze(next.CandidateHash)
-	if rec.Code != 200 || model.calls.Load() != 3 {
+	if rec.Code != 200 || model.calls.Load() != 2 {
 		t.Fatal("profile edit reparsed unchanged JD", rec.Code, rec.Body.String(), model.calls.Load())
 	}
 	other, err := s.NewUser(ctx, d.ID()+"@matching-other.invalid", "unused")
@@ -187,7 +210,7 @@ func TestMatchingBatchCachesAndInvalidatesOnlyPersonalComparison(t *testing.T) {
 		t.Fatal("private match leaked", rec.Code)
 	}
 	rec = matchingRequest(handler, otherToken, "/api/matching/analyze", "POST", map[string]any{"job_ids": ids, "candidate_hash": "forged"})
-	if rec.Code != 404 || model.calls.Load() != 3 {
+	if rec.Code != 404 || model.calls.Load() != 2 {
 		t.Fatal("unauthorized job incurred model calls", rec.Code)
 	}
 	result, err := s.MatchResult(ctx, u, ids[0])
@@ -200,7 +223,7 @@ func TestMatchingBatchCachesAndInvalidatesOnlyPersonalComparison(t *testing.T) {
 		t.Fatal("fact change accepted stale score", err)
 	}
 }
-func TestMatchingQuotaStopsBeforeCallAndKeepsExtractionForResume(t *testing.T) {
+func TestMatchingQuotaStopsBeforeNextWholeAnalysis(t *testing.T) {
 	ctx, s, q, u, _ := setup(t)
 	must(t, s.SaveProfile(ctx, u, d.Profile{Languages: []string{"Go"}}))
 	must(t, s.SaveMatchSettings(ctx, u, matching.Settings{RoundLimit: 30, DailyCalls: 1}))
@@ -215,18 +238,23 @@ func TestMatchingQuotaStopsBeforeCallAndKeepsExtractionForResume(t *testing.T) {
 	must(t, err)
 	body := map[string]any{"job_ids": []string{o.JobID}, "candidate_hash": snap.CandidateHash}
 	rec := matchingRequest(handler, token, "/api/matching/analyze", "POST", body)
+	if rec.Code != 200 || model.calls.Load() != 1 {
+		t.Fatal(rec.Code, rec.Body.String())
+	}
+	next, err := s.IngestForUser(ctx, u, p.Ingest{Company: "Synthetic Quota", Title: "Go backend 2", JobType: "FULL_TIME", ExternalID: d.ID(), Text: "熟悉 Go", FetchStatus: "SUCCESS", ObservedAt: time.Now().UTC()})
+	must(t, err)
+	body["job_ids"] = []string{next.JobID}
+	rec = matchingRequest(handler, token, "/api/matching/analyze", "POST", body)
 	if rec.Code != 429 || !strings.Contains(rec.Body.String(), "MATCH_DAILY_LIMIT") || model.calls.Load() != 1 {
 		t.Fatal("quota not enforced before second call", rec.Code, rec.Body.String(), model.calls.Load())
 	}
-	_, err = s.CachedRequirements(ctx, u, snap.Jobs[0].RequirementsKey)
-	must(t, err)
 	must(t, s.SaveMatchSettings(ctx, u, matching.Settings{RoundLimit: 30, DailyCalls: 2}))
 	rec = matchingRequest(handler, token, "/api/matching/analyze", "POST", body)
 	if rec.Code != 200 || model.calls.Load() != 2 {
-		t.Fatal("resume lost extraction cache", rec.Code, rec.Body.String())
+		t.Fatal("resume lost whole analysis progress", rec.Code, rec.Body.String())
 	}
 }
-func TestMatchingRejectsInventedCitationsAndRetriesOnlyComparison(t *testing.T) {
+func TestMatchingRejectsInventedCitationsAndRetriesWholeAnalysis(t *testing.T) {
 	ctx, s, q, u, _ := setup(t)
 	must(t, s.SaveProfile(ctx, u, d.Profile{Languages: []string{"Go"}}))
 	o, err := s.IngestForUser(ctx, u, p.Ingest{Company: "Synthetic Match Evidence", Title: "Go backend", JobType: "FULL_TIME", Locations: []string{"Shanghai"}, Text: "熟悉 Go", FetchStatus: "SUCCESS", ObservedAt: time.Now().UTC()})
@@ -249,7 +277,7 @@ func TestMatchingRejectsInventedCitationsAndRetriesOnlyComparison(t *testing.T) 
 	}
 	model.badCitation.Store(false)
 	rec = matchingRequest(handler, token, "/api/matching/analyze", "POST", body)
-	if rec.Code != 200 || model.calls.Load() != 3 {
+	if rec.Code != 200 || model.calls.Load() != 2 {
 		t.Fatal("failed comparison unnecessarily reparsed JD", rec.Code, rec.Body.String(), model.calls.Load())
 	}
 }
@@ -299,7 +327,7 @@ func TestMatchingLeasePreventsDuplicatePaidBatches(t *testing.T) {
 	second := matchingRequest(handler, token, "/api/matching/analyze", "POST", body)
 	close(model.release)
 	first := <-done
-	if second.Code != 409 || !strings.Contains(second.Body.String(), "MATCH_BUSY") || first.Code != 200 || model.inner.calls.Load() != 2 {
+	if second.Code != 409 || !strings.Contains(second.Body.String(), "MATCH_BUSY") || first.Code != 200 || model.inner.calls.Load() != 1 {
 		t.Fatal("duplicate paid work was not prevented", first.Code, second.Code, model.inner.calls.Load())
 	}
 }

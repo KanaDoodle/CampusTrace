@@ -24,6 +24,12 @@ type TransitionArgs struct {
 
 func ValidateAction(kind string, raw []byte) error {
 	switch kind {
+	case "remember_memory":
+		var a MemoryInput
+		if err := d.Strict(raw, &a); err != nil {
+			return err
+		}
+		return a.Validate()
 	case "watch_source":
 		var a d.WatchInput
 		if err := d.Strict(raw, &a); err != nil {
@@ -103,6 +109,12 @@ func (s *Store) ApplyAction(ctx context.Context, user, nonce, kind string, raw [
 		}
 		now := time.Now().UTC()
 		switch kind {
+		case "remember_memory":
+			var a MemoryInput
+			json.Unmarshal(raw, &a)
+			v, e := saveMemoryTx(ctx, tx, user, a)
+			err = e
+			result = []byte(d.JSON(v))
 		case "watch_source":
 			var a d.WatchInput
 			json.Unmarshal(raw, &a)
@@ -282,7 +294,16 @@ func (s *Store) SaveProject(ctx context.Context, user string, p d.Project) (d.Pr
 		p.Bullets = []string{}
 	}
 	p.ID = d.ID()
-	_, err := s.DB.ExecContext(ctx, "INSERT INTO projects(id,user_id,body) VALUES(?,?,?)", p.ID, user, d.JSON(p))
+	err := s.Tx(ctx, func(tx *sql.Tx) error {
+		if e := lockRunUser(ctx, tx, user); e != nil {
+			return e
+		}
+		_, e := tx.ExecContext(ctx, "INSERT INTO projects(id,user_id,body) VALUES(?,?,?)", p.ID, user, d.JSON(p))
+		if e == nil {
+			e = agentEvent(ctx, tx, user, "", "PROFILE_CHANGED")
+		}
+		return e
+	})
 	return p, err
 }
 func (s *Store) UpdateProject(ctx context.Context, user, id string, incoming d.Project) (d.Project, error) {
@@ -291,6 +312,9 @@ func (s *Store) UpdateProject(ctx context.Context, user, id string, incoming d.P
 	}
 	var updated d.Project
 	err := s.Tx(ctx, func(tx *sql.Tx) error {
+		if e := lockRunUser(ctx, tx, user); e != nil {
+			return e
+		}
 		old, err := One[d.Project](ctx, tx, "SELECT body FROM projects WHERE id=? AND user_id=? FOR UPDATE", id, user)
 		if err != nil {
 			return err
@@ -303,6 +327,9 @@ func (s *Store) UpdateProject(ctx context.Context, user, id string, incoming d.P
 			updated.Description, updated.Bullets = old.Description, old.Bullets
 		}
 		_, err = tx.ExecContext(ctx, "UPDATE projects SET body=? WHERE id=? AND user_id=?", d.JSON(updated), id, user)
+		if err == nil {
+			err = agentEvent(ctx, tx, user, "", "PROFILE_CHANGED")
+		}
 		return err
 	})
 	return updated, err
@@ -344,6 +371,9 @@ func (s *Store) DeleteProject(ctx context.Context, user, id string) (int64, erro
 			return err
 		}
 		_, err = tx.ExecContext(ctx, "DELETE FROM projects WHERE id=? AND user_id=?", id, user)
+		if err == nil {
+			err = agentEvent(ctx, tx, user, "", "PROFILE_CHANGED")
+		}
 		return err
 	})
 	if err != nil {
@@ -372,7 +402,7 @@ func (s *Store) DeleteFact(ctx context.Context, user, id string) error {
 		if count == 0 {
 			return ErrNotFound
 		}
-		return nil
+		return agentEvent(ctx, tx, user, "", "PROFILE_CHANGED")
 	})
 }
 
@@ -395,6 +425,9 @@ func (s *Store) SaveFact(ctx context.Context, user string, f d.ProjectFact) (d.P
 			return err
 		}
 		_, err := tx.ExecContext(ctx, "INSERT INTO project_facts(id,user_id,project_id,body) VALUES(?,?,?,?)", f.ID, user, f.ProjectID, d.JSON(f))
+		if err == nil {
+			err = agentEvent(ctx, tx, user, "", "PROFILE_CHANGED")
+		}
 		return err
 	})
 	return f, err
@@ -425,6 +458,9 @@ func (s *Store) UpdateFact(ctx context.Context, user, id string, incoming d.Proj
 		updated.CreatedAt = old.CreatedAt
 		updated.UpdatedAt = time.Now().UTC()
 		_, err = tx.ExecContext(ctx, "UPDATE project_facts SET body=? WHERE id=? AND user_id=?", d.JSON(updated), id, user)
+		if err == nil {
+			err = agentEvent(ctx, tx, user, "", "PROFILE_CHANGED")
+		}
 		return err
 	})
 	return updated, err

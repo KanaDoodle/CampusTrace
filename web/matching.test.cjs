@@ -105,3 +105,28 @@ test('source-based category restoration is visible without accepting arbitrary n
  assert.ok(m.renderResult(v,{esc,D}).includes('已按岗位原文分段校正 3 项分类'));
  v.result.restored_categories='<script>';assert.ok(!m.renderResult(v,{esc,D}).includes('已按岗位原文分段校正'));
 });
+
+test('城市按岗位去重计数，地点未注明可以单独筛选，列表使用后端归一值',()=>{
+ const rows=[{...row('a'),cities:['杭州','杭州','上海'],job:{id:'a',company:'公司',title:'后端',locations:['杭州市-余杭区','Shanghai']}},{...row('b'),cities:['杭州']},{...row('c'),cities:[]}];
+ assert.deepEqual(m.cityNames(rows[0]),['杭州','上海']);
+ assert.deepEqual(m.cityOptions(rows,['上海']).map(c=>[c.value,c.count,c.preferred]),[['上海',1,true],['杭州',2,false],['__UNKNOWN__',1,false]]);
+ assert.equal(m.cityMatch(rows[0],'杭州'),true);assert.equal(m.cityMatch(rows[0],'__UNKNOWN__'),false);assert.equal(m.cityMatch(rows[2],'__UNKNOWN__'),true);
+ const html=m.jobRowHTML(rows[0],{esc,D},false,false,false,false);assert.match(html,/杭州 \/ 上海/);assert.ok(!html.includes('杭州市-余杭区'));
+ assert.equal(m.filtered(rows,'公司 后端 杭州','').length,1);
+});
+test('排序仅使用当前有效评分，零分有效，未知最后，时间和同分顺序稳定且不修改输入',()=>{
+ const rows=[{...row('stale','STALE'),score:100,priority:{score:100},preliminary_score:70},{...row('zero','ANALYZED'),score:0,priority:{score:0},preliminary_score:50},{...row('high','ANALYZED'),score:80,priority:{score:60},preliminary_score:60},{...row('closed','ANALYZED',0,'closed'),score:99,priority:{score:99}}];
+ assert.deepEqual(m.sortRows(rows,'technical').map(r=>r.job.id),['high','zero','stale','closed']);
+ assert.deepEqual(m.sortRows(rows,'technical','asc').map(r=>r.job.id),['zero','high','stale','closed']);
+ assert.deepEqual(m.sortRows(rows,'deep').map(r=>r.job.id),['high','zero','stale','closed']);assert.equal(rows[0].job.id,'stale');
+ const dated=['z','b','a','unknown'].map(id=>({...row(id),job:{id,company:'公司',updated_at:id==='unknown'?'invalid':id==='z'?'2026-10-08T00:00:00Z':'2026-10-07T00:00:00Z'}}));
+ assert.deepEqual(m.sortRows(dated,'updated').map(r=>r.job.id),['z','a','b','unknown']);assert.deepEqual(m.sortRows(dated,'updated','asc').map(r=>r.job.id),['a','b','z','unknown']);
+ const companies=[{...row('b'),job:{id:'b',company:'乙'}},{...row('a'),job:{id:'a',company:'阿里'}}];assert.deepEqual(m.sortRows(companies,'company','asc').map(r=>r.job.id),['a','b']);
+});
+
+test('列表分数随排序口径切换，过期技术评分仍显示待更新',()=>{
+ const high={...row('high','ANALYZED'),score:80,priority:{score:60},preliminary_score:45,local:{score:45,tier:'POSSIBLE'}};
+ const tech=m.jobRowHTML(high,{esc,D},false,false,false,false,'technical');assert.match(tech,/<strong>80\.0<\/strong><span>技术匹配度/);assert.ok(!tech.includes('<strong>60.0</strong>'));
+ const local=m.jobRowHTML(high,{esc,D},false,false,false,false,'local');assert.match(local,/<strong>45\.0<\/strong><span>初筛参考分/);
+ const stale=m.jobRowHTML({...high,state:'STALE'},{esc,D},false,false,false,false,'technical');assert.match(stale,/<strong>—<\/strong><span>分析待更新/);assert.ok(!stale.includes('<strong>80.0</strong>'));
+});

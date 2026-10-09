@@ -18,6 +18,9 @@ import (
 )
 
 type matchTaskRequest struct {
+	Kind          string              `json:"kind,omitempty"`
+	Company       string              `json:"company,omitempty"`
+	ScopeKey      string              `json:"scope_key,omitempty"`
 	InputKeys     map[string]string   `json:"input_keys"`
 	JobIDs        []string            `json:"job_ids"`
 	CandidateHash string              `json:"candidate_hash"`
@@ -155,6 +158,21 @@ func (a *API) matchingTaskRoutes(on func(string, http.HandlerFunc)) {
 				matchFailure(w, p.ErrStaleInput)
 				return
 			}
+			if in.Kind != "" && in.Kind != "COMPANY" {
+				codedError(w, 400, "MATCH_JOB_UNAVAILABLE")
+				return
+			}
+			if in.Kind == "COMPANY" {
+				jobs := p.WholeJobs(snapshot.Jobs, in.MaskName)
+				if err := matching.ValidateHolisticInput(snapshot.Candidate, jobs, true); err != nil {
+					matchFailure(w, err)
+					return
+				}
+				if strings.TrimSpace(in.Company) != snapshot.Jobs[0].Job.Company || in.ScopeKey != matching.CompanyInputKey(snapshot.Candidate, jobs, identity) {
+					matchFailure(w, p.ErrStaleInput)
+					return
+				}
+			}
 			if len(in.JobIDs) > snapshot.Settings.RoundLimit {
 				codedError(w, 400, "MATCH_CAPACITY")
 				return
@@ -174,12 +192,12 @@ func (a *API) matchingTaskRoutes(on func(string, http.HandlerFunc)) {
 					matchFailure(w, p.ErrStaleInput)
 					return
 				}
-				if j.State != "ANALYZED" && (j.ExcludedReason != "" || j.TextBytes == 0 || j.TextBytes > matching.MaxBatchText) {
+				if (in.Kind == "COMPANY" || j.AnalysisMode != matching.HolisticVersion || j.State != "ANALYZED") && (j.ExcludedReason != "" || j.TextBytes == 0 || j.TextBytes > matching.MaxBatchText) {
 					codedError(w, 409, "MATCH_JOB_UNAVAILABLE")
 					return
 				}
 				state := "QUEUED"
-				if j.State == "ANALYZED" {
+				if in.Kind != "COMPANY" && j.State == "ANALYZED" && j.AnalysisMode == matching.HolisticVersion {
 					state = "REUSED"
 				}
 				items = append(items, p.MatchRunItem{JobID: id, InputKey: j.InputKey, State: state})
@@ -188,9 +206,22 @@ func (a *API) matchingTaskRoutes(on func(string, http.HandlerFunc)) {
 			var run p.MatchRun
 			replay := false
 			if id := r.PathValue("id"); id != "" {
+				old, e := a.Store.MatchRun(r.Context(), user(r), id)
+				if e != nil {
+					matchFailure(w, e)
+					return
+				}
+				if old.Kind != in.Kind || old.Company != in.Company || old.ScopeKey != in.ScopeKey || (old.Kind == "COMPANY" && len(old.Items) != len(items)) {
+					matchFailure(w, p.ErrStaleInput)
+					return
+				}
 				run, err = a.Store.ResumeMatchRun(r.Context(), user(r), id, token, in.Version, snapshot.CandidateHash, identity, items)
 			} else {
-				run, replay, err = a.Store.CreateMatchRun(r.Context(), user(r), in.RequestKey, token, p.MatchRun{CandidateHash: snapshot.CandidateHash, Model: identity, Items: items, RequestHash: taskFingerprint(identity, snapshot.CandidateHash, items, in.Retry), RequestID: observability.From(r.Context()).RequestID})
+				fingerprint := taskFingerprint(identity, snapshot.CandidateHash, items, in.Retry)
+				if in.Kind == "COMPANY" {
+					fingerprint = d.Hash(fingerprint + "\n" + in.Kind + "\n" + in.Company + "\n" + in.ScopeKey)
+				}
+				run, replay, err = a.Store.CreateMatchRun(r.Context(), user(r), in.RequestKey, token, p.MatchRun{Kind: in.Kind, Company: in.Company, ScopeKey: in.ScopeKey, CandidateHash: snapshot.CandidateHash, Model: identity, Items: items, RequestHash: fingerprint, RequestID: observability.From(r.Context()).RequestID})
 			}
 			if errors.Is(err, p.ErrMatchRunBusy) {
 				codedError(w, 409, "MATCH_BUSY")
@@ -303,7 +334,7 @@ func (r *MatchTaskRunner) process(ctx context.Context, user string, run p.MatchR
 		for _, i := range current.Items {
 			if i.State == "QUEUED" {
 				ids = append(ids, i.JobID)
-				if len(ids) == matching.MaxBatch || in.Retry {
+				if in.Kind != "COMPANY" && (len(ids) == matching.MaxBatch || in.Retry) {
 					break
 				}
 			}
@@ -340,7 +371,7 @@ func (r *MatchTaskRunner) process(ctx context.Context, user string, run p.MatchR
 		}
 		for _, id := range ids {
 			j := byID[id]
-			if len(packed) > 0 && bytes+j.TextBytes > matching.MaxBatchText {
+			if in.Kind != "COMPANY" && len(packed) > 0 && bytes+j.TextBytes > matching.MaxBatchText {
 				break
 			}
 			packed = append(packed, id)
@@ -394,7 +425,7 @@ func (r *MatchTaskRunner) process(ctx context.Context, user string, run p.MatchR
 			})
 		}
 		batchCtx, done := context.WithTimeout(ctx, 175*time.Second)
-		out, err := r.executeLeasedBatch(batchCtx, user, matchBatchInput{ids, run.CandidateHash, in.MaskName}, model, run.Model, hook)
+		out, err := r.executeLeasedBatch(batchCtx, user, matchBatchInput{JobIDs: ids, CandidateHash: run.CandidateHash, MaskName: in.MaskName, Company: in.Company, ScopeKey: in.ScopeKey}, model, run.Model, hook)
 		done()
 		if r.api.Metrics != nil {
 			r.api.Metrics.Observe("matching_"+strings.ToLower(phase)+"_seconds", time.Since(phaseStart).Seconds())
@@ -533,7 +564,12 @@ func (r *MatchTaskRunner) executeLeasedBatch(ctx context.Context, user string, i
 		r.api.Queue.R.Eval(cleanup, `if redis.call('GET',KEYS[1])==ARGV[1] then return redis.call('DEL',KEYS[1]) end return 0`, []string{key}, token)
 	}()
 	started := time.Now()
-	out, err := r.api.executeMatchBatch(ctx, user, in, model, identity, hook)
+	var out matchBatchOutcome
+	if in.Company != "" {
+		out, err = r.api.executeCompanyBatch(ctx, user, in, model, identity, hook)
+	} else {
+		out, err = r.api.executeMatchBatch(ctx, user, in, model, identity, hook)
+	}
 	fields := observability.From(ctx)
 	code := ""
 	if err != nil {

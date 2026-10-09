@@ -183,6 +183,9 @@ func (s *Store) ingestTx(ctx context.Context, tx *sql.Tx, i Ingest) (d.Observati
 			if job.ID == "" {
 				job = d.Job{ID: d.ID(), CompanyID: company.ID, Company: company.Name, Title: i.Title, JobType: i.JobType, Locations: i.Locations, Fingerprint: fingerprint, CurrentStatus: "UNKNOWN", CreatedAt: i.ObservedAt, UpdatedAt: i.ObservedAt, Visibility: source.Visibility, OwnerID: source.OwnerID}
 				_, err = tx.ExecContext(ctx, "INSERT INTO jobs(id,company_id,fingerprint,visibility,owner_id,body) VALUES(?,?,?,?,?,?)", job.ID, company.ID, fingerprint, source.Visibility, source.OwnerID, d.JSON(job))
+				if err == nil {
+					err = agentEvent(ctx, tx, job.OwnerID, job.ID, "NEW_JOB")
+				}
 			}
 
 			if err != nil {
@@ -347,6 +350,9 @@ func (s *Store) Assess(ctx context.Context, taskID, jobID string) error {
 				if err == nil {
 					n, _ := result.RowsAffected()
 					detected += n
+					if n > 0 {
+						err = agentEvent(ctx, tx, j.OwnerID, jobID, "JD_CHANGED")
+					}
 				}
 				if err != nil {
 					return err

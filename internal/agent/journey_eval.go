@@ -147,6 +147,12 @@ func (t *journeyFixtureTools) Execute(_ context.Context, user, name string, args
 	_ = json.Unmarshal(args, &in)
 	job := d.Job{ID: strings.Repeat("a", 32), Company: "示例公司", Title: "Go 后端开发", CurrentStatus: "NEEDS_VERIFICATION"}
 	switch name {
+	case "get_candidate_document":
+		return map[string]any{"candidate_document": "教育经历：本科和硕士。项目：完整段落。"}, nil
+	case "get_agent_todos":
+		return map[string]any{"enabled": true, "items": []map[string]any{{"title": "岗位原文更新", "explanation": "请核对已有分析"}}}, nil
+	case "list_mcp_resources":
+		return []map[string]any{{"connector_id": strings.Repeat("d", 32), "source": "合成学习资料", "resource_count": 1}}, nil
 	case "get_match_result":
 		if strings.HasPrefix(in.JobID, "c") {
 			return map[string]any{"job_id": in.JobID, "company": "示例公司", "title": "Go 后端开发", "state": "STALE", "notice": "资料已变化，请在岗位库更新分析。"}, nil

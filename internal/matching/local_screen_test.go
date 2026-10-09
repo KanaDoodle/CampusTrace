@@ -233,3 +233,25 @@ func TestLocalCacheBoundedConcurrentAndPersonalResultsFresh(t *testing.T) {
 		t.Fatal("changed JD reused old parse")
 	}
 }
+
+func TestLocalCityPreferenceUsesSameCanonicalChoicesAsRadar(t *testing.T) {
+	p := localProfile()
+	p.PreferredCities = []string{"Hangzhou / Shanghai"}
+	p.AcceptableCities = []string{"中国 北京市 海淀区"}
+	s := localFixture(t, p, nil)
+	job := localJob()
+	job.Locations = []string{"杭州市"}
+	plain := s.Screen(job, "熟悉 Go")
+	job.Locations = []string{"浙江省-杭州市-余杭区", "Hangzhou", "上海市"}
+	if got := s.Screen(job, "熟悉 Go"); got.Score != plain.Score {
+		t.Fatal("alias/duplicate city changed preference score", plain, got)
+	}
+	job.Locations = []string{"中国 北京市"}
+	if got := s.Screen(job, "熟悉 Go"); got.Score != plain.Score-4 {
+		t.Fatal("acceptable city failed to match", plain, got)
+	}
+	job.Locations = []string{"浙江省", "全国", "桐庐县"}
+	if got := s.Screen(job, "熟悉 Go"); got.Score != plain.Score-12 {
+		t.Fatal("province or unknown place inferred as preferred city", plain, got)
+	}
+}

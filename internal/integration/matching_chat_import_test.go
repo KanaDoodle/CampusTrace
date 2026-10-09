@@ -36,7 +36,7 @@ func TestChatImportPreviewConfirmStalenessOwnershipAndDecisionFlows(t *testing.T
 	snapshot, err := s.MatchImportSnapshot(ctx, u, "", ids)
 	must(t, err)
 	rec := matchingRequest(handler, token, "/api/matching/export", "POST", map[string]any{"job_ids": ids, "candidate_hash": snapshot.CandidateHash})
-	if rec.Code != 200 || !strings.Contains(rec.Body.String(), matching.ChatVersion) || !strings.Contains(rec.Body.String(), snapshot.Jobs[0].InputKey) {
+	if rec.Code != 200 || !strings.Contains(rec.Body.String(), matching.HolisticChatVersion) || !strings.Contains(rec.Body.String(), snapshot.Jobs[0].InputKey) {
 		t.Fatal(rec.Code, rec.Body.String())
 	}
 	doc := matching.ChatDocument{Version: matching.ChatVersion, CandidateHash: snapshot.CandidateHash, Jobs: []matching.ChatJob{}}

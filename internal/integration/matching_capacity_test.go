@@ -41,7 +41,7 @@ func TestRadarPreviewAndAnalysisAllowCompleteResumeOverTheOldByteLimit(t *testin
 		t.Fatalf("radar was blocked by a model budget: status=%d candidate_bytes=%d model_calls=%d", rec.Code, len(d.JSON(preview.Candidate)), model.calls.Load())
 	}
 	rec = matchingRequest(handler, token, "/api/matching/analyze", "POST", map[string]any{"job_ids": []string{observation.JobID}, "candidate_hash": preview.CandidateHash})
-	if rec.Code != 200 || model.calls.Load() != 2 {
+	if rec.Code != 200 || model.calls.Load() != 1 {
 		t.Fatalf("complete candidate could be previewed but not compared: status=%d model_calls=%d", rec.Code, model.calls.Load())
 	}
 }

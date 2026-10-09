@@ -88,17 +88,18 @@ type PreparationTask struct {
 	Evidence              []PreparationEvidence `json:"evidence"`
 }
 type PreparationPlan struct {
-	Version         string            `json:"version"`
-	Job             d.Job             `json:"job"`
-	State           string            `json:"state"`
-	InputKey        string            `json:"input_key"`
-	AnalyzedAt      time.Time         `json:"analyzed_at"`
-	Score           *float64          `json:"score"`
-	Coverage        float64           `json:"coverage"`
-	Eligibility     d.Eligibility     `json:"eligibility"`
-	Tasks           []PreparationTask `json:"tasks"`
-	Notice          string            `json:"notice"`
-	EvidenceReviews int               `json:"evidence_reviews,omitempty"`
+	Holistic        *HolisticAssessment `json:"holistic,omitempty"`
+	Version         string              `json:"version"`
+	Job             d.Job               `json:"job"`
+	State           string              `json:"state"`
+	InputKey        string              `json:"input_key"`
+	AnalyzedAt      time.Time           `json:"analyzed_at"`
+	Score           *float64            `json:"score"`
+	Coverage        float64             `json:"coverage"`
+	Eligibility     d.Eligibility       `json:"eligibility"`
+	Tasks           []PreparationTask   `json:"tasks"`
+	Notice          string              `json:"notice"`
+	EvidenceReviews int                 `json:"evidence_reviews,omitempty"`
 }
 
 func BuildPreparation(in DecisionInput, p d.Profile, now time.Time) PreparationPlan {
@@ -111,6 +112,15 @@ func BuildPreparation(in DecisionInput, p d.Profile, now time.Time) PreparationP
 		return plan
 	}
 	r := in.Result
+	if r.Holistic != nil {
+		plan.Version = HolisticVersion
+		plan.Holistic = r.Holistic
+		plan.InputKey, plan.AnalyzedAt, plan.Eligibility = r.InputKey, r.AnalyzedAt, r.Qualifications
+		for i, action := range r.Holistic.NextSteps {
+			plan.Tasks = append(plan.Tasks, PreparationTask{ID: fmt.Sprintf("whole-%d", i+1), Kind: "REHEARSE", Category: "RESPONSIBILITY", Priority: 2, Title: action, Action: action, Requirements: []Requirement{}, Evidence: []PreparationEvidence{}})
+		}
+		return plan
+	}
 	plan.EvidenceReviews = EvidenceReviewCount(r.Matches)
 	plan.InputKey = r.InputKey
 	plan.AnalyzedAt = r.AnalyzedAt
@@ -205,39 +215,44 @@ func BuildPreparation(in DecisionInput, p d.Profile, now time.Time) PreparationP
 }
 
 type CompanyJob struct {
-	Job                                           d.Job             `json:"job"`
-	State                                         string            `json:"state"`
-	Score                                         *float64          `json:"score"`
-	Priority                                      *Priority         `json:"priority,omitempty"`
-	Coverage                                      float64           `json:"coverage"`
-	Eligibility                                   string            `json:"eligibility"`
-	Direction                                     string            `json:"direction"`
-	City                                          string            `json:"city_preference"`
-	JobType                                       string            `json:"type_preference"`
-	BlockedReason                                 string            `json:"blocked_reason"`
-	Comparable                                    bool              `json:"comparable"`
-	Recommended                                   bool              `json:"recommended"`
-	Strengths                                     []PreparationTask `json:"strengths"`
-	Gaps                                          []PreparationTask `json:"gaps"`
-	Sections                                      []SectionScore    `json:"sections"`
-	AnalyzedAt                                    time.Time         `json:"analyzed_at"`
-	EvidenceReviews                               int               `json:"evidence_reviews,omitempty"`
+	Holistic                                      *HolisticAssessment `json:"holistic,omitempty"`
+	Job                                           d.Job               `json:"job"`
+	State                                         string              `json:"state"`
+	Score                                         *float64            `json:"score"`
+	Priority                                      *Priority           `json:"priority,omitempty"`
+	Coverage                                      float64             `json:"coverage"`
+	Eligibility                                   string              `json:"eligibility"`
+	Direction                                     string              `json:"direction"`
+	City                                          string              `json:"city_preference"`
+	JobType                                       string              `json:"type_preference"`
+	BlockedReason                                 string              `json:"blocked_reason"`
+	Comparable                                    bool                `json:"comparable"`
+	Recommended                                   bool                `json:"recommended"`
+	Strengths                                     []PreparationTask   `json:"strengths"`
+	Gaps                                          []PreparationTask   `json:"gaps"`
+	Sections                                      []SectionScore      `json:"sections"`
+	AnalyzedAt                                    time.Time           `json:"analyzed_at"`
+	EvidenceReviews                               int                 `json:"evidence_reviews,omitempty"`
 	roleRank, eligibilityRank, cityRank, typeRank int
 	bonusSupport                                  float64
 }
 type CompanyComparison struct {
-	Version        string       `json:"version"`
-	Company        string       `json:"company"`
-	Scope          string       `json:"scope"`
-	GeneratedAt    time.Time    `json:"generated_at"`
-	Total          int          `json:"total"`
-	Analyzed       int          `json:"analyzed"`
-	Pending        int          `json:"pending"`
-	Stale          int          `json:"stale"`
-	Recommendation string       `json:"recommendation"`
-	RecommendedIDs []string     `json:"recommended_job_ids"`
-	Reasons        []string     `json:"reasons"`
-	Jobs           []CompanyJob `json:"jobs"`
+	Holistic         *HolisticCompanyReport `json:"holistic,omitempty"`
+	HolisticInputKey string                 `json:"holistic_input_key,omitempty"`
+	HolisticJobIDs   []string               `json:"holistic_job_ids"`
+	HolisticNotice   string                 `json:"holistic_notice,omitempty"`
+	Version          string                 `json:"version"`
+	Company          string                 `json:"company"`
+	Scope            string                 `json:"scope"`
+	GeneratedAt      time.Time              `json:"generated_at"`
+	Total            int                    `json:"total"`
+	Analyzed         int                    `json:"analyzed"`
+	Pending          int                    `json:"pending"`
+	Stale            int                    `json:"stale"`
+	Recommendation   string                 `json:"recommendation"`
+	RecommendedIDs   []string               `json:"recommended_job_ids"`
+	Reasons          []string               `json:"reasons"`
+	Jobs             []CompanyJob           `json:"jobs"`
 }
 
 func directionPreference(p d.Profile, in DecisionInput) (int, string) {
@@ -356,6 +371,7 @@ func BuildCompanyComparison(company, scope string, inputs []DecisionInput, p d.P
 			out.Pending++
 		} else {
 			out.Analyzed++
+			row.Holistic = in.Result.Holistic
 			plan := BuildPreparation(in, p, now)
 			row.EvidenceReviews = plan.EvidenceReviews
 			row.Score, row.Coverage, row.Eligibility, row.AnalyzedAt = plan.Score, plan.Coverage, plan.Eligibility.Status, plan.AnalyzedAt

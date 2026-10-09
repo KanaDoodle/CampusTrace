@@ -16,7 +16,7 @@ import (
 	p "github.com/KanaDoodle/CampusTrace/internal/persistence"
 )
 
-var moreAdapters = []string{"lenovo", "midea", "byd", "hikvision", "qihoo360", "sany", "inovance", "vivo", "honor", "sgm", "hundsun", "yuewen"}
+var moreAdapters = []string{"lenovo", "midea", "byd", "hikvision", "qihoo360", "sany", "inovance", "vivo", "honor", "sgm", "hundsun", "yuewen", "csc_securities", "guosen_securities", "galaxy_securities", "cicc_securities"}
 
 func moreID(adapter string, n int) string {
 	switch adapter {
@@ -431,6 +431,9 @@ func TestMoreCampusFullScopeAndIndependentDetails(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			if preview.Name != site.Company+" · 校招" || len(preview.Name) > 160 {
+				t.Fatalf("preview source name cannot be saved: %q", preview.Name)
+			}
 			s := d.Source{ID: d.ID(), Adapter: adapter, Tenant: moreTenant(adapter), RateLimit: 30}
 			refs, err := a.Discover(ctx, s, d.WatchTarget{})
 			if err != nil || len(refs) != preview.Total || preview.MinimumInterval != 1800 || len(preview.Samples) != min(5, len(refs)) {
@@ -445,6 +448,9 @@ func TestMoreCampusFullScopeAndIndependentDetails(t *testing.T) {
 				result, err := a.FetchPosting(ctx, s, ref)
 				if err != nil || result.Status != "SUCCESS" || !strings.Contains(result.Text, "Redis 加分") || strings.Contains(result.Text, "<p>") {
 					t.Fatalf("detail %+v %v", result, err)
+				}
+				if isSecuritiesBeisen(adapter) && (ref.JobType != "UNKNOWN" || strings.Contains(result.Text, "应届生全职") || !strings.Contains(result.Text, "用工形式")) {
+					t.Fatal("campus category incorrectly treated as full-time employment")
 				}
 			}
 			selected, err := a.Discover(ctx, s, d.WatchTarget{WatchInput: d.WatchInput{Keyword: "Go 工程师 1"}})
@@ -552,7 +558,7 @@ func TestHikvisionMergedDepartmentsAreChecked(t *testing.T) {
 }
 func TestMoreCampusDirectoryAndStrictEntry(t *testing.T) {
 	entries := CampusDirectory()
-	if len(entries) != 75 {
+	if len(entries) != 96 {
 		t.Fatalf("directory %d", len(entries))
 	}
 	readyCount := 0
@@ -571,7 +577,7 @@ func TestMoreCampusDirectoryAndStrictEntry(t *testing.T) {
 			t.Fatal("manual entry promoted to import")
 		}
 	}
-	if readyCount != 42 {
+	if readyCount != 53 {
 		t.Fatalf("automatic sources %d", readyCount)
 	}
 	for _, adapter := range moreAdapters {

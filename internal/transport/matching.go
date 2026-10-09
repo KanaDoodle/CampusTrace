@@ -58,7 +58,11 @@ func matchFailure(w http.ResponseWriter, err error, stage ...string) {
 		code = resumeDraftFailure(err)
 	}
 	phase := "PREPARE"
-	if len(stage) > 0 && (stage[0] == "EXTRACT" || stage[0] == "COMPARE" || stage[0] == "SAVE") {
+	var stageError *MatchStageError
+	if errors.As(err, &stageError) {
+		phase = stageError.Stage
+	}
+	if len(stage) > 0 && (stage[0] == "EXTRACT" || stage[0] == "COMPARE" || stage[0] == "SAVE" || stage[0] == "ANALYZE" || stage[0] == "COMPANY") {
 		phase = stage[0]
 	}
 	diagnostic := map[string]any{"stage": phase}
@@ -193,6 +197,7 @@ func (a *API) matchingRoutes(on func(string, http.HandlerFunc)) {
 		a.importChatMatches(w, r)
 	})
 	on("POST /api/matching/company", a.compareCompany)
+	a.companyWorkspaceRoutes(on)
 	on("POST /api/matching/preparation/{id}", a.prepareMatchedJob)
 }
 
@@ -266,7 +271,7 @@ func (a *API) analyzeMatches(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	out, err := a.executeMatchBatch(ctx, user(r), matchBatchInput{in.JobIDs, in.CandidateHash, in.MaskName}, model, identity, nil)
+	out, err := a.executeMatchBatch(ctx, user(r), matchBatchInput{JobIDs: in.JobIDs, CandidateHash: in.CandidateHash, MaskName: in.MaskName}, model, identity, nil)
 	if err != nil {
 		var stage *MatchStageError
 		if errors.As(err, &stage) {

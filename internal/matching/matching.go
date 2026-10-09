@@ -20,7 +20,7 @@ const MaxBatchText = 24000
 
 // Complete resume bullets need room for evidence IDs, profile fields and
 // project context as well as the original text. Comparison has its own budget.
-const MaxCandidateText = 32000
+const MaxCandidateText = 64000
 const MaxComparisonText = 54000
 const MaxRequirements = 64
 
@@ -48,8 +48,19 @@ type Fact struct {
 	ProjectName string `json:"project_name,omitempty"`
 }
 type Candidate struct {
-	Revision uint64 `json:"revision"`
-	Facts    []Fact `json:"facts"`
+	Revision uint64             `json:"revision"`
+	Facts    []Fact             `json:"facts,omitempty"`
+	Projects []CandidateProject `json:"projects,omitempty"`
+	Document string             `json:"document,omitempty"`
+}
+
+// These are reviewed, saved project narratives, not an uploaded resume file.
+// Keep paragraphs and bullets intact; fact types still distinguish plans and limits.
+type CandidateProject struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	Bullets     []Fact `json:"bullets"`
 }
 
 func CandidateFrom(p d.Profile, facts []d.ProjectFact, maskName string) (Candidate, error) {
@@ -81,6 +92,9 @@ func CandidateWithProjects(p d.Profile, facts []d.ProjectFact, projects []d.Proj
 	}
 	add("degree", "DEGREE", p.Degree)
 	add("experience", "EXPERIENCE", fmt.Sprintf("%d 个月", p.ExperienceMonths))
+	if p.AdditionalExperience != nil {
+		add("additional-experience", "REVIEWED_EXPERIENCE", *p.AdditionalExperience)
+	}
 	for _, group := range []struct {
 		kind   string
 		values []string
@@ -98,6 +112,9 @@ func CandidateWithProjects(p d.Profile, facts []d.ProjectFact, projects []d.Proj
 			add(fmt.Sprintf("education-%s-major-%d", e.ID, i), "MAJOR", degree+"专业："+major)
 		}
 		text := degree + "；状态：" + e.Status
+		if e.StartYear != 0 {
+			text += fmt.Sprintf("；入学：%d", e.StartYear)
+		}
 		if e.GraduationYear != 0 {
 			text += fmt.Sprintf("；毕业或预计毕业：%d", e.GraduationYear)
 			if e.GraduationMonth != 0 {
@@ -119,6 +136,11 @@ func CandidateWithProjects(p d.Profile, facts []d.ProjectFact, projects []d.Proj
 	projectNames := map[string]string{}
 	for _, project := range projects {
 		projectNames[project.ID] = clean(project.Name)
+		v := CandidateProject{ID: project.ID, Name: clean(project.Name), Description: clean(project.Description), Bullets: []Fact{}}
+		for i, bullet := range project.Bullets {
+			v.Bullets = append(v.Bullets, Fact{ID: fmt.Sprintf("project-%s-bullet-%d", project.ID, i+1), Kind: "PROJECT_CONTEXT", Text: clean(bullet), ProjectName: v.Name})
+		}
+		c.Projects = append(c.Projects, v)
 	}
 	for _, f := range facts {
 		if !f.Verified || f.Kind == "PLANNED" {
@@ -180,27 +202,28 @@ type MatchInput struct {
 	Requirements []Requirement `json:"requirements"`
 }
 type Result struct {
-	QualityVersion     string         `json:"quality_version,omitempty"`
-	IgnoredHeadings    int            `json:"ignored_headings,omitempty"`
-	RestoredCategories int            `json:"restored_categories,omitempty"`
-	JobID              string         `json:"job_id"`
-	InputKey           string         `json:"input_key"`
-	RequirementsKey    string         `json:"requirements_key"`
-	CandidateHash      string         `json:"candidate_hash"`
-	ComparisonKey      string         `json:"comparison_key,omitempty"`
-	ComparisonScope    string         `json:"comparison_scope,omitempty"`
-	LocallyRefreshed   bool           `json:"locally_refreshed,omitempty"`
-	Model              string         `json:"model"`
-	Source             string         `json:"source,omitempty"`
-	SourceContextKey   string         `json:"source_context_key,omitempty"`
-	AnalyzedAt         time.Time      `json:"analyzed_at"`
-	Requirements       []Requirement  `json:"requirements"`
-	Matches            []Match        `json:"matches"`
-	CandidateFacts     []Fact         `json:"candidate_facts"`
-	Score              *float64       `json:"score"`
-	Coverage           float64        `json:"coverage"`
-	Qualifications     d.Eligibility  `json:"qualifications"`
-	Breakdown          []SectionScore `json:"breakdown,omitempty"`
+	Holistic           *HolisticAssessment `json:"holistic,omitempty"`
+	QualityVersion     string              `json:"quality_version,omitempty"`
+	IgnoredHeadings    int                 `json:"ignored_headings,omitempty"`
+	RestoredCategories int                 `json:"restored_categories,omitempty"`
+	JobID              string              `json:"job_id"`
+	InputKey           string              `json:"input_key"`
+	RequirementsKey    string              `json:"requirements_key"`
+	CandidateHash      string              `json:"candidate_hash"`
+	ComparisonKey      string              `json:"comparison_key,omitempty"`
+	ComparisonScope    string              `json:"comparison_scope,omitempty"`
+	LocallyRefreshed   bool                `json:"locally_refreshed,omitempty"`
+	Model              string              `json:"model"`
+	Source             string              `json:"source,omitempty"`
+	SourceContextKey   string              `json:"source_context_key,omitempty"`
+	AnalyzedAt         time.Time           `json:"analyzed_at"`
+	Requirements       []Requirement       `json:"requirements"`
+	Matches            []Match             `json:"matches"`
+	CandidateFacts     []Fact              `json:"candidate_facts"`
+	Score              *float64            `json:"score"`
+	Coverage           float64             `json:"coverage"`
+	Qualifications     d.Eligibility       `json:"qualifications"`
+	Breakdown          []SectionScore      `json:"breakdown,omitempty"`
 }
 
 type jsonCompleter interface {

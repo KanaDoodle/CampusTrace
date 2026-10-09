@@ -72,7 +72,7 @@ type HTTPEntry struct {
 
 var publicPlatformClient = PublicClient()
 
-func (PublicPlatform) Version() string { return "public-platforms-v15" }
+func (PublicPlatform) Version() string { return "public-platforms-v17" }
 
 var tenantPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,100}$`)
 
@@ -87,11 +87,11 @@ func PlatformURL(s d.Source) (string, error) {
 		return "https://boards-api.greenhouse.io/v1/boards/" + s.Tenant + "/jobs", nil
 	case "smartrecruiters":
 		return "https://api.smartrecruiters.com/v1/companies/" + s.Tenant + "/postings", nil
-	case "ths", "cmbnt", "netease_game", "leihuo", "ctyun", "ctcloud", "mihoyo", "pingan_tech", "pingan_oneconnect", "pingan_wallet", "cmcloud", "cmiot", "cmhome", "gbits", "tcl_digital", "tcl_honghu", "cec_software":
+	case "ths", "cmbnt", "netease_game", "leihuo", "ctyun", "ctcloud", "mihoyo", "pingan_tech", "pingan_oneconnect", "pingan_wallet", "cmcloud", "cmiot", "cmhome", "gbits", "tcl_digital", "tcl_honghu", "cec_software", "cmb_tech", "citic_tech", "boc_software", "boc_operations", "bankcomm_tech", "cms_securities", "htsc_securities":
 		if cfg := sectorScopes[s.Adapter]; s.Tenant == cfg.Tenant {
 			return cfg.Origin + "/api", nil
 		}
-	case "lenovo", "midea", "byd", "hikvision", "qihoo360", "sany", "inovance", "vivo", "honor", "sgm", "ctrip", "tencent", "sap", "hundsun", "yuewen":
+	case "lenovo", "midea", "byd", "hikvision", "qihoo360", "sany", "inovance", "vivo", "honor", "sgm", "ctrip", "tencent", "sap", "hundsun", "yuewen", "csc_securities", "guosen_securities", "galaxy_securities", "cicc_securities":
 		if s.Tenant == moreTenant(s.Adapter) {
 			if cfg, ok := beisenCompanies[s.Adapter]; ok {
 				return cfg.Origin + "/api", nil
@@ -177,6 +177,9 @@ func (a PublicPlatform) allowRequest(ctx context.Context, s d.Source) error {
 		key := s.ID
 		if d.IsCampusSource(s.Adapter) {
 			key = s.Adapter + ":public-site"
+			if _, ok := securitiesProjects[s.Adapter]; ok {
+				key = "wecruit:public-site"
+			}
 			if _, ok := tclUnits[s.Adapter]; ok {
 				key = "tcl:public-site"
 			}
@@ -185,6 +188,9 @@ func (a PublicPlatform) allowRequest(ctx context.Context, s d.Source) error {
 			}
 			if _, ok := pinganUnits[s.Adapter]; ok {
 				key = "pingan:public-site"
+			}
+			if _, ok := bocUnits[s.Adapter]; ok {
+				key = "boc:public-site"
 			}
 			if _, ok := mobileUnits[s.Adapter]; ok {
 				key = "chinamobile:public-site"
@@ -483,7 +489,7 @@ func (a PublicPlatform) Discover(ctx context.Context, s d.Source, w d.WatchTarge
 				return nil, fail("SCHEMA_INVALID", false, 200)
 			}
 		}
-	case "lenovo", "midea", "byd", "hikvision", "qihoo360", "sany", "inovance", "vivo", "honor", "sgm", "ctrip", "ths", "cmbnt", "netease_game", "leihuo", "ctyun", "ctcloud", "mihoyo", "pingan_tech", "pingan_oneconnect", "pingan_wallet", "cmcloud", "cmiot", "cmhome", "gbits", "hundsun", "yuewen", "tcl_digital", "tcl_honghu", "cec_software", "tencent", "sap":
+	case "lenovo", "midea", "byd", "hikvision", "qihoo360", "sany", "inovance", "vivo", "honor", "sgm", "ctrip", "ths", "cmbnt", "netease_game", "leihuo", "ctyun", "ctcloud", "mihoyo", "pingan_tech", "pingan_oneconnect", "pingan_wallet", "cmcloud", "cmiot", "cmhome", "gbits", "hundsun", "yuewen", "tcl_digital", "tcl_honghu", "cec_software", "tencent", "sap", "cmb_tech", "citic_tech", "boc_software", "boc_operations", "bankcomm_tech", "cms_securities", "htsc_securities", "csc_securities", "guosen_securities", "galaxy_securities", "cicc_securities":
 		refs, err = a.discoverMore(ctx, s, w)
 		if err != nil {
 			return nil, err
@@ -614,7 +620,7 @@ func (a PublicPlatform) FetchPosting(ctx context.Context, s d.Source, r PostingR
 				text += "\nApplication URL: " + v.ApplyURL
 			}
 		}
-	case "lenovo", "midea", "byd", "hikvision", "qihoo360", "sany", "inovance", "vivo", "honor", "sgm", "ctrip", "ths", "cmbnt", "netease_game", "leihuo", "ctyun", "ctcloud", "mihoyo", "pingan_tech", "pingan_oneconnect", "pingan_wallet", "cmcloud", "cmiot", "cmhome", "gbits", "hundsun", "yuewen", "tcl_digital", "tcl_honghu", "cec_software", "tencent", "sap":
+	case "lenovo", "midea", "byd", "hikvision", "qihoo360", "sany", "inovance", "vivo", "honor", "sgm", "ctrip", "ths", "cmbnt", "netease_game", "leihuo", "ctyun", "ctcloud", "mihoyo", "pingan_tech", "pingan_oneconnect", "pingan_wallet", "cmcloud", "cmiot", "cmhome", "gbits", "hundsun", "yuewen", "tcl_digital", "tcl_honghu", "cec_software", "tencent", "sap", "cmb_tech", "citic_tech", "boc_software", "boc_operations", "bankcomm_tech", "cms_securities", "htsc_securities", "csc_securities", "guosen_securities", "galaxy_securities", "cicc_securities":
 		text, err = a.fetchMore(ctx, s, r)
 	case "xiaohongshu":
 		text, err = a.fetchXHS(ctx, s, r)

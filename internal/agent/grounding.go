@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
+	"github.com/KanaDoodle/CampusTrace/internal/matching"
 	"strings"
 	"time"
 )
@@ -21,8 +22,65 @@ func GroundedAnswer(facts []any) string {
 			continue
 		}
 		switch item.Tool {
+		case "get_candidate_document":
+			lines = append(lines, "已读取你核对过的完整求职资料；项目段落和教育经历按原有结构保留。")
+		case "get_agent_todos":
+			var feed struct {
+				Enabled bool `json:"enabled"`
+				Items   []struct {
+					Title       string `json:"title"`
+					Explanation string `json:"explanation"`
+				} `json:"items"`
+				More bool `json:"more"`
+			}
+			if json.Unmarshal(item.Data, &feed) == nil {
+				if !feed.Enabled {
+					lines = append(lines, "招聘变化待办尚未开启，可在此页开启。")
+				}
+				if len(feed.Items) == 0 && feed.Enabled {
+					lines = append(lines, "目前没有待处理的招聘变化。")
+				}
+				for _, v := range feed.Items[:min(len(feed.Items), 5)] {
+					lines = append(lines, v.Title+"："+v.Explanation)
+				}
+				if len(feed.Items) > 5 || feed.More {
+					lines = append(lines, "还有其他待办，请在招聘变化中查看更多提醒。")
+				}
+			}
+		case "list_mcp_resources":
+			lines = append(lines, "已列出你授权的学习资料范围；选择资料连接和资料编号后可以读取。")
+		case "read_mcp_resource":
+			var doc struct {
+				Text   string `json:"text"`
+				Source string `json:"source"`
+			}
+			if json.Unmarshal(item.Data, &doc) == nil {
+				lines = append(lines, "学习资料（"+doc.Source+"）：\n"+doc.Text, "这段内容用于学习参考，不作为个人经历或招聘状态的证明。")
+			}
+		case "search_memories":
+			var rows []struct {
+				Content string `json:"content"`
+				Kind    string `json:"kind"`
+			}
+			if json.Unmarshal(item.Data, &rows) == nil {
+				if len(rows) == 0 {
+					lines = append(lines, "没有找到仍有效的记忆。")
+				} else {
+					for _, v := range rows {
+						lines = append(lines, "已保存的偏好或决定："+v.Content)
+					}
+				}
+			}
+		case "get_agent_tasks":
+			lines = append(lines, "已读取最近的讨论记录。只有你选择继续时才会载入旧摘要；业务结论仍需重新查询。")
+		case "get_practice_runs":
+			lines = append(lines, "已读取实际执行的练习记录；练习通过不代表有生产项目经验。")
 		case "get_match_result":
 			var v struct {
+				Mode        string       `json:"mode"`
+				Fit         string       `json:"fit"`
+				Summary     string       `json:"summary"`
+				CoreWork    string       `json:"core_work"`
 				JobID       string       `json:"job_id"`
 				Company     string       `json:"company"`
 				Title       string       `json:"title"`
@@ -42,6 +100,23 @@ func GroundedAnswer(facts []any) string {
 				lines = append(lines, fmt.Sprintf("%s · %s（Job %s）：当前没有可用的深度匹配，状态 %s。%s", v.Company, v.Title, v.JobID, matchStateLabel(v.State), v.Notice))
 				break
 			}
+			if v.Mode == matching.HolisticVersion {
+				lines = append(lines, fmt.Sprintf("%s · %s（Job %s）：整体适配 %s。%s", v.Company, v.Title, v.JobID, wholeFitLabel(v.Fit), v.Summary), "核心工作："+v.CoreWork)
+				var whole struct {
+					Strengths []matching.HolisticFinding `json:"strengths"`
+					Gaps      []matching.HolisticFinding `json:"gaps"`
+					Blockers  []matching.HolisticFinding `json:"blockers"`
+				}
+				if json.Unmarshal(item.Data, &whole) == nil {
+					for i, list := range [][]matching.HolisticFinding{whole.Strengths, whole.Gaps, whole.Blockers} {
+						if len(list) > 0 {
+							lines = append(lines, []string{"优势：", "待确认：", "明确障碍："}[i]+list[0].Point+"。"+list[0].Explanation)
+						}
+					}
+				}
+				lines = append(lines, v.Notice)
+				break
+			}
 			score := "暂无可靠核心评分"
 			if v.Score != nil {
 				score = fmt.Sprintf("核心匹配度 %.1f / 100", *v.Score)
@@ -58,6 +133,12 @@ func GroundedAnswer(facts []any) string {
 			}
 		case "compare_company_jobs":
 			var v struct {
+				Mode    string `json:"mode"`
+				Summary string `json:"summary"`
+				Choices []struct {
+					matching.CompanyChoice
+					Title string `json:"title"`
+				} `json:"choices"`
 				Company          string   `json:"company"`
 				Scope            string   `json:"scope"`
 				Recommendation   string   `json:"recommendation"`
@@ -84,6 +165,14 @@ func GroundedAnswer(facts []any) string {
 			}
 			if json.Unmarshal(item.Data, &v) != nil {
 				continue
+			}
+			if v.Mode == matching.HolisticVersion {
+				lines = append(lines, fmt.Sprintf("%s：本次整体比较 %d 个岗位。%s", v.Company, v.Total, v.Summary))
+				for _, choice := range v.Choices[:min(len(v.Choices), 3)] {
+					lines = append(lines, fmt.Sprintf("第 %d 组：%s（Job %s）。%s。优势：%s。取舍：%s。", choice.Rank, choice.Title, choice.ID, choice.Reason, choice.Advantage, choice.Tradeoff))
+				}
+				lines = append(lines, v.Notice)
+				break
 			}
 			scope := "该公司全部本地岗位"
 			if v.Scope == "SELECTED" {
@@ -210,10 +299,29 @@ func GroundedAnswer(facts []any) string {
 			var rows []d.Job
 			json.Unmarshal(item.Data, &rows)
 			lines = append(lines, fmt.Sprintf("找到 %d 个岗位；列表状态是最近持久化评估，详情中可查看时间和证据。", len(rows)))
+		case "get_closing_jobs":
+			var rows []d.RadarJob
+			if json.Unmarshal(item.Data, &rows) == nil {
+				lines = append(lines, fmt.Sprintf("本次期限范围内有 %d 个可跟进的截止岗位。", len(rows)))
+				for _, v := range rows[:min(len(rows), 5)] {
+					lines = append(lines, v.Job.Company+" · "+v.Job.Title+"：请在岗位详情核对截止时间及官方入口。")
+				}
+			} else {
+				lines = append(lines, "已查询截止提醒，原文和日期依据见查询记录。")
+			}
+		case "get_recent_changes":
+			var rows []d.ChangeItem
+			if json.Unmarshal(item.Data, &rows) == nil {
+				lines = append(lines, fmt.Sprintf("本次查询范围内有 %d 条岗位变化。", len(rows)))
+			} else {
+				lines = append(lines, "已查询近期岗位变化，详情见查询记录。")
+			}
 		case "get_daily_digest":
 			var v d.DailyDigest
 			json.Unmarshal(item.Data, &v)
 			lines = append(lines, fmt.Sprintf("截至 %s：今日新增 %d，优先投递 %d，7 天内截止 %d，状态变化 %d，本周面试 %d。具体岗位及依据见工具记录。", v.AsOf.Format(time.RFC3339), v.Counts["new_jobs"], v.Counts["recommended_jobs"], v.Counts["closing_soon"], v.Counts["status_changes"], v.Counts["upcoming_interviews"]))
+		case "remember_memory":
+			lines = append(lines, "已生成一条记忆预览，尚未保存。请核对记忆内容、类型和有效期后确认。")
 		case "create_application", "transition_application", "record_interview_review", "watch_source", "unwatch_source":
 			var pending Pending
 			json.Unmarshal(item.Data, &pending)
@@ -318,4 +426,8 @@ func jobStatusLabel(v string) string {
 	default:
 		return v
 	}
+}
+
+func wholeFitLabel(value string) string {
+	return map[string]string{"STRONG": "高度相关", "RELATED": "值得考虑", "WEAK": "相关较弱", "UNCERTAIN": "需要确认"}[value]
 }

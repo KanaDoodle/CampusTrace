@@ -25,6 +25,9 @@ type MatchRunItem struct {
 	Job        *ApplicationJob `json:"job,omitempty"`
 }
 type MatchRun struct {
+	Kind               string         `json:"kind,omitempty"`
+	Company            string         `json:"company,omitempty"`
+	ScopeKey           string         `json:"scope_key,omitempty"`
 	ID                 string         `json:"id"`
 	State              string         `json:"state"`
 	Version            int            `json:"version"`
@@ -322,7 +325,7 @@ func (s *Store) ResumeMatchRun(ctx context.Context, user, id, token string, vers
 		if v.Version != version || v.State == "RUNNING" || v.State == "PAUSING" || v.State == "CANCELLED" || v.State == "COMPLETED" {
 			return ErrConflict
 		}
-		if candidateHash != v.CandidateHash || model != v.Model {
+		if candidateHash != v.CandidateHash || model != v.Model || (v.Kind == "COMPANY" && len(items) != len(v.Items)) {
 			return ErrStaleInput
 		}
 		var active int
@@ -338,7 +341,7 @@ func (s *Store) ResumeMatchRun(ctx context.Context, user, id, token string, vers
 		}
 		for i := range v.Items {
 			if next, ok := updated[v.Items[i].JobID]; ok {
-				if v.Items[i].State == "SUCCEEDED" || v.Items[i].State == "REUSED" || v.Items[i].InputKey != next.InputKey {
+				if ((v.Items[i].State == "SUCCEEDED" || v.Items[i].State == "REUSED") && v.Kind != "COMPANY") || v.Items[i].InputKey != next.InputKey {
 					return ErrStaleInput
 				}
 				v.Items[i].State = "QUEUED"

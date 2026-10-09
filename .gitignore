@@ -26,6 +26,9 @@ __debug_bin*
 !/docs/operations.md
 !/docs/recovery.md
 !/docs/agent-evaluation.md
+!/docs/matching-evaluation.md
+!/docs/agent-harness.md
+!/docs/agent-workspace.md
 !/docs/campus-sources.md
 !/docs/campus-source-inventory.md
 !/docs/campus-source-inventory.csv

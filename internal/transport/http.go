@@ -13,6 +13,7 @@ import (
 	"github.com/KanaDoodle/CampusTrace/internal/observability"
 	p "github.com/KanaDoodle/CampusTrace/internal/persistence"
 	"github.com/KanaDoodle/CampusTrace/internal/pipeline"
+	"github.com/KanaDoodle/CampusTrace/internal/practice"
 	"github.com/KanaDoodle/CampusTrace/internal/rag"
 	"github.com/KanaDoodle/CampusTrace/internal/resume"
 	"github.com/KanaDoodle/CampusTrace/internal/source"
@@ -27,6 +28,7 @@ import (
 )
 
 type API struct {
+	Practice         *practice.Client
 	Store            *p.Store
 	Queue            *pipeline.Queue
 	Auth             auth.Service
@@ -224,6 +226,8 @@ func (a *API) Handler() http.Handler {
 	on := func(pattern string, h http.HandlerFunc) { mux.HandleFunc(pattern, a.protected(h)) }
 	a.radarRoutes(on)
 	a.matchingRoutes(on)
+	a.agentWorkspaceRoutes(on)
+	a.practiceRoutes(on)
 	a.matchingTaskRoutes(on)
 	a.campaignRoutes(on)
 	on("GET /api/jobs", func(w http.ResponseWriter, r *http.Request) {
@@ -353,6 +357,11 @@ func (a *API) Handler() http.Handler {
 	})
 	on("GET /api/profile/resume/capabilities", func(w http.ResponseWriter, r *http.Request) {
 		write(w, map[string]any{"model_available": a.ResumeModel != nil, "model": a.ResumeModelName, "user_id": user(r), "durable_matching": a.MatchTasks != nil, "application_campaigns": true, "foundation_topics": d.FoundationTopics()}, nil)
+	})
+	on("GET /api/profile/document", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		text, hash, err := a.Store.ReviewedDocument(r.Context(), user(r), "")
+		write(w, map[string]string{"document": text, "candidate_hash": hash}, err)
 	})
 	on("POST /api/profile/resume/draft", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
@@ -559,18 +568,48 @@ func (a *API) Handler() http.Handler {
 		}
 		on(path, func(w http.ResponseWriter, r *http.Request) {
 			var v struct {
-				Session  string              `json:"session_id"`
-				Message  string              `json:"message"`
-				Model    *modelconfig.Config `json:"model_config,omitempty"`
-				MaskName string              `json:"mask_name,omitempty"`
+				Session        string              `json:"session_id"`
+				TaskID         string              `json:"task_id,omitempty"`
+				Message        string              `json:"message"`
+				Model          *modelconfig.Config `json:"model_config,omitempty"`
+				MaskName       string              `json:"mask_name,omitempty"`
+				SkillID        string              `json:"skill_id,omitempty"`
+				ComplexModel   *modelconfig.Config `json:"complex_model_config,omitempty"`
+				LocalLookup    bool                `json:"local_lookup,omitempty"`
+				TokenBudget    int                 `json:"token_budget,omitempty"`
+				MCPCredentials map[string]string   `json:"mcp_credentials,omitempty"`
 			}
 			if err := decode(r, &v); err != nil || v.Session == "" || v.Message == "" || len(v.Message) > 4000 || len(v.Session) > 64 {
 				write(w, nil, p.ErrValidation)
 				return
 			}
+			if v.TaskID != "" {
+				if len(v.TaskID) != 32 {
+					write(w, nil, p.ErrValidation)
+					return
+				}
+				if _, err := a.Store.AgentTask(r.Context(), user(r), v.TaskID); err != nil {
+					write(w, nil, err)
+					return
+				}
+			}
 			start := time.Now()
 			defer a.Metrics.Since("agent_latency", start)
 			copy := *a.Agent
+			copy.Store = a.Store
+			copy.ResumeTask = v.TaskID
+			if v.SkillID != "" {
+				if _, ok := agent.FindSkill(v.SkillID); !ok {
+					write(w, nil, p.ErrValidation)
+					return
+				}
+			}
+			if v.TokenBudget < 0 || v.TokenBudget > 200000 || len(v.MCPCredentials) > 10 {
+				write(w, nil, p.ErrValidation)
+				return
+			}
+			copy.SkillID = v.SkillID
+			copy.MaxTotalTokens = v.TokenBudget
 			toolCopy := *a.Tools
 			identity := matchPreviewRequest{MaskName: v.MaskName}
 			if v.Model != nil {
@@ -588,6 +627,16 @@ func (a *API) Handler() http.Handler {
 				return
 			}
 			toolCopy.MatchModel, toolCopy.MaskName = matchModel, v.MaskName
+			toolCopy.MCPCredentials = v.MCPCredentials
+			copy.Router = &agent.Router{Primary: copy.Model, LocalLookup: v.LocalLookup}
+			if v.ComplexModel != nil {
+				client, e := a.customModel(*v.ComplexModel)
+				if e != nil {
+					write(w, nil, p.ErrValidation)
+					return
+				}
+				copy.Router.Complex = agent.LiveModel{Client: client}
+			}
 			copy.Tools = &toolCopy
 			runtime := &copy
 			if !stream {

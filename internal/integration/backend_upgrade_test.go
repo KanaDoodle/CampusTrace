@@ -103,7 +103,7 @@ func TestDurableMatchingSurvivesRequestEndAndIdempotentReplay(t *testing.T) {
 	}
 	close(blocked.release)
 	done := awaitRun(t, s, u, run.ID, "COMPLETED")
-	if done.Calls != 2 || inner.calls.Load() != 2 || len(done.Items) != 2 {
+	if done.Calls != 1 || inner.calls.Load() != 1 || len(done.Items) != 2 {
 		t.Fatal(done, inner.calls.Load())
 	}
 	for _, i := range done.Items {
@@ -112,7 +112,7 @@ func TestDurableMatchingSurvivesRequestEndAndIdempotentReplay(t *testing.T) {
 		}
 	}
 	replay = matchingRequest(h, token, "/api/matching/tasks", "POST", body)
-	if replay.Code != 202 || inner.calls.Load() != 2 {
+	if replay.Code != 202 || inner.calls.Load() != 1 {
 		t.Fatal("completed replay billed again", replay.Code, replay.Body.String())
 	}
 	events, err := s.MatchRunEvents(ctx, u, run.ID)
@@ -132,7 +132,7 @@ func TestDurableMatchingSurvivesRequestEndAndIdempotentReplay(t *testing.T) {
 			t.Fatal("outbound data persisted", secret)
 		}
 	}
-	if r := matchingRequest(h, token, "/metrics/prometheus", "GET", nil); r.Code != http.StatusOK || !strings.Contains(r.Body.String(), "matching_compare_seconds_bucket") {
+	if r := matchingRequest(h, token, "/metrics/prometheus", "GET", nil); r.Code != http.StatusOK || !strings.Contains(r.Body.String(), "matching_analyze_seconds_bucket") {
 		t.Fatal("missing metrics", r.Code, r.Body.String())
 	}
 }
@@ -168,7 +168,7 @@ func TestDurablePauseResumeAndCancellationFence(t *testing.T) {
 	must(t, err)
 	close(blocked.release)
 	paused := awaitRun(t, s, u, run.ID, "PAUSED")
-	if inner.calls.Load() != 2 {
+	if inner.calls.Load() != 1 {
 		t.Fatal("pause ran later batch", inner.calls.Load())
 	}
 	pending := []string{}
@@ -185,7 +185,7 @@ func TestDurablePauseResumeAndCancellationFence(t *testing.T) {
 		t.Fatal(rec.Code, rec.Body.String())
 	}
 	done := awaitRun(t, s, u, run.ID, "COMPLETED")
-	if done.Calls != 3 || inner.calls.Load() != 3 {
+	if done.Calls != 2 || inner.calls.Load() != 2 {
 		t.Fatal("resume did not reuse extraction", done.Calls, inner.calls.Load())
 	}
 	// A different unfinished run is cancelled while its provider is blocked.

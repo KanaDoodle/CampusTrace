@@ -72,7 +72,12 @@ func (a *API) compareCompany(w http.ResponseWriter, r *http.Request) {
 			scope = "SELECTED"
 		}
 	}
-	decisionWrite(w, matching.BuildCompanyComparison(company, scope, decisionInputs(snapshot), snapshot.Profile, time.Now().UTC()))
+	report := matching.BuildCompanyComparison(company, scope, decisionInputs(snapshot), snapshot.Profile, time.Now().UTC())
+	if err := a.Store.AttachCompanyReport(r.Context(), user(r), snapshot, company, identity, &report, strings.TrimSpace(in.MaskName)); err != nil {
+		matchFailure(w, err)
+		return
+	}
+	decisionWrite(w, report)
 }
 func (a *API) prepareMatchedJob(w http.ResponseWriter, r *http.Request) {
 	var in matchPreviewRequest

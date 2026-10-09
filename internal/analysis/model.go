@@ -29,6 +29,20 @@ type ChatClient struct {
 	OutputTokenLimit int
 }
 
+type Usage struct {
+	PromptTokens     int  `json:"prompt_tokens"`
+	CompletionTokens int  `json:"completion_tokens"`
+	Known            bool `json:"known"`
+}
+
+func (c *ChatClient) CompleteWithUsage(ctx context.Context, messages any, tools any) (json.RawMessage, Usage, error) {
+	return c.completeUsage(ctx, messages, tools, false)
+}
+
+func (c *ChatClient) CompleteJSONWithUsage(ctx context.Context, messages any, tools any) (json.RawMessage, Usage, error) {
+	return c.completeUsage(ctx, messages, tools, true)
+}
+
 func NewChat(url, key, model string, n int) *ChatClient {
 	return &ChatClient{URL: url, Key: key, Model: model, HTTP: &http.Client{Timeout: 25 * time.Second}, Sem: make(chan struct{}, n)}
 }
@@ -43,19 +57,24 @@ func (c *ChatClient) CompleteJSON(ctx context.Context, messages any, tools any) 
 }
 
 func (c *ChatClient) complete(ctx context.Context, messages any, tools any, jsonOutput bool) (json.RawMessage, error) {
+	v, _, err := c.completeUsage(ctx, messages, tools, jsonOutput)
+	return v, err
+}
+
+func (c *ChatClient) completeUsage(ctx context.Context, messages any, tools any, jsonOutput bool) (json.RawMessage, Usage, error) {
 	select {
 	case c.Sem <- struct{}{}:
 		defer func() { <-c.Sem }()
 	case <-ctx.Done():
-		return nil, ctx.Err()
+		return nil, Usage{}, ctx.Err()
 	}
 	if c.Allow != nil {
 		ok, err := c.Allow(ctx)
 		if err != nil {
-			return nil, err
+			return nil, Usage{}, err
 		}
 		if !ok {
-			return nil, &HTTPError{429}
+			return nil, Usage{}, &HTTPError{429}
 		}
 	}
 	body := map[string]any{"model": c.Model, "messages": messages, "temperature": 0}
@@ -88,37 +107,45 @@ func (c *ChatClient) complete(ctx context.Context, messages any, tools any, json
 	}
 	req, err := http.NewRequestWithContext(ctx, "POST", c.URL, bytes.NewBufferString(d.JSON(body)))
 	if err != nil {
-		return nil, err
+		return nil, Usage{}, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+c.Key)
 	resp, err := c.HTTP.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, Usage{}, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, &HTTPError{resp.StatusCode}
+		return nil, Usage{}, &HTTPError{resp.StatusCode}
 	}
 	b, err := io.ReadAll(io.LimitReader(resp.Body, (1<<20)+1))
 	if err != nil {
-		return nil, err
+		return nil, Usage{}, err
 	}
 	if len(b) > 1<<20 {
-		return nil, &ResponseError{"TOO_LARGE"}
+		return nil, Usage{}, &ResponseError{"TOO_LARGE"}
 	}
 	var v struct {
+		Usage *struct {
+			PromptTokens     *int `json:"prompt_tokens"`
+			CompletionTokens *int `json:"completion_tokens"`
+		} `json:"usage"`
 		Choices []struct {
 			Message json.RawMessage `json:"message"`
 		} `json:"choices"`
 	}
 	if err = json.Unmarshal(b, &v); err != nil {
-		return nil, &ResponseError{"INVALID_JSON"}
+		return nil, Usage{}, &ResponseError{"INVALID_JSON"}
 	}
 	if len(v.Choices) != 1 {
-		return nil, &ResponseError{"INVALID_CHOICES"}
+		return nil, Usage{}, &ResponseError{"INVALID_CHOICES"}
 	}
-	return v.Choices[0].Message, nil
+	u := Usage{}
+	if v.Usage != nil && v.Usage.PromptTokens != nil && v.Usage.CompletionTokens != nil && *v.Usage.PromptTokens >= 0 && *v.Usage.CompletionTokens >= 0 {
+		u = Usage{*v.Usage.PromptTokens, *v.Usage.CompletionTokens, true}
+	}
+	return v.Choices[0].Message, u, nil
 }
 
 type LLMExtractor struct{ Client *ChatClient }

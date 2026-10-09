@@ -19,7 +19,7 @@ func TestCompleteProjectEvidenceHasRoomForSerializationOverhead(t *testing.T) {
 	if err != nil || len(d.JSON(c)) <= 12000 || len(c.Facts) != 34 || c.Facts[2].Text != facts[0].Claim {
 		t.Fatalf("complete evidence still fails the old budget or was truncated: bytes=%d facts=%d err=%v", len(d.JSON(c)), len(c.Facts), err)
 	}
-	facts[0].Claim = strings.Repeat("private synthetic text ", 2000)
+	facts[0].Claim = strings.Repeat("private synthetic text ", MaxCandidateText/20+1)
 	c, err = CandidateWithProjects(d.Profile{}, facts, nil, "")
 	var capacity *CapacityError
 	if !errors.Is(err, ErrCapacity) || !errors.As(err, &capacity) || capacity.Reason != "CANDIDATE_BYTES" || capacity.Actual != len(d.JSON(c)) || capacity.Limit != MaxCandidateText || strings.Contains(err.Error(), "private synthetic") {
