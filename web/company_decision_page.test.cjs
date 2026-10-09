@@ -3,7 +3,7 @@ const {test}=require('node:test'),assert=require('node:assert/strict'),fs=requir
 const D=require('./display.js');
 
 function harness({catalogCount=3,missingID=false,withReport=true,candidateJobs=null,stored=new Map(),discard=true}={}){
- const elements=new Map(),reads=[],exports=[],downloads=[],blobs=new Map();let html='',guard,blockedRead=false,userID='synthetic-account';const navigations=[],controls=[];
+ const elements=new Map(),reads=[],exports=[],downloads=[],blobs=new Map(),chatCalls=[];let html='',guard,blockedRead=false,userID='synthetic-account',chatSaved=null;const navigations=[],controls=[];
  const decode=v=>String(v).replaceAll('&quot;','"').replaceAll('&#39;',"'").replaceAll('&lt;','<').replaceAll('&gt;','>').replaceAll('&amp;','&');
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const catalog=candidateJobs||Array.from({length:catalogCount},(_,i)=>({id:i===0?'a':i===1?'b':'extra-'+i,title:'测试岗位 '+i,locations:['上海']}));
@@ -15,6 +15,7 @@ function harness({catalogCount=3,missingID=false,withReport=true,candidateJobs=n
    const options=[...m[2].matchAll(/<option\b([^>]*)>/g)],chosen=options.find(o=>/\bselected\b/.test(o[1]))||options[0];elements.get(m[1]).value=decode(chosen?.[1].match(/value="([^"]*)"/)?.[1]||'');
   }
   for(const m of value.matchAll(/<(?:input|button)\b([^>]*data-company-(select|remove|detail|prepare)="([^"]+)"[^>]*)>/g))controls.push({dataset:{['company'+m[2][0].toUpperCase()+m[2].slice(1)]:decode(m[3])},checked:/\schecked(?:\s|$)/.test(m[1]),focus(){},disabled:/\sdisabled(?:\s|$)/.test(m[1])});
+  for(const m of value.matchAll(/<textarea[^>]*id="([^"]+)"[^>]*>([\s\S]*?)<\/textarea>/g))elements.get(m[1]).value=decode(m[2]);
   const formHTML=value.match(/<form id="company-eval-form">([\s\S]*?)<\/form>/)?.[1];
   if(formHTML){
    const options=[...formHTML.matchAll(/<option\b([^>]*)>/g)],choice=options.find(m=>/\bselected\b/.test(m[1]))||options[0];
@@ -24,8 +25,8 @@ function harness({catalogCount=3,missingID=false,withReport=true,candidateJobs=n
   return true;
  };
  const document={querySelector:s=>s==='#company-eval-form select'?elements.get('company-eval-form')?.elements.top:elements.get(s.slice(1)),querySelectorAll:s=>{const key=s.match(/\[data-company-([^\]]+)\]/)?.[1];return key?controls.filter(c=>Object.hasOwn(c.dataset,'company'+key[0].toUpperCase()+key.slice(1))):[];},body:{append(){}},createElement:()=>({click(){downloads.push({filename:this.download,blob:blobs.get(this.href)});},remove(){}})};
- const context={document,Blob,sessionStorage:{getItem:k=>stored.get(k),setItem:(k,v)=>stored.set(k,v)},URL:{createObjectURL:blob=>{const id='blob:fixture-'+blobs.size;blobs.set(id,blob);return id;},revokeObjectURL(){}},setTimeout(){},CampusModels:{bindUser(){}},CampusMatching:{bindUser(){},matchIdentity:()=>({model_name:'fixture-model',mask_name:''})},CampusNavigation:{register:v=>guard=v,leave:async()=>true,confirmDiscard:async()=>discard},console};
- vm.createContext(context);for(const file of ['matching_chat.js','applications.js','campaigns.js','matching_decision.js','company_decision.js'])vm.runInContext(fs.readFileSync(__dirname+'/'+file,'utf8'),context);
+ const context={document,Blob,TextEncoder,sessionStorage:{getItem:k=>stored.get(k),setItem:(k,v)=>stored.set(k,v)},URL:{createObjectURL:blob=>{const id='blob:fixture-'+blobs.size;blobs.set(id,blob);return id;},revokeObjectURL(){}},setTimeout(){},CampusModels:{bindUser(){}},CampusMatching:{bindUser(){},matchIdentity:()=>({model_name:'fixture-model',mask_name:''})},CampusNavigation:{register:v=>guard=v,leave:async()=>true,confirmDiscard:async()=>discard},console};
+ vm.createContext(context);for(const file of ['matching_chat.js','applications.js','campaigns.js','matching_decision.js','company_chat.js','company_decision.js'])vm.runInContext(fs.readFileSync(__dirname+'/'+file,'utf8'),context);
  const api=async(path,method,body)=>{
   if(path==='/api/profile/resume/capabilities')return {user_id:userID};
   if(path==='/api/matching/company-catalog')return catalog.length?[{company:'测试公司',total:catalog.length}]:[];
@@ -34,14 +35,20 @@ function harness({catalogCount=3,missingID=false,withReport=true,candidateJobs=n
   if(path==='/api/matching/company-workspace'){
    reads.push(structuredClone(body));if(blockedRead)throw Error('读取失败');
    const jobs=catalog.filter(j=>!body.job_ids.length||body.job_ids.includes(j.id)),ids=jobs.map(j=>j.id);
-   return {comparison:{company:'测试公司',scope:body.job_ids.length?'SELECTED':'ALL',total:jobs.length,pending:0,stale:0,holistic_job_ids:ids,holistic_input_key:'current-scope',holistic:withReport?{summary:'合成比较结果',choices:ids.map((id,i)=>({job_id:id,rank:i+1,reason:'合成比较',advantage:'合成优势',tradeoff:'合成取舍',job_excerpt:'合成原文',evidence:[]}))}:null,jobs:jobs.map(job=>({job,state:'BASIC'}))},workflow:{jobs:[],campaigns:[],applications:[]}};
+   return {comparison:{company:'测试公司',scope:body.job_ids.length?'SELECTED':'ALL',total:jobs.length,pending:0,stale:0,holistic_job_ids:ids,holistic_input_key:'current-scope',holistic:chatSaved||(withReport?{summary:'合成比较结果',choices:ids.map((id,i)=>({job_id:id,rank:i+1,reason:'合成比较',advantage:'合成优势',tradeoff:'合成取舍',job_excerpt:'合成原文',evidence:[]}))}:null),jobs:jobs.map(job=>({job,state:'BASIC'}))},workflow:{jobs:[],campaigns:[],applications:[]}};
   }
   if(path==='/api/matching/evaluation/export'){
    exports.push(structuredClone(body));return {version:'campustrace-matching-eval-v1',cases:[{id:'e'.repeat(64),candidate:{document:'合成脱敏材料'},jobs:body.job_ids.map(job_id=>({job_id})),reference:structuredClone(body.reference)}],recorded_results:withReport?[{report:{summary:'合成比较结果'}}]:[]};
   }
+  if(path.startsWith('/api/matching/company-chat/')){
+   chatCalls.push({path,body:structuredClone(body)});
+   if(path.endsWith('/export'))return {document:{version:'campustrace-company-chat-v1',prompt_revision:'fixture-revision',candidate_hash:'c'.repeat(64),company:'测试公司',input_key:'i'.repeat(64),job_ids:body.job_ids,summary:'',choices:body.job_ids.map(job_id=>({job_id,rank:0,reason:'',advantage:'',tradeoff:'',job_excerpt:'',evidence:[]})),questions:[]},candidate:{document:'合成脱敏资料'},jobs:body.job_ids.map(job_id=>({job_id,title:catalog.find(j=>j.id===job_id).title,text:'合成岗位原文'})),prompt:'完整阅读，不按技术名词数量计分。',exported_at:'2026-10-09T06:00:00Z'};
+   if(path.endsWith('/preview'))return {report:{...body.document,model:'manual-chat\nChatGPT 聊天导入'},jobs:body.document.job_ids.map(job_id=>({job_id,title:catalog.find(j=>j.id===job_id).title})),preview_key:'reviewed-preview',replaces:false};
+   if(path.endsWith('/confirm')){assert.equal(body.preview_key,'reviewed-preview');chatSaved={...body.document,model:'manual-chat\nChatGPT 聊天导入'};return {imported:body.document.choices.length};}
+  }
   throw Error('Unexpected API: '+path);
  };
- return {elements,reads,exports,downloads,stored,navigations,controls,user:id=>userID=id,html:()=>html,dirty:()=>guard.dirty(),blockRead:()=>blockedRead=true,start:initial=>context.CampusCompanyDecision.page(set,'<h1>公司投递决策</h1>',{api,esc,D,navigate:(name,query)=>navigations.push({name,query}),initialCompany:'测试公司',...initial}),submit:()=>elements.get('company-eval-form').onsubmit({preventDefault(){},target:elements.get('company-eval-form')})};
+ return {elements,reads,exports,downloads,stored,chatCalls,navigations,controls,user:id=>userID=id,html:()=>html,dirty:()=>guard.dirty(),blockRead:()=>blockedRead=true,start:initial=>context.CampusCompanyDecision.page(set,'<h1>公司投递决策</h1>',{api,esc,D,navigate:(name,query)=>navigations.push({name,query}),initialCompany:'测试公司',...initial}),submit:()=>elements.get('company-eval-form').onsubmit({preventDefault(){},target:elements.get('company-eval-form')})};
 }
 
 test('visible export entry opens and focuses the form without calling a model or preparing a download',async()=>{
@@ -136,6 +143,38 @@ test('canceling a scope change does not open analysis for the old selection',asy
  await h.elements.get('company-analyze').onclick();
  assert.equal(h.reads.length,1);assert.equal(h.navigations.length,0);
  assert.equal(h.dirty(),true);
+});
+
+test('company chat export previews full data before download and keeps manual evaluation independent',async()=>{
+ const h=harness({withReport:false});await h.start({initialIDs:['b','a']});
+ await h.elements.get('company-open-chat').onclick();assert.equal(h.elements.get('company-chat').open,true);
+ await h.elements.get('company-chat-export').onclick();assert.equal(h.chatCalls.length,1);assert.equal(h.downloads.length,0);
+ assert.deepEqual(h.chatCalls[0].body.job_ids,['a','b']);assert.match(h.html(),/查看实际导出的完整文字/);
+ await h.elements.get('company-chat-download').onclick();assert.equal(h.downloads.length,1);assert.match(h.downloads[0].filename,/公司比较/);
+ const text=await h.downloads[0].blob.text();assert.match(text,/合成脱敏资料/);assert.match(text,/result_template/);assert.equal(h.exports.length,0);
+});
+
+test('company chat import requires preview, persists its scope and returns to the company report without clearing selection',async()=>{
+ const h=harness({withReport:false});await h.start({initialIDs:['a','b']});
+ assert.equal(h.elements.has('company-chat-confirm'),false);
+ const doc={version:'campustrace-company-chat-v1',prompt_revision:'fixture-revision',candidate_hash:'c'.repeat(64),company:'测试公司',input_key:'i'.repeat(64),job_ids:['b','a'],summary:'完整材料下的新比较',choices:[{job_id:'a',rank:2,reason:'备选',advantage:'有基础',tradeoff:'领域差距',job_excerpt:'合成原文',evidence:[]},{job_id:'b',rank:1,reason:'首选',advantage:'核心工作贴近',tradeoff:'规模待确认',job_excerpt:'合成原文',evidence:[]}],questions:[]};
+ const input=h.elements.get('company-chat-text');input.value=JSON.stringify(doc);input.oninput({target:input});assert.equal(h.dirty(),true);
+ await h.elements.get('company-chat-preview').onclick();assert.equal(h.chatCalls.length,1);assert.match(h.html(),/核对 GPT 返回的排序/);assert.match(h.html(),/确认保存公司比较/);
+ await h.elements.get('company-chat-confirm').onclick();assert.equal(h.chatCalls.length,2);assert.equal(h.chatCalls[1].body.preview_key,'reviewed-preview');assert.equal(h.dirty(),false);assert.match(h.html(),/完整材料下的新比较/);assert.match(h.html(),/GPT 聊天导入/);
+ assert.deepEqual(h.reads.at(-1).job_ids,['b','a']);assert.deepEqual(JSON.parse(h.stored.get('campustrace:match-selection:v1:synthetic-account')),['b','a']);assert.equal(h.exports.length,0);
+});
+
+test('editing a returned comparison removes confirmation and editing redaction invalidates the download',async()=>{
+ const h=harness();await h.start({initialIDs:['a','b']});await h.elements.get('company-chat-export').onclick();
+ const input=h.elements.get('company-chat-mask');input.value='新姓名';input.oninput({target:input});assert.equal(h.elements.get('company-chat-download').disabled,true);await h.elements.get('company-chat-download').onclick();assert.equal(h.downloads.length,0);
+});
+
+test('importing a different scope does not discard an unsaved human preference when the user stays',async()=>{
+ const h=harness({discard:false});await h.start({initialIDs:['a','b']});
+ h.elements.get('company-eval-form').elements.reason.value='我尚未保存的人工理由';
+ const doc={version:'campustrace-company-chat-v1',prompt_revision:'fixture-revision',candidate_hash:'c'.repeat(64),company:'测试公司',input_key:'i'.repeat(64),job_ids:['a'],summary:'另一范围',choices:[{job_id:'a',rank:1,reason:'相关',advantage:'基础相关',tradeoff:'待确认',job_excerpt:'原文',evidence:[]}],questions:[]};
+ const input=h.elements.get('company-chat-text');input.value=JSON.stringify(doc);input.oninput({target:input});await h.elements.get('company-chat-preview').onclick();await h.elements.get('company-chat-confirm').onclick();
+ assert.equal(h.chatCalls.length,1,'no confirmation write after cancellation');assert.equal(h.elements.get('company-eval-form').elements.reason.value,'我尚未保存的人工理由');assert.deepEqual(h.reads.at(-1).job_ids,['a','b']);assert.equal(h.dirty(),true);
 });
 
 test('quick selection size survives filtering and returning to the same company',async()=>{

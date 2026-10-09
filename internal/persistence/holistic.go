@@ -27,12 +27,36 @@ func (s *Store) CompanyReport(ctx context.Context, user, company, key string) (m
 	return One[matching.HolisticCompanyReport](ctx, s.DB, "SELECT body FROM company_match_reports WHERE user_id=? AND company_name=? AND (input_key=? OR JSON_UNQUOTE(JSON_EXTRACT(body,'$.source_context_key'))=?) ORDER BY updated_at DESC LIMIT 1", user, company, key, key)
 }
 
+func companyChatVersion(ctx context.Context, q Queryer, user, company, key string) (string, error) {
+	r, err := One[matching.HolisticCompanyReport](ctx, q, "SELECT body FROM company_match_reports WHERE user_id=? AND company_name=? AND (input_key=? OR JSON_UNQUOTE(JSON_EXTRACT(body,'$.source_context_key'))=?) ORDER BY updated_at DESC LIMIT 1", user, company, key, key)
+	if errors.Is(err, ErrNotFound) {
+		return "NONE", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	return d.Hash(d.JSON(r)), nil
+}
+
+func (s *Store) CompanyChatVersion(ctx context.Context, user, company, key string) (string, error) {
+	return companyChatVersion(ctx, s.DB, user, company, key)
+}
+
+// Preview and commit share the same user lock and source fences. Importing a
+// company comparison never replaces individual job analyses or human labels.
+func (s *Store) SaveReviewedCompanyReport(ctx context.Context, user, mask string, r matching.HolisticCompanyReport, jobs []matching.HolisticJob, previous string) error {
+	if r.Model != matching.ChatIdentity || previous == "" {
+		return ErrValidation
+	}
+	return s.Tx(ctx, func(tx *sql.Tx) error { return s.saveCompanyReport(ctx, tx, user, mask, r, jobs, previous) })
+}
+
 // The same user lock and execution guard fence both report scopes. Re-read every
 // source at commit time; a rank never survives a changed candidate or JD set.
 func (s *Store) SaveCompanyReport(ctx context.Context, user, mask string, r matching.HolisticCompanyReport, jobs []matching.HolisticJob) error {
 	return s.Tx(ctx, func(tx *sql.Tx) error { return s.saveCompanyReport(ctx, tx, user, mask, r, jobs) })
 }
-func (s *Store) saveCompanyReport(ctx context.Context, tx *sql.Tx, user, mask string, r matching.HolisticCompanyReport, jobs []matching.HolisticJob) error {
+func (s *Store) saveCompanyReport(ctx context.Context, tx *sql.Tx, user, mask string, r matching.HolisticCompanyReport, jobs []matching.HolisticJob, reviewed ...string) error {
 	if err := lockRunUser(ctx, tx, user); err != nil {
 		return err
 	}
@@ -114,6 +138,15 @@ func (s *Store) saveCompanyReport(ctx context.Context, tx *sql.Tx, user, mask st
 		}
 		r.SourceContextKey = matching.CompanyInputKey(base, baseJobs, matching.ChatIdentity)
 	}
+	if len(reviewed) > 0 {
+		previous, e := companyChatVersion(ctx, tx, user, r.Company, r.SourceContextKey)
+		if e != nil {
+			return e
+		}
+		if previous != reviewed[0] {
+			return ErrStaleInput
+		}
+	}
 	r.AnalyzedAt = time.Now().UTC().Format(time.RFC3339Nano)
 	_, err = tx.ExecContext(ctx, "INSERT INTO company_match_reports(user_id,company_name,input_key,body,updated_at) VALUES(?,?,?,?,UTC_TIMESTAMP(6)) ON DUPLICATE KEY UPDATE body=VALUES(body),updated_at=VALUES(updated_at)", user, strings.TrimSpace(r.Company), r.InputKey, d.JSON(r))
 	return err
@@ -136,23 +169,18 @@ func (s *Store) AttachCompanyReport(ctx context.Context, user string, snapshot M
 		if err := matching.ValidateHolisticInput(snapshot.Candidate, jobs, true); err != nil {
 			report.HolisticNotice = "整体比较每次最多16个岗位，并按完整文字量限制；请通过筛选或勾选缩小候选范围。"
 		} else {
-			cached, e := s.CompanyReport(ctx, user, company, report.HolisticInputKey)
+			chatJobs := append([]matching.HolisticJob{}, jobs...)
+			for i := range chatJobs {
+				chatJobs[i].InputKey = matching.JobInputKey(rows[i].Job, matching.RequirementKey(chatJobs[i].Text, matching.ChatIdentity), snapshot.CandidateHash)
+			}
+			chatKey := matching.CompanyInputKey(snapshot.Candidate, chatJobs, matching.ChatIdentity)
+			// Prefer the newest accepted report across API and manual chat sources.
+			// Otherwise a successful import remains hidden behind an older API run.
+			cached, e := One[matching.HolisticCompanyReport](ctx, s.DB, "SELECT body FROM company_match_reports WHERE user_id=? AND company_name=? AND (input_key IN (?,?) OR JSON_UNQUOTE(JSON_EXTRACT(body,'$.source_context_key')) IN (?,?)) ORDER BY updated_at DESC LIMIT 1", user, company, report.HolisticInputKey, chatKey, report.HolisticInputKey, chatKey)
 			if e == nil {
 				report.Holistic = &cached
 			} else if !errors.Is(e, ErrNotFound) {
 				return e
-			}
-			if report.Holistic == nil {
-				chatJobs := append([]matching.HolisticJob{}, jobs...)
-				for i := range chatJobs {
-					chatJobs[i].InputKey = matching.JobInputKey(rows[i].Job, matching.RequirementKey(chatJobs[i].Text, matching.ChatIdentity), snapshot.CandidateHash)
-				}
-				cached, e = s.CompanyReport(ctx, user, company, matching.CompanyInputKey(snapshot.Candidate, chatJobs, matching.ChatIdentity))
-				if e == nil {
-					report.Holistic = &cached
-				} else if !errors.Is(e, ErrNotFound) {
-					return e
-				}
 			}
 		}
 	} else {

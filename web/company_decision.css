@@ -39,6 +39,22 @@
 .company-evaluation { margin-top: 30px; max-width: 900px; }
 .company-eval-document { max-height: 420px; white-space: pre-wrap; overflow-wrap: anywhere; overflow: auto; }
 .company-open-questions { padding: 18px 0; }
+.company-chat { background:var(--paper); border:1px solid var(--line); padding:18px 22px; margin:0 0 24px; }
+.company-chat>summary { color:var(--accent); font-weight:600; cursor:pointer; }
+.company-chat>label { max-width:360px; margin:16px 0; }
+.company-chat-steps { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:28px; }
+.company-chat-steps>section { min-width:0; }
+.company-chat-steps h3 { font-size:16px; margin:8px 0; }
+.company-chat-steps p { font-size:13px; line-height:1.8; }
+.company-chat input,.company-chat textarea { box-sizing:border-box; width:100%; }
+.company-chat-document pre { max-height:320px; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; font-size:12px; }
+.company-chat-result { border-top:1px solid var(--line); margin-top:22px; padding-top:16px; overflow-wrap:anywhere; }
+.company-chat-result article { border-bottom:1px solid var(--line); padding:12px 0; }
+.company-chat-result p,.company-chat-result dd { line-height:1.8; }
+.company-chat-result dt { font-size:12px; color:var(--muted); margin-top:8px; }
+.company-chat-result dd { margin:4px 0 12px; }
+.company-chat-result>button { margin-top:18px; }
+@media(max-width:800px) { .company-chat { padding:16px; } .company-chat-steps { grid-template-columns:minmax(0,1fr); gap:20px; } }
 @media(max-width:1100px) { .company-decision-grid { grid-template-columns: minmax(0,1fr) 245px; gap: 20px; } .company-action-rail { padding-left: 18px; } }
 @media(max-width:800px) { .company-decision-toolbar { flex-direction: column; align-items: stretch; gap: 12px; } .company-decision-grid { grid-template-columns: minmax(0,1fr); } .company-action-rail { border-left: 0; border-top: 1px solid var(--line); padding: 23px 0 0; } .company-picker-list,.company-tradeoffs { grid-template-columns: minmax(0,1fr); } .company-choice { padding: 18px; } .company-choice-first { padding-left: 14px; } .company-choice-head h3 { font-size: 17px; } .company-section-heading h2 { font-size: 21px; } }
 /* Candidate picking stays visible; the selection tray is the action anchor. */

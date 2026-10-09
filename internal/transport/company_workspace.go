@@ -45,6 +45,8 @@ func (a *API) companyWorkspaceRoutes(on func(string, http.HandlerFunc)) {
 	on("POST /api/matching/company-workspace", a.companyWorkspace)
 	on("POST /api/matching/company-candidates", a.companyCandidates)
 	on("POST /api/matching/evaluation/export", a.exportMatchingEvaluation)
+	on("POST /api/matching/company-chat/export", a.exportCompanyChat)
+	on("POST /api/matching/company-chat/{action}", a.importCompanyChat)
 }
 
 func (a *API) companyCandidates(w http.ResponseWriter, r *http.Request) {
