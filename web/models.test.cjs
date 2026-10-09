@@ -68,3 +68,8 @@ test('unavailable local storage leaves non-model pages usable',()=>{
     assert.throws(()=>models.saveKey('openai','secret'),/无法在此浏览器保存/);
   }finally{global.localStorage=original;models.lock();}
 });
+
+test('a late response from a departed settings page cannot rebind another account',async()=>{
+ models.bindUser('late-current');models.saveKey('deepseek','current-account-secret');models.select(models.presets.find(v=>v.provider==='deepseek').id);let resolve;
+ const pending=models.page(()=>{throw Error('stale page rendered');},'',{api:()=>new Promise(r=>resolve=r),isCurrent:()=>false});resolve({user_id:'late-other'});await pending;assert.equal(models.requestConfig().api_key,'current-account-secret');models.lock();
+});

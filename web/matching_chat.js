@@ -59,6 +59,7 @@ ${JSON.stringify(resultExample,null,2)}
     let blob,name;
     if(files.length===1){blob=new Blob([files[0].text],{type:'text/markdown;charset=utf-8'});name=files[0].name;}
     else{
+      if(!root.JSZip&&root.CampusAssets)await root.CampusAssets.ensure('zip');
       const zip=new root.JSZip();for(const file of files)zip.file(file.name,file.text);
       zip.file('使用说明.txt',instructions(files));zip.file('汇总指令.txt',mergePrompt);
       blob=await zip.generateAsync({type:'blob'});name='CampusTrace-ChatGPT分析包.zip';

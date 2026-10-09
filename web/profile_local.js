@@ -23,6 +23,7 @@
   }
   function reviewedTextBytes(text) { return new TextEncoder().encode(String(text||'')).byteLength; }
   async function readDocx(file) {
+    if(!root.JSZip&&root.CampusAssets)await root.CampusAssets.ensure('zip');
     if(!root.JSZip) throw new Error('文档读取组件未就绪，请刷新页面重试。');
     const zip=await root.JSZip.loadAsync(await file.arrayBuffer());
     const part=zip.file('word/document.xml');

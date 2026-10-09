@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 
@@ -221,5 +222,96 @@ func TestKnowledgeConcurrentIndexLeaseAndClearFencesInFlight(t *testing.T) {
 	must(t, store.DB.QueryRowContext(ctx, "SELECT COUNT(*) FROM knowledge_vectors WHERE user_id=?", owner).Scan(&count))
 	if count != 0 {
 		t.Fatal("stale vectors committed")
+	}
+}
+
+func TestKnowledgeImportConcurrentReplayAndAccountIsolation(t *testing.T) {
+	ctx, store, queue, owner, _ := setup(t)
+	service := &rag.Service{Store: store}
+	original := rag.Document{Title: "Redis Note", Text: "pending recovery\nExact source text"}
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	ids := make(chan string, 8)
+	results := make(chan bool, 8)
+	failures := make(chan error, 8)
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			doc, reused, e := service.ImportDocument(ctx, owner, original)
+			ids <- doc.ID
+			results <- reused
+			failures <- e
+		}()
+	}
+	close(start)
+	wg.Wait()
+	close(ids)
+	close(results)
+	close(failures)
+	for e := range failures {
+		must(t, e)
+	}
+	first := ""
+	for id := range ids {
+		if first == "" {
+			first = id
+		}
+		if id != first {
+			t.Fatal("concurrent imports created separate documents")
+		}
+	}
+	fresh := 0
+	for reused := range results {
+		if !reused {
+			fresh++
+		}
+	}
+	if fresh != 1 {
+		t.Fatal("fresh imports", fresh)
+	}
+	revision, e := store.KnowledgeIdentity(ctx, owner)
+	must(t, e)
+	if revision != "1" {
+		t.Fatal("reused import changed corpus revision", revision)
+	}
+	lower, reused, e := service.ImportDocument(ctx, owner, rag.Document{Title: "redis note", Text: original.Text})
+	must(t, e)
+	if reused || lower.ID == first {
+		t.Fatal("case-distinct title was incorrectly reused")
+	}
+	other, e := store.NewUser(ctx, "other-import-"+owner+"@synthetic.test", "unused")
+	must(t, e)
+	t.Cleanup(func() { store.DB.ExecContext(context.Background(), "DELETE FROM users WHERE id=?", other) })
+	distinct, reused, e := service.ImportDocument(ctx, other, original)
+	must(t, e)
+	if reused || distinct.ID == first {
+		t.Fatal("cross-account import reused another user's document")
+	}
+	authn := auth.Service{Store: store, Secret: []byte("synthetic-unique-import-secret-more-than-32-bytes")}
+	token, e := authn.Token(owner)
+	must(t, e)
+	handler := (&transport.API{Store: store, Queue: queue, Auth: authn, Tools: &agent.Tools{Store: store, RAG: service}}).Handler()
+	response := matchingRequest(handler, token, "/api/documents/import", "POST", original)
+	if response.Code != 200 {
+		t.Fatal(response.Code, response.Body.String())
+	}
+	var receipt struct {
+		ID     string `json:"id"`
+		Reused bool   `json:"reused"`
+	}
+	must(t, json.Unmarshal(response.Body.Bytes(), &receipt))
+	if !receipt.Reused || receipt.ID != first || strings.Contains(response.Body.String(), original.Text) {
+		t.Fatal("unbounded or incorrect receipt", response.Body.String())
+	}
+	response = matchingRequest(handler, token, "/api/knowledge/state", "GET", nil)
+	if response.Code != 200 || !strings.Contains(response.Body.String(), `"version":"2"`) {
+		t.Fatal("corpus version endpoint", response.Body.String())
+	}
+	out, e := service.SearchDetailed(ctx, owner, "pending recovery", 5)
+	must(t, e)
+	if out.Retrieval.CorpusVersion != "2" {
+		t.Fatal("search version not bound to its snapshot", out.Retrieval)
 	}
 }

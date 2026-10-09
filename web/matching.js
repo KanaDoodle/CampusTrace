@@ -188,7 +188,7 @@ const CampusMatching=(function(root){
   }
   async function showJob(box,id,helpers){
     const {api,navigate}=helpers;
-    const cap=await api('/api/profile/resume/capabilities');root.CampusModels.bindUser(cap.user_id);bindUser(cap.user_id);
+    const cap=await api('/api/profile/resume/capabilities');if(box.isConnected===false)return;root.CampusModels.bindUser(cap.user_id);bindUser(cap.user_id);
     const result=await api('/api/matching/results/'+encodeURIComponent(id),'POST',identity());
     if(!box.isConnected)return;
     box.innerHTML=`<h3>技能与项目匹配</h3>${renderLocal(result,helpers)}<h4>模型深度分析</h4>${renderResult(result,helpers)}<button type="button" data-open-matching>前往岗位匹配</button>`;
@@ -196,8 +196,9 @@ const CampusMatching=(function(root){
     for(const b of box.querySelectorAll('[data-supplement]'))b.onclick=()=>navigate('profile',{evidence:{jobID:id,requirementID:b.dataset.supplement,identity:identity()}});
   }
   async function page(set,heading,{api,esc,D,UserError,navigate,openRecord,initialQuery='',initialJob='',initialView='overview',initialAnalyze=false,initialTask='',initialComparison=null,initialWorkflow='',returnCompany='',active}){
-    const cap=await api('/api/profile/resume/capabilities');root.CampusModels.bindUser(cap.user_id);bindUser(cap.user_id);
+    const cap=await api('/api/profile/resume/capabilities');if(active?.()===false)return;root.CampusModels.bindUser(cap.user_id);bindUser(cap.user_id);
     const savedBrowse=root.CampusNavigation?.readBrowse(cap.user_id)||{};
+    if(savedBrowse.radarView==='company'&&!root.CampusCompanyDecision&&root.CampusAssets){await root.CampusAssets.ensure('company');if(active?.()===false)return;}
     if(initialView==='overview'&&!initialJob&&!initialTask&&!initialComparison&&!initialQuery&&!initialWorkflow&&savedBrowse.radarView==='company'&&root.CampusCompanyDecision){return root.CampusCompanyDecision.page(set,heading,{api,esc,D,navigate,active,capabilities:cap});}
     const taskRead=cap.durable_matching&&root.CampusMatchTasks?api('/api/matching/tasks').then(value=>({value}),error=>({error})):Promise.resolve({value:[]});
     const paged=!!cap.inventory_paging&&!!root.CampusInventory,inventoryScope=JSON.stringify([cap.user_id,identity()]),remembered=paged?root.CampusInventory.recall(inventoryScope):null;

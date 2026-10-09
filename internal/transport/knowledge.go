@@ -70,6 +70,19 @@ func knowledgeWrite(w http.ResponseWriter, v any, e error) {
 	write(w, v, e)
 }
 func (a *API) knowledgeRoutes(on func(string, http.HandlerFunc)) {
+	on("GET /api/knowledge/state", func(w http.ResponseWriter, r *http.Request) {
+		version, e := a.Store.KnowledgeIdentity(r.Context(), user(r))
+		knowledgeWrite(w, map[string]string{"version": version}, e)
+	})
+	on("POST /api/documents/import", func(w http.ResponseWriter, r *http.Request) {
+		var v rag.Document
+		if decodeKnowledgeDocument(r, &v) != nil {
+			write(w, nil, p.ErrValidation)
+			return
+		}
+		doc, reused, e := a.Tools.RAG.ImportDocument(r.Context(), user(r), v)
+		knowledgeWrite(w, map[string]any{"id": doc.ID, "title": doc.Title, "reused": reused}, e)
+	})
 	on("GET /api/documents", func(w http.ResponseWriter, r *http.Request) {
 		offset := 0
 		var e error

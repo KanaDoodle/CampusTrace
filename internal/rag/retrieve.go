@@ -15,6 +15,7 @@ type SearchResult struct {
 type RetrievalInfo struct {
 	Mode           string   `json:"mode"`
 	Version        string   `json:"version"`
+	CorpusVersion  string   `json:"corpus_version,omitempty"`
 	TotalChunks    int      `json:"total_chunks"`
 	IndexedChunks  int      `json:"indexed_chunks"`
 	Candidates     int      `json:"candidates"`

@@ -3,6 +3,7 @@ package rag
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
 	p "github.com/KanaDoodle/CampusTrace/internal/persistence"
@@ -114,28 +115,54 @@ type Service struct {
 }
 
 func (s *Service) Ingest(ctx context.Context, user string, doc Document) (Document, error) {
+	out, _, err := s.ingest(ctx, user, doc, false)
+	return out, err
+}
+
+// ImportDocument reuses an exact title/body match under the user's corpus lock.
+// A lost response can therefore be retried without adding another document.
+func (s *Service) ImportDocument(ctx context.Context, user string, doc Document) (Document, bool, error) {
+	return s.ingest(ctx, user, doc, true)
+}
+
+func (s *Service) ingest(ctx context.Context, user string, doc Document, unique bool) (Document, bool, error) {
 	if strings.TrimSpace(doc.Title) == "" || len(doc.Title) > 200 || strings.TrimSpace(doc.Text) == "" || len(doc.Text) > 60000 {
-		return doc, errors.New("invalid document")
+		return doc, false, errors.New("invalid document")
 	}
 	if err := s.acquire(ctx); err != nil {
-		return doc, err
+		return doc, false, err
 	}
 	defer s.release()
 	if s.Allow != nil {
 		ok, err := s.Allow(ctx)
 		if err != nil {
-			return doc, err
+			return doc, false, err
 		}
 		if !ok {
-			return doc, errors.New("429 embedding rate limit")
+			return doc, false, errors.New("429 embedding rate limit")
 		}
 	}
 	doc.ID = d.ID()
 	doc.CreatedAt = time.Now().UTC()
+	reused := false
 	err := s.Store.Tx(ctx, func(tx *sql.Tx) error {
 		var owner string
 		if err := tx.QueryRowContext(ctx, "SELECT id FROM users WHERE id=? FOR UPDATE", user).Scan(&owner); err != nil {
 			return err
+		}
+		if unique {
+			var body []byte
+			err := tx.QueryRowContext(ctx, "SELECT body FROM documents WHERE user_id=? AND BINARY JSON_UNQUOTE(JSON_EXTRACT(body,'$.title'))=BINARY ? AND BINARY JSON_UNQUOTE(JSON_EXTRACT(body,'$.text'))=BINARY ? LIMIT 1", user, doc.Title, doc.Text).Scan(&body)
+			if err == nil {
+				if err := json.Unmarshal(body, &doc); err != nil {
+					return err
+				}
+				reused = true
+				return nil
+			}
+			if !errors.Is(err, sql.ErrNoRows) {
+				return err
+			}
 		}
 		var count int
 		if err := tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM chunks WHERE user_id=?", user).Scan(&count); err != nil {
@@ -163,7 +190,7 @@ func (s *Service) Ingest(ctx context.Context, user string, doc Document) (Docume
 		}
 		return bumpKnowledge(ctx, tx, user)
 	})
-	return doc, err
+	return doc, reused, err
 }
 func (s *Service) Search(ctx context.Context, user, query string, k int) ([]Hit, error) {
 	out, err := s.SearchDetailed(ctx, user, query, k)
@@ -209,6 +236,7 @@ func (s *Service) SearchDetailed(ctx context.Context, user, query string, k int)
 	if current != revision {
 		return SearchResult{}, p.ErrStaleInput
 	}
+	out.Retrieval.CorpusVersion = revision
 	return out, nil
 }
 func (s *Service) acquire(ctx context.Context) error {

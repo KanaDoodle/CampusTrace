@@ -177,3 +177,17 @@ func TestMetricsFailedAndUnreviewedDenominators(t *testing.T) {
 		t.Fatal("duplicate doc or rank calculation", a, b, c)
 	}
 }
+
+func TestAssistantReviewedLabelsPreserveProvenanceAndReviewGate(t *testing.T) {
+	dataset := Dataset{Name: "assisted source review", Kind: "assistant-reviewed", Documents: []EvalDocument{{ID: "a", Title: "A", Text: "A"}}, Queries: []EvalQuery{{ID: "reviewed", Query: "A", Relevant: map[string]int{"a": 3}, Reviewed: true}, {ID: "draft", Query: "A draft", Relevant: map[string]int{"a": 3}}}}
+	report, err := Evaluate(context.Background(), dataset, "keyword", func(context.Context, string) (SearchResult, error) {
+		return SearchResult{Hits: []Hit{{Chunk: Chunk{DocumentID: "a"}}}}, nil
+	})
+	if err != nil || report.Kind != "assistant-reviewed" || report.Labeled != 1 || report.Recall20 == nil || *report.Recall20 != 1 || report.Rows[1].Recall20 != nil {
+		t.Fatal("lost label provenance or scored draft", report, err)
+	}
+	dataset.Kind = "unknown-label-origin"
+	if err := dataset.Validate(); err == nil {
+		t.Fatal("unknown label origin accepted")
+	}
+}

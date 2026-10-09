@@ -69,14 +69,16 @@ const CampusModels=(function(root){
     return item&&keys[item.provider]?item.name:capabilities?.model_available?'服务器默认 · '+(capabilities.model||'已配置模型'):'尚未配置外部模型';
   }
   function sessionID(capabilities){return active==='default'?(capabilities?.model_available?'web-default':'web-demo'):'web-'+active;}
-  async function page(set,heading,{api,esc,formAction,UserError}){
+  async function page(set,heading,{api,esc,formAction,UserError,isCurrent=()=>true}){
     const capabilities=await api('/api/profile/resume/capabilities');
+    if(!isCurrent())return;
     bindUser(capabilities.user_id);
     root.CampusKnowledge?.bindUser(capabilities.user_id);
     const notice=message=>{document.querySelector('#notice').textContent=message;};
     let provider=presets.find(item=>item.id===active)?.provider||'deepseek';
     const U=root.CampusUI;
     const render=()=>{
+      if(!isCurrent())return;
       const order=['deepseek','openai'];
       const panels=order.map(id=>`<div class="provider-panel" id="provider-${id}" role="tabpanel" aria-labelledby="provider-tab-${id}" ${provider===id?'':'hidden'}><div class="settings-body"><h3>${esc(providers[id])}</h3><p class="form-note">接口地址和模型标识由 CampusTrace 维护，同一密钥可用于多个预设。</p><div class="model-presets">${presets.filter(item=>item.provider===id).map(item=>`<article class="card ${active===item.id?'is-current':''}"><h4>${esc(item.name)}</h4><p class="meta">${active===item.id?'当前使用':keys[id]?'已配置提供商密钥':'先保存提供商密钥'}</p><button class="btn btn-small" type="button" data-select-model="${item.id}" ${!keys[id]||active===item.id?'disabled':''}>${active===item.id?'正在使用':keys[id]?'选用':'先填写密钥'}</button></article>`).join('')}</div><form data-provider="${id}"><label>${esc(providers[id])} API 密钥<input name="api_key" type="password" required maxlength="1024" autocomplete="off" placeholder="${keys[id]?'已保存；填写新密钥可替换':'粘贴 '+esc(providers[id])+' API 密钥'}"></label><p class="form-note">${keys[id]?'已保存在这个浏览器、当前账号的本地存储中。':'尚未配置，保存后可选择上方模型。'}</p><div class="actions"><button class="btn btn-primary">保存到本机${keys[id]?'并替换旧密钥':''}</button>${keys[id]?`<button class="btn" type="button" data-remove-key="${id}">删除本机密钥</button>`:''}</div></form></div></div>`).join('');
       const html=U.heading('模型设置','选择服务商，分析时直接使用已配置的模型。')+`<div class="model-current">当前选择：<strong>${esc(label(capabilities))}</strong>${capabilities.model_available?` <button id="select-default-model" class="btn btn-small" type="button" ${active==='default'?'disabled':''}>${active==='default'?'正在使用服务器默认模型':'选用服务器默认模型'}</button>`:''}</div><div class="settings-layout"><section class="settings-panel"><div class="profile-tabs" role="tablist" aria-label="模型服务商">${order.map(id=>`<button id="provider-tab-${id}" type="button" role="tab" data-view-tab data-provider-tab="${id}" aria-selected="${provider===id}" aria-controls="provider-${id}" tabindex="${provider===id?0:-1}">${esc(providers[id])}</button>`).join('')}</div>${panels}</section><aside class="side-info"><h3>你掌握发送时机</h3><p>配置或切换模型不会自动发送资料。发起分析前，仍需核对脱敏文字并确认。</p><div class="side-rule"></div><h3>本地密钥如何使用</h3><p>密钥按账号保存在此浏览器，服务端不保存。调用时经 CampusTrace 服务转发给所选提供商。</p><details><summary>本机存储与外发说明</summary><p>本地存储未加密，请只在自己的设备保存密钥。能访问此浏览器资料的人可能读到密钥。所选提供商会收到你确认发送的脱敏简历文字，或求职问答问题与相关资料。</p></details><div class="note-box">API 调用独立计费。也可从岗位库导出分析包，手动上传 ChatGPT，无需填写 API 密钥。</div></aside></div>`;

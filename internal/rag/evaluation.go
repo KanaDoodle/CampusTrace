@@ -28,7 +28,7 @@ type Dataset struct {
 }
 
 func (v Dataset) Validate() error {
-	if v.Name == "" || len(v.Name) > 200 || (v.Kind != "synthetic" && v.Kind != "human-labeled") || len(v.Documents) == 0 || len(v.Documents) > 64 || len(v.Queries) == 0 || len(v.Queries) > 64 {
+	if v.Name == "" || len(v.Name) > 200 || (v.Kind != "synthetic" && v.Kind != "human-labeled" && v.Kind != "assistant-reviewed") || len(v.Documents) == 0 || len(v.Documents) > 64 || len(v.Queries) == 0 || len(v.Queries) > 64 {
 		return errors.New("invalid retrieval dataset")
 	}
 	ids := map[string]bool{}
@@ -51,7 +51,7 @@ func (v Dataset) Validate() error {
 		queries[q.ID] = true
 		for id, grade := range q.Relevant {
 			if !ids[id] || grade < 1 || grade > 3 {
-				return errors.New("invalid human relevance label")
+				return errors.New("invalid relevance label")
 			}
 		}
 	}
@@ -167,7 +167,8 @@ func Evaluate(ctx context.Context, v Dataset, mode string, search EvalSearch) (E
 		}
 		report.ProviderCalls += result.Retrieval.EmbeddingCalls + result.Retrieval.RerankCalls
 		// Failed searches stay in the denominator. Unreviewed labels never produce
-		// quality scores, and synthetic examples are explicitly labeled as such.
+		// quality scores. Dataset kind preserves who produced the labels;
+		// reviewed alone does not imply independent human annotation.
 		if q.Reviewed {
 			report.Labeled++
 			a, b, c := retrievalMetrics(row.DocumentIDs, q.Relevant)

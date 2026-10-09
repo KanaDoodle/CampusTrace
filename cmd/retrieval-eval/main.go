@@ -165,7 +165,7 @@ func run() error {
 		}
 
 	}
-	result := map[string]any{"reports": reports, "index_provider_calls": indexCalls, "note": "synthetic cases verify workflow only; human-labeled results depend on this dataset, corpus and selected model; latency excludes index creation"}
+	result := map[string]any{"reports": reports, "index_provider_calls": indexCalls, "note": "dataset kind identifies label origin; assistant-reviewed labels are not independent human gold; metrics depend on this corpus and label set, not answer accuracy; latency excludes index creation; hybrid+rerank reuses candidates and measures only the added rerank stage"}
 	raw, e = json.MarshalIndent(result, "", "  ")
 	if e != nil {
 		return e

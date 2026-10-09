@@ -73,3 +73,20 @@ test('workflow location and ignore undo are scoped and never retain form drafts'
  const v=h.N.readWorkflow('alice','applications');assert.equal(v.ongoingPage,3);assert.equal(v.scroll,512);assert.equal(h.N.readWorkflow('alice','interviews').query,'');assert.equal(h.N.readWorkflow('bob','applications').query,'');assert.ok(![...h.stored.values()].join().includes('PRIVATE'));
  h.N.storeUndo('alice',['a','b','a']);assert.equal(h.N.readUndo('alice').length,2);assert.equal(h.N.readUndo('bob').length,0);
 });
+
+test('restoring a persistent draft rejects changed server baselines and current edits',()=>{
+ const h=harness(),form={id:'add-project',elements:[{name:'description',type:'textarea',value:'saved'}]},doc={querySelectorAll:()=>[form],querySelector:()=>form},t=h.N.forms(doc);t.restore();form.elements[0].value='draft';const records=t.entries();form.elements[0].value='saved';const reloaded=h.N.forms(doc);reloaded.restore();assert.equal(reloaded.hydrate(records).restored,1);assert.equal(form.elements[0].value,'draft');assert.equal(reloaded.dirty(),true);
+ form.elements[0].value='changed on server';const changed=h.N.forms(doc);changed.restore();assert.equal(changed.hydrate(records).conflicts,1);assert.equal(form.elements[0].value,'changed on server');
+ form.elements[0].value='saved';const typing=h.N.forms(doc);typing.restore();form.elements[0].value='new typing';assert.equal(typing.hydrate(records).conflicts,1);assert.equal(form.elements[0].value,'new typing');
+});
+test('draft hydration prepares repeating review fields before matching by field name',()=>{
+ const h=harness(),form={id:'review',elements:[{name:'notes',type:'textarea',value:''}]},doc={querySelectorAll:()=>[form],querySelector:()=>form},t=h.N.forms(doc);t.restore();const baseline=t.savepoint('#review').value;
+ const record={id:'review',baseline,value:[{name:'notes',type:'textarea',value:'真实复盘',checked:false},{name:'topic',type:'text',value:'Redis',checked:false},{name:'topic',type:'text',value:'Outbox',checked:false}]};
+ const result=t.hydrate([record],()=>form.elements.push({name:'topic',type:'text',value:''},{name:'topic',type:'text',value:''}));assert.equal(result.restored,1);assert.equal(form.elements[1].value,'Redis');assert.equal(form.elements[2].value,'Outbox');
+});
+
+test('a confirmed save rebases remaining typing against normalized server fields',()=>{
+ const h=harness();let form={id:'project',elements:[{name:'name',type:'text',value:'old'}]};const doc={querySelectorAll:()=>[form],querySelector:()=>form},t=h.N.forms(doc);t.restore();form.elements[0].value=' submitted ';const point=t.savepoint('#project');form.elements[0].value='later typing';t.saved('#project',point);
+ form={id:'project',elements:[{name:'name',type:'text',value:'submitted'}]};t.restore();const record=t.entries()[0];assert.equal(record.baseline[0].value,'submitted');assert.equal(record.value[0].value,'later typing');
+ const afterRefresh=h.N.forms({querySelectorAll:()=>[{id:'project',elements:[{name:'name',type:'text',value:'submitted'}]}]});afterRefresh.restore();assert.equal(afterRefresh.hydrate([record]).restored,1);
+});
