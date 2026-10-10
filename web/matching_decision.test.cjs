@@ -27,7 +27,7 @@ test('preparation displays grounded requirements, distinguishes absent evidence 
 });
 test('comparison preserves multiple recommendations, scopes partial results and suppresses stale scores',()=>{
  const report={scope:'SELECTED',total:3,analyzed:2,pending:0,stale:1,recommendation:'TIED',generated_at:'2026-09-28T05:00:00Z',reasons:['仅本次范围'],jobs:[{job:{id:'1',title:'<script>岗位</script>',locations:['上海']},state:'ANALYZED',recommended:true,score:75,coverage:100,eligibility:'UNKNOWN',strengths:[task],gaps:[],sections:[]},{job:{id:'2',title:'并列岗位'},state:'ANALYZED',recommended:true,score:75,coverage:100,eligibility:'UNKNOWN',strengths:[],gaps:[],sections:[]},{job:{id:'3',title:'过期岗位'},state:'STALE',score:null,strengths:[],gaps:[],sections:[]}]};
- const html=Decision.renderCompany(report,{esc,D});assert.equal((html.match(/优先候选/g)||[]).length,2);assert.ok(html.includes('本次已选岗位'));assert.ok(html.includes('分析待更新'));assert.ok(!html.includes('<script>'));assert.ok(html.includes('不能据此认定是全公司'));
+ const html=Decision.renderCompany(report,{esc,D});assert.equal((html.match(/优先候选/g)||[]).length,2);assert.ok(html.includes('本次已选岗位'));assert.ok(html.includes('分析待更新'));assert.ok(!html.includes('<script>'));assert.ok(html.includes('本次比较仅包含上方列出的岗位'));assert.ok(html.includes('其余岗位尚未完成分析'));
 });
 
 
@@ -54,4 +54,16 @@ test('whole assessments and company ranking escape content and never expose item
  const report={company:'公司',total:2,holistic_job_ids:['a','b'],holistic:{summary:'首选后端，基础平台备选',analyzed_at:'now',choices:[{job_id:'b',rank:2,reason:'基础可迁移',advantage:'系统知识',tradeoff:'领域需准备',job_excerpt:'原文',evidence:[]},{job_id:'a',rank:1,reason:'核心工作更相近',advantage:'服务实践',tradeoff:'规模需核实',job_excerpt:'原文',evidence:[]}]},jobs:[{job:{id:'a',title:'后端'},state:'ANALYZED'},{job:{id:'b',title:'基础平台'},state:'BASIC'}]};
  const comparison=Decision.renderCompany(report,{esc,D});assert.match(comparison,/首选/);assert.match(comparison,/备选/);assert.ok(comparison.indexOf('核心工作更相近')<comparison.indexOf('基础可迁移'));assert.ok(!comparison.includes('投递优先度'));assert.match(comparison,/未覆盖官网全部岗位/);
  const prep=Decision.renderPreparation({...plan(),holistic:whole,history_topics:[{topic:'复盘知识点'}]},{esc,D},new Set(['task']));assert.match(prep,/data-prep-count/);assert.match(prep,/prep-task is-done/);assert.match(prep,/复盘知识点/);assert.ok(!prep.includes('暂无可靠评分'));
+});
+
+test('detail overview stays concise while evidence preserves every citation and blockers',()=>{
+ const finding=i=>({point:'优势 '+i,explanation:'可迁移的工程经历',job_excerpt:'岗位引用 <'+i+'>',evidence:[{excerpt:'个人引用 '+i}]});
+ const whole={fit:'RELATED',summary:'结论只在概览出现',core_work:'后端研发',strengths:[1,2,3].map(finding),gaps:[finding(4)],blockers:[{...finding(5),point:'毕业届别不符合'}],questions:['核对当前批次'],ignored_factors:['技术热情']};
+ const overview=Decision.renderHolisticOverview(whole,{esc}),evidence=Decision.renderHolisticEvidence(whole,{esc});
+ assert.match(overview,/结论只在概览出现/);assert.match(overview,/另有 1 项/);assert.match(overview,/毕业届别不符合/);
+ assert.doesNotMatch(overview,/个人引用|岗位引用|优势 3/);assert.match(overview,/data-overview-evidence/);
+ assert.doesNotMatch(evidence,/结论只在概览出现|data-prep-task/);assert.match(evidence,/优势 3/);assert.match(evidence,/个人引用 3/);assert.match(evidence,/岗位引用 &lt;3&gt;/);assert.match(evidence,/毕业届别不符合/);
+ const prep=Decision.renderPreparation({...plan(),holistic:whole},{esc,D});
+ assert.match(prep,/data-prep-task/);assert.doesNotMatch(prep,/结论只在概览出现|优势 1|个人引用/);
+ assert.match(Decision.renderPreparation({...plan(),holistic:whole,tasks:[]},{esc,D}),/没有生成具体准备事项/);
 });

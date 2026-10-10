@@ -20,7 +20,7 @@ function destination(v){
  }
 }
 function accepted(rows){return (Array.isArray(rows)?rows:[]).filter(v=>destination(v)&&text(v.label,300)&&text(v.reason,500)).slice(0,6);}
-function markup(rows,esc){const items=accepted(rows);return items.length?`<nav class="agent-next" aria-label="根据本次记录继续"><h4>接下来可以做</h4><p class="meta">打开后读取当前记录；这些入口不会自动投递、运行任务或重新分析。</p><ul>${items.map((v,i)=>`<li><button type="button" class="text-btn" data-agent-next="${i}">${esc(v.label)}</button><p>${esc(v.reason)}</p></li>`).join('')}</ul></nav>`:'';}
+function markup(rows,esc){const items=accepted(rows);return items.length?`<nav class="agent-next" aria-label="根据本次记录继续"><h4>接下来可以做</h4><ul>${items.map((v,i)=>`<li><button type="button" class="text-btn" data-agent-next="${i}">${esc(v.label)}</button><p>${esc(v.reason)}</p></li>`).join('')}</ul></nav>`:'';}
 function bind(container,rows,{navigate,fail,active=()=>true}){const items=accepted(rows);for(const b of container.querySelectorAll('[data-agent-next]'))b.onclick=()=>{if(!active())return;const to=destination(items[Number(b.dataset.agentNext)]);if(to)Promise.resolve(navigate(to.page,to.query)).catch(fail);};}
 
 function restartInput(v){

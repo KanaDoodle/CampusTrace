@@ -20,7 +20,7 @@ func TestRegisterDuplicateEmailReportsConflict(t *testing.T) {
 	api := (&transport.API{Store: s, Queue: q, Auth: authn, Metrics: observability.New()}).Handler()
 	email := d.ID() + "@dup-register.invalid"
 	register := func() *httptest.ResponseRecorder {
-		body, err := json.Marshal(map[string]string{"email": email, "password": "duplicate-password-2027"})
+		body, err := json.Marshal(map[string]string{"email": email, "password": "duplicate-pass-2027"})
 		must(t, err)
 		rec := httptest.NewRecorder()
 		api.ServeHTTP(rec, httptest.NewRequest("POST", "/auth/register", bytes.NewReader(body)))
@@ -39,7 +39,7 @@ func TestRegisterDuplicateEmailReportsConflict(t *testing.T) {
 		t.Fatalf("duplicate registration code %q, want EMAIL_TAKEN", body["code"])
 	}
 	// The email is only special at registration; logging in still works.
-	login, err := json.Marshal(map[string]string{"email": email, "password": "duplicate-password-2027"})
+	login, err := json.Marshal(map[string]string{"email": email, "password": "duplicate-pass-2027"})
 	must(t, err)
 	rec = httptest.NewRecorder()
 	api.ServeHTTP(rec, httptest.NewRequest("POST", "/auth/login", bytes.NewReader(login)))

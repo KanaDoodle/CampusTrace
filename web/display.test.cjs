@@ -84,7 +84,7 @@ const context={CampusDisplay:D,sessionStorage:{getItem:()=>''},document:{querySe
 context.document.querySelectorAll=()=>[];context.document.addEventListener=()=>{};
 vm.createContext(context);vm.runInContext(fs.readFileSync(__dirname+'/ui.js','utf8'),context);
 const code=fs.readFileSync(__dirname+'/app.js','utf8');
-vm.runInContext(code.slice(0,code.indexOf("formAction('#login'")),context);
+vm.runInContext(code.slice(0,code.indexOf('const authUI=')),context);
 const render=(value,key='')=>{context.fixture=value;context.fixtureKey=key;return vm.runInContext('translated(fixture,fixtureKey)',context);};
 test('简历 API 错误显示安全的具体原因及请求编号',async()=>{
   context.fetch=async()=>({ok:false,status:502,json:async()=>({code:'RESUME_DRAFT_UNVERIFIABLE',diagnostic:{validation_reason:'EXCERPT_NOT_EXACT',scope:'FACT',project_index:1,item_index:2},request_id:'aabbccddeeff00112233445566778899'}),headers:{get:()=>null}});

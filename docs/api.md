@@ -1,11 +1,13 @@
 # HTTP and operator interfaces
 
-API binds localhost by default. JSON requests are strict and limited to 64KiB except imports (1MiB / 100 rows). Every `/api/*` and `/agent/*` route requires a Bearer JWT. User identity is derived from the token, never from a client-supplied ownership argument. `/metrics` and health routes are local operational endpoints without authentication.
+API binds localhost by default. JSON requests are strict and limited to 64KiB except imports (1MiB / 100 rows). Every `/api/*` and `/agent/*` route requires a Bearer JWT or a browser session cookie. User identity is derived from the credential, never from a client-supplied ownership argument. Cookie-authenticated writes require a matching Origin. `/metrics` and health routes are local operational endpoints without authentication.
 
 | Method / path | Behavior |
 |---|---|
-| POST /auth/register | email, password (10..72 bytes), bcrypt |
-| POST /auth/login | JWT, 12h validity |
+| POST /auth/register | email, password (8..20 UTF-8 bytes), bcrypt; existing longer passwords remain valid for login |
+| POST /auth/login | email/password: JWT valid for 12h; with `web_session: true`, an HttpOnly/SameSite=Strict session cookie, 12h or 7 days with `remember: true` |
+| GET /auth/session | validate current browser cookie; authenticated/user_id or 401; no-store |
+| POST /auth/logout | revoke browser session in Redis and clear cookie; same-origin; no-store |
 | GET /healthz, /readyz | process health; MySQL+Redis readiness |
 | GET /metrics | process-local counters and latency sums/counts |
 | GET /api/jobs?q=Go | up to 100 shared canonical jobs |
@@ -43,6 +45,8 @@ API binds localhost by default. JSON requests are strict and limited to 64KiB ex
 | GET /agent/traces/{runID} | sanitized owner-scoped 24h trace |
 
 Agent write tools are **not** mapped to direct CRUD routes. They call `Tools.Propose`, which only creates an expiring Redis preview. Direct authenticated human CRUD requests are already explicit actions. Confirmation uses a MySQL receipt in the same transaction as the workflow write.
+
+The browser stores only an optional remembered email in local storage. Password fields support the browser password manager; new browser logins do not write credentials to Web Storage. Server sessions use a random 256-bit cookie verifier, store only its SHA-256 hash and user ID in Redis, expire by Redis TTL, and rotate on login. Remembered sessions have a fixed seven-day lifetime, not a sliding renewal. Logout revokes the record, so replaying the old cookie fails. HTTPS sets the Secure cookie flag; local loopback HTTP remains supported. Legacy tab JWTs remain readable until logout or expiry. Browser-session authentication does not change any model-call consent or account ownership checks.
 
 Agent read tools also include `get_match_result {"job_id":"..."}`, `compare_company_jobs {"company":"..."}` or `{ "job_ids": ["...", "..."] }` (same-company selection of 2–8), and `get_match_tasks {}`. Their matching identity comes from the authenticated request's selected model; `mask_name` is an optional extra local redaction input, not a model-chosen tool argument. Comparison can cover up to 200 company jobs but returns at most 8 bounded summary rows and marks truncation. These tools reuse saved matches and current snapshots, never issue paid matching calls or expose stale scores. The independent stdio MCP tool allowlist is unchanged.
 

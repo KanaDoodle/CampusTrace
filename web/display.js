@@ -163,6 +163,10 @@
     const matchingErrors={MATCH_DAILY_LIMIT:'已达到每日岗位匹配调用上限，未完成项已保留，可在额度重置后继续。',MATCH_INPUT_CHANGED:'求职资料或岗位内容已变化，请刷新并重新核对外发资料。',MATCH_BUSY:'此账号已有一批岗位正在分析，请等当前批次完成后再继续。',MATCH_CAPACITY:'分析输入超过处理上限，请查看具体原因；资料容量和岗位批次分别检查。',MATCH_OUTPUT_INVALID:'模型结果未通过岗位原文或项目依据核对，已保留可复用的解析结果，可单独重试。',MATCH_PROFILE_REQUIRED:'请先在求职资料中保存技能和项目事实，再使用岗位匹配。',MATCH_JOB_UNAVAILABLE:'本批包含已关闭、已忽略或原文不可用的岗位，请刷新后重新选择。'};
     if(matchingErrors[code])return matchingErrors[code];
     if (code==='EMAIL_TAKEN') return '该邮箱已经注册过，请直接登录，或换一个邮箱注册。';
+    if (code==='PASSWORD_LENGTH_INVALID') return '密码需为 8–20 字节，请调整后注册。';
+    if (code==='SESSION_EXPIRED') return '登录已过期，请重新登录。';
+    if (code==='AUTH_UNAVAILABLE') return '登录服务暂时不可用，请稍后重试。';
+    if (code==='AUTH_ORIGIN_INVALID') return '当前登录页面地址与服务不一致，请从 CampusTrace 首页重新打开。';
     if (code==='TODO_CAPACITY') return '待办相关记录超过汇总容量，请进入投递进展、面试与复盘或岗位库查看；本页没有展示不完整的总数。';
     if (code==='RADAR_CAPACITY') return '可见岗位已超过当前雷达容量（500 条）；请联系维护者处理。';
     if (code==='SOURCE_URL_UNSUPPORTED') return '请使用页面已支持的校招来源预设；带有其他筛选或内推参数的网址需先移除这些参数。';

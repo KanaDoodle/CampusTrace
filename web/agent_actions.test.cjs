@@ -10,7 +10,7 @@ test('next steps open only known read-only destinations, never actions or paid a
 });
 test('action text is escaped and invalid hints do not shift button targets',()=>{
  const rows=[{kind:'url',label:'bad',reason:'bad'},{kind:'job',job_id:job,label:'<script>job</script>',reason:'<img onerror=x>'}];
- const html=A.markup(rows,esc);assert.doesNotMatch(html,/<script>|<img/);assert.match(html,/data-agent-next="0"/);assert.match(html,/不会自动/);
+ const html=A.markup(rows,esc);assert.doesNotMatch(html,/<script>|<img/);assert.match(html,/data-agent-next="0"/);assert.match(html,/aria-label="根据本次记录继续"/);
  const button={dataset:{agentNext:'0'}},seen=[];
  A.bind({querySelectorAll:()=>[button]},rows,{navigate:(page,query)=>seen.push({page,query}),fail:assert.fail});button.onclick();
  assert.deepEqual(seen,[{page:'matching',query:{jobID:job}}]);

@@ -76,7 +76,7 @@ for(const paging of [false,true])test(`radar temporarily hides full quota jobs w
  await h.start();
  assert.doesNotMatch(h.html(),/data-workbench-row="unhandled"/);
  for(const id of ['submitted','planned','outside'])assert.ok(h.html().includes(`data-workbench-row="${id}"`));
- assert.match(h.html(),/已收起 1 个本批限投已满/);
+ assert.match(h.html(),/已收起 1 个限投已满岗位/);
  h.elements.get('match-show-quota-full').checked=true;h.elements.get('match-filter').onchange({target:{id:'match-show-quota-full'}});
  assert.match(h.html(),/data-workbench-row="unhandled"/);assert.match(h.html(),/本批已投满 1\/1/);
  assert.equal(h.navigation.readBrowse('alice').showQuotaFull,true);assert.equal(h.navigation.readBrowse('bob').showQuotaFull,false);
@@ -546,4 +546,48 @@ test('multiple cities survive sorting and the city picker opens without changing
  assert.equal(h.elements.get('match-advanced').open,true);assert.equal(picker.value,'__MULTI__');assert.deepEqual(ids(),['0','1']);
  h.elements.get('match-city').value='杭州';h.elements.get('match-filter').onchange({target:h.elements.get('match-city')});assert.deepEqual(ids(),['2']);assert.equal(h.navigation.readBrowse('alice').cities.length,0);
  assert.equal(h.navigation.readBrowse('alice').city,'杭州');assert.equal(h.requests.length,0);
+});
+
+test('page selection toggles only visible rows and preserves selections on other pages',async()=>{
+ const ids=Array.from({length:65},(_,i)=>'page-'+String(i).padStart(3,'0')),h=harness({pending:ids,failed:[]});
+ h.stored.set('campustrace:match-selection:v1:alice',JSON.stringify(['page-000','page-060']));await h.start();
+ assert.equal(h.elements.get('match-select-page-toggle').checked,false);assert.equal(h.elements.get('match-select-page-toggle').indeterminate,true);
+ h.elements.get('match-select-page-toggle').onchange({target:{checked:true}});
+ assert.equal(JSON.parse(h.stored.get('campustrace:match-selection:v1:alice')).length,51);assert.equal(h.elements.get('match-select-page-toggle').checked,true);
+ h.elements.get('match-next').onclick();assert.equal(h.elements.get('match-select-page-toggle').indeterminate,true);
+ h.elements.get('match-select-page-toggle').onchange({target:{checked:false}});
+ const selected=JSON.parse(h.stored.get('campustrace:match-selection:v1:alice'));assert.equal(selected.length,50);assert.ok(!selected.includes('page-060'));assert.ok(selected.includes('page-000'));
+ assert.equal(h.requests.length,0);assert.equal(h.bulkRequests.length,0);assert.equal(h.exports.length,0);
+});
+
+test('selection shows hidden counts and exposes the review and export actions without expanding more actions',async()=>{
+ const h=harness({pending:['a','b'],failed:[]});h.stored.set('campustrace:match-selection:v1:alice',JSON.stringify(['a','b']));await h.start();
+ h.elements.get('match-search').value='a';h.elements.get('match-search').oninput();h.elements.get('match-actions-toggle').onclick();
+ assert.equal(h.elements.get('match-search').value,'a');
+ h.elements.get('match-filter').onsubmit({preventDefault(){}});h.elements.get('match-actions-toggle').onclick();
+ assert.match(h.html(),/当前筛选中 1 个，其他范围 1 个/);assert.match(h.html(),/id="match-selection-actions" hidden/);
+ assert.ok(h.html().indexOf('id="match-export"')<h.html().indexOf('id="match-selection-actions"'));
+ assert.ok(h.html().indexOf('id="match-compare-selected"')<h.html().indexOf('id="match-selection-actions"'));
+ assert.equal((h.html().match(/id="match-compare-selected"/g)||[]).length,1);
+ await h.elements.get('match-selected-run').onclick();assert.equal(h.elements.get('match-confirm').disabled,true);assert.deepEqual(h.requests,[]);
+ assert.deepEqual(Array.from(h.exports.at(-1).job_ids),['a','b']);
+});
+
+test('pending search survives late task rendering and page selection commits it rather than erasing it',async()=>{
+ let resolveTasks;const h=harness({pending:['a','b'],failed:[],durable:true,taskRead:()=>new Promise(resolve=>resolveTasks=resolve)});
+ const starting=h.start();await new Promise(setImmediate);h.elements.get('match-search').value='b';h.elements.get('match-search').oninput();
+ resolveTasks([]);await starting;assert.equal(h.elements.get('match-search').value,'b');
+ h.elements.get('match-select-page').onclick();assert.equal(h.elements.get('match-search').value,'b');assert.equal(h.navigation.readBrowse('alice').query,'b');
+ assert.match(h.html(),/data-workbench-row="b"/);assert.doesNotMatch(h.html(),/data-workbench-row="a"/);
+ for(const timer of h.timers.filter(t=>t.delay===240&&!t.canceled))timer.fn();assert.equal(h.elements.get('match-search').value,'b');assert.deepEqual(h.taskRequests,[]);
+});
+
+test('empty results distinguish missing imports, hidden matches, and filtered selections',async()=>{
+ const empty=harness({pending:[],failed:[]});await empty.start();assert.match(empty.html(),/还没有导入岗位/);empty.elements.get('match-empty-source').onclick();assert.equal(empty.navigations.at(-1).name,'watches');
+ const hidden=harness({pending:['ignored','quota'],failed:[]});hidden.snapshot.jobs[0].disposition='IGNORED';hidden.snapshot.jobs[1].campaign={hide_unsubmitted:true};await hidden.start();
+ assert.match(hidden.html(),/有 2 个岗位因已忽略/);assert.equal(hidden.elements.get('match-select-page-toggle').disabled,true);
+ hidden.elements.get('match-empty-hidden').onclick();for(const id of ['ignored','quota'])assert.match(hidden.html(),new RegExp('data-workbench-row="'+id+'"'));
+ assert.equal(hidden.snapshot.jobs[0].disposition,'IGNORED');assert.equal(hidden.bulkRequests.length,0);assert.equal(hidden.requests.length,0);
+ const selected=harness({pending:['a','b'],failed:[]});selected.stored.set('campustrace:match-selection:v1:alice',JSON.stringify(['b']));selected.navigation.storeBrowse('alice',{onlySelected:true,query:'a'});await selected.start();
+ assert.match(selected.html(),/已选岗位被当前条件筛掉了/);selected.elements.get('match-empty-selection').onclick();assert.match(selected.html(),/data-workbench-row="b"/);assert.doesNotMatch(selected.html(),/data-workbench-row="a"/);
 });

@@ -54,12 +54,19 @@ const CampusUI=(function(root){
     root.scrollTo?.({left:state.x,top:state.y,behavior:'instant'});
   }
   function openDialog(el,onClose){if(!el)return;if(onClose)el.onclose=onClose;if(!el.open){el.removeAttribute?.('data-motion-quiet');el.showModal();}}
-  let drawerRevision=0,drawerTrigger=null;
+  let drawerRevision=0,drawerTrigger=null,drawerReading=false;
+  function setDrawerReading(expanded){
+    drawerReading=!!expanded;
+    root.document?.querySelector('#match-detail')?.closest?.('.matching-workbench')?.classList.toggle('is-reading',drawerReading);
+    const button=root.document?.querySelector('#job-drawer')?.querySelector?.('[data-detail-expand]');
+    if(button){button.textContent=drawerReading?'收起阅读':'展开阅读';button.setAttribute('aria-expanded',String(drawerReading));}
+  }
   function placeDrawer(host){
     const el=root.document?.querySelector('#job-drawer');if(!el)return;
     (host||root.document.body).append(el);
     el.classList.toggle('is-docked',!!host);
     host?.classList.toggle('has-detail',el.open);
+    if(host)setDrawerReading(drawerReading&&el.open);
   }
   // Keep the same dialog alive across list renders: loading detail requests and
   // preparation checklists belong to this element, not to a particular list DOM.
@@ -72,7 +79,7 @@ const CampusUI=(function(root){
     return {element:el,revision:++drawerRevision};
   }
   function drawerCurrent(revision){return root.document.querySelector('#job-drawer')?.open&&revision===drawerRevision;}
-  function closeAll(){for(const el of root.document.querySelectorAll('dialog[open]'))el.close();releaseDrawer();drawerRevision++;}
+  function closeAll(){setDrawerReading(false);for(const el of root.document.querySelectorAll('dialog[open]'))el.close();releaseDrawer();drawerRevision++;}
   function activateTab(button){
     for(const tab of button.closest('[role="tablist"]').querySelectorAll('[role="tab"]')){const selected=tab===button;tab.setAttribute('aria-selected',String(selected));tab.tabIndex=selected?0:-1;const panel=root.document.getElementById(tab.getAttribute('aria-controls'));if(panel){const wasHidden=panel.hidden;panel.hidden=!selected;if(selected&&wasHidden)reveal(panel);}}
     button.focus({preventScroll:true});
@@ -92,8 +99,8 @@ const CampusUI=(function(root){
       const tabs=[...event.target.closest('[role="tablist"]').querySelectorAll('[role="tab"]')].filter(tab=>!tab.disabled);if(!tabs.length)return;let i=tabs.indexOf(event.target);i=event.key==='Home'?0:event.key==='End'?tabs.length-1:(i+(event.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;event.preventDefault();tabs[i].click();
     });
     const message=doc.querySelector('#notice');if(message&&root.MutationObserver)new root.MutationObserver(()=>showDialogNotice(message.textContent)).observe(message,{childList:true,subtree:true,characterData:true});
-    const el=doc.querySelector('#job-drawer');if(el)el.addEventListener('close',()=>{drawerRevision++;el.closest('#match-detail')?.classList.remove('has-detail');for(const row of doc.querySelectorAll('[data-workbench-row]'))row.classList.remove('is-current');for(const button of doc.querySelectorAll('[data-match-job]'))button.removeAttribute('aria-current');if(drawerTrigger?.isConnected)drawerTrigger.focus({preventScroll:true});drawerTrigger=null;});
+    const el=doc.querySelector('#job-drawer');if(el)el.addEventListener('close',()=>{setDrawerReading(false);drawerRevision++;el.closest('#match-detail')?.classList.remove('has-detail');for(const row of doc.querySelectorAll('[data-workbench-row]'))row.classList.remove('is-current');for(const button of doc.querySelectorAll('[data-match-job]'))button.removeAttribute('aria-current');if(drawerTrigger?.isConnected)drawerTrigger.focus({preventScroll:true});drawerTrigger=null;});
   }
-  const api={esc,icon,heading,modalHead,loading,reveal,capture,restore,openDialog,placeDrawer,releaseDrawer,drawer,drawerCurrent,closeAll,activateTab,notify,init};
+  const api={esc,icon,heading,modalHead,loading,reveal,capture,restore,openDialog,placeDrawer,releaseDrawer,drawer,drawerCurrent,setDrawerReading,isDrawerReading:()=>drawerReading,closeAll,activateTab,notify,init};
   if(typeof module==='object'&&module.exports)module.exports=api;root.CampusUI=api;return api;
 })(typeof window==='undefined'?globalThis:window);

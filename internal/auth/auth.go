@@ -16,10 +16,15 @@ type Service struct {
 	Secret []byte
 }
 
+var ErrPasswordLength = errors.New("8..20 byte password required")
+
 func (s Service) Register(ctx context.Context, email, password string) (string, error) {
 	addr, err := mail.ParseAddress(email)
-	if err != nil || addr.Address != email || len(email) > 254 || len(password) < 10 || len(password) > 72 {
-		return "", errors.New("valid email and 10..72 byte password required")
+	if err != nil || addr.Address != email || len(email) > 254 {
+		return "", errors.New("valid email required")
+	}
+	if len(password) < 8 || len(password) > 20 {
+		return "", ErrPasswordLength
 	}
 	h, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
@@ -28,6 +33,16 @@ func (s Service) Register(ctx context.Context, email, password string) (string, 
 	return s.Store.NewUser(ctx, email, string(h))
 }
 func (s Service) Login(ctx context.Context, email, password string) (string, error) {
+	id, err := s.Authenticate(ctx, email, password)
+	if err != nil {
+		return "", err
+	}
+	return s.Token(id)
+}
+
+// Existing accounts may use passwords longer than the current registration
+// limit. Authenticate against their original hash without truncating input.
+func (s Service) Authenticate(ctx context.Context, email, password string) (string, error) {
 	id, h, err := s.Store.Credentials(ctx, email)
 	if err != nil {
 		return "", errors.New("invalid credentials")
@@ -35,7 +50,7 @@ func (s Service) Login(ctx context.Context, email, password string) (string, err
 	if err = bcrypt.CompareHashAndPassword([]byte(h), []byte(password)); err != nil {
 		return "", errors.New("invalid credentials")
 	}
-	return s.Token(id)
+	return id, nil
 }
 func (s Service) Token(id string) (string, error) {
 	if len(s.Secret) < 32 {

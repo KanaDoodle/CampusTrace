@@ -167,8 +167,23 @@ type userKey struct{}
 func user(r *http.Request) string { v, _ := r.Context().Value(userKey{}).(string); return v }
 func (a *API) protected(h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		token := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-		id, err := a.Auth.Verify(token)
+		var id string
+		var err error
+		if header := r.Header.Get("Authorization"); header != "" {
+			id, err = a.Auth.Verify(strings.TrimPrefix(header, "Bearer "))
+		} else if cookie, cookieErr := r.Cookie(sessionCookie); cookieErr == nil {
+			if r.Method != http.MethodGet && r.Method != http.MethodHead && !sameOrigin(r, true) {
+				codedError(w, http.StatusForbidden, "AUTH_ORIGIN_INVALID")
+				return
+			}
+			id, err = a.sessions().Verify(r.Context(), cookie.Value)
+			if err != nil && !errors.Is(err, auth.ErrSession) {
+				codedError(w, http.StatusServiceUnavailable, "AUTH_UNAVAILABLE")
+				return
+			}
+		} else {
+			err = auth.ErrSession
+		}
 		if err != nil {
 			w.WriteHeader(401)
 			return
@@ -193,9 +208,16 @@ func (a *API) Handler() http.Handler {
 	mux.HandleFunc("GET /metrics/prometheus", func(w http.ResponseWriter, r *http.Request) { a.Metrics.Prometheus(w, r, a.Store.DB.Stats()) })
 	for _, route := range []string{"register", "login"} {
 		mux.HandleFunc("POST /auth/"+route, func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Cache-Control", "no-store")
+			if !sameOrigin(r, false) {
+				codedError(w, http.StatusForbidden, "AUTH_ORIGIN_INVALID")
+				return
+			}
 			var v struct {
-				Email    string `json:"email"`
-				Password string `json:"password"`
+				Email      string `json:"email"`
+				Password   string `json:"password"`
+				WebSession bool   `json:"web_session"`
+				Remember   bool   `json:"remember"`
 			}
 			if err := decode(r, &v); err != nil {
 				write(w, nil, err)
@@ -208,11 +230,35 @@ func (a *API) Handler() http.Handler {
 			}
 			if route == "register" {
 				id, err := a.Auth.Register(r.Context(), v.Email, v.Password)
+				if errors.Is(err, auth.ErrPasswordLength) {
+					codedError(w, http.StatusBadRequest, "PASSWORD_LENGTH_INVALID")
+					return
+				}
 				if errors.Is(err, p.ErrConflict) {
 					codedError(w, http.StatusConflict, "EMAIL_TAKEN")
 					return
 				}
 				write(w, map[string]string{"user_id": id}, err)
+			} else if v.WebSession {
+				id, err := a.Auth.Authenticate(r.Context(), v.Email, v.Password)
+				if err != nil {
+					w.WriteHeader(http.StatusUnauthorized)
+					return
+				}
+				value, expiry, err := a.sessions().Create(r.Context(), id, v.Remember)
+				if err != nil {
+					codedError(w, http.StatusServiceUnavailable, "AUTH_UNAVAILABLE")
+					return
+				}
+				if old, err := r.Cookie(sessionCookie); err == nil {
+					if err := a.sessions().Revoke(r.Context(), old.Value); err != nil {
+						a.sessions().Revoke(r.Context(), value)
+						codedError(w, http.StatusServiceUnavailable, "AUTH_UNAVAILABLE")
+						return
+					}
+				}
+				setSessionCookie(w, r, value, expiry, v.Remember)
+				write(w, map[string]any{"authenticated": true, "expires_at": expiry}, nil)
 			} else {
 				token, err := a.Auth.Login(r.Context(), v.Email, v.Password)
 				if err != nil {
@@ -223,6 +269,7 @@ func (a *API) Handler() http.Handler {
 			}
 		})
 	}
+	a.sessionRoutes(mux)
 	on := func(pattern string, h http.HandlerFunc) { mux.HandleFunc(pattern, a.protected(h)) }
 	a.radarRoutes(on)
 	a.matchingRoutes(on)

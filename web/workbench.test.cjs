@@ -16,6 +16,23 @@ test('inline detail survives list replacement, rejects stale loads and keeps ope
   const next=ui.drawer('loading next job');assert.ok(!ui.drawerCurrent(request.revision));assert.ok(ui.drawerCurrent(next.revision));
   ui.closeAll();assert.equal(drawer.parentElement,root.document.body);assert.ok(!ui.drawerCurrent(next.revision));
 });
+test('expanded reading preserves the live drawer across list refreshes and continuous browsing',()=>{
+ const vm=require('node:vm'),fs=require('node:fs');
+ const classes=()=>({values:new Set(),add(v){this.values.add(v);},toggle(v,on){if(on)this.values.add(v);else this.values.delete(v);}});
+ const workbench=()=>({classList:classes()}),body={append(el){el.parentElement=this;}};
+ let shell=workbench(),host={classList:classes(),closest(){return shell;},append(el){el.parentElement=this;}};
+ const expand={textContent:'',setAttribute(k,v){this[k]=v;}};
+ const drawer={open:false,classList:classes(),scrollTop:220,innerHTML:'',querySelector(){return expand;},show(){this.open=true;},close(){this.open=false;}};
+ const root={document:{body,querySelector(s){return s==='#job-drawer'?drawer:s==='#match-detail'?host:null;},querySelectorAll(){return drawer.open?[drawer]:[];}}};
+ const context=vm.createContext({window:root});vm.runInContext(fs.readFileSync(require.resolve('./ui.js'),'utf8'),context);const ui=root.CampusUI;
+ const opened=ui.drawer('source and checked preparation');ui.setDrawerReading(true);
+ assert.equal(expand['aria-expanded'],'true');assert.equal(expand.textContent,'收起阅读');assert.ok(shell.classList.values.has('is-reading'));
+ ui.releaseDrawer();shell=workbench();host={...host};ui.placeDrawer(host);
+ assert.ok(shell.classList.values.has('is-reading'));assert.equal(drawer.innerHTML,'source and checked preparation');assert.equal(drawer.scrollTop,220);assert.ok(ui.drawerCurrent(opened.revision));
+ ui.drawer('next job');assert.equal(ui.isDrawerReading(),true);assert.ok(shell.classList.values.has('is-reading'));
+ ui.setDrawerReading(false);assert.equal(expand['aria-expanded'],'false');assert.ok(!shell.classList.values.has('is-reading'));assert.equal(drawer.scrollTop,220);
+ ui.setDrawerReading(true);ui.closeAll();assert.equal(ui.isDrawerReading(),false);assert.ok(!shell.classList.values.has('is-reading'));assert.equal(drawer.open,false);
+});
 const base={job:{id:'job',title:'后端研发',company:'测试公司',locations:['上海']},state:'BASIC',local:{tier:'HIGH',score:90,direction:{status:'MATCH'},reasons:['Go 项目线索']}};
 test('workbench rows never present local or stale scores as current technical matching',()=>{
   for(const state of ['BASIC','STALE']){
