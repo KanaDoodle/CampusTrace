@@ -83,11 +83,12 @@ func (a *API) companyCandidates(w http.ResponseWriter, r *http.Request) {
 		ExcludedReason   string              `json:"excluded_reason,omitempty"`
 		Disposition      string              `json:"disposition"`
 		Application      *p.MatchApplication `json:"application,omitempty"`
+		Campaign         *p.MatchCampaign    `json:"campaign,omitempty"`
 	}
 	rows := make([]candidateRow, 0, len(snapshot.Jobs))
 	for _, row := range snapshot.Jobs {
 		job := row.Job
-		v := candidateRow{Job: p.ApplicationJob{ID: job.ID, CompanyID: job.CompanyID, Company: job.Company, Title: job.Title, Locations: row.Cities, JobType: job.JobType, CurrentStatus: job.CurrentStatus}, State: row.State, AnalysisMode: row.AnalysisMode, Score: row.Score, Priority: row.Priority, PreliminaryScore: row.PreliminaryScore, ExcludedReason: row.ExcludedReason, Disposition: row.Disposition, Application: row.Application}
+		v := candidateRow{Job: p.ApplicationJob{ID: job.ID, CompanyID: job.CompanyID, Company: job.Company, Title: job.Title, Locations: row.Cities, JobType: job.JobType, CurrentStatus: job.CurrentStatus}, State: row.State, AnalysisMode: row.AnalysisMode, Score: row.Score, Priority: row.Priority, PreliminaryScore: row.PreliminaryScore, ExcludedReason: row.ExcludedReason, Disposition: row.Disposition, Application: row.Application, Campaign: row.Campaign}
 		if row.Holistic != nil {
 			v.Fit = row.Holistic.Fit
 		}

@@ -27,13 +27,18 @@ test('workbench rows never present local or stale scores as current technical ma
   const escaped=M.jobRowHTML({...base,job:{...base.job,title:'<script>bad</script>'}},helpers,true,true,false,true);
   assert.match(escaped,/&lt;script&gt;/);assert.doesNotMatch(escaped,/<script>/);
 });
-test('journey counts preserve real application history and keep ignored jobs out of browsing',()=>{
-  const rows=[base,{...base,disposition:'SAVED'},{...base,application:{current_state:'PLANNED'}},{...base,application:{current_state:'REJECTED',applied_at:'2026-10-01'}},{...base,application:{current_state:'WITHDRAWN'}},{...base,disposition:'IGNORED'}];
-  const html=M.journeyHTML(rows,helpers,true,'PLANNED');
-  assert.match(html,/data-match-journey="planned" aria-pressed="true"/);
-  assert.match(html,/准备投递<\/span><strong>1</);
-  assert.match(html,/已投递<\/span><strong>1</);
-  assert.match(html,/相关机会<\/span><strong>5</);
+test('browse views identify one common range without disguising combined advanced conditions',()=>{
+  assert.equal(M.browseView('MAIN','',false),'MAIN');
+  assert.equal(M.browseView('ALL','APPLIED',false),'APPLIED');
+  assert.equal(M.browseView('MATCH','APPLIED',false),'CUSTOM');
+  assert.equal(M.browseView('ALL','IGNORED',false),'CUSTOM');
+  assert.equal(M.browseView('MATCH','APPLIED',true),'SELECTED');
+  const html=M.browseViewsHTML({direction:'ALL',workflow:'PLANNED',onlySelected:false,hasDirection:true,selectedCount:3});
+  assert.match(html,/id="match-view-PLANNED"[^>]*aria-pressed="true"/);
+  assert.equal((html.match(/aria-pressed="true"/g)||[]).length,1);
+  assert.match(html,/已选 3/);assert.match(html,/主投相关/);
+  const custom=M.browseViewsHTML({direction:'UNCERTAIN',workflow:'',onlySelected:false,hasDirection:false,selectedCount:0});
+  assert.doesNotMatch(custom,/aria-pressed="true"|match-view-MAIN|match-view-SELECTED/);
 });
 test('current overview separates technical strengths from qualifications and withdrawn evidence',()=>{
   const requirements=[{id:'q',category:'QUALIFICATION',text:'硕士学历',excerpt:'硕士'},{id:'soft',category:'REQUIRED',aspect:'SOFT',text:'沟通能力',excerpt:'沟通'},{id:'go',category:'REQUIRED',text:'Go 服务开发',excerpt:'Go'},{id:'wrong',category:'REQUIRED',text:'平台经验',excerpt:'平台'}];

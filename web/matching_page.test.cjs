@@ -16,7 +16,7 @@ function harness({pending=['pending-a','pending-b'],failed=['failed-a','failed-b
     html=value;elements.clear();
     for(const match of value.matchAll(/<([a-z][\w:-]*)\b([^>]*\bid="([^"]+)"[^>]*)>/gi)){
       const [,tag,attributes,id]=match;
-      elements.set(id,{tagName:tag.toUpperCase(),disabled:/\sdisabled(?:\s|>|$)/.test(attributes),checked:/\schecked(?:\s|>|$)/.test(attributes),value:attributes.match(/\bvalue="([^"]*)"/)?.[1]||'',isConnected:true,innerHTML:'',dataset:{},getClientRects:()=>[],showModal(){this.open=true;},close(){this.open=false;this.onclose?.();}});
+      elements.set(id,{id,tagName:tag.toUpperCase(),disabled:/\sdisabled(?:\s|>|$)/.test(attributes),checked:/\schecked(?:\s|>|$)/.test(attributes),value:attributes.match(/\bvalue="([^"]*)"/)?.[1]||'',isConnected:true,innerHTML:'',dataset:{},getClientRects:()=>[],showModal(){this.open=true;},close(){this.open=false;this.onclose?.();}});
     }
     for(const match of value.matchAll(/<select\b[^>]*id="([^"]+)"[^>]*>([\s\S]*?)<\/select>/gi)){
       const options=[...match[2].matchAll(/<option\b([^>]*)>([^<]*)<\/option>/gi)];
@@ -25,7 +25,7 @@ function harness({pending=['pending-a','pending-b'],failed=['failed-a','failed-b
     }
     return true;
   };
-  const context={document,TextEncoder,setTimeout:(fn,delay)=>{timers.push({fn,delay});return timers.length;},FormData:class{get(k){const el=elements.get({q:'match-search',company:'match-company',state:'match-state',tier:'match-tier',workflow:'match-workflow',city:'match-city',query_mode:'match-query-mode',exclude:'match-exclude',sort:'match-sort',only_selected:'match-only-selected',show_ignored:'match-show-ignored'}[k]);return el?.tagName==='INPUT'&&['only_selected','show_ignored'].includes(k)?el.checked?'on':'':el?.value||'';}},clearTimeout:id=>{if(timers[id-1])timers[id-1].canceled=true;},crypto:{randomUUID:()=>'synthetic-task-request-00000000000'},sessionStorage:{getItem:k=>stored.get(k),setItem:(k,v)=>stored.set(k,v)},CampusModels:{bindUser(){},requestConfig:()=>model,available:()=>true,label:()=> '测试模型'},CampusMatchingChat:{readSelection:()=>new Set(),selectedRows:()=>[],pruneSelection(){},storeSelection(){}},console};
+  const context={document,TextEncoder,setTimeout:(fn,delay)=>{timers.push({fn,delay});return timers.length;},FormData:class{get(k){const el=elements.get({q:'match-search',company:'match-company',state:'match-state',tier:'match-tier',direction:'match-direction',workflow:'match-workflow',city:'match-city',query_mode:'match-query-mode',exclude:'match-exclude',sort:'match-sort',only_selected:'match-only-selected',show_ignored:'match-show-ignored',show_quota_full:'match-show-quota-full'}[k]);return el?.tagName==='INPUT'&&['only_selected','show_ignored','show_quota_full'].includes(k)?el.checked?'on':'':el?.value||'';}},clearTimeout:id=>{if(timers[id-1])timers[id-1].canceled=true;},crypto:{randomUUID:()=>'synthetic-task-request-00000000000'},sessionStorage:{getItem:k=>stored.get(k),setItem:(k,v)=>stored.set(k,v)},CampusModels:{bindUser(){},requestConfig:()=>model,available:()=>true,label:()=> '测试模型'},CampusMatchingChat:{readSelection:()=>new Set(),selectedRows:()=>[],pruneSelection(){},storeSelection(){}},console};
   vm.createContext(context);vm.runInContext(fs.readFileSync(__dirname+'/ui.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/navigation.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching_decision.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching_tasks.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching_chat.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/inventory.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching.js','utf8'),context);
   const api=async(path,method,body)=>{
     if(path==='/api/profile/resume/capabilities')return {inventory_paging:paging,user_id:'alice',model:'server-model',model_available:true,durable_matching:durable};
@@ -33,9 +33,9 @@ function harness({pending=['pending-a','pending-b'],failed=['failed-a','failed-b
     if(path.startsWith('/api/matching/import/')){importRequests.push({path,body});if(importRequest)return importRequest(path,body);throw new Error('Unexpected chat import');}
     if(path==='/api/matching/inventory'){
       inventoryRequests.push(body);if(inventoryRequest)return inventoryRequest(body,snapshot);
-      const key='inventory:'+JSON.stringify(snapshot.jobs.map(r=>[r.input_key,r.state,r.disposition]));
-      const fields=['id','company','title','cities','input_key','state','analysis_mode','excluded_reason','disposition','preliminary_score','role','tier','direction','score','priority','fit','application','text_bytes','job_type'];
-      const tuples=snapshot.jobs.map(r=>[r.job.id,r.job.company,r.job.title,r.job.locations,r.input_key,r.state,r.analysis_mode||'',r.excluded_reason,r.disposition||'',r.preliminary_score,r.local?.role||'',r.local?.tier||'',r.local?.direction?.status||'UNCERTAIN',r.score||null,r.priority||null,r.holistic?.fit||'',r.application||null,r.text_bytes,r.job.job_type]);
+      const key='inventory:'+JSON.stringify(snapshot.jobs.map(r=>[r.input_key,r.state,r.disposition,r.campaign]));
+      const fields=['id','company','title','cities','input_key','state','analysis_mode','excluded_reason','disposition','preliminary_score','role','tier','direction','score','priority','fit','application','text_bytes','job_type','campaign'];
+      const tuples=snapshot.jobs.map(r=>[r.job.id,r.job.company,r.job.title,r.job.locations,r.input_key,r.state,r.analysis_mode||'',r.excluded_reason,r.disposition||'',r.preliminary_score,r.local?.role||'',r.local?.tier||'',r.local?.direction?.status||'UNCERTAIN',r.score||null,r.priority||null,r.holistic?.fit||'',r.application||null,r.text_bytes,r.job.job_type,r.campaign||null]);
       return {...snapshot,snapshot_key:key,index:{fields,full:body.known_snapshot!==key,rows:body.known_snapshot!==key?tuples:undefined},jobs:snapshot.jobs.filter(r=>(body.job_ids||[]).includes(r.job.id))};
     }
     if(path==='/api/matching/preview')return structuredClone(snapshot);
@@ -66,6 +66,27 @@ function harness({pending=['pending-a','pending-b'],failed=['failed-a','failed-b
   const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   return {inventoryRequests,navigations,navigation:context.CampusNavigation,start:(initial={})=>context.CampusMatching.page(set,'<h2>岗位匹配</h2>',{api,esc,D:{text:s=>s,date:()=>'',errorCode:s=>s,matchingDiagnostic:()=>'',label:(_kind,s)=>s},active:()=>true,navigate:(name,query)=>navigations.push({name,query}),...initial}),elements,requests,exports,decisionRequests,taskRequests,bulkRequests,importRequests,timers,stored,snapshot,review:()=>elements.get('match-confirm').onclick(),html:()=>html,consent:()=>elements.get('match-consent').onchange({target:{checked:true}}),progress:()=>JSON.parse(stored.get('campustrace:match-progress:v1:alice'))};
 }
+
+for(const paging of [false,true])test(`radar temporarily hides full quota jobs while retaining selections and active records (paging=${paging})`,async()=>{
+ const h=harness({pending:['unhandled','submitted','planned','outside'],failed:[],paging});
+ const rule={id:'batch',name:'2027秋招',limit:1,submitted:1};
+ for(const r of h.snapshot.jobs)if(r.job.id!=='outside')r.campaign={...rule,hide_unsubmitted:r.job.id==='unhandled'};
+ h.snapshot.jobs.find(r=>r.job.id==='submitted').application={id:'app',current_state:'REJECTED',applied_at:'2026-10-10'};
+ h.snapshot.jobs.find(r=>r.job.id==='planned').application={id:'plan',current_state:'PLANNED'};
+ await h.start();
+ assert.doesNotMatch(h.html(),/data-workbench-row="unhandled"/);
+ for(const id of ['submitted','planned','outside'])assert.ok(h.html().includes(`data-workbench-row="${id}"`));
+ assert.match(h.html(),/已收起 1 个本批限投已满/);
+ h.elements.get('match-show-quota-full').checked=true;h.elements.get('match-filter').onchange({target:{id:'match-show-quota-full'}});
+ assert.match(h.html(),/data-workbench-row="unhandled"/);assert.match(h.html(),/本批已投满 1\/1/);
+ assert.equal(h.navigation.readBrowse('alice').showQuotaFull,true);assert.equal(h.navigation.readBrowse('bob').showQuotaFull,false);
+ h.elements.get('match-select-all').onclick();assert.match(h.html(),/4<\/strong> 个岗位已选/);
+ h.elements.get('match-show-quota-full').checked=false;h.elements.get('match-filter').onchange({target:{id:'match-show-quota-full'}});
+ assert.doesNotMatch(h.html(),/data-workbench-row="unhandled"/);assert.match(h.html(),/4<\/strong> 个岗位已选/);
+ h.elements.get('match-only-selected').checked=true;h.elements.get('match-filter').onchange({target:{id:'match-only-selected'}});
+ assert.match(h.html(),/data-workbench-row="unhandled"/);assert.equal(h.navigation.readBrowse('alice').showQuotaFull,false);
+ assert.equal(h.requests.length,0);assert.equal(h.bulkRequests.length,0);assert.equal(h.exports.length,0);
+});
 
 test('returning from evidence supplementation reviews only the target job without starting a model call',async()=>{
   const h=harness();await h.start({initialJob:'pending-a',initialAnalyze:true});
@@ -215,18 +236,18 @@ test('failed local preparation never permits an external analysis request',async
 
 
 test('company comparison is an explicit local read without keys, outbound consent or model requests',async()=>{
-  const h=harness();await h.start();h.elements.get('match-open-comparison').onclick();
+  const h=harness();await h.start();h.elements.get('match-compare-company').onclick();
   assert.equal(h.decisionRequests.length,0);
   await h.elements.get('match-comparison-form').onsubmit({preventDefault(){}});
   assert.equal(h.decisionRequests.length,1);assert.equal(h.decisionRequests[0].company,'测试公司');
-  assert.equal(h.decisionRequests[0].scope,'ALL');assert.equal(h.decisionRequests[0].api_key,undefined);
+  assert.equal(h.decisionRequests[0].scope,'FILTERED');assert.equal(h.decisionRequests[0].job_ids.length,4);assert.equal(h.decisionRequests[0].api_key,undefined);
   assert.equal(JSON.stringify(h.decisionRequests).includes('synthetic-test-key'),false);
   assert.deepEqual(h.requests,[]);assert.deepEqual(h.exports,[]);
   assert.ok(h.html().includes('暂不能可靠推荐'));
 });
 
 test('a delayed comparison cannot reopen a canceled dialog or replace a newly chosen scope',async()=>{
-  let resolve;const h=harness({compare:()=>new Promise(r=>{resolve=r;})});await h.start();h.elements.get('match-open-comparison').onclick();
+  let resolve;const h=harness({compare:()=>new Promise(r=>{resolve=r;})});await h.start();h.elements.get('match-compare-company').onclick();
   const request=h.elements.get('match-comparison-form').onsubmit({preventDefault(){}});
   h.elements.get('match-comparison-dialog').close();
   resolve({total:99,recommendation:'READY',reasons:['old-response'],jobs:[]});await request;
@@ -235,7 +256,7 @@ test('a delayed comparison cannot reopen a canceled dialog or replace a newly ch
 
 test('company comparison rejects excessive and empty selected scopes without truncation or a request',async()=>{
   const h=harness();h.snapshot.jobs=Array.from({length:201},(_,i)=>({job:{id:String(i),company:'测试公司',title:'服务端开发',locations:[]},state:'BASIC',local:{tier:'HIGH'},preliminary_score:50}));
-  await h.start();h.elements.get('match-open-comparison').onclick();await h.elements.get('match-comparison-form').onsubmit({preventDefault(){}});
+  await h.start();h.elements.get('match-compare-company').onclick();await h.elements.get('match-comparison-form').onsubmit({preventDefault(){}});
   assert.equal(h.decisionRequests.length,0);assert.ok(h.html().includes('对比最多 200'));
   h.elements.get('match-comparison-scope').onchange({target:{value:'SELECTED'}});
   await h.elements.get('match-comparison-form').onsubmit({preventDefault(){}});
@@ -299,14 +320,14 @@ test('主投方向默认聚焦相关岗位，待判断保留且方向筛选可�
  const h=harness({pending:[],failed:[]});h.snapshot.candidate.facts=[{kind:'ROLE',text:'后端开发'}];
  h.snapshot.jobs=[directionRow('backend','MATCH'),directionRow('platform','RELATED'),directionRow('generic','UNCERTAIN'),directionRow('marketing','UNRELATED'),directionRow('ignored','MATCH',{disposition:'IGNORED'})];
  await h.start();assert.match(h.html(),/data-match-job="backend"/);assert.match(h.html(),/data-match-job="platform"/);for(const id of ['generic','marketing','ignored'])assert.ok(!h.html().includes(`data-match-job="${id}"`));
- h.elements.get('match-direction-UNCERTAIN').onclick();assert.match(h.html(),/data-match-job="generic"/);assert.ok(!h.html().includes('data-match-job="backend"'));await h.start();assert.equal(h.navigation.readBrowse('alice').direction,'UNCERTAIN');assert.match(h.html(),/data-match-job="generic"/);
- h.elements.get('match-direction-ALL').onclick();assert.match(h.html(),/data-match-job="marketing"/);assert.ok(!h.html().includes('data-match-job="ignored"'));assert.deepEqual(h.requests,[]);assert.deepEqual(h.exports,[]);
+ h.elements.get('match-direction').value='UNCERTAIN';h.elements.get('match-filter').onchange();assert.match(h.html(),/data-match-job="generic"/);assert.ok(!h.html().includes('data-match-job="backend"'));await h.start();assert.equal(h.navigation.readBrowse('alice').direction,'UNCERTAIN');assert.match(h.html(),/data-match-job="generic"/);
+ h.elements.get('match-view-ALL').onclick();assert.match(h.html(),/data-match-job="marketing"/);assert.ok(!h.html().includes('data-match-job="ignored"'));assert.deepEqual(h.requests,[]);assert.deepEqual(h.exports,[]);
 });
 test('跨页清理全部明显无关岗位，分批写入且保留稍后看与已有投递记录，可批量恢复',async()=>{
  const h=harness({pending:[],failed:[]});h.snapshot.candidate.facts=[{kind:'ROLE',text:'后端开发'}];
  h.snapshot.jobs=[directionRow('backend','MATCH'),...Array.from({length:1105},(_,i)=>directionRow('other-'+i,'UNRELATED'))];
  h.snapshot.jobs[1].disposition='SAVED';h.snapshot.jobs[2].application={id:'app',current_state:'PLANNED'};
- await h.start();h.elements.get('match-direction-UNRELATED').onclick();assert.match(h.html(),/第 1 \/ 23 页/);
+ await h.start();h.elements.get('match-direction').value='UNRELATED';h.elements.get('match-filter').onchange();assert.match(h.html(),/第 1 \/ 23 页/);
  h.elements.get('match-select-unrelated').onclick();assert.match(h.html(),/批量忽略（1103）/);await h.elements.get('match-bulk-ignore').onclick();
  assert.deepEqual(h.bulkRequests.map(r=>r.job_ids.length),[1000,103]);assert.ok(h.bulkRequests.every(r=>r.disposition==='IGNORED'));assert.equal(h.snapshot.jobs.filter(j=>j.disposition==='IGNORED').length,1103);assert.equal(h.snapshot.jobs[1].disposition,'SAVED');assert.ok(h.snapshot.jobs[2].application);assert.ok(!h.snapshot.jobs[0].disposition);
  assert.ok(!h.html().includes('data-match-job="other-2"'));assert.equal(JSON.parse(h.stored.get('campustrace:match-selection:v1:alice')).length,0);
@@ -393,7 +414,7 @@ test('all-failed chat preview remains reviewable and cannot be confirmed',async(
   assert.match(h.html(),/不能更换 input_key/);
 });
 
-test('常用筛选与六种排序直接可见，组合筛选逐个清除，旧城市归一，排序不发起模型请求',async()=>{
+test('公司城市排序在更多条件之前，组合筛选逐个清除，旧城市归一，排序不发起模型请求',async()=>{
  const h=harness({pending:[],failed:[]});
  h.snapshot.city_aliases={'杭州市-余杭区':['杭州'],'Hangzhou':['杭州']};h.snapshot.candidate.facts=[{kind:'CITY_PREFERRED',text:'Hangzhou'}];
  h.snapshot.jobs=[
@@ -403,7 +424,7 @@ test('常用筛选与六种排序直接可见，组合筛选逐个清除，旧�
  ];
  h.navigation.storeBrowse('alice',{city:'杭州市-余杭区',company:'公司甲',sort:'technical',sortOrder:'asc'});await h.start();
  assert.equal(h.elements.get('match-city').value,'杭州');assert.match(h.html(),/我的意向城市/);assert.match(h.html(),/杭州（2）/);
- assert.ok(h.html().indexOf('id="match-sort"')<h.html().indexOf('id="match-more-filters"'));assert.match(h.html(),/value="created"/);assert.match(h.html(),/value="company"/);
+ assert.ok(h.html().indexOf('id="match-sort"')<h.html().indexOf('id="match-advanced"'));assert.match(h.html(),/value="created"/);assert.match(h.html(),/value="company"/);
  const ids=()=>[...h.html().matchAll(/data-match-job="([^"]+)"/g)].map(x=>x[1]);assert.deepEqual(ids(),['low','high']);
  h.elements.get('match-select-all').onclick();const selected=JSON.parse(h.stored.get('campustrace:match-selection:v1:alice'));
  h.elements.get('match-sort-order').onclick();assert.deepEqual(ids(),['high','low']);assert.deepEqual(JSON.parse(h.stored.get('campustrace:match-selection:v1:alice')),selected);
@@ -446,7 +467,7 @@ test('a completed company task opens its captured job scope without sending a mo
 
 test('company comparison export opens evaluation with the captured candidate scope rather than the full company',async()=>{
  const ids=['a','b'],h=harness({pending:[...ids,'extra'],failed:[],compare:body=>({company:body.company,scope:'SELECTED',total:2,holistic_job_ids:ids,holistic_input_key:'scope',jobs:[]})});
- await h.start();await h.elements.get('match-open-comparison').onclick();
+ await h.start();await h.elements.get('match-compare-company').onclick();
  assert.equal(h.elements.get('match-company-export-evaluation').disabled,true);
  await h.elements.get('match-comparison-form').onsubmit({preventDefault(){}});
  assert.equal(h.elements.get('match-company-export-evaluation').disabled,false);
@@ -476,4 +497,53 @@ test('bulk actions start compact and undo restores only actual ignored rows',asy
  const h=harness({pending:['a','b'],failed:[]});h.snapshot.jobs[1].disposition='SAVED';await h.start();h.elements.get('match-select-all').onclick();assert.match(h.html(),/id="match-selection-actions" hidden/);
  h.elements.get('match-actions-toggle').onclick();assert.match(h.html(),/aria-expanded="true"/);await h.elements.get('match-bulk-ignore').onclick();assert.equal(h.snapshot.jobs[0].disposition,'IGNORED');assert.equal(h.snapshot.jobs[1].disposition,'SAVED');
  await h.elements.get('match-undo-ignore').onclick();assert.equal(h.snapshot.jobs[0].disposition,'NONE');assert.equal(h.snapshot.jobs[1].disposition,'SAVED');assert.deepEqual(Array.from(h.bulkRequests.at(-1).job_ids),['a']);
+});
+
+test('common browse views preserve company, city, typed keywords and selections',async()=>{
+ const h=harness({pending:[],failed:[]});h.snapshot.candidate.facts=[{kind:'ROLE',text:'后端开发'}];
+ h.snapshot.jobs=[directionRow('saved','MATCH',{job:{id:'saved',title:'Go 后端',company:'公司甲',locations:['上海']},disposition:'SAVED'}),directionRow('applied','MATCH',{job:{id:'applied',title:'Go 服务端',company:'公司甲',locations:['上海']},application:{current_state:'REJECTED',applied_at:'2026-10-01'}}),directionRow('other','MATCH',{job:{id:'other',title:'Go 服务端',company:'公司乙',locations:['北京']}})];
+ await h.start();h.elements.get('match-select-all').onclick();
+ h.elements.get('match-company').value='公司甲';h.elements.get('match-city').value='上海';h.elements.get('match-filter').onchange();
+ h.elements.get('match-search').value='Go';h.elements.get('match-search').oninput();h.elements.get('match-view-SAVED').onclick();
+ assert.match(h.html(),/data-workbench-row="saved"/);assert.doesNotMatch(h.html(),/data-workbench-row="applied"|data-workbench-row="other"/);
+ h.elements.get('match-view-APPLIED').onclick();assert.match(h.html(),/data-workbench-row="applied"/);assert.doesNotMatch(h.html(),/data-workbench-row="saved"/);
+ const browse=h.navigation.readBrowse('alice');assert.equal(browse.company,'公司甲');assert.equal(browse.city,'上海');assert.equal(browse.query,'Go');
+ assert.equal(JSON.parse(h.stored.get('campustrace:match-selection:v1:alice')).length,3);assert.ok(h.timers.some(t=>t.delay===240&&t.canceled));
+ assert.equal(h.requests.length,0);assert.equal(h.bulkRequests.length,0);
+});
+
+test('the selected range exposes all selected jobs without changing hidden-job preferences',async()=>{
+ const h=harness({pending:[],failed:[]});h.snapshot.candidate.facts=[{kind:'ROLE',text:'后端开发'}];
+ h.snapshot.jobs=[directionRow('ignored','UNRELATED',{disposition:'IGNORED'}),directionRow('quota','UNRELATED',{campaign:{hide_unsubmitted:true}}),directionRow('normal','MATCH')];
+ h.stored.set('campustrace:match-selection:v1:alice',JSON.stringify(['ignored','quota']));
+ h.navigation.storeBrowse('alice',{query:'missing',direction:'MAIN'});await h.start();
+ h.elements.get('match-view-SELECTED').onclick();
+ assert.match(h.html(),/data-workbench-row="ignored"/);assert.match(h.html(),/data-workbench-row="quota"/);assert.doesNotMatch(h.html(),/data-workbench-row="normal"/);
+ assert.equal(h.navigation.readBrowse('alice').showIgnored,false);assert.equal(h.navigation.readBrowse('alice').showQuotaFull,false);
+ h.elements.get('match-view-ALL').onclick();assert.match(h.html(),/data-workbench-row="normal"/);assert.doesNotMatch(h.html(),/data-workbench-row="ignored"|data-workbench-row="quota"/);
+ h.elements.get('match-only-selected').checked=true;h.elements.get('match-filter').onchange({target:h.elements.get('match-only-selected')});
+ assert.match(h.html(),/data-workbench-row="ignored"/);assert.match(h.html(),/data-workbench-row="quota"/);assert.equal(h.requests.length,0);
+});
+
+test('restored extra conditions remain visible and removable with one advanced panel',async()=>{
+ const h=harness({pending:[],failed:[]});h.snapshot.jobs=[directionRow('related','RELATED',{state:'ANALYZED',disposition:'SAVED'}),directionRow('other','MATCH',{state:'BASIC'})];
+ h.navigation.storeBrowse('alice',{direction:'RELATED',workflow:'SAVED',filter:'ANALYZED'});await h.start();
+ assert.equal((h.html().match(/id="match-advanced"/g)||[]).length,1);assert.doesNotMatch(h.html(),/match-more-filters|workbench-journey|match-direction-ALL/);
+ assert.ok(h.html().indexOf('id="match-filter"')<h.html().indexOf('class="matching-workbench"'));
+ assert.ok(h.html().indexOf('id="match-advanced"')<h.html().indexOf('id="match-preset"'));
+ for(const key of ['direction','workflow','state'])assert.ok(h.elements.has('match-clear-'+key));
+ h.elements.get('match-clear-state').onclick();assert.equal(h.navigation.readBrowse('alice').filter,'');assert.equal(h.navigation.readBrowse('alice').workflow,'SAVED');
+ h.elements.get('match-clear-workflow').onclick();assert.equal(h.navigation.readBrowse('alice').direction,'RELATED');
+ h.elements.get('match-clear-direction').onclick();assert.match(h.html(),/data-workbench-row="other"/);
+});
+
+test('multiple cities survive sorting and the city picker opens without changing the result',async()=>{
+ const h=harness({pending:[],failed:[]});h.snapshot.jobs=['上海','北京','杭州'].map((city,i)=>directionRow(String(i),'MATCH',{job:{id:String(i),title:'Go 后端',company:'公司甲',locations:[city]}}));
+ h.navigation.storeBrowse('alice',{cities:['上海','北京'],direction:'ALL'});await h.start();
+ const ids=()=>[...h.html().matchAll(/data-workbench-row="([^"]+)"/g)].map(m=>m[1]);assert.deepEqual(ids(),['0','1']);assert.equal(h.elements.get('match-city').value,'__MULTI__');
+ h.elements.get('match-sort').value='company';h.elements.get('match-filter').onchange();assert.deepEqual(ids(),['0','1']);assert.deepEqual(Array.from(h.navigation.readBrowse('alice').cities),['上海','北京']);
+ const picker=h.elements.get('match-city');picker.value='__PICK_CITIES__';h.elements.get('match-filter').onchange({target:picker});
+ assert.equal(h.elements.get('match-advanced').open,true);assert.equal(picker.value,'__MULTI__');assert.deepEqual(ids(),['0','1']);
+ h.elements.get('match-city').value='杭州';h.elements.get('match-filter').onchange({target:h.elements.get('match-city')});assert.deepEqual(ids(),['2']);assert.equal(h.navigation.readBrowse('alice').cities.length,0);
+ assert.equal(h.navigation.readBrowse('alice').city,'杭州');assert.equal(h.requests.length,0);
 });

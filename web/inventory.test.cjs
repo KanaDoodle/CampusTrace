@@ -2,6 +2,14 @@ const {test}=require('node:test'),assert=require('node:assert/strict');
 const I=require('./inventory.js');
 const fields=['id','title','company','cities','input_key','state','preliminary_score','direction','application'];
 const row=(id,score=50)=>[id,id,'合成公司',['上海'],'input-'+id,'BASIC',score,'MATCH',null];
+test('quota metadata survives index hydration, submission deltas and rule removal',()=>{
+ const names=[...fields,'campaign'],hint={id:'rule',name:'秋招',limit:1,submitted:1,hide_unsubmitted:true};
+ const first=I.merge(null,{snapshot_key:'planned',index:{fields:names,full:true,rows:[[...row('a'),{...hint,submitted:0,hide_unsubmitted:false}]]},jobs:[]});
+ const full=I.merge(first,{snapshot_key:'full',index:{fields:names,full:false,upserts:[[...row('a'),hint]]},jobs:[]});
+ assert.equal(first.jobs[0].campaign.hide_unsubmitted,false);assert.equal(full.jobs[0].campaign.hide_unsubmitted,true);
+ const removed=I.merge(full,{snapshot_key:'no-rule',index:{fields:names,full:false,upserts:[[...row('a'),null]]},jobs:[]});
+ assert.equal(removed.jobs[0].campaign,null);assert.equal(removed.jobs[0].input_key,first.jobs[0].input_key);
+});
 test('global index supports selecting and sorting jobs beyond the hydrated page',()=>{
  const first=I.merge(null,{snapshot_key:'one',index:{fields,full:true,rows:[row('a'),row('b',80),row('c')]},jobs:[{job:{id:'a'},local:{reasons:['card']}}]});
  assert.equal(first.jobs.length,3);assert.equal(first.jobs[1].preliminary_score,80);assert.equal(first.jobs[1].card_pending,true);assert.equal(first.jobs[0].card_pending,undefined);

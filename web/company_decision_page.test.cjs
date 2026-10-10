@@ -30,7 +30,7 @@ function harness({catalogCount=3,missingID=false,withReport=true,candidateJobs=n
  const api=async(path,method,body)=>{
   if(path==='/api/profile/resume/capabilities'){capReads++;return {user_id:userID};}
   if(path==='/api/matching/company-catalog')return catalog.length?[{company:'测试公司',total:catalog.length}]:[];
-  if(path==='/api/matching/company-candidates')return structuredClone(catalog.map(j=>({job:j,state:j.state||'BASIC',fit:j.fit||'',score:j.score??null,preliminary_score:j.preliminary_score||0,excluded_reason:j.excluded_reason||''})));
+  if(path==='/api/matching/company-candidates')return structuredClone(catalog.map(j=>({job:j,state:j.state||'BASIC',fit:j.fit||'',score:j.score??null,preliminary_score:j.preliminary_score||0,excluded_reason:j.excluded_reason||'',campaign:j.campaign,application:j.application})));
   if(path.startsWith('/api/matching/company-catalog?'))return structuredClone(catalog);
   if(path==='/api/matching/company-workspace'){
    reads.push(structuredClone(body));if(blockedRead)throw Error('读取失败');
@@ -50,6 +50,19 @@ function harness({catalogCount=3,missingID=false,withReport=true,candidateJobs=n
  };
  return {elements,reads,exports,downloads,stored,chatCalls,navigations,controls,capReads:()=>capReads,user:id=>userID=id,html:()=>html,dirty:()=>guard.dirty(),blockRead:()=>blockedRead=true,start:initial=>context.CampusCompanyDecision.page(set,'<h1>公司投递决策</h1>',{api,esc,D,navigate:(name,query)=>navigations.push({name,query}),initialCompany:'测试公司',...initial}),submit:()=>elements.get('company-eval-form').onsubmit({preventDefault(){},target:elements.get('company-eval-form')})};
 }
+
+test('company picker reveals temporarily hidden jobs without clearing a previously selected scope',async()=>{
+ const h=harness({candidateJobs:[{id:'a',title:'已满批次的候选',locations:[],campaign:{hide_unsubmitted:true,limit:1,submitted:1}},{id:'b',title:'独立批次',locations:[]}]});
+ await h.start({initialIDs:['a']});
+ assert.ok(!h.controls.some(c=>c.dataset.companySelect==='a'));assert.match(h.html(),/已收起 1 个限投已满岗位/);assert.match(h.html(),/已选 1 \/ 16/);
+ h.elements.get('company-picker-quota').onchange({target:{checked:true,value:''}});
+ assert.match(h.elements.get('company-picker-content').innerHTML,/data-company-select="a"/);assert.match(h.elements.get('company-picker-content').innerHTML,/本批已投满 1\/1/);
+ h.elements.get('company-picker-quota').onchange({target:{checked:false,value:''}});
+ assert.doesNotMatch(h.elements.get('company-picker-content').innerHTML,/data-company-select="a"/);
+ h.elements.get('company-picker-selected').onchange({target:{checked:true,value:''}});
+ assert.match(h.elements.get('company-picker-content').innerHTML,/data-company-select="a"/);
+ assert.equal(h.reads.length,1);assert.equal(h.exports.length,0);assert.equal(h.chatCalls.length,0);
+});
 
 test('visible export entry opens and focuses the form without calling a model or preparing a download',async()=>{
  const h=harness();await h.start({initialIDs:['a','b']});

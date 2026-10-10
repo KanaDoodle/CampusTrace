@@ -74,7 +74,7 @@ func inventoryVersion(ctx context.Context, tx *sql.Tx, scope, user string) (stri
 	}{
 		{`SELECT j.id,CONCAT(j.visibility,':',COALESCE(j.owner_id,''),':',SHA2(CAST(j.body AS CHAR),256),':',COALESCE((SELECT CONCAT(o.id,':',SHA2(CAST(o.body AS CHAR),256)) FROM observations o WHERE o.job_id=j.id ORDER BY o.observed_at DESC,o.id DESC LIMIT 1),'')) FROM jobs j WHERE j.visibility='GLOBAL' OR (j.visibility='PRIVATE' AND j.owner_id=?) ORDER BY j.id`, []any{user}},
 	}
-	for _, table := range []string{"profiles", "projects", "project_facts", "applications", "job_match_results", "match_settings"} {
+	for _, table := range []string{"profiles", "projects", "project_facts", "applications", "application_campaigns", "job_match_results", "match_settings"} {
 		id := "id"
 		if table == "job_match_results" {
 			id = "job_id"

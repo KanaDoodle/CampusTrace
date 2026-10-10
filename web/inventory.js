@@ -7,7 +7,7 @@ const CampusInventory=(function(root){
     if(!Array.isArray(row)||row.length!==fields.length)throw new Error('岗位列表格式暂不可读取，请刷新。');
     const v=Object.fromEntries(fields.map((key,i)=>[key,row[i]]));
     if(typeof v.id!=='string')throw new Error('岗位编号无效，请刷新。');
-    return {job:{id:v.id,company:v.company,title:v.title,locations:v.cities,created_at:v.created_at,updated_at:v.updated_at,job_type:v.job_type,current_status:v.current_status},cities:v.cities,input_key:v.input_key,state:v.state,analysis_mode:v.analysis_mode,excluded_reason:v.excluded_reason,disposition:v.disposition,preliminary_score:v.preliminary_score,local:{score:v.preliminary_score,role:v.role,tier:v.tier,direction:{status:v.direction}},score:v.score,priority:v.priority,holistic:v.fit?{fit:v.fit}:null,application:v.application,text_bytes:v.text_bytes,company_placement:v.company_placement,coverage:v.coverage,card_pending:true};
+    return {job:{id:v.id,company:v.company,title:v.title,locations:v.cities,created_at:v.created_at,updated_at:v.updated_at,job_type:v.job_type,current_status:v.current_status},cities:v.cities,input_key:v.input_key,state:v.state,analysis_mode:v.analysis_mode,excluded_reason:v.excluded_reason,disposition:v.disposition,preliminary_score:v.preliminary_score,local:{score:v.preliminary_score,role:v.role,tier:v.tier,direction:{status:v.direction}},score:v.score,priority:v.priority,holistic:v.fit?{fit:v.fit}:null,application:v.application,campaign:v.campaign,text_bytes:v.text_bytes,company_placement:v.company_placement,coverage:v.coverage,card_pending:true};
   }
   function merge(previous,response){
     const index=response.index;if(!index||!Array.isArray(index.fields))throw new Error('岗位列表暂不可读取，请刷新。');

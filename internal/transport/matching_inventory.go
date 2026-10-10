@@ -49,6 +49,7 @@ type inventoryRow struct {
 	Source      string              `json:"source,omitempty"`
 	Disposition string              `json:"disposition"`
 	Application *p.MatchApplication `json:"application,omitempty"`
+	Campaign    *p.MatchCampaign    `json:"campaign,omitempty"`
 }
 
 type inventoryFact struct {
@@ -77,7 +78,7 @@ func inventoryPreview(v p.MatchSnapshot) inventorySnapshot {
 	}
 	for _, row := range v.Jobs {
 		j := row.Job
-		r := inventoryRow{Job: inventoryJob{ApplicationJob: p.ApplicationJob{ID: j.ID, CompanyID: j.CompanyID, Company: j.Company, Title: j.Title, Locations: j.Locations, JobType: j.JobType, CurrentStatus: j.CurrentStatus}, CreatedAt: j.CreatedAt, UpdatedAt: j.UpdatedAt}, Cities: row.Cities, TextBytes: row.TextBytes, RequirementsKey: row.RequirementsKey, InputKey: row.InputKey, PreliminaryScore: row.PreliminaryScore, ExcludedReason: row.ExcludedReason, State: row.State, Score: row.Score, Priority: row.Priority, CompanyPlacement: row.CompanyPlacement, Coverage: row.Coverage, Breakdown: row.Breakdown, AnalysisMode: row.AnalysisMode, Source: row.Source, Disposition: row.Disposition, Application: row.Application}
+		r := inventoryRow{Job: inventoryJob{ApplicationJob: p.ApplicationJob{ID: j.ID, CompanyID: j.CompanyID, Company: j.Company, Title: j.Title, Locations: j.Locations, JobType: j.JobType, CurrentStatus: j.CurrentStatus}, CreatedAt: j.CreatedAt, UpdatedAt: j.UpdatedAt}, Cities: row.Cities, TextBytes: row.TextBytes, RequirementsKey: row.RequirementsKey, InputKey: row.InputKey, PreliminaryScore: row.PreliminaryScore, ExcludedReason: row.ExcludedReason, State: row.State, Score: row.Score, Priority: row.Priority, CompanyPlacement: row.CompanyPlacement, Coverage: row.Coverage, Breakdown: row.Breakdown, AnalysisMode: row.AnalysisMode, Source: row.Source, Disposition: row.Disposition, Application: row.Application, Campaign: row.Campaign}
 		if local := row.Local; local != nil {
 			r.Local = &inventoryLocal{Version: local.Version, Score: local.Score, Tier: local.Tier, Role: local.Role}
 			r.Local.Direction.Status = local.Direction.Status

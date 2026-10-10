@@ -9,7 +9,7 @@ import (
 	p "github.com/KanaDoodle/CampusTrace/internal/persistence"
 )
 
-var inventoryFields = []string{"id", "company", "title", "cities", "input_key", "state", "analysis_mode", "excluded_reason", "disposition", "preliminary_score", "role", "tier", "direction", "score", "priority", "fit", "created_at", "updated_at", "application", "text_bytes", "job_type", "current_status", "company_placement", "coverage"}
+var inventoryFields = []string{"id", "company", "title", "cities", "input_key", "state", "analysis_mode", "excluded_reason", "disposition", "preliminary_score", "role", "tier", "direction", "score", "priority", "fit", "created_at", "updated_at", "application", "text_bytes", "job_type", "current_status", "company_placement", "coverage", "campaign"}
 
 type inventoryIndex struct {
 	Fields  []string `json:"fields"`
@@ -29,7 +29,7 @@ func inventoryTuples(v inventorySnapshot) [][]any {
 		if r.Holistic != nil {
 			fit = r.Holistic.Fit
 		}
-		out = append(out, []any{r.Job.ID, r.Job.Company, r.Job.Title, r.Cities, r.InputKey, r.State, r.AnalysisMode, r.ExcludedReason, r.Disposition, r.PreliminaryScore, role, tier, direction, r.Score, r.Priority, fit, r.Job.CreatedAt, r.Job.UpdatedAt, r.Application, r.TextBytes, r.Job.JobType, r.Job.CurrentStatus, r.CompanyPlacement, r.Coverage})
+		out = append(out, []any{r.Job.ID, r.Job.Company, r.Job.Title, r.Cities, r.InputKey, r.State, r.AnalysisMode, r.ExcludedReason, r.Disposition, r.PreliminaryScore, role, tier, direction, r.Score, r.Priority, fit, r.Job.CreatedAt, r.Job.UpdatedAt, r.Application, r.TextBytes, r.Job.JobType, r.Job.CurrentStatus, r.CompanyPlacement, r.Coverage, r.Campaign})
 	}
 	return out
 }

@@ -32,6 +32,48 @@ type CampaignView struct {
 	Conflict  bool `json:"conflict"`
 }
 
+// Count each complete bound batch, even when browsing only one job or page.
+// Two bulk reads avoid adding one database query per rule to the radar.
+func campaignViews(ctx context.Context, q Queryer, user string) ([]CampaignView, error) {
+	out := []CampaignView{}
+	rules, err := Many[ApplicationCampaign](ctx, q, "SELECT body FROM application_campaigns WHERE user_id=? ORDER BY id", user)
+	if err != nil || len(rules) == 0 {
+		return out, err
+	}
+	type usage struct {
+		CampaignID string     `json:"campaign_id"`
+		State      string     `json:"current_state"`
+		AppliedAt  *time.Time `json:"applied_at"`
+	}
+	apps, err := Many[usage](ctx, q, `SELECT JSON_OBJECT('campaign_id',c.campaign_id,
+ 'current_state',JSON_EXTRACT(a.body,'$.current_state'),
+ 'applied_at',JSON_EXTRACT(a.body,'$.applied_at'))
+ FROM applications a JOIN application_campaign_jobs c ON c.user_id=a.user_id AND c.job_id=a.job_id
+ WHERE c.user_id=?`, user)
+	if err != nil {
+		return out, err
+	}
+	counts := map[string][2]int{}
+	for _, a := range apps {
+		count := counts[a.CampaignID]
+		if a.AppliedAt != nil {
+			count[1]++
+		} else if a.State == "PLANNED" {
+			count[0]++
+		}
+		counts[a.CampaignID] = count
+	}
+	for _, v := range rules {
+		count := counts[v.ID]
+		remaining := v.Limit - count[0] - count[1]
+		if remaining < 0 {
+			remaining = 0
+		}
+		out = append(out, CampaignView{v, count[0], count[1], remaining, count[0]+count[1] > v.Limit})
+	}
+	return out, nil
+}
+
 func (s *Store) CampaignCatalog(ctx context.Context, user string) ([]ApplicationJob, error) {
 	return Many[ApplicationJob](ctx, s.DB, "SELECT body FROM jobs WHERE visibility='GLOBAL' OR (visibility='PRIVATE' AND owner_id=?) ORDER BY company_name,id LIMIT 10000", user)
 }
@@ -57,20 +99,9 @@ func (s *Store) Campaigns(ctx context.Context, user string) ([]CampaignView, err
 		return out, err
 	}
 	defer tx.Rollback()
-	rules, err := Many[ApplicationCampaign](ctx, tx, "SELECT body FROM application_campaigns WHERE user_id=? ORDER BY id", user)
+	out, err = campaignViews(ctx, tx, user)
 	if err != nil {
 		return out, err
-	}
-	for _, v := range rules {
-		a, b, err := campaignUsage(ctx, tx, user, v.ID)
-		if err != nil {
-			return out, err
-		}
-		remaining := v.Limit - a - b
-		if remaining < 0 {
-			remaining = 0
-		}
-		out = append(out, CampaignView{v, a, b, remaining, a+b > v.Limit})
 	}
 	return out, tx.Commit()
 }

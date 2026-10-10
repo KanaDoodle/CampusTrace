@@ -46,6 +46,7 @@ type MatchJob struct {
 	Source           string                       `json:"source,omitempty"`
 	Disposition      string                       `json:"disposition"`
 	Application      *MatchApplication            `json:"application,omitempty"`
+	Campaign         *MatchCampaign               `json:"campaign,omitempty"`
 	Result           *matching.Result             `json:"-"`
 }
 
@@ -57,6 +58,31 @@ type MatchApplication struct {
 	Version   int        `json:"version"`
 	AppliedAt *time.Time `json:"applied_at,omitempty"`
 }
+
+// A display hint only; it never excludes a job from analysis or erases it.
+type MatchCampaign struct {
+	ID              string `json:"id"`
+	Name            string `json:"name"`
+	Limit           int    `json:"limit"`
+	Submitted       int    `json:"submitted"`
+	HideUnsubmitted bool   `json:"hide_unsubmitted"`
+}
+
+func matchCampaignHints(rules []CampaignView, applications map[string]*MatchApplication) map[string]*MatchCampaign {
+	out := map[string]*MatchCampaign{}
+	for _, rule := range rules {
+		if !rule.Confirmed {
+			continue
+		}
+		for _, id := range rule.JobIDs {
+			a := applications[id]
+			keep := a != nil && (a.AppliedAt != nil || a.State == "PLANNED")
+			out[id] = &MatchCampaign{rule.ID, rule.Name, rule.Limit, rule.Submitted, rule.Limit > 0 && rule.Submitted >= rule.Limit && !keep}
+		}
+	}
+	return out
+}
+
 type MatchSnapshot struct {
 	CompanyWorkflow   *CompanyWorkflow    `json:"company_workflow,omitempty"`
 	Profile           d.Profile           `json:"-"`
@@ -339,6 +365,11 @@ func (s *Store) matchSnapshotTx(ctx context.Context, tx *sql.Tx, user, model, ma
 	for i := range applications {
 		applicationByID[applications[i].JobID] = &applications[i]
 	}
+	rules, err := campaignViews(ctx, tx, user)
+	if err != nil {
+		return v, err
+	}
+	campaignByID := matchCampaignHints(rules, applicationByID)
 	// Read only the fields required by this snapshot. The latest FAILED row
 	// still wins; never fall back to an older successful text.
 	type matchObservation struct{ Text, FetchStatus string }
@@ -386,7 +417,7 @@ func (s *Store) matchSnapshotTx(ctx context.Context, tx *sql.Tx, user, model, ma
 	memoBytes := 0
 	baseHash, baseReady := v.CandidateHash, maskName == ""
 	for _, job := range jobs {
-		row := MatchJob{Job: job, Cities: d.CanonicalCities(job.Locations), State: "BASIC", Disposition: prefByID[job.ID], Application: applicationByID[job.ID]}
+		row := MatchJob{Job: job, Cities: d.CanonicalCities(job.Locations), State: "BASIC", Disposition: prefByID[job.ID], Application: applicationByID[job.ID], Campaign: campaignByID[job.ID]}
 		for _, city := range job.Locations {
 			if _, exists := v.CityAliases[city]; !exists {
 				v.CityAliases[city] = d.CanonicalCities([]string{city})
