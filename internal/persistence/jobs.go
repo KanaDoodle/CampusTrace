@@ -243,6 +243,9 @@ func (s *Store) ingestTx(ctx context.Context, tx *sql.Tx, i Ingest) (d.Observati
 		if err != nil {
 			return err
 		}
+		if err = enqueueAssessment(ctx, tx, o.JobID); err != nil {
+			return err
+		}
 		return Outbox(ctx, tx, NewTask("ANALYZE", o.ID))
 	}()
 	return o, err
@@ -302,12 +305,27 @@ func (s *Store) Assess(ctx context.Context, taskID, jobID string) error {
 		if err != nil {
 			return err
 		}
-		es, err := Many[d.Evidence](ctx, tx, "SELECT body FROM evidence WHERE job_id=?", jobID)
+		es, err := Many[d.Evidence](ctx, tx, "SELECT body FROM evidence WHERE job_id=? ORDER BY id", jobID)
 		if err != nil {
 			return err
 		}
 		now := time.Now().UTC()
 		a := rules.Status(jobID, os, es, now)
+		input := d.Hash(d.JSON(struct {
+			Observations []d.Observation
+			Evidence     []d.Evidence
+			Rule         string
+		}{os, es, d.RuleVersion}))
+		var previousInput string
+		var due sql.NullTime
+		err = tx.QueryRowContext(ctx, "SELECT input_key,next_assess_at FROM job_assessment_schedule WHERE job_id=? FOR UPDATE", jobID).Scan(&previousInput, &due)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return err
+		}
+		next := rules.NextStatusChange(os, es, now)
+		if previousInput == input && (!due.Valid || now.Before(due.Time)) && j.CurrentStatus == a.Status {
+			return saveAssessmentSchedule(ctx, tx, jobID, input, taskID, next)
+		}
 		if j.CurrentStatus != a.Status {
 			detected++
 		}
@@ -360,7 +378,7 @@ func (s *Store) Assess(ctx context.Context, taskID, jobID string) error {
 			}
 			previous[o.PostingID] = o
 		}
-		return nil
+		return saveAssessmentSchedule(ctx, tx, jobID, input, taskID, next)
 	})
 	if err != nil {
 		return err
@@ -419,40 +437,7 @@ func (s *Store) analysisFailed(ctx context.Context, id, category string, generat
 		if err != nil {
 			return err
 		}
-		return Outbox(ctx, tx, NewTask("ASSESS", o.JobID))
-	})
-}
-
-// Hourly freshness assessment uses stored observations; it never silently fetches
-// a recruiting site. Dedup key makes competing schedulers harmless.
-func (s *Store) EnqueueFreshness(ctx context.Context) error {
-	return s.Tx(ctx, func(tx *sql.Tx) error {
-		var exists string
-		bucket := "freshness:" + time.Now().UTC().Format("2006010215")
-		err := tx.QueryRowContext(ctx, "SELECT id FROM completed_tasks WHERE id=?", bucket).Scan(&exists)
-		if err == nil {
-			return nil
-		}
-		if !errors.Is(err, sql.ErrNoRows) {
-			return err
-		}
-		_, err = tx.ExecContext(ctx, "INSERT INTO completed_tasks(id,completed_at) VALUES(?,?)", bucket, time.Now().UTC())
-		if duplicate(err) {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		jobs, err := Many[d.Job](ctx, tx, "SELECT body FROM jobs")
-		if err != nil {
-			return err
-		}
-		for _, j := range jobs {
-			if err = Outbox(ctx, tx, NewTask("ASSESS", j.ID)); err != nil {
-				return err
-			}
-		}
-		return nil
+		return enqueueAssessment(ctx, tx, o.JobID)
 	})
 }
 

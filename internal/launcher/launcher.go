@@ -494,6 +494,7 @@ const help = `CampusTrace — 统一启动入口
   stop [--all]             停止应用；--all 同时停止依赖，保留数据
   restart [--build]        重启应用；--build 先构建更新再停旧服务
   status                  查看所有组件状态
+  resources               查看本项目各组件的 CPU 与内存占用
   logs [组件] [--follow]   查看日志；组件为 api/worker/analysis-1/analysis-2/mysql/redis/etcd
   doctor                  检查 Docker、配置与服务状态
   practice start|stop|status  启用、停止或查看 Go 练习组件（可选）
@@ -537,7 +538,7 @@ func Run(ctx context.Context, args []string, out, errOut io.Writer) error {
 	}
 	name := args[0]
 	switch name {
-	case "start", "stop", "restart", "status", "logs", "doctor", "backup", "verify-backup", "restore", "retention", "open", "probe", "practice":
+	case "start", "stop", "restart", "status", "resources", "logs", "doctor", "backup", "verify-backup", "restore", "retention", "open", "probe", "practice":
 	default:
 		return fmt.Errorf("未知命令 %q，运行 help 查看用法", name)
 	}
@@ -661,6 +662,8 @@ func Run(ctx context.Context, args []string, out, errOut io.Writer) error {
 		return nil
 	case "status":
 		return m.status(ctx)
+	case "resources":
+		return m.resources(ctx)
 	case "doctor":
 		if err = m.check(ctx); err != nil {
 			return err

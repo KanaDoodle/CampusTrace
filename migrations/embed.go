@@ -37,3 +37,6 @@ var AgentHarnessSQL string
 
 //go:embed 012_knowledge_retrieval.sql
 var KnowledgeRetrievalSQL string
+
+//go:embed 013_assessment_schedule.sql
+var AssessmentScheduleSQL string

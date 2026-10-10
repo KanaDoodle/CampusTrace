@@ -193,7 +193,7 @@ var dueScript = redis.NewScript(`local t=redis.call('TIME');local now=t[1]*1000+
 
 func (q *Queue) Schedule(ctx context.Context) (int, error) {
 	n := 0
-	for _, typ := range []string{"ANALYZE", "ASSESS", "WATCH_CHECK", "WATCH_FETCH"} {
+	for _, typ := range []string{"ANALYZE", "ASSESS", "WATCH_CHECK", "WATCH_FETCH", "SOURCE_IMPORT"} {
 		v, err := dueScript.Run(ctx, q.R, []string{q.Prefix + "retry:" + typ, q.Stream()}).Int()
 		if err != nil {
 			return n, err

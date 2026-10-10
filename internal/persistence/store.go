@@ -41,6 +41,7 @@ func Open(ctx context.Context, dsn string) (*Store, error) {
 	}
 	db.SetMaxOpenConns(16)
 	db.SetMaxIdleConns(8)
+	db.SetConnMaxIdleTime(time.Minute)
 	db.SetConnMaxLifetime(3 * time.Minute)
 	if err = db.PingContext(ctx); err != nil {
 		db.Close()
@@ -72,7 +73,7 @@ func (s *Store) Migrate(ctx context.Context) error {
 	if err := s.migrateBackend(ctx); err != nil {
 		return err
 	}
-	for _, stmt := range strings.Split(migrations.LocalReliabilitySQL+";"+migrations.SourceImportSQL+";"+migrations.HolisticSQL+";"+migrations.AgentWorkspaceSQL+";"+migrations.AgentHarnessSQL+";"+migrations.KnowledgeRetrievalSQL, ";") {
+	for _, stmt := range strings.Split(migrations.LocalReliabilitySQL+";"+migrations.SourceImportSQL+";"+migrations.HolisticSQL+";"+migrations.AgentWorkspaceSQL+";"+migrations.AgentHarnessSQL+";"+migrations.KnowledgeRetrievalSQL+";"+migrations.AssessmentScheduleSQL, ";") {
 		if strings.TrimSpace(stmt) != "" {
 			if _, err := s.DB.ExecContext(ctx, stmt); err != nil {
 				return err

@@ -14,6 +14,11 @@ import (
 func main() {
 	ctx, cancel := bootstrap.Root()
 	defer cancel()
+	historyHours := config.Int("TASK_HISTORY_HOURS", 24)
+	if historyHours > 365*24 {
+		slog.Error("TASK_HISTORY_HOURS must be in 1..8760")
+		return
+	}
 	app, err := bootstrap.Open(ctx)
 	if err != nil {
 		slog.Error("startup failed", "error", err)
@@ -37,7 +42,7 @@ func main() {
 		}
 	}()
 	defer metricsServer.Close()
-	w := pipeline.Worker{Version: config.Env("ANALYSIS_VERSION", d.AnalysisVersion), Store: app.Store, Queue: app.Queue, Analyzer: rpc, Concurrency: app.Config.Workers, MaxAttempts: app.Config.MaxAttempts, Timeout: app.Config.TaskTimeout, ClaimIdle: app.Config.ClaimIdle, Metrics: app.Metrics}
+	w := pipeline.Worker{Version: config.Env("ANALYSIS_VERSION", d.AnalysisVersion), Store: app.Store, Queue: app.Queue, Analyzer: rpc, Concurrency: app.Config.Workers, MaxAttempts: app.Config.MaxAttempts, Timeout: app.Config.TaskTimeout, ClaimIdle: app.Config.ClaimIdle, TaskHistory: time.Duration(historyHours) * time.Hour, Metrics: app.Metrics}
 	if err = w.Run(ctx); err != nil {
 		slog.Error("worker stopped", "error", err)
 	}

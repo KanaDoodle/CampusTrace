@@ -68,7 +68,7 @@ func (s *Store) BindAnalysis(ctx context.Context, t Task, version string) (Task,
 			if _, err = tx.ExecContext(ctx, "UPDATE observations SET body=? WHERE id=?", d.JSON(o), o.ID); err != nil {
 				return err
 			}
-			if err = Outbox(ctx, tx, NewTask("ASSESS", o.JobID)); err != nil {
+			if err = enqueueAssessment(ctx, tx, o.JobID); err != nil {
 				return err
 			}
 		} else if err != nil {
@@ -122,7 +122,7 @@ func reconcileAnalysis(ctx context.Context, tx *sql.Tx, o d.Observation, version
 	if _, err = tx.ExecContext(ctx, "UPDATE observations SET body=? WHERE id=?", d.JSON(o), o.ID); err != nil {
 		return err
 	}
-	return Outbox(ctx, tx, NewTask("ASSESS", o.JobID))
+	return enqueueAssessment(ctx, tx, o.JobID)
 }
 func (s *Store) ReconcileAnalysis(ctx context.Context, id, version string, generation uint64) error {
 	return s.Tx(ctx, func(tx *sql.Tx) error {

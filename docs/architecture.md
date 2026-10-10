@@ -67,7 +67,7 @@ MySQL 事务与唯一约束承担业务正确性；Redis 承担队列、重试�
 - 来源为运营者登记的 `OFFICIAL`、`THIRD_PARTY` 或 `MANUAL`；可信度不是系统自动认证的。公共 API 导入只能创建用户自有的 `PRIVATE` manual source，不能自行赋予官方可信度。官方/系统来源为 `GLOBAL`，私人观察不会并入共享岗位雷达。
 - 一个 canonical Job 可以对应多个 SourcePosting。先按来源与 external ID 匹配，再按来源内 URL 确定 posting 身份；结构化摘要仅用于寻找跨来源候选，还需核对公司、规范化标题、岗位类型、地点集合与来源身份。归并依据保存在 posting JSON 中，不做模糊或 LLM 归并。
 - External ID、URL path/query 保留大小写，内容按精确字节处理。不确定的候选保持分离；没有稳定 external ID/URL 的手工文本发生变化时，可能形成新岗位。
-- 连续成功观察的内容 hash 用于记录内容与结构化变化；每个 posting 取最新观察。Worker 每小时用已有观察重新评估 freshness，状态缓存最多可能滞后一小时，该 freshness 任务只重算已有观察；启用 WatchTarget 后，独立的周期检查会自动发现并重新抓取岗位。
+- 连续成功观察的内容 hash 用于记录内容与结构化变化；每个 posting 取最新观察。新的观察、解析版本或解析结果只触发对应岗位的状态更新，同一岗位等待中的更新会合并。`job_assessment_schedule` 保存下一次实际状态变化的时间：可信截止时间、七天信息有效期等；Worker 平时每分钟只通过到期索引挑选待更新岗位，每批最多 100 个，有积压时逐批处理。状态更新不重新抓网页、不调用大模型；启用 WatchTarget 后，独立的周期检查仍会发现并重新抓取岗位。
 
 ## 招聘来源如何定期检查
 

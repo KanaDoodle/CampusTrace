@@ -3,6 +3,22 @@ services:
   mysql:
     image: mysql:8.4
     restart: unless-stopped
+    # Bound diagnostic buffers for a personal workbench; keep instrumentation
+    # and the 128 MiB InnoDB page cache enabled.
+    command:
+      - --max-connections=64
+      - --table-open-cache=512
+      - --table-definition-cache=512
+      - --innodb-log-buffer-size=16777216
+      - --temptable-max-ram=134217728
+      - --performance-schema-digests-size=1000
+      - --performance-schema-max-table-instances=1000
+      - --performance-schema-max-table-handles=1000
+      - --performance-schema-max-thread-instances=256
+      - --performance-schema-events-statements-history-long-size=500
+      - --performance-schema-events-stages-history-long-size=500
+      - --performance-schema-events-waits-history-long-size=500
+      - --performance-schema-events-transactions-history-long-size=500
     environment:
       MYSQL_ROOT_PASSWORD: local-root-only
       MYSQL_DATABASE: campustrace
@@ -15,7 +31,9 @@ services:
       # TCP server or application database is ready. Check the application's
       # actual connection and credentials before starting dependent services.
       test: ["CMD-SHELL", 'MYSQL_PWD="$$MYSQL_PASSWORD" mysql --protocol=TCP --connect-timeout=2 -h127.0.0.1 -u"$$MYSQL_USER" "$$MYSQL_DATABASE" -e "SELECT 1" >/dev/null']
-      interval: 3s
+      interval: 30s
+      start_interval: 3s
+      start_period: 30s
       timeout: 3s
       retries: 40
   redis:
@@ -26,7 +44,9 @@ services:
     volumes: ["redis-data:/data"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 3s
+      interval: 30s
+      start_interval: 3s
+      start_period: 15s
       retries: 20
   etcd:
     image: quay.io/coreos/etcd:v3.6.7
@@ -36,7 +56,9 @@ services:
     volumes: ["etcd-data:/etcd-data"]
     healthcheck:
       test: ["CMD", "etcdctl", "endpoint", "health", "--endpoints=http://127.0.0.1:2379"]
-      interval: 3s
+      interval: 30s
+      start_interval: 3s
+      start_period: 15s
       timeout: 3s
       retries: 20
 volumes:

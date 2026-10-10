@@ -49,6 +49,7 @@ cd CampusTrace
 
 ```sh
 ./campustrace status                # 看看服务有没有正常运行
+./campustrace resources             # 看本项目各组件用了多少 CPU 和内存
 ./campustrace open                  # 打开网页
 ./campustrace logs api --tail 100    # 遇到问题时看看日志
 ./campustrace doctor                # 检查 Docker 和项目配置
@@ -60,6 +61,8 @@ cd CampusTrace
 ```
 
 CLI 使用固定的 `campustrace` Compose 项目名。备份和数据都留在本机；恢复方法见 [备份与恢复](docs/recovery.md)。本地配置放在不提交到 Git 的 `.env` 中，可以设置网页端口 `CAMPUS_HTTP_PORT`、`JWT_SECRET` 和服务器默认模型。部署到其他环境时，请设置独立的、至少 32 字节的 `JWT_SECRET`；默认配置用于本机使用。
+
+暂时不用时，可以运行 `./campustrace stop --all` 释放本项目的常驻资源，下次用 `start` 继续；岗位、资料和投递记录仍在。后台空闲时会降低检查频率，岗位状态只在收到新的观察／解析结果或到达截止、信息过期等时间节点时更新，并定期回收已处理的队列消息。具体规则见 [运行与资源占用](docs/operations.md#运行与资源占用)。
 
 ## 第一次用，按这个顺序就好
 

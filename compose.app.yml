@@ -20,7 +20,8 @@ x-app: &app
     ANALYSIS_VERSION: ${ANALYSIS_VERSION:-claims-v2-semantics}
   healthcheck: &health
     test: ["CMD", "/app/campustrace", "probe", "--url", "http://127.0.0.1:8080/readyz"]
-    interval: 3s
+    interval: 30s
+    start_interval: 3s
     timeout: 4s
     retries: 30
     start_period: 10s
@@ -74,6 +75,7 @@ services:
     environment:
       <<: *environment
       WORKER_METRICS_ADDR: 0.0.0.0:18081
+      TASK_HISTORY_HOURS: ${TASK_HISTORY_HOURS:-24}
     healthcheck:
       <<: *health
       test: ["CMD", "/app/campustrace", "probe", "--url", "http://127.0.0.1:18081/healthz"]
@@ -98,6 +100,8 @@ services:
       PRACTICE_OWNER: campustrace-local
     healthcheck:
       test: ["CMD", "/app/campustrace", "probe", "--url", "http://127.0.0.1:18082/healthz"]
-      interval: 5s
+      interval: 30s
+      start_interval: 3s
+      start_period: 10s
       timeout: 3s
       retries: 6

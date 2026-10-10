@@ -28,11 +28,17 @@ type Worker struct {
 	Analyzer                 Analyzer
 	Concurrency, MaxAttempts int
 	Timeout, ClaimIdle       time.Duration
+	TaskHistory              time.Duration
 	Metrics                  *observability.Metrics
 }
 
 func (w *Worker) Dispatch(ctx context.Context) error {
-	return w.Store.Tx(ctx, func(tx *sql.Tx) error {
+	_, err := w.dispatch(ctx)
+	return err
+}
+func (w *Worker) dispatch(ctx context.Context) (int, error) {
+	count := 0
+	err := w.Store.Tx(ctx, func(tx *sql.Tx) error {
 		tasks, err := p.Many[p.Task](ctx, tx, "SELECT body FROM outbox WHERE sent=FALSE ORDER BY created_at LIMIT 50 FOR UPDATE SKIP LOCKED")
 		if err != nil {
 			return err
@@ -54,9 +60,11 @@ func (w *Worker) Dispatch(ctx context.Context) error {
 			if _, err = tx.ExecContext(ctx, "UPDATE outbox SET sent=TRUE WHERE id=?", t.ID); err != nil {
 				return err
 			}
+			count++
 		}
 		return nil
 	})
+	return count, err
 }
 func (w *Worker) Process(ctx context.Context, t p.Task) error {
 	if err := ValidateTask(t); err != nil {
@@ -206,7 +214,17 @@ func (w *Worker) Run(ctx context.Context) error {
 	if w.Concurrency < 1 || w.Timeout <= 0 || w.ClaimIdle <= w.Timeout || w.MaxAttempts < 1 || w.MaxAttempts > MaxTaskAttempt {
 		return errors.New("workers/timeout positive, attempts in 1..100, and claim idle must exceed task timeout")
 	}
+	retention := w.TaskHistory
+	if retention == 0 {
+		retention = 24 * time.Hour
+	}
+	if retention < time.Hour || retention > 365*24*time.Hour {
+		return errors.New("task history retention must be between one hour and one year")
+	}
 	if err := w.Queue.Init(ctx); err != nil {
+		return err
+	}
+	if err := w.Store.InitAssessmentSchedule(ctx); err != nil {
 		return err
 	}
 	var wg sync.WaitGroup
@@ -238,11 +256,8 @@ func (w *Worker) Run(ctx context.Context) error {
 			}
 		}()
 	}
-	freshness := time.NewTicker(time.Minute)
+	freshness := time.NewTimer(0)
 	defer freshness.Stop()
-	if err := w.Store.EnqueueFreshness(ctx); err != nil {
-		slog.Warn("initial freshness scheduling failed")
-	}
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -262,24 +277,54 @@ func (w *Worker) Run(ctx context.Context) error {
 			}
 		}
 	}()
-	ticker := time.NewTicker(200 * time.Millisecond)
-	defer ticker.Stop()
+	delay := 200 * time.Millisecond
+	dispatch := time.NewTimer(delay)
+	defer dispatch.Stop()
+	history := time.NewTimer(0)
+	defer history.Stop()
 	defer wg.Wait()
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
 		case <-freshness.C:
-			if err := w.Store.EnqueueFreshness(ctx); err != nil && ctx.Err() == nil {
+			n, err := w.Store.ScheduleAssessments(ctx, time.Now().UTC(), 100)
+			if err != nil && ctx.Err() == nil {
 				slog.Warn("freshness scheduling failed")
 			}
-		case <-ticker.C:
-			if err := w.Dispatch(ctx); err != nil && ctx.Err() == nil {
+			if err == nil && n > 0 && w.Metrics != nil {
+				w.Metrics.Add("assessments_scheduled_total", float64(n))
+			}
+			next := time.Minute
+			if err == nil && n == 100 {
+				next = time.Second
+			}
+			freshness.Reset(next)
+		case <-history.C:
+			cleanup, cancel := context.WithTimeout(ctx, 3*time.Second)
+			n, err := w.Queue.TrimAcknowledged(cleanup, retention)
+			cancel()
+			if err != nil && ctx.Err() == nil {
+				slog.Warn("task history cleanup failed")
+			} else if n > 0 && w.Metrics != nil {
+				w.Metrics.Add("queue_history_trimmed_total", float64(n))
+			}
+			next := time.Minute
+			if err == nil && n > 0 {
+				next = time.Second
+			}
+			history.Reset(next)
+		case <-dispatch.C:
+			dispatched, dispatchErr := w.dispatch(ctx)
+			if dispatchErr != nil && ctx.Err() == nil {
 				slog.Warn("outbox dispatch failed")
 			}
-			if _, err := w.Queue.Schedule(ctx); err != nil && ctx.Err() == nil {
+			scheduled, scheduleErr := w.Queue.Schedule(ctx)
+			if scheduleErr != nil && ctx.Err() == nil {
 				slog.Warn("retry scheduler failed")
 			}
+			delay = dispatchDelay(delay, dispatched+scheduled, dispatchErr != nil || scheduleErr != nil)
+			dispatch.Reset(delay)
 		}
 	}
 }
