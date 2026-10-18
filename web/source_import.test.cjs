@@ -9,7 +9,7 @@ function harness({supportsDirection=false}={}){
  elements.set('#source-preview-result',{innerHTML:''});elements.set('#refresh-watches',{});elements.set('#notice',{textContent:''});
  const document={querySelector:selector=>elements.get(selector)||null,querySelectorAll:()=>[],addEventListener(){},getElementById:()=>null};
  const context={document,console,URL,Event,structuredClone,sessionStorage:{getItem:()=>''},CampusDisplay:require('./display.js')};
- vm.createContext(context);for(const file of ['ui.js','navigation.js','source_catalog.js'])vm.runInContext(fs.readFileSync(__dirname+'/'+file,'utf8'),context);
+ vm.createContext(context);for(const file of ['ui.js','navigation.js','source_catalog.js','source_watches.js'])vm.runInContext(fs.readFileSync(__dirname+'/'+file,'utf8'),context);
  const app=fs.readFileSync(__dirname+'/app.js','utf8');vm.runInContext(app.slice(0,app.indexOf("const authUI=")),context);
  vm.runInContext(app.match(/^function input[^\n]+/m)[0],context);
  vm.runInContext(fs.readFileSync(__dirname+'/radar.js','utf8'),context);

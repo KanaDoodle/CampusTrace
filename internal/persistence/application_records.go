@@ -97,6 +97,18 @@ func (s *Store) UpdateApplicationDetails(ctx context.Context, user, id string, i
 	if len(id) != 32 || in.Version < 1 || len(in.ResumeVersion) > 200 || len(in.Note) > 2000 {
 		return v, ErrValidation
 	}
+	return s.updateApplicationRecord(ctx, user, id, in.Version, func(v *d.Application) (string, error) {
+		v.ResumeVersion, v.Note = in.ResumeVersion, in.Note
+		return "更新投递资料；简历版本：" + v.ResumeVersion, nil
+	})
+}
+
+// All record edits share the workflow version guard and user lock.
+func (s *Store) updateApplicationRecord(ctx context.Context, user, id string, version int, change func(*d.Application) (string, error)) (d.Application, error) {
+	var v d.Application
+	if len(id) != 32 || version < 1 {
+		return v, ErrValidation
+	}
 	err := s.Tx(ctx, func(tx *sql.Tx) error {
 		var locked string
 		if err := tx.QueryRowContext(ctx, "SELECT id FROM users WHERE id=? FOR UPDATE", user).Scan(&locked); err != nil {
@@ -106,17 +118,20 @@ func (s *Store) UpdateApplicationDetails(ctx context.Context, user, id string, i
 		if err != nil {
 			return err
 		}
-		if old.Version != in.Version {
+		if old.Version != version {
 			return ErrConflict
 		}
 		v = old
-		v.ResumeVersion, v.Note = in.ResumeVersion, in.Note
+		note, err := change(&v)
+		if err != nil {
+			return err
+		}
 		v.Version++
 		v.UpdatedAt = time.Now().UTC()
 		if _, err := tx.ExecContext(ctx, "UPDATE applications SET version=?,body=? WHERE id=? AND user_id=?", v.Version, d.JSON(v), id, user); err != nil {
 			return err
 		}
-		event := d.ApplicationEvent{ID: d.ID(), ApplicationID: id, From: v.State, To: v.State, OccurredAt: v.UpdatedAt, Actor: user, Note: "更新投递资料；简历版本：" + v.ResumeVersion}
+		event := d.ApplicationEvent{ID: d.ID(), ApplicationID: id, From: v.State, To: v.State, OccurredAt: v.UpdatedAt, Actor: user, Note: note}
 		_, err = tx.ExecContext(ctx, "INSERT INTO application_events(id,application_id,body) VALUES(?,?,?)", event.ID, id, d.JSON(event))
 		return err
 	})

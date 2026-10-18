@@ -78,7 +78,7 @@ func (a *API) radarRoutes(on func(string, http.HandlerFunc)) {
 	})
 	on("GET /api/sources", func(w http.ResponseWriter, r *http.Request) {
 		v, err := a.Store.SourcesForUser(r.Context(), user(r))
-		write(w, v, err)
+		write(w, sourceOptions(v), err)
 	})
 	on("POST /api/sources/preview", func(w http.ResponseWriter, r *http.Request) {
 		var in struct {
@@ -184,6 +184,11 @@ func (a *API) radarRoutes(on func(string, http.HandlerFunc)) {
 			return
 		}
 		v, err := a.Store.RecentChanges(r.Context(), user(r), days)
+		write(w, v, err)
+	})
+	on("GET /api/radar/deadlines", func(w http.ResponseWriter, r *http.Request) {
+		v, err := a.Store.DeadlineOverview(r.Context(), user(r))
+		w.Header().Set("Cache-Control", "no-store")
 		write(w, v, err)
 	})
 	on("GET /api/radar/closing", func(w http.ResponseWriter, r *http.Request) {

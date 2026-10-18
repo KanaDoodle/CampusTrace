@@ -37,18 +37,23 @@ async function api(path,method='GET',body) {
   try { return await response.json(); } catch { throw new UserError('服务返回的内容暂时无法显示，请稍后重试。'); }
 }
 function fail(error) { $('#notice').textContent=error instanceof UserError?error.message:'暂时无法完成操作，请检查填写内容或稍后重试。'; }
-function formAction(selector,action) {
+function formAction(selector,action,feedback={}) {
   $(selector).onsubmit=async event=>{
-    event.preventDefault(); $('#notice').textContent='';const form=event.target;
+    event.preventDefault(); $('#notice').textContent='';const form=event.target,version=pageVersion,auth=authVersion;
+    const current=()=>version===pageVersion&&auth===authVersion;
+    const status=(message,kind)=>{if(current())CampusUI.formStatus($(selector)||form,message,kind);};
     const invalid=[...form.elements].find(input=>input.willValidate&&!input.validity.valid);
-    if (invalid) { $('#notice').textContent=invalid.type==='email'?'请填写有效的邮箱地址。':'请补全必填项，并检查数字范围和填写格式。';invalid.focus();return; }
+    if (invalid) {const message=invalid.type==='email'?'请填写有效的邮箱地址。':'请补全必填项，并检查数字范围和填写格式。';status(message,'error');invalid.focus();return; }
     const buttons=[...form.querySelectorAll('button[type="submit"], button:not([type])')];buttons.forEach(b=>b.disabled=true);
-    try { await action(new FormData(form),form); } catch(error) { fail(error); } finally { buttons.forEach(b=>b.disabled=false); }
+    if(feedback.success)status(feedback.pending||'正在保存…','pending');
+    try {const result=await action(new FormData(form),form);if(feedback.success&&result!==false)status(feedback.success,'success');}
+    catch(error) {if(current()){status(error instanceof Error?error.message:'暂时无法完成操作，请稍后重试。','error');if(!feedback.success)fail(error);}}
+    finally { buttons.forEach(b=>b.disabled=false); }
   };
 }
 function show() { $('#auth').hidden=!!token;$('#workspace').hidden=!token;document.body.classList.toggle('signed-in',!!token);document.title='CampusTrace · 校招求职工作台';if(token)page('matching').catch(fail); }
 const authUI=CampusAuth.mount({api,formAction,UserError,fail,onLogin:()=>{authVersion++;token='cookie-session';sessionStorage.removeItem('campustrace-token');show();}});
-function clearLogin(){CampusUI.closeAll();pageVersion++;authVersion++;token='';sessionStorage.removeItem('campustrace-token');globalThis.CampusModels?.lock();globalThis.CampusMatching?.lock();globalThis.CampusKnowledge?.lock();globalThis.CampusDrafts?.lock();$('#content').replaceChildren();authUI.reset();}
+function clearLogin(){CampusUI.closeAll();pageVersion++;authVersion++;token='';sessionStorage.removeItem('campustrace-token');globalThis.CampusModels?.lock();globalThis.CampusMatching?.lock();globalThis.CampusInventory?.forget();globalThis.CampusKnowledge?.lock();globalThis.CampusDrafts?.lock();$('#content').replaceChildren();authUI.reset();}
 $('#logout').onclick=async()=>{if(!await CampusNavigation.leave())return;const button=$('#logout');button.disabled=true;try{await api('/auth/logout','POST',{});clearLogin();$('#notice').textContent='';show();}catch(error){fail(error);}finally{button.disabled=false;}};
 for (const b of document.querySelectorAll('[data-page]')) b.onclick=()=>page(b.dataset.page).catch(fail);
 const pageTitles={radar:'我的校招雷达',watches:'关注源',source_jobs:'来源岗位',notifications:'通知收件箱',preferences:'稍后看与忽略',closing:'截止雷达',changes:'最近变化',jobs:'校招岗位',matching:'岗位雷达',company_decision:'公司投递决策',applications:'投递进展',interviews:'面试与复盘',weak_topics:'待加强知识点',project_facts:'项目事实',practice:'Go 练习',agent:'求职问答',knowledge:'学习资料',profile:'求职资料',models:'模型设置',ingest:'录入岗位'};
@@ -72,7 +77,7 @@ async function page(name,query='') {
   const version=++pageVersion;$('#notice').textContent='';const box=$('#content');box.innerHTML=CampusUI.heading(pageTitles[name]||'求职记录')+CampusUI.loading();
   document.title=`${pageTitles[name]||'求职记录'} · CampusTrace`;
   let entered=false;
-  const set=html=>{if(version!==pageVersion)return false;box.innerHTML=html;if(!entered){entered=true;CampusUI.reveal(box);}return true;};
+  const set=(html,{stable=false}={})=>{if(version!==pageVersion)return false;if(stable)CampusUI.reconcile(box,html);else box.innerHTML=html;if(!entered){entered=true;CampusUI.reveal(box);}return true;};
   const heading=CampusUI.heading(pageTitles[name]);
   const route=name==='matching'&&query?.view==='company'?'company':name==='profile'&&query?.evidence?'evidence':['radar','watches','source_jobs','notifications','preferences','closing','changes'].includes(name)?'radar':name;
   try{await CampusAssets.ensure(route);}catch(error){if(version===pageVersion){set(heading+'<p class="empty">页面组件暂时无法读取。</p><button id="page-load-retry" class="btn">重新读取页面</button>');$('#page-load-retry').onclick=()=>page(name,query).catch(fail);}return;}
@@ -135,7 +140,7 @@ async function reviewInterview(interviewID) {
   $('#add-topic').onclick=addTopic;
   const localDrafts=globalThis.CampusDrafts?.mount({user:capabilities.user_id,scope:'review-'+interviewID,tracker:drafts,allow:id=>id==='review',active:()=>version===pageVersion,prepare:(form,values)=>{for(let i=0;i<values.filter(v=>v.name==='topic').length;i++)addTopic();}});
   CampusNavigation.register({active:()=>version===pageVersion,dirty:()=>drafts.dirty(),checkpoint:()=>localDrafts?.flush(),dispose:()=>localDrafts?.dispose()});
-  formAction('#review',async(data,form)=>{const point=drafts.savepoint('#review');const lines=k=>String(data.get(k)||'').split('\n').map(s=>s.trim()).filter(Boolean);const weak=[...form.querySelectorAll('.topic-row')].map(row=>({topic:row.querySelector('[name="topic"]').value,weight:Number(row.querySelector('[name="weight"]').value),evidence:row.querySelector('[name="evidence"]').value}));await api('/api/reviews','POST',{interview_id:interviewID,actual_questions:lines('actual_questions'),self_evaluation:data.get('self_evaluation'),missed_points:lines('missed_points'),follow_up_notes:data.get('follow_up_notes'),weak_topics:weak});if(version!==pageVersion)return;drafts.saved('#review',point);localDrafts?.flush();await page('interviews');});
+  formAction('#review',async(data,form)=>{const point=drafts.savepoint('#review');const lines=k=>String(data.get(k)||'').split('\n').map(s=>s.trim()).filter(Boolean);const weak=[...form.querySelectorAll('.topic-row')].map(row=>({topic:row.querySelector('[name="topic"]').value,weight:Number(row.querySelector('[name="weight"]').value),evidence:row.querySelector('[name="evidence"]').value}));await api('/api/reviews','POST',{interview_id:interviewID,actual_questions:lines('actual_questions'),self_evaluation:data.get('self_evaluation'),missed_points:lines('missed_points'),follow_up_notes:data.get('follow_up_notes'),weak_topics:weak});if(version!==pageVersion)return;drafts.saved('#review',point);localDrafts?.flush();await page('interviews');},{success:'本轮复盘已保存。'});
 }
 function renderAgent(result,box,onConfirmed) {
   const terminal=result.terminal_reason;

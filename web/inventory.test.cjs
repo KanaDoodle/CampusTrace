@@ -1,5 +1,12 @@
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const I=require('./inventory.js');
+test('warm inventory is isolated by identity, expires after five idle minutes and clears on sign out',()=>{
+ const fs=require('node:fs'),vm=require('node:vm');let now=1000;
+ const context={Date:{now:()=>now}};vm.createContext(context);vm.runInContext(fs.readFileSync(__dirname+'/inventory.js','utf8'),context);
+ const cache=context.CampusInventory,value={jobs:[]};cache.remember('alice:model-a',value);
+ assert.equal(cache.recall('alice:model-a'),value);assert.equal(cache.recall('bob:model-a'),null);assert.equal(cache.recall('alice:model-b'),null);
+ now+=5*60*1000;assert.equal(cache.recall('alice:model-a'),null);cache.remember('alice:model-a',value);cache.forget();assert.equal(cache.recall('alice:model-a'),null);
+});
 const fields=['id','title','company','cities','input_key','state','preliminary_score','direction','application'];
 const row=(id,score=50)=>[id,id,'合成公司',['上海'],'input-'+id,'BASIC',score,'MATCH',null];
 test('quota metadata survives index hydration, submission deltas and rule removal',()=>{

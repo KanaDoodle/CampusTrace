@@ -61,6 +61,7 @@ function harness({readFile,modelAvailable=false,draftResult,initialProfile,initi
 }
 test('profile keeps every matching field in a single form across hidden sections and recognizes legacy full-time preferences',async()=>{
   const h=harness();await h.start();
+  assert.match(h.html(),/id="local-drafts"/);
   const form=h.html().match(/<form id="save-profile"[^>]*>([\s\S]*?)<\/form>/)[1];
   for(const name of ['education-count','education-0-graduation_year','education-0-degree','education-0-majors','primary_education_id','experience_months','target_roles','preferred_cities','acceptable_cities','target_languages','technical_skills','preferred_job_types'])assert.ok(form.includes(`name="${name}"`),name);
   assert.match(form,/id="profile-preferences"[^>]*hidden/);

@@ -6,5 +6,6 @@ test('concurrent lazy route loads share assets; a network failure can be retried
 });
 test('route manifest refers to real assets, and sign in does not eagerly load optional features',()=>{
  const h=setup();for(const files of Object.values(h.A.routes))for(const file of files)assert.ok(fs.existsSync(__dirname+'/'+file),file);
+ const embedded=fs.readFileSync(__dirname+'/embed.go','utf8');for(const file of h.A.routes.radar)assert.ok(embedded.includes(file),file+' must be served by the compiled API');
  const html=fs.readFileSync(__dirname+'/index.html','utf8');assert.equal([...html.matchAll(/<script /g)].length,6);for(const name of ['profile.js','agent_harness.js','jszip.min.js'])assert.equal(html.includes(name),false);
 });

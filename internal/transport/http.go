@@ -491,6 +491,26 @@ func (a *API) Handler() http.Handler {
 		v, err := a.Store.ApplicationHistory(r.Context(), user(r), r.PathValue("id"))
 		write(w, v, err)
 	})
+	on("PUT /api/applications/{id}/follow-up", func(w http.ResponseWriter, r *http.Request) {
+		var in p.ApplicationFollowUp
+		if err := decode(r, &in); err != nil {
+			write(w, nil, err)
+			return
+		}
+		v, err := a.Store.SaveApplicationFollowUp(r.Context(), user(r), r.PathValue("id"), in)
+		write(w, v, err)
+	})
+	on("POST /api/applications/{id}/follow-up/complete", func(w http.ResponseWriter, r *http.Request) {
+		var in struct {
+			Version int `json:"version"`
+		}
+		if err := decode(r, &in); err != nil {
+			write(w, nil, err)
+			return
+		}
+		v, err := a.Store.CompleteApplicationFollowUp(r.Context(), user(r), r.PathValue("id"), in.Version)
+		write(w, v, err)
+	})
 	on("POST /api/applications", func(w http.ResponseWriter, r *http.Request) {
 		b, err := io.ReadAll(io.LimitReader(r.Body, 65537))
 		if err != nil {

@@ -8,6 +8,7 @@ import (
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
 	"github.com/KanaDoodle/CampusTrace/internal/rules"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -45,7 +46,7 @@ func radarDeadline(os []d.Observation, es []d.Evidence, now time.Time) (*time.Ti
 	var earliest *time.Time
 	version := ""
 	for _, o := range current {
-		if o.FetchStatus != "SUCCESS" || o.ExtractionStatus != "COMPLETE" || now.Sub(o.ObservedAt) > 7*24*time.Hour {
+		if o.FetchStatus != "SUCCESS" || o.ExtractionStatus != "COMPLETE" || now.Sub(o.ObservedAt) > 7*24*time.Hour || o.ObservedAt.After(now.Add(time.Minute)) {
 			continue
 		}
 		for _, e := range active {
@@ -103,7 +104,23 @@ func (s *Store) radarJobs(ctx context.Context, q Queryer, user string, now time.
 	return s.radarJobRows(ctx, q, user, now, jobs)
 }
 func (s *Store) radarJobRows(ctx context.Context, q Queryer, user string, now time.Time, jobs []d.Job) ([]d.RadarJob, error) {
-	apps, err := Many[d.Application](ctx, q, "SELECT body FROM applications WHERE user_id=?", user)
+	return s.radarBatchRows(ctx, q, user, now, jobs, true)
+}
+
+// Read evidence in bounded batches rather than two queries for every job.
+// Deadline browsing does not need candidate scoring or a saved profile.
+func (s *Store) radarBatchRows(ctx context.Context, q Queryer, user string, now time.Time, jobs []d.Job, score bool) ([]d.RadarJob, error) {
+	out := []d.RadarJob{}
+	if len(jobs) == 0 {
+		return out, nil
+	}
+	slots, args := []string{}, []any{user}
+	for _, j := range jobs {
+		slots = append(slots, "?")
+		args = append(args, j.ID)
+	}
+	where := " IN (" + strings.Join(slots, ",") + ")"
+	apps, err := Many[d.Application](ctx, q, "SELECT body FROM applications WHERE user_id=? AND job_id"+where, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +128,7 @@ func (s *Store) radarJobRows(ctx context.Context, q Queryer, user string, now ti
 	for i := range apps {
 		byJob[apps[i].JobID] = &apps[i]
 	}
-	prefs, err := Many[d.UserJobPreference](ctx, q, "SELECT JSON_OBJECT('job_id',job_id,'disposition',disposition) FROM user_job_preferences WHERE user_id=?", user)
+	prefs, err := Many[d.UserJobPreference](ctx, q, "SELECT JSON_OBJECT('job_id',job_id,'disposition',disposition) FROM user_job_preferences WHERE user_id=? AND job_id"+where, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -119,38 +136,48 @@ func (s *Store) radarJobRows(ctx context.Context, q Queryer, user string, now ti
 	for _, v := range prefs {
 		dispositions[v.JobID] = v.Disposition
 	}
-	profile, err := One[d.Profile](ctx, q, "SELECT body FROM profiles WHERE user_id=?", user)
-	hasProfile := err == nil
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+	os, err := Many[d.Observation](ctx, q, "SELECT body FROM observations WHERE job_id"+where+" ORDER BY observed_at,id", args[1:]...)
+	if err != nil {
 		return nil, err
 	}
-	out := []d.RadarJob{}
+	es, err := Many[d.Evidence](ctx, q, "SELECT body FROM evidence WHERE job_id"+where+" ORDER BY id", args[1:]...)
+	if err != nil {
+		return nil, err
+	}
+	observations, evidence := map[string][]d.Observation{}, map[string][]d.Evidence{}
+	for _, v := range os {
+		observations[v.JobID] = append(observations[v.JobID], v)
+	}
+	for _, v := range es {
+		evidence[v.JobID] = append(evidence[v.JobID], v)
+	}
+	var profile d.Profile
+	hasProfile := false
+	if score {
+		profile, err = One[d.Profile](ctx, q, "SELECT body FROM profiles WHERE user_id=?", user)
+		hasProfile = err == nil
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return nil, err
+		}
+	}
 	for _, j := range jobs {
 		if dispositions[j.ID] == "IGNORED" {
 			continue
 		}
-		os, err := Many[d.Observation](ctx, q, "SELECT body FROM observations WHERE job_id=? ORDER BY observed_at,id", j.ID)
-		if err != nil {
-			return nil, err
-		}
-		es, err := Many[d.Evidence](ctx, q, "SELECT body FROM evidence WHERE job_id=? ORDER BY id", j.ID)
-		if err != nil {
-			return nil, err
-		}
-		originalJob := j
+		os, es := observations[j.ID], evidence[j.ID]
+		original := j
 		current, ev := rules.Current(os, es)
-		status := rules.Status(j.ID, current, ev, now)
-		j.CurrentStatus = status.Status
+		j.CurrentStatus = rules.Status(j.ID, current, ev, now).Status
 		v := d.RadarJob{Job: j, Eligibility: "UNKNOWN", Disposition: "NONE", Application: byJob[j.ID]}
 		if value := dispositions[j.ID]; value != "" {
 			v.Disposition = value
 		}
 		if hasProfile {
-			evaluation := s.evaluateInputs(originalJob, profile, os, es, now)
-			v.Eligibility = evaluation.Eligibility.Status
-			v.Ranking = evaluation.Ranking
+			evaluation := s.evaluateInputs(original, profile, os, es, now)
+			v.Eligibility, v.Ranking = evaluation.Eligibility.Status, evaluation.Ranking
 		}
 		v.Deadline, v.DeadlineVersion = radarDeadline(os, es, now)
+		v.DeadlineDate = decisionDeadlineDate(os, es, now, v.Deadline)
 		out = append(out, v)
 	}
 	return out, nil
@@ -200,24 +227,50 @@ func (s *Store) ClosingJobs(ctx context.Context, user string, days int) ([]d.Rad
 	}
 	var out []d.RadarJob
 	err := s.radarSnapshot(ctx, func(q Queryer, now time.Time) error {
-		// Narrow by any plausible deadline first, then apply the identical current
-		// evidence/status checks. Unrelated catalog size cannot block this query.
-		candidates, err := Many[d.Job](ctx, q, `SELECT j.body FROM jobs j WHERE (j.visibility='GLOBAL' OR (j.visibility='PRIVATE' AND j.owner_id=?)) AND EXISTS (SELECT 1 FROM evidence e WHERE e.job_id=j.id AND JSON_UNQUOTE(JSON_EXTRACT(e.body,'$.type'))='DEADLINE' AND JSON_UNQUOTE(JSON_EXTRACT(e.body,'$.value'))>=? AND JSON_UNQUOTE(JSON_EXTRACT(e.body,'$.value'))<=?) ORDER BY j.id LIMIT 501`, user, now.Add(-24*time.Hour).Format("2006-01-02"), now.Add(time.Duration(days+1)*24*time.Hour).Format("2006-01-02"))
-		if err != nil {
-			return err
-		}
-		if len(candidates) > 500 {
-			return ErrRadarCapacity
-		}
-		jobs, err := s.radarJobRows(ctx, q, user, now, candidates)
-		if err != nil {
-			return err
-		}
-		out = closing(jobs, now, days)
-		return nil
+		var err error
+		out, err = s.closingJobs(ctx, q, user, now, days)
+		return err
 	})
 	return out, err
 }
+
+// The window query is only a candidate filter. Current source generations,
+// timezones, freshness, status and user actions are verified from evidence.
+func (s *Store) closingJobs(ctx context.Context, q Queryer, user string, now time.Time, days int) ([]d.RadarJob, error) {
+	if user == "" {
+		return nil, ErrNotFound
+	}
+	out, cursor, scanned := []d.RadarJob{}, "", 0
+	for {
+		batch, err := Many[d.Job](ctx, q, `SELECT j.body FROM jobs j
+ LEFT JOIN user_job_preferences p ON p.job_id=j.id AND p.user_id=?
+ LEFT JOIN applications a ON a.job_id=j.id AND a.user_id=?
+ WHERE j.id>? AND (j.visibility='GLOBAL' OR (j.visibility='PRIVATE' AND j.owner_id=?))
+ AND COALESCE(p.disposition,'NONE')<>'IGNORED'
+ AND (a.id IS NULL OR JSON_UNQUOTE(JSON_EXTRACT(a.body,'$.current_state'))='PLANNED')
+ AND EXISTS (SELECT 1 FROM evidence e WHERE e.job_id=j.id AND JSON_UNQUOTE(JSON_EXTRACT(e.body,'$.type'))='DEADLINE'
+ AND JSON_UNQUOTE(JSON_EXTRACT(e.body,'$.value'))>=? AND JSON_UNQUOTE(JSON_EXTRACT(e.body,'$.value'))<?)
+ ORDER BY j.id LIMIT 100`, user, user, cursor, user, now.Add(-48*time.Hour).Format("2006-01-02"), now.Add(time.Duration(days+2)*24*time.Hour).Format("2006-01-02"))
+		if err != nil {
+			return nil, err
+		}
+		if len(batch) == 0 {
+			break
+		}
+		scanned += len(batch)
+		if scanned > 10000 {
+			return nil, ErrRadarCapacity
+		}
+		rows, err := s.radarBatchRows(ctx, q, user, now, batch, false)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, closing(rows, now, days)...)
+		cursor = batch[len(batch)-1].ID
+	}
+	return closing(out, now, days), nil
+}
+
 func closing(jobs []d.RadarJob, now time.Time, days int) []d.RadarJob {
 	out := []d.RadarJob{}
 	for _, v := range jobs {
@@ -344,10 +397,6 @@ func (s *Store) RefreshNotifications(ctx context.Context, user string) (created,
 	}
 	defer tx.Rollback()
 	now := time.Now().UTC()
-	jobs, e := s.radarJobs(ctx, tx, user, now)
-	if e != nil {
-		return 0, 0, e
-	}
 	add := func(typ, entity, id, version, title, body string) error {
 		ok, e := notification(ctx, tx, d.Notification{UserID: user, Type: typ, EntityType: entity, EntityID: id, EventVersion: version, Title: title, Body: body})
 		if e == nil {
@@ -359,12 +408,37 @@ func (s *Store) RefreshNotifications(ctx context.Context, user string) (created,
 		}
 		return e
 	}
-	for _, j := range jobs {
-		if recommended(j) && j.Ranking.Score >= 70 && j.Job.CreatedAt.After(now.Add(-24*time.Hour)) {
-			if e = add("NEW_HIGH_PRIORITY_JOB", "JOB", j.Job.ID, "first-priority", "新增优先投递岗位", j.Job.Company+" · "+j.Job.Title); e != nil {
-				return 0, 0, e
+	cursor, scanned := "", 0
+	for {
+		batch, err := Many[d.Job](ctx, tx, `SELECT j.body FROM jobs j WHERE j.id>? AND (j.visibility='GLOBAL' OR (j.visibility='PRIVATE' AND j.owner_id=?)) AND JSON_UNQUOTE(JSON_EXTRACT(j.body,'$.created_at'))>=? ORDER BY j.id LIMIT 100`, cursor, user, now.Add(-24*time.Hour).Format("2006-01-02"))
+		if err != nil {
+			return 0, 0, err
+		}
+		if len(batch) == 0 {
+			break
+		}
+		scanned += len(batch)
+		if scanned > 10000 {
+			return 0, 0, ErrRadarCapacity
+		}
+		jobs, err := s.radarBatchRows(ctx, tx, user, now, batch, true)
+		if err != nil {
+			return 0, 0, err
+		}
+		for _, j := range jobs {
+			if recommended(j) && j.Ranking.Score >= 70 && j.Job.CreatedAt.After(now.Add(-24*time.Hour)) {
+				if e = add("NEW_HIGH_PRIORITY_JOB", "JOB", j.Job.ID, "first-priority", "新增优先投递岗位", j.Job.Company+" · "+j.Job.Title); e != nil {
+					return 0, 0, e
+				}
 			}
 		}
+		cursor = batch[len(batch)-1].ID
+	}
+	jobs, e := s.closingJobs(ctx, tx, user, now, 7)
+	if e != nil {
+		return 0, 0, e
+	}
+	for _, j := range jobs {
 		if actionable(j) && j.Deadline != nil && j.Deadline.After(now) {
 			hours := j.Deadline.Sub(now).Hours()
 			window := ""

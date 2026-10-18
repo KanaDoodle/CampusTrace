@@ -19,7 +19,7 @@ const CampusInterviews=(function(root){
   }
   async function page(set,heading,{api,esc,D,formAction,navigate,reviewInterview,initialInterview='',initialView='',active=()=>true}){
     const [cap,records]=await Promise.all([api('/api/profile/resume/capabilities'),api('/api/interviews')]);if(!active())return;
-    let rows=records;const N=root.CampusNavigation,saved=N?.readWorkflow(cap.user_id,'interviews')||{};
+    let rows=records,localDrafts=null;const N=root.CampusNavigation,saved=N?.readWorkflow(cap.user_id,'interviews')||{};
     let initialNotice='';
     if(initialInterview&&!rows.some(row=>row.id===initialInterview)){try{rows.push(await api('/api/interviews/'+encodeURIComponent(initialInterview)));}catch(error){initialNotice=error.message;}}
     if(!active())return;
@@ -28,10 +28,11 @@ const CampusInterviews=(function(root){
     const editors=new Set(),drafts=root.CampusNavigation?.forms(document,{selector:'#interview-records form',retainMissing:true});
     const companies=[...new Set(rows.map(row=>row.job?.company).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'zh'));
     if(company&&!companies.includes(company))company='';
-    if(!set(heading+`<form id="interview-filter" class="workflow-filter"><label>搜索公司或岗位<input id="interview-search" type="search" placeholder="例如：小红书、后端开发"></label><label>公司<select id="interview-company"><option value="">所有公司</option>${companies.map(c=>`<option>${esc(c)}</option>`).join('')}</select></label><label>面试进度<select id="interview-view"><option value="all">全部面试</option><option value="pending">待面试／待记录完成</option><option value="review">待复盘</option><option value="completed">已完成</option></select></label><button type="button" id="interview-reset" class="btn btn-subtle">清除筛选</button></form><p id="interview-summary" class="meta" role="status"></p><section id="interview-records"></section>`))return;
+    if(!set(heading+`<form id="interview-filter" class="workflow-filter"><label>搜索公司或岗位<input id="interview-search" type="search" placeholder="例如：小红书、后端开发"></label><label>公司<select id="interview-company"><option value="">所有公司</option>${companies.map(c=>`<option>${esc(c)}</option>`).join('')}</select></label><label>面试进度<select id="interview-view"><option value="all">全部面试</option><option value="pending">待面试／待记录完成</option><option value="review">待复盘</option><option value="completed">已完成</option></select></label><button type="button" id="interview-reset" class="btn btn-subtle">清除筛选</button></form><p id="interview-summary" class="meta" role="status"></p><section id="local-drafts" class="local-drafts" aria-label="面试反馈草稿"></section><section id="interview-records"></section>`))return;
     const q=s=>document.querySelector(s),notify=message=>root.CampusUI.notify(message),go=(...args)=>Promise.resolve(navigate(...args)).catch(error=>notify(error.message));
-    const checkpoint=()=>N?.storeWorkflow(cap.user_id,'interviews',{query:q('#interview-search').value,company,view,page:pageNumber,scroll:root.scrollY||0});
-    root.CampusNavigation?.register({active,checkpoint,dirty:()=>busy||drafts?.dirty()});
+    const savePosition=()=>N?.storeWorkflow(cap.user_id,'interviews',{query:q('#interview-search').value,company,view,page:pageNumber,scroll:root.scrollY||0});
+    const checkpoint=()=>{savePosition();localDrafts?.flush();};
+    root.CampusNavigation?.register({active,checkpoint,dispose:()=>localDrafts?.dispose(),dirty:()=>busy||drafts?.dirty()});
     function draw(){
       if(!active())return;drafts?.capture();
       for(const el of q('#interview-records').querySelectorAll('[data-interview-editor]'))el.open?editors.add(el.dataset.interviewEditor):editors.delete(el.dataset.interviewEditor);
@@ -40,16 +41,16 @@ const CampusInterviews=(function(root){
       q('#interview-summary').textContent=`待面试／待记录完成 ${rows.filter(row=>!completed(row)).length} 轮 · 待复盘 ${rows.filter(row=>completed(row)&&!row.review).length} 轮 · 当前筛选 ${visible.length} 轮`+(rows.length>=500?'。当前载入最近 500 轮面试。':'');
       q('#interview-records').innerHTML=render(slice,{esc,D})+(pages>1?`<div class="workflow-pagination"><span>第 ${pageNumber} / ${pages} 页</span><button class="btn btn-small" data-interview-page="${pageNumber-1}" ${pageNumber===1?'disabled':''}>上一页</button><button class="btn btn-small" data-interview-page="${pageNumber+1}" ${pageNumber===pages?'disabled':''}>下一页</button></div>`:'');
       for(const el of q('#interview-records').querySelectorAll('[data-interview-editor]'))el.open=editors.has(el.dataset.interviewEditor);
-      drafts?.restore();
+      drafts?.restore();localDrafts?.draw();
       for(const button of q('#interview-records').querySelectorAll('[data-interview-page]'))button.onclick=()=>{pageNumber=Number(button.dataset.interviewPage);draw();};
       for(const button of q('#interview-records').querySelectorAll('[data-interview-application]'))button.onclick=()=>go('applications',{applicationID:button.dataset.interviewApplication});
       for(const button of q('#interview-records').querySelectorAll('[data-interview-preparation]'))button.onclick=()=>go('matching',{jobID:button.dataset.interviewPreparation,view:'preparation'});
       for(const button of q('#interview-records').querySelectorAll('[data-interview-review]'))button.onclick=()=>Promise.resolve(reviewInterview(button.dataset.interviewReview)).catch(error=>notify(error.message));
       for(const row of slice)formAction('#interview-result-'+row.id,async data=>{
-        if(busy)return;busy=true;const selector='#interview-result-'+row.id,point=drafts?.savepoint(selector);
-        try{const saved=await api('/api/interviews/'+encodeURIComponent(row.id)+'/finish','POST',{result:data.get('result'),notes:String(data.get('notes')||'').trim()});if(!active())return;drafts?.saved(selector,point);rows=rows.map(old=>old.id===saved.id?{...old,...saved}:old);busy=false;draw();notify('本轮面试完成情况已保存。');}
+        if(busy)return false;busy=true;const selector='#interview-result-'+row.id,point=drafts?.savepoint(selector);
+        try{const saved=await api('/api/interviews/'+encodeURIComponent(row.id)+'/finish','POST',{result:data.get('result'),notes:String(data.get('notes')||'').trim()});if(!active())return;drafts?.saved(selector,point);rows=rows.map(old=>old.id===saved.id?{...old,...saved}:old);busy=false;draw();localDrafts?.flush();notify('本轮面试完成情况已保存。');}
         finally{busy=false;if(active())for(const button of q('#interview-records').querySelectorAll('form button'))button.disabled=false;}
-      });
+      },{success:'本轮面试完成情况已保存。'});
       for(const button of q('#interview-records').querySelectorAll('form button'))button.disabled=busy;
     }
     function applyFilters(){query=q('#interview-search').value;company=q('#interview-company').value;view=q('#interview-view').value;pageNumber=1;draw();}
@@ -58,6 +59,7 @@ const CampusInterviews=(function(root){
     q('#interview-view').value=view;q('#interview-search').value=query;q('#interview-company').value=company;
     if(initialInterview){const visible=filtered(rows,{view}),index=visible.findIndex(row=>row.id===initialInterview);if(index>=0)pageNumber=Math.floor(index/25)+1;}
     draw();
+    localDrafts=root.CampusDrafts?.mount({user:cap.user_id,scope:'interview-feedback',tracker:drafts,active,allow:id=>id.startsWith('interview-result-'),help:'仅在本机保留面试反馈与备注。',afterRestore:()=>{draw();for(const el of q('#interview-records').querySelectorAll('[data-interview-editor]'))if(drafts?.entries().some(v=>v.id==='interview-result-'+el.dataset.interviewEditor)){el.open=true;editors.add(el.dataset.interviewEditor);}}});
     if(!initialInterview)root.requestAnimationFrame?.(()=>{if(active())root.scrollTo?.({top:saved.scroll||0,behavior:'instant'});});
     if(initialInterview){const article=q(`[data-interview-id="${initialInterview}"]`);if(article){article.classList.add('application-current');article.scrollIntoView({block:'center',behavior:'instant'});article.querySelector('[data-interview-application]').focus({preventScroll:true});}}
     if(initialNotice)notify(initialNotice);

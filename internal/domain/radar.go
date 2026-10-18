@@ -71,6 +71,7 @@ type RadarJob struct {
 	Disposition     string       `json:"disposition"`
 	Deadline        *time.Time   `json:"deadline,omitempty"`
 	DeadlineVersion string       `json:"deadline_version,omitempty"`
+	DeadlineDate    string       `json:"deadline_date,omitempty"`
 }
 type ChangeItem struct {
 	ID        string    `json:"id"`

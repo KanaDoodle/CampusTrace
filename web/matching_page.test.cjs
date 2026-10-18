@@ -3,7 +3,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
 
-function harness({pending=['pending-a','pending-b'],failed=['failed-a','failed-b'],analyze,exportError,compare,exportRequest,evidenceReviews=0,durable=false,taskRuns=[],taskRequest,taskRead,bulkRequest,importRequest,paging=false,inventoryRequest}={}){
+function harness({pending=['pending-a','pending-b'],failed=['failed-a','failed-b'],analyze,exportError,compare,exportRequest,evidenceReviews=0,durable=false,taskRuns=[],taskRequest,taskRead,bulkRequest,importRequest,paging=false,inventoryRequest,previewRequest,deadlineRequest}={}){
   const stored=new Map(),elements=new Map(),requests=[],exports=[],decisionRequests=[],taskRequests=[],bulkRequests=[],importRequests=[],inventoryRequests=[],timers=[],navigations=[];
   const model={url:'https://model.example/chat',model:'test-model',api_key:'synthetic-test-key'};
   const modelKey=JSON.stringify([model.url,model.model,'server-model']);
@@ -16,7 +16,7 @@ function harness({pending=['pending-a','pending-b'],failed=['failed-a','failed-b
     html=value;elements.clear();
     for(const match of value.matchAll(/<([a-z][\w:-]*)\b([^>]*\bid="([^"]+)"[^>]*)>/gi)){
       const [,tag,attributes,id]=match;
-      elements.set(id,{id,tagName:tag.toUpperCase(),disabled:/\sdisabled(?:\s|>|$)/.test(attributes),checked:/\schecked(?:\s|>|$)/.test(attributes),value:attributes.match(/\bvalue="([^"]*)"/)?.[1]||'',isConnected:true,innerHTML:'',dataset:{},getClientRects:()=>[],showModal(){this.open=true;},close(){this.open=false;this.onclose?.();}});
+      elements.set(id,{id,tagName:tag.toUpperCase(),disabled:/\sdisabled(?:\s|>|$)/.test(attributes),checked:/\schecked(?:\s|>|$)/.test(attributes),value:attributes.match(/\bvalue="([^"]*)"/)?.[1]||'',isConnected:true,innerHTML:'',dataset:{},querySelector:()=>({onclick:null}),querySelectorAll:()=>[],getClientRects:()=>[],showModal(){this.open=true;},close(){this.open=false;this.onclose?.();}});
     }
     for(const match of value.matchAll(/<select\b[^>]*id="([^"]+)"[^>]*>([\s\S]*?)<\/select>/gi)){
       const options=[...match[2].matchAll(/<option\b([^>]*)>([^<]*)<\/option>/gi)];
@@ -26,8 +26,9 @@ function harness({pending=['pending-a','pending-b'],failed=['failed-a','failed-b
     return true;
   };
   const context={document,TextEncoder,setTimeout:(fn,delay)=>{timers.push({fn,delay});return timers.length;},FormData:class{get(k){const el=elements.get({q:'match-search',company:'match-company',state:'match-state',tier:'match-tier',direction:'match-direction',workflow:'match-workflow',city:'match-city',query_mode:'match-query-mode',exclude:'match-exclude',sort:'match-sort',only_selected:'match-only-selected',show_ignored:'match-show-ignored',show_quota_full:'match-show-quota-full'}[k]);return el?.tagName==='INPUT'&&['only_selected','show_ignored','show_quota_full'].includes(k)?el.checked?'on':'':el?.value||'';}},clearTimeout:id=>{if(timers[id-1])timers[id-1].canceled=true;},crypto:{randomUUID:()=>'synthetic-task-request-00000000000'},sessionStorage:{getItem:k=>stored.get(k),setItem:(k,v)=>stored.set(k,v)},CampusModels:{bindUser(){},requestConfig:()=>model,available:()=>true,label:()=> '测试模型'},CampusMatchingChat:{readSelection:()=>new Set(),selectedRows:()=>[],pruneSelection(){},storeSelection(){}},console};
-  vm.createContext(context);vm.runInContext(fs.readFileSync(__dirname+'/ui.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/navigation.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching_decision.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching_tasks.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching_chat.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/inventory.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching.js','utf8'),context);
+  vm.createContext(context);vm.runInContext(fs.readFileSync(__dirname+'/ui.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/navigation.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching_decision.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching_tasks.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching_chat.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/inventory.js','utf8'),context);if(deadlineRequest)vm.runInContext(fs.readFileSync(__dirname+'/deadlines.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching.js','utf8'),context);
   const api=async(path,method,body)=>{
+    if(path==='/api/radar/deadlines'&&deadlineRequest)return deadlineRequest();
     if(path==='/api/profile/resume/capabilities')return {inventory_paging:paging,user_id:'alice',model:'server-model',model_available:true,durable_matching:durable};
     if(path.startsWith('/api/matching/tasks')){if(!method||method==='GET'){if(path==='/api/matching/tasks'&&taskRead)return taskRead();return structuredClone(path==='/api/matching/tasks'?taskRuns:taskRuns.find(v=>v.id===path.split('/')[4]));}taskRequests.push({path,body});if(taskRequest)return taskRequest(path,body);throw new Error('unexpected mutation');}
     if(path.startsWith('/api/matching/import/')){importRequests.push({path,body});if(importRequest)return importRequest(path,body);throw new Error('Unexpected chat import');}
@@ -38,7 +39,7 @@ function harness({pending=['pending-a','pending-b'],failed=['failed-a','failed-b
       const tuples=snapshot.jobs.map(r=>[r.job.id,r.job.company,r.job.title,r.job.locations,r.input_key,r.state,r.analysis_mode||'',r.excluded_reason,r.disposition||'',r.preliminary_score,r.local?.role||'',r.local?.tier||'',r.local?.direction?.status||'UNCERTAIN',r.score||null,r.priority||null,r.holistic?.fit||'',r.application||null,r.text_bytes,r.job.job_type,r.campaign||null]);
       return {...snapshot,snapshot_key:key,index:{fields,full:body.known_snapshot!==key,rows:body.known_snapshot!==key?tuples:undefined},jobs:snapshot.jobs.filter(r=>(body.job_ids||[]).includes(r.job.id))};
     }
-    if(path==='/api/matching/preview')return structuredClone(snapshot);
+    if(path==='/api/matching/preview')return previewRequest?previewRequest(body,snapshot):structuredClone(snapshot);
     if(path==='/api/jobs/preferences'){
       bulkRequests.push(body);if(bulkRequest)await bulkRequest(body,bulkRequests.length);
       const updated=[],skipped=[];
@@ -64,8 +65,69 @@ function harness({pending=['pending-a','pending-b'],failed=['failed-a','failed-b
     throw new Error('Unexpected local test API path: '+path);
   };
   const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  return {inventoryRequests,navigations,navigation:context.CampusNavigation,start:(initial={})=>context.CampusMatching.page(set,'<h2>岗位匹配</h2>',{api,esc,D:{text:s=>s,date:()=>'',errorCode:s=>s,matchingDiagnostic:()=>'',label:(_kind,s)=>s},active:()=>true,navigate:(name,query)=>navigations.push({name,query}),...initial}),elements,requests,exports,decisionRequests,taskRequests,bulkRequests,importRequests,timers,stored,snapshot,review:()=>elements.get('match-confirm').onclick(),html:()=>html,consent:()=>elements.get('match-consent').onchange({target:{checked:true}}),progress:()=>JSON.parse(stored.get('campustrace:match-progress:v1:alice'))};
+  return {inventory:context.CampusInventory,model,inventoryRequests,navigations,navigation:context.CampusNavigation,start:(initial={})=>context.CampusMatching.page(set,'<h2>岗位匹配</h2>',{api,esc,D:{text:s=>s,date:()=>'',errorCode:s=>s,matchingDiagnostic:()=>'',label:(_kind,s)=>s},active:()=>true,navigate:(name,query)=>navigations.push({name,query}),...initial}),elements,requests,exports,decisionRequests,taskRequests,bulkRequests,importRequests,timers,stored,snapshot,review:()=>elements.get('match-confirm').onclick(),html:()=>html,consent:()=>elements.get('match-consent').onchange({target:{checked:true}}),progress:()=>JSON.parse(stored.get('campustrace:match-progress:v1:alice'))};
 }
+
+test('home deadlines render before a slow cold inventory, without blocking the subsequent job list',async()=>{
+ let resolveInventory;
+ const h=harness({pending:['a'],failed:[],paging:true,inventoryRequest:()=>new Promise(resolve=>resolveInventory=resolve),deadlineRequest:async()=>({total:1,within_day:1,within_3_days:1,items:[{job:{id:'a',company:'虚构公司',title:'快截止的岗位'},at:new Date(Date.now()+3600000).toISOString()}]})});
+ const opening=h.start();await new Promise(setImmediate);
+ assert.match(h.html(),/即将截止/);assert.match(h.html(),/快截止的岗位/);assert.match(h.html(),/正在读取岗位列表/);assert.doesNotMatch(h.html(),/data-workbench-row=/);
+ resolveInventory(cachedPacket({},h.snapshot,'ready'));await opening;
+ assert.match(h.html(),/快截止的岗位/);assert.match(h.html(),/data-workbench-row="a"/);assert.equal(h.requests.length,0);assert.equal(h.exports.length,0);
+});
+
+function cachedPacket(body,snapshot,key='cached'){
+ return {...structuredClone(snapshot),snapshot_key:key,index:{fields:['id'],full:true,rows:snapshot.jobs.map(row=>[row.job.id])}};
+}
+test('returning to radar paints cached rows before a slow refresh and blocks writes until verified',async()=>{
+ let slow=false,resolve;const h=harness({pending:['a'],failed:[],paging:true,inventoryRequest:(body,snapshot)=>slow?new Promise(done=>resolve=done):cachedPacket(body,snapshot)});
+ await h.start();h.elements.get('match-select-all').onclick();slow=true;
+ const returning=h.start();await new Promise(setImmediate);
+ assert.match(h.html(),/data-workbench-row="a"/);assert.match(h.html(),/正在核对最新岗位/);
+ assert.equal(h.elements.get('match-run').disabled,true);assert.equal(h.elements.get('match-export').disabled,true);
+ await h.elements.get('match-selected-run').onclick();assert.equal(h.exports.length,0);
+ resolve(cachedPacket({},h.snapshot,'verified'));await returning;
+ assert.doesNotMatch(h.html(),/正在核对最新岗位/);assert.equal(h.elements.get('match-run').disabled,false);
+ assert.deepEqual(JSON.parse(h.stored.get('campustrace:match-selection:v1:alice')),['a']);
+});
+test('failed cache verification keeps rows and selection, and an explicit read retry restores actions',async()=>{
+ let mode='ready';const h=harness({pending:['a'],failed:[],paging:true,inventoryRequest:(body,snapshot)=>mode==='failed'?Promise.reject(Error('合成读取失败')):cachedPacket(body,snapshot)});
+ await h.start();h.elements.get('match-select-all').onclick();mode='failed';await h.start();
+ assert.match(h.html(),/data-workbench-row="a"/);assert.match(h.html(),/暂未更新/);assert.equal(h.elements.get('match-export').disabled,true);
+ mode='ready';await h.elements.get('match-sync-retry').onclick();
+ assert.equal(h.elements.get('match-export').disabled,false);assert.equal(h.requests.length,0);assert.equal(h.exports.length,0);
+});
+test('changing the model never shows the previous model inventory while its read is pending',async()=>{
+ let slow=false,resolve;const h=harness({pending:['a'],failed:[],paging:true,inventoryRequest:(body,snapshot)=>slow?new Promise(done=>resolve=done):cachedPacket(body,snapshot)});
+ await h.start();h.model.model='another-model';slow=true;
+ const before=h.html(),opening=h.start();await new Promise(setImmediate);assert.equal(h.html(),before);assert.doesNotMatch(h.html(),/正在核对最新岗位/);
+ resolve(cachedPacket({},h.snapshot,'another'));await opening;assert.equal(h.elements.get('match-run').disabled,false);
+});
+test('cache verification preserves selection IDs outside the cached snapshot until a current inventory arrives',async()=>{
+ let slow=false,resolve;const h=harness({pending:['a'],failed:[],paging:true,inventoryRequest:(body,snapshot)=>slow?new Promise(done=>resolve=done):cachedPacket(body,snapshot)});
+ await h.start();h.stored.set('campustrace:match-selection:v1:alice',JSON.stringify(['a','new-job']));slow=true;const opening=h.start();await new Promise(setImmediate);
+ assert.deepEqual(JSON.parse(h.stored.get('campustrace:match-selection:v1:alice')),['a','new-job']);
+ const current=structuredClone(h.snapshot);current.jobs.push({...structuredClone(current.jobs[0]),job:{...current.jobs[0].job,id:'new-job',title:'新收录岗位'}});resolve(cachedPacket({},current,'fresh'));await opening;
+ assert.match(h.html(),/新收录岗位/);assert.deepEqual(JSON.parse(h.stored.get('campustrace:match-selection:v1:alice')).sort(),['a','new-job']);assert.equal(h.requests.length,0);
+});
+test('a cached refresh finishing after navigation cannot redraw or prune the current selection',async()=>{
+ let slow=false,resolve,active=true;const h=harness({pending:['a'],failed:[],paging:true,inventoryRequest:(body,snapshot)=>slow?new Promise(done=>resolve=done):cachedPacket(body,snapshot)});
+ await h.start();h.elements.get('match-select-all').onclick();slow=true;const opening=h.start({active:()=>active});await new Promise(setImmediate);const before=h.html();active=false;
+ const empty={...structuredClone(h.snapshot),jobs:[]};resolve(cachedPacket({},empty,'empty'));await opening;assert.equal(h.html(),before);assert.deepEqual(JSON.parse(h.stored.get('campustrace:match-selection:v1:alice')),['a']);assert.equal(h.requests.length,0);
+});
+test('cached rows never clear filters or the last job absent from an older snapshot',async()=>{
+ let slow=false,resolve;const h=harness({pending:['a'],failed:[],paging:true,inventoryRequest:(body,snapshot)=>slow?new Promise(done=>resolve=done):cachedPacket(body,snapshot)});
+ await h.start();h.navigation.storeBrowse('alice',{company:'新增公司',city:'北京',lastJob:'new-job'});slow=true;const opening=h.start();await new Promise(setImmediate);
+ assert.equal(h.elements.get('match-company').value,'新增公司');assert.equal(h.elements.get('match-city').value,'北京');assert.equal(h.navigation.readBrowse('alice').lastJob,'new-job');
+ const current=structuredClone(h.snapshot);current.jobs.push({...structuredClone(current.jobs[0]),job:{...current.jobs[0].job,id:'new-job',company:'新增公司',locations:['北京']}});resolve(cachedPacket({},current,'new'));await opening;
+ assert.equal(h.navigation.readBrowse('alice').company,'新增公司');assert.equal(h.navigation.readBrowse('alice').city,'北京');assert.equal(h.navigation.readBrowse('alice').lastJob,'new-job');assert.match(h.html(),/data-workbench-row="new-job"/);
+});
+test('an invalid inventory response leaves a retryable cached view rather than a permanent loading state',async()=>{
+ let malformed=false;const h=harness({pending:['a'],failed:[],paging:true,inventoryRequest:(body,snapshot)=>malformed?{}:cachedPacket(body,snapshot)});
+ await h.start();malformed=true;await h.start();assert.match(h.html(),/暂未更新/);assert.doesNotMatch(h.html(),/正在核对最新岗位/);assert.match(h.html(),/data-workbench-row="a"/);
+ malformed=false;await h.elements.get('match-sync-retry').onclick();assert.doesNotMatch(h.html(),/暂未更新/);assert.equal(h.elements.get('match-run').disabled,false);
+});
 
 for(const paging of [false,true])test(`radar temporarily hides full quota jobs while retaining selections and active records (paging=${paging})`,async()=>{
  const h=harness({pending:['unhandled','submitted','planned','outside'],failed:[],paging});
@@ -580,6 +642,49 @@ test('pending search survives late task rendering and page selection commits it 
  h.elements.get('match-select-page').onclick();assert.equal(h.elements.get('match-search').value,'b');assert.equal(h.navigation.readBrowse('alice').query,'b');
  assert.match(h.html(),/data-workbench-row="b"/);assert.doesNotMatch(h.html(),/data-workbench-row="a"/);
  for(const timer of h.timers.filter(t=>t.delay===240&&!t.canceled))timer.fn();assert.equal(h.elements.get('match-search').value,'b');assert.deepEqual(h.taskRequests,[]);
+});
+
+test('radar waits for Chinese composition before filtering company and job names',async()=>{
+ for(const query of ['腾讯','后端开发']){
+  const h=harness({pending:['a','b'],failed:[]});h.snapshot.jobs[0].job.company='腾讯';h.snapshot.jobs[0].job.title='后端开发';
+  await h.start();const input=h.elements.get('match-search'),before=h.html();
+  input.oncompositionstart();input.value='teng';input.oninput({isComposing:true});
+  assert.equal(h.timers.filter(t=>t.delay===240&&!t.canceled).length,0);
+  h.elements.get('match-filter').onsubmit({preventDefault(){}});
+  assert.equal(h.elements.get('match-search'),input);assert.equal(h.html(),before);assert.equal(h.navigation.readBrowse('alice').query,'');
+  input.value=query;input.oncompositionend();input.oninput({isComposing:false});
+  const timers=h.timers.filter(t=>t.delay===240&&!t.canceled);assert.equal(timers.length,1);timers[0].fn();
+  assert.equal(h.elements.get('match-search').value,query);assert.equal(h.navigation.readBrowse('alice').query,query);
+  assert.match(h.html(),/data-workbench-row="a"/);assert.doesNotMatch(h.html(),/data-workbench-row="b"/);
+  assert.equal(h.requests.length,0);assert.equal(h.exports.length,0);
+ }
+});
+
+test('radar keeps the composing search node alive when task history arrives',async()=>{
+ let resolveTasks;const h=harness({pending:['a','b'],failed:[],durable:true,taskRead:()=>new Promise(resolve=>resolveTasks=resolve)});
+ const starting=h.start();await new Promise(setImmediate);
+ const input=h.elements.get('match-search');input.value='t';input.oninput();const oldTimer=h.timers.find(t=>t.delay===240).fn;
+ input.oncompositionstart();input.value='teng';input.oninput({isComposing:true});oldTimer();
+ resolveTasks([]);await starting;assert.equal(h.elements.get('match-search'),input);assert.equal(input.value,'teng');
+ input.value='测试公司';input.oncompositionend();h.timers.findLast(t=>t.delay===240&&!t.canceled).fn();
+ assert.equal(h.elements.get('match-search').value,'测试公司');assert.equal(h.elements.get('match-run').disabled,false);
+ assert.equal(h.navigation.readBrowse('alice').query,'测试公司');assert.equal(h.taskRequests.length,0);
+});
+
+for(const paging of [false,true])for(const oldFailure of [false,true])test(`radar discards a superseded refresh response and its error (paging=${paging}, oldFailure=${oldFailure})`,async()=>{
+ const pending=[];let calls=0;
+ const packet=(snapshot,key)=>paging?{...snapshot,snapshot_key:key,index:{fields:['id'],full:true,rows:snapshot.jobs.map(r=>[r.job.id])}}:snapshot;
+ const read=(_body,snapshot)=>++calls===1?packet(structuredClone(snapshot),'initial'):new Promise((resolve,reject)=>pending.push({resolve,reject}));
+ const h=harness({pending:['a'],failed:[],paging,previewRequest:read,inventoryRequest:read});
+ await h.start();const refresh=h.elements.get('match-refresh').onclick,older=refresh(),newer=refresh();
+ const current=structuredClone(h.snapshot);current.jobs[0].job.title='更新后的岗位';current.jobs[0].input_key='new-input';
+ current.jobs.push({...structuredClone(current.jobs[0]),job:{...current.jobs[0].job,id:'new-job',title:'新收录岗位'}});
+ pending[1].resolve(packet(current,'new'));await newer;assert.match(h.html(),/更新后的岗位/);
+ h.elements.get('match-select-all').onclick();
+ if(oldFailure)pending[0].reject(Error('过时请求的错误'));else pending[0].resolve(packet(structuredClone(h.snapshot),'old'));
+ await older;assert.match(h.html(),/更新后的岗位/);assert.doesNotMatch(h.html(),/过时请求的错误/);
+ assert.match(h.html(),/新收录岗位/);assert.deepEqual(JSON.parse(h.stored.get('campustrace:match-selection:v1:alice')).sort(),['a','new-job']);
+ assert.equal(h.requests.length,0);assert.equal(h.exports.length,0);
 });
 
 test('empty results distinguish missing imports, hidden matches, and filtered selections',async()=>{

@@ -298,6 +298,8 @@ type Application struct {
 	AppliedAt     *time.Time `json:"applied_at,omitempty"`
 	ResumeVersion string     `json:"resume_version"`
 	Note          string     `json:"note,omitempty"`
+	FollowUpAt    *time.Time `json:"follow_up_at,omitempty"`
+	NextAction    string     `json:"next_action,omitempty"`
 	CreatedAt     time.Time  `json:"created_at"`
 	UpdatedAt     time.Time  `json:"updated_at"`
 }

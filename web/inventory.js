@@ -1,8 +1,9 @@
 'use strict';
 const CampusInventory=(function(root){
-  let savedScope='',saved=null;
-  function remember(scope,value){savedScope=scope;saved=value;}
-  function recall(scope){return savedScope===scope?saved:null;}
+  let savedScope='',saved=null,savedAt=0;
+  function remember(scope,value){savedScope=scope;saved=value;savedAt=Date.now();}
+  function recall(scope){return savedScope===scope&&Date.now()-savedAt<5*60*1000?saved:null;}
+  function forget(){savedScope='';saved=null;savedAt=0;}
   function decode(fields,row){
     if(!Array.isArray(row)||row.length!==fields.length)throw new Error('岗位列表格式暂不可读取，请刷新。');
     const v=Object.fromEntries(fields.map((key,i)=>[key,row[i]]));
@@ -18,5 +19,5 @@ const CampusInventory=(function(root){
     for(const r of response.jobs||[])if(rows.has(r.job.id))rows.set(r.job.id,r);
     return {...response,jobs:[...rows.values()]};
   }
-  const api={merge,decode,remember,recall};if(typeof module==='object'&&module.exports)module.exports=api;root.CampusInventory=api;return api;
+  const api={merge,decode,remember,recall,forget};if(typeof module==='object'&&module.exports)module.exports=api;root.CampusInventory=api;return api;
 })(typeof window==='undefined'?globalThis:window);

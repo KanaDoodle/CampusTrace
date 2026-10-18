@@ -23,6 +23,7 @@ type Todo struct {
 	InterviewID   string          `json:"interview_id,omitempty"`
 	TaskID        string          `json:"task_id,omitempty"`
 	Round         int             `json:"round,omitempty"`
+	NextAction    string          `json:"next_action,omitempty"`
 	At            time.Time       `json:"at"`
 }
 type TodoSnapshot struct {
@@ -35,7 +36,7 @@ type TodoSnapshot struct {
 // This projection is read-only and independent of Radar's global catalog cap.
 // No candidate content, credentials, retry, notification write or model call.
 func (s *Store) Todos(ctx context.Context, user string) (TodoSnapshot, error) {
-	v := TodoSnapshot{Counts: map[string]int{"PLANNED_CLOSING": 0, "INTERVIEW_UPCOMING": 0, "REVIEW_PENDING": 0, "ANALYSIS_FAILED": 0}, Items: []Todo{}, Truncated: map[string]bool{}}
+	v := TodoSnapshot{Counts: map[string]int{"PLANNED_CLOSING": 0, "APPLICATION_FOLLOW_UP": 0, "INTERVIEW_UPCOMING": 0, "REVIEW_PENDING": 0, "ANALYSIS_FAILED": 0}, Items: []Todo{}, Truncated: map[string]bool{}}
 	if user == "" {
 		return v, ErrNotFound
 	}
@@ -46,6 +47,11 @@ func (s *Store) Todos(ctx context.Context, user string) (TodoSnapshot, error) {
 			return err
 		}
 		all := plans
+		followUps, err := applicationFollowUpTodos(ctx, q, user, now)
+		if err != nil {
+			return err
+		}
+		all = append(all, followUps...)
 		interviews, err := interviewRecords(ctx, q, user, 1001)
 		if err != nil {
 			return err
@@ -79,13 +85,13 @@ func (s *Store) Todos(ctx context.Context, user string) (TodoSnapshot, error) {
 		}
 		all = append(all, failures...)
 		sort.Slice(all, func(i, j int) bool {
-			priority := map[string]int{"PLANNED_CLOSING": 0, "INTERVIEW_UPCOMING": 1, "REVIEW_PENDING": 2, "ANALYSIS_FAILED": 3}
+			priority := map[string]int{"PLANNED_CLOSING": 0, "INTERVIEW_UPCOMING": 1, "APPLICATION_FOLLOW_UP": 2, "REVIEW_PENDING": 3, "ANALYSIS_FAILED": 4}
 			a, b := all[i], all[j]
 			if a.Kind != b.Kind {
 				return priority[a.Kind] < priority[b.Kind]
 			}
 			if !a.At.Equal(b.At) {
-				if a.Kind == "PLANNED_CLOSING" || a.Kind == "INTERVIEW_UPCOMING" {
+				if a.Kind == "PLANNED_CLOSING" || a.Kind == "INTERVIEW_UPCOMING" || a.Kind == "APPLICATION_FOLLOW_UP" {
 					return a.At.Before(b.At)
 				}
 				return a.At.After(b.At)

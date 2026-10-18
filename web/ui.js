@@ -28,6 +28,44 @@ const CampusUI=(function(root){
   const heading=(title,subtitle='',actions='')=>`<div class="page-heading"><div><h1>${esc(title)}</h1>${subtitle?`<p>${esc(subtitle)}</p>`:''}</div>${actions?`<div class="heading-actions">${actions}</div>`:''}</div>`;
   const modalHead=(id,title,subtitle='')=>`<div class="modal-head"><div><h2 id="${esc(id)}">${esc(title)}</h2>${subtitle?`<p>${esc(subtitle)}</p>`:''}</div><button type="button" class="icon-btn" data-dialog-close aria-label="关闭弹窗">${icon('close')}</button></div>`;
   const loading=(message='正在读取记录…')=>`<section class="page-loading" aria-busy="true" aria-label="${esc(message)}"><p class="meta"><span class="loading-radar" aria-hidden="true">${icon('radar')}</span>${esc(message)}</p><div></div><div></div><div></div></section>`;
+  // Trusted application markup only. Retain keyed nodes, focus and live dialogs
+  // while updating changed list rows and controls in place.
+  function reconcile(host,html){
+    const template=root.document.createElement('template');
+    if(!template.content){host.innerHTML=html;return;}
+    template.innerHTML=html;
+    const key=n=>n.nodeType===1?(n.id||n.getAttribute('data-workbench-row')||''):'';
+    const same=(a,b)=>a&&a.nodeType===b.nodeType&&a.nodeName===b.nodeName&&key(a)===key(b);
+    function children(parent,fresh){
+      let cursor=parent.firstChild;
+      for(const wanted of [...fresh.childNodes]){
+        let node=same(cursor,wanted)?cursor:key(wanted)?[...parent.childNodes].find(n=>same(n,wanted)):null;
+        if(!node){node=wanted.cloneNode(true);parent.insertBefore(node,cursor);}
+        else{if(node!==cursor)parent.insertBefore(node,cursor);update(node,wanted);}
+        cursor=node.nextSibling;
+      }
+      while(cursor){const next=cursor.nextSibling;parent.removeChild(cursor);cursor=next;}
+    }
+    function update(node,fresh){
+      if(node.nodeType!==1){if(node.nodeValue!==fresh.nodeValue)node.nodeValue=fresh.nodeValue;return;}
+      const before=node.getAttribute('value'),text=node.textContent;
+      for(const attr of [...node.attributes])if(!fresh.hasAttribute(attr.name)&&!(node.nodeName==='DIALOG'&&attr.name==='open'))node.removeAttribute(attr.name);
+      for(const attr of [...fresh.attributes])if(node.getAttribute(attr.name)!==attr.value)node.setAttribute(attr.name,attr.value);
+      children(node,fresh);
+      if(node.nodeName==='INPUT'){
+        if(['checkbox','radio'].includes(node.type))node.checked=fresh.checked;
+        else if(before!==fresh.getAttribute('value')&&node.value!==fresh.value)node.value=fresh.value;
+      }else if(node.nodeName==='TEXTAREA'&&text!==fresh.textContent&&node.value!==fresh.value)node.value=fresh.value;
+      else if(node.nodeName==='SELECT'&&node.value!==fresh.value)node.value=fresh.value;
+    }
+    children(host,template.content);
+  }
+  function formStatus(form,message,kind='status'){
+    if(!form?.querySelector||!root.document?.createElement)return;
+    let el=form.querySelector('[data-form-status]');
+    if(!el){el=root.document.createElement('p');el.setAttribute('data-form-status','');form.append(el);}
+    el.className='form-status is-'+kind;el.setAttribute('role',kind==='error'?'alert':'status');el.textContent=message;
+  }
   const reveals=new WeakMap();
   // Only explicit page/tab changes reveal content. Polling and list refreshes
   // keep their existing position and never restart an entrance sequence.
@@ -101,6 +139,6 @@ const CampusUI=(function(root){
     const message=doc.querySelector('#notice');if(message&&root.MutationObserver)new root.MutationObserver(()=>showDialogNotice(message.textContent)).observe(message,{childList:true,subtree:true,characterData:true});
     const el=doc.querySelector('#job-drawer');if(el)el.addEventListener('close',()=>{setDrawerReading(false);drawerRevision++;el.closest('#match-detail')?.classList.remove('has-detail');for(const row of doc.querySelectorAll('[data-workbench-row]'))row.classList.remove('is-current');for(const button of doc.querySelectorAll('[data-match-job]'))button.removeAttribute('aria-current');if(drawerTrigger?.isConnected)drawerTrigger.focus({preventScroll:true});drawerTrigger=null;});
   }
-  const api={esc,icon,heading,modalHead,loading,reveal,capture,restore,openDialog,placeDrawer,releaseDrawer,drawer,drawerCurrent,setDrawerReading,isDrawerReading:()=>drawerReading,closeAll,activateTab,notify,init};
+  const api={esc,icon,heading,modalHead,loading,reconcile,formStatus,reveal,capture,restore,openDialog,placeDrawer,releaseDrawer,drawer,drawerCurrent,setDrawerReading,isDrawerReading:()=>drawerReading,closeAll,activateTab,notify,init};
   if(typeof module==='object'&&module.exports)module.exports=api;root.CampusUI=api;return api;
 })(typeof window==='undefined'?globalThis:window);

@@ -213,9 +213,16 @@ const CampusMatching=(function(root){
     const savedBrowse=root.CampusNavigation?.readBrowse(cap.user_id)||{};
     if(savedBrowse.radarView==='company'&&!root.CampusCompanyDecision&&root.CampusAssets){await root.CampusAssets.ensure('company');if(active?.()===false)return;}
     if(initialView==='overview'&&!initialJob&&!initialTask&&!initialComparison&&!initialQuery&&!initialWorkflow&&savedBrowse.radarView==='company'&&root.CampusCompanyDecision){return root.CampusCompanyDecision.page(set,heading,{api,esc,D,navigate,active,capabilities:cap});}
+    let inventoryPainted=false;
+    const deadlines=root.CampusDeadlines?.create({api,esc,D,navigate,active,onChange:()=>{
+      if(inventoryPainted)render();
+      else if(active()&&set(heading+deadlines.html()+root.CampusUI.loading('正在读取岗位列表…'),{stable:true}))deadlines.bind(document.querySelector('#deadline-overview'));
+    },onJob:id=>inventoryPainted&&snapshot.jobs.some(row=>row.job.id===id)?openMatchDetail(id):navigate('matching',{jobID:id,view:'overview'})});
+    if(deadlines){root.CampusNavigation?.register({active,dispose:()=>deadlines.dispose()});deadlines.start();}
     const taskRead=cap.durable_matching&&root.CampusMatchTasks?api('/api/matching/tasks').then(value=>({value}),error=>({error})):Promise.resolve({value:[]});
-    const paged=!!cap.inventory_paging&&!!root.CampusInventory,inventoryScope=JSON.stringify([cap.user_id,identity()]),remembered=paged?root.CampusInventory.recall(inventoryScope):null;
-    let snapshot;try{const first=await api(paged?'/api/matching/inventory':'/api/matching/preview','POST',{...identity(),...(paged?{known_snapshot:remembered?.snapshot_key||''}:{summary_only:true})});snapshot=paged?root.CampusInventory.merge(remembered,first):first;}catch(error){if(error.code!=='MATCH_PROFILE_REQUIRED')throw error;const inventory=await api('/api/jobs');if(!set(root.CampusUI.heading('岗位雷达')+'<div class="note-box"><p>先保存求职条件与技能，再开启岗位匹配。</p><button id="match-create-profile" class="btn btn-primary">完善求职资料</button></div>'+inventory.map(j=>`<article class="card"><h3>${esc(D.text(j.title))}</h3><p class="meta">${esc(D.text(j.company))} · ${esc((j.locations||[]).join('、'))}</p><button data-basic-job="${esc(j.id)}" class="btn">查看核验记录</button></article>`).join('')))return;document.querySelector('#match-create-profile').onclick=()=>navigate('profile');for(const b of document.querySelectorAll('[data-basic-job]'))b.onclick=()=>openRecord(b.dataset.basicJob).catch(err=>{document.querySelector('#notice').textContent=err.message;});return;}
+    const paged=!!cap.inventory_paging&&!!root.CampusInventory,inventoryScope=JSON.stringify([cap.user_id,identity(),cap.model]),remembered=paged?root.CampusInventory.recall(inventoryScope):null;
+    const firstRead=api(paged?'/api/matching/inventory':'/api/matching/preview','POST',{...identity(),...(paged?{known_snapshot:remembered?.snapshot_key||''}:{summary_only:true})}).then(value=>({value}),error=>({error}));
+    let snapshot=remembered;try{if(!snapshot){const result=await firstRead;if(result.error)throw result.error;snapshot=paged?root.CampusInventory.merge(null,result.value):result.value;}}catch(error){deadlines?.dispose();if(error.code!=='MATCH_PROFILE_REQUIRED')throw error;const inventory=await api('/api/jobs');if(!set(root.CampusUI.heading('岗位雷达')+'<div class="note-box"><p>先保存求职条件与技能，再开启岗位匹配。</p><button id="match-create-profile" class="btn btn-primary">完善求职资料</button></div>'+inventory.map(j=>`<article class="card"><h3>${esc(D.text(j.title))}</h3><p class="meta">${esc(D.text(j.company))} · ${esc((j.locations||[]).join('、'))}</p><button data-basic-job="${esc(j.id)}" class="btn">查看核验记录</button></article>`).join('')))return;document.querySelector('#match-create-profile').onclick=()=>navigate('profile');for(const b of document.querySelectorAll('[data-basic-job]'))b.onclick=()=>openRecord(b.dataset.basicJob).catch(err=>{document.querySelector('#notice').textContent=err.message;});return;}
     if(!active())return;
     const Navigation=root.CampusNavigation,browse=Navigation?.readBrowse(cap.user_id)||{};
     let query=initialQuery||browse.query||'',filter=initialQuery?'':browse.filter||'',tierFilter=initialQuery?'':browse.tier||'',sort=browse.sort||'deep',sortOrder=browse.sortOrder||'desc',pageNo=initialQuery?1:browse.page||1,running=false,paused=false,consentHash='',notice='';
@@ -226,17 +233,18 @@ const CampusMatching=(function(root){
     let directionFilter=initialQuery||initialWorkflow?'ALL':browse.direction||(targetRoles().length?'MAIN':'ALL'),showIgnored=!!browse.showIgnored,showQuotaFull=!!browse.showQuotaFull,bulkBusy=false;
     let lastJob=browse.lastJob||'',lastTab=browse.lastTab||'overview',drawerOpen=!!browse.drawerOpen,lastOpened=null;
     let comparisonCompany='',comparisonScope='ALL',comparisonReport=null,comparisonBusy=false,comparisonError='',comparisonRevision=0,comparisonTaskIDs=[];
-    let reviewKeys=new Map(),renderedViewKey='',cardRead=null,cardError='',updateDetailNavigation=null;
-    let searchDraft=query,searchPending=false;
+    let reviewKeys=new Map(),renderedViewKey='',cardRead=null,cardError='',updateDetailNavigation=null,inventoryRevision=0;
+    let searchDraft=query,searchPending=false,searchComposing=false;
     let queryMode=browse.queryMode||'ALL',excludeQuery=initialQuery||initialTask?'':browse.excludeQuery||'',cityFilters=initialQuery||initialTask?[]:browse.cities||[],presetName='',bulkExpanded=false,undoIDs=Navigation?.readUndo(cap.user_id)||[];
     let importText='',importDocument=null,importPreview=null,importError='',importBusy=false,importRevision=0,importMask=maskName,importOrigins=new Map();
-    const selected=C.readSelection(cap.user_id,snapshot.jobs);
+    const selected=C.readSelection(cap.user_id,remembered?undefined:snapshot.jobs);
     let onlySelected=initialQuery?false:!!browse.onlySelected,preparing=false,exportFiles=[],exportIndex=0,exportConsent=false,exportKeys=new Map();
     const modelKey=()=>JSON.stringify([identity().model_url,identity().model_name,cap.model]);
     let progress=reconcileProgress(readProgress(cap.user_id,snapshot.candidate_hash,modelKey()),snapshot.jobs);
     const Tasks=root.CampusMatchTasks,durable=!!cap.durable_matching&&!!Tasks;
-    let taskRuns=[],task=null,taskLoading=durable,taskReady=!durable;
-    const taskStateBlocked=()=>durable&&(taskLoading||!taskReady);
+    let taskRuns=[],task=null,taskLoading=durable,taskReady=!durable,inventoryChecking=!!remembered,inventoryError='';
+    const inventoryBlocked=()=>inventoryChecking||!!inventoryError;
+    const taskStateBlocked=()=>inventoryBlocked()||durable&&(taskLoading||!taskReady);
     if(initialTask&&durable){
       query=filter=tierFilter=companyFilter=cityFilter=workflowFilter='';onlySelected=false;pageNo=1;drawerOpen=false;
       directionFilter='ALL';showIgnored=true;
@@ -256,8 +264,11 @@ const CampusMatching=(function(root){
     storeProgress(cap.user_id,progress);
     const baseline=new Map(snapshot.jobs.map(j=>[j.job.id,j.input_key]));let autoQueue=[];
     const current=()=>active();
-    function saveBrowse(){if(paged)root.CampusInventory.remember(inventoryScope,snapshot);Navigation?.storeBrowse(cap.user_id,{radarView:'list',query,queryMode,excludeQuery,cities:cityFilters,filter,tier:tierFilter,workflow:workflowFilter,direction:directionFilter,showIgnored,showQuotaFull,sort,sortOrder,page:pageNo,company:companyFilter,city:cityFilter,onlySelected,lastJob,lastTab,drawerOpen});}
+
+    let browseScroll=Number(browse.scroll)||0,listScroll=Number(browse.listScroll)||0,restorePosition=!initialQuery&&!initialTask&&!initialJob;
+    function saveBrowse(){if(paged&&!inventoryChecking&&!inventoryError)root.CampusInventory.remember(inventoryScope,snapshot);Navigation?.storeBrowse(cap.user_id,{radarView:'list',query,queryMode,excludeQuery,cities:cityFilters,filter,tier:tierFilter,workflow:workflowFilter,direction:directionFilter,showIgnored,showQuotaFull,sort,sortOrder,page:pageNo,company:companyFilter,city:cityFilter,onlySelected,lastJob,lastTab,drawerOpen,scroll:browseScroll,listScroll});}
     function checkpoint(){
+      browseScroll=root.scrollY||0;listScroll=document.querySelector('#match-job-list')?.scrollTop||0;
       const search=document.querySelector('#match-search');
       if(search&&search.value!==query){query=search.value;pageNo=1;}
       searchDraft=query;searchPending=false;
@@ -279,7 +290,7 @@ const CampusMatching=(function(root){
     }
     function selectionChanged(){clearTimeout(searchTimer);checkpoint();C.storeSelection(cap.user_id,selected);clearExport();render();}
     async function readCards(){
-      if(!paged||!current()||cardRead||cardError)return;
+      if(!paged||!current()||inventoryChecking||inventoryError||cardRead||cardError)return;
       const ids=rows().slice((pageNo-1)*50,pageNo*50).filter(r=>r.card_pending).map(r=>r.job.id);
       if(!ids.length)return;
       const version=snapshot.snapshot_key;
@@ -419,21 +430,26 @@ const CampusMatching=(function(root){
       return `<section class="match-progress" aria-label="本轮分析任务"><p role="status">${esc(notice||`本轮已完成 ${progress.done} 个，待处理 ${progress.pending.length} 个，失败 ${progress.failed.length} 个。`)}</p><div class="actions"><button id="match-continue" class="btn btn-small" ${actions.continue.disabled?'disabled':''} title="${esc(actions.continue.reason)}">继续未完成的本轮（${progress.pending.length}）</button><button id="match-retry" class="btn btn-small" ${actions.retry.disabled?'disabled':''} title="${esc(actions.retry.reason)}">重试失败项（${progress.failed.length}）</button><button id="match-pause" class="btn btn-small" ${running?'':'disabled'}>暂停后续分析</button></div><p id="match-actions-help" class="meta">${esc(actions.reason||[actions.continue.reason,actions.retry.reason].filter(Boolean).join(' '))}</p>${progress.failed.length?`<details><summary>查看失败项与原因</summary><ul>${progress.failed.map(f=>`<li>${esc(snapshot.jobs.find(j=>j.job.id===f.id)?.job.title||'岗位')}：${esc(f.message)}</li>`).join('')}</ul></details>`:''}</section>`;
     }
     function render(){
-      if(!current())return;
+      // Replacing the focused input would end the browser's IME session.
+      if(!current()||searchComposing)return;
       if(!searchPending)searchDraft=query;
-      if(companyFilter&&!snapshot.jobs.some(j=>j.job.company===companyFilter))companyFilter='';
-      if(cityFilter&&!snapshot.jobs.some(j=>cityMatch(j,cityFilter)))cityFilter='';
-      if(lastJob&&!snapshot.jobs.some(j=>j.job.id===lastJob)){lastJob='';drawerOpen=false;}
+      if(!inventoryBlocked()){
+        if(companyFilter&&!snapshot.jobs.some(j=>j.job.company===companyFilter))companyFilter='';
+        if(cityFilter&&!snapshot.jobs.some(j=>cityMatch(j,cityFilter)))cityFilter='';
+        if(lastJob&&!snapshot.jobs.some(j=>j.job.id===lastJob)){lastJob='';drawerOpen=false;}
+      }
       const saved=U.capture(),view=rows(),totalPages=Math.max(1,Math.ceil(view.length/50));pageNo=Math.min(pageNo,totalPages);
+      if(restorePosition){saved.y=browseScroll;saved.regions=[...(saved.regions||[]).filter(v=>v.id!=='match-job-list'),{id:'match-job-list',top:listScroll}];}
       const viewKey=JSON.stringify([query,filter,tierFilter,workflowFilter,companyFilter,cityFilter,cityFilters,queryMode,excludeQuery,directionFilter,showIgnored,showQuotaFull,sort,sortOrder,pageNo,onlySelected]);
-      if(viewKey!==renderedViewKey)saved.regions=(saved.regions||[]).filter(region=>region.id!=='match-job-list');renderedViewKey=viewKey;
+      if(renderedViewKey&&viewKey!==renderedViewKey)saved.regions=(saved.regions||[]).filter(region=>region.id!=='match-job-list');renderedViewKey=viewKey;
       saveBrowse();
       const slice=view.slice((pageNo-1)*50,pageNo*50),selectedOnPage=slice.filter(j=>selected.has(j.job.id)).length,availableIDs=new Set(snapshot.jobs.filter(j=>task?.kind==='COMPANY'?!j.excluded_reason:eligible(j)).map(j=>j.job.id));
-      const actions=analysisActions(progress,{running,preparing,taskLoading,taskUnavailable:durable&&!taskReady,authorized:true,modelAvailable:root.CampusModels.available(cap),callsToday:snapshot.calls_today,dailyCalls:snapshot.settings.daily_calls,runCount:shortlist(view,snapshot.settings.round_limit).length,pendingCount:progress.pending.filter(id=>availableIDs.has(id)).length,failedCount:progress.failed.filter(f=>availableIDs.has(f.id)).length});
+      const actions=analysisActions(progress,{running,preparing:preparing||inventoryChecking||!!inventoryError,taskLoading,taskUnavailable:durable&&!taskReady,authorized:true,modelAvailable:root.CampusModels.available(cap),callsToday:snapshot.calls_today,dailyCalls:snapshot.settings.daily_calls,runCount:shortlist(view,snapshot.settings.round_limit).length,pendingCount:progress.pending.filter(id=>availableIDs.has(id)).length,failedCount:progress.failed.filter(f=>availableIDs.has(f.id)).length});
       const companyCounts=new Map();for(const row of matchingRows(directionFilter,'company'))companyCounts.set(row.job.company,(companyCounts.get(row.job.company)||0)+1);
-      const companies=[...new Set(snapshot.jobs.map(j=>j.job.company))].sort((a,b)=>a.localeCompare(b,'zh-CN'));
+      const companies=[...new Set([...snapshot.jobs.map(j=>j.job.company),...(inventoryBlocked()&&companyFilter?[companyFilter]:[])])].sort((a,b)=>a.localeCompare(b,'zh-CN'));
       const cityCounts=new Map(cityOptions(matchingRows(directionFilter,'city')).map(c=>[c.value,c.count]));
       const cities=cityOptions(snapshot.jobs,preferredCities()).map(c=>({...c,count:cityCounts.get(c.value)||0})).filter(c=>c.count||c.value===cityFilter||cityFilters.includes(c.value));
+      if(inventoryBlocked())for(const value of [cityFilter,...cityFilters].filter(Boolean))if(!cities.some(c=>c.value===value))cities.push({value,label:value,count:0,preferred:preferredCities().includes(value)});
       const cityOption=c=>`<option value="${esc(c.value)}" ${cityFilter===c.value?'selected':''}>${esc(c.label)}（${c.count}）</option>`;
       const quickView=browseView(directionFilter,workflowFilter,onlySelected);
       const chips=[['direction',quickView==='CUSTOM'&&directionFilter!=='ALL'&&'职能：'+({MAIN:'主投相关',MATCH:'仅主投方向',RELATED:'相关职能',UNCERTAIN:'方向待判断',UNRELATED:'其他职能'}[directionFilter])],['workflow',quickView==='CUSTOM'&&workflowFilter&&'进度：'+workflows[workflowFilter]],['state',filter&&'分析：'+({BASIC:'未分析',ANALYZED:'已分析',STALE:'需要更新',FAILED:'失败项'}[filter])],['tier',tierFilter&&'初筛：'+tiers[tierFilter]],['query_mode',queryMode==='ANY'&&'关键词匹配任一'],['exclude',excludeQuery&&'排除：'+excludeQuery],['cities',cityFilters.length&&'城市：'+cityFilters.join('、')],['ignored',showIgnored&&'含已忽略岗位'],['quota',showQuotaFull&&'含限投已满岗位']].filter(([,label])=>label);
@@ -443,7 +459,7 @@ const CampusMatching=(function(root){
       const quotaHidden=matchingRows(directionFilter,'quota').filter(j=>j.campaign?.hide_unsubmitted).length;
       const reverseLabel=sort==='company'?(sortOrder==='asc'?'名称正序':'名称倒序'):['updated','created'].includes(sort)?(sortOrder==='asc'?'从旧到新':'从新到旧'):(sortOrder==='asc'?'从低到高':'从高到低');
       const sortOption=([value,label])=>`<option value="${value}" ${sort===value?'selected':''}>${label}</option>`;
-      const html='<div class="radar-page-heading">'+U.heading('岗位雷达','',`<button id="match-open-import" class="btn" ${taskStateBlocked()||running||preparing||bulkBusy?'disabled':''}>${U.icon('upload')}导入聊天分析</button><button id="match-source" class="btn" aria-label="关注来源">${U.icon('radar')}招聘来源</button><button id="match-open-settings" class="btn" aria-label="分析设置">${U.icon('filter')}分析设置</button>`)+`<nav class="radar-view-tabs" aria-label="岗位雷达视图"><button aria-pressed="true" disabled>岗位列表</button><button id="match-company-view" aria-pressed="false">公司投递决策</button></nav></div>${returnCompany?`<div class="radar-return-company"><span>正在处理 ${esc(returnCompany)} 的分析</span><button id="match-return-company" class="text-btn">回到公司决策，继续已选岗位</button></div>`:''}`+progressHTML(actions)+`
+      const html='<div class="radar-page-heading">'+U.heading('岗位雷达','',`<button id="match-open-import" class="btn" ${taskStateBlocked()||running||preparing||bulkBusy?'disabled':''}>${U.icon('upload')}导入聊天分析</button><button id="match-source" class="btn" aria-label="关注来源">${U.icon('radar')}招聘来源</button><button id="match-open-settings" class="btn" aria-label="分析设置">${U.icon('filter')}分析设置</button>`)+`<nav class="radar-view-tabs" aria-label="岗位雷达视图"><button aria-pressed="true" disabled>岗位列表</button><button id="match-company-view" aria-pressed="false">公司投递决策</button></nav></div>${returnCompany?`<div class="radar-return-company"><span>正在处理 ${esc(returnCompany)} 的分析</span><button id="match-return-company" class="text-btn">回到公司决策，继续已选岗位</button></div>`:''}`+(deadlines?.html()||'')+progressHTML(actions)+`
         <form id="match-filter" class="matching-filter radar-filter-bar" aria-label="筛选岗位">
           <div class="radar-filter-topline">${browseViewsHTML({direction:directionFilter,workflow:workflowFilter,onlySelected,hasDirection:!!targetRoles().length,selectedCount:selected.size})}<button type="button" id="match-clear-filters" class="text-btn" ${hasFilters?'':'disabled'}>清空条件</button></div>
           <div class="radar-filter-controls">
@@ -468,10 +484,14 @@ const CampusMatching=(function(root){
         <div id="match-job-list" data-scroll-region class="workbench-job-list" aria-label="当前筛选岗位">${cardError?`<p class="pending-note">卡片说明暂未读取，筛选与选择仍可使用。<button id="match-cards-retry" class="text-btn">重试读取</button></p>`:''}${slice.map(j=>jobRowHTML(j,{esc,D},selected.has(j.job.id),drawerOpen&&lastJob===j.job.id,preparing||bulkBusy,progress.failed.some(f=>f.id===j.job.id),sort)).join('')||emptyResultsHTML()}</div>
         <div class="table-footer"><span>今日分析调用 ${snapshot.calls_today} / ${snapshot.settings.daily_calls}</span><span><button id="match-refresh" class="btn btn-small" ${taskStateBlocked()||running||preparing||bulkBusy?'disabled':''}>刷新</button> 第 ${pageNo} / ${totalPages} 页 <button id="match-prev" class="btn btn-small" ${pageNo===1?'disabled':''}>上一页</button><button id="match-next" class="btn btn-small" ${pageNo===totalPages?'disabled':''}>下一页</button></span></div></section><aside id="match-detail" data-scroll-region class="workbench-detail" aria-label="岗位详情"><div class="workbench-detail-empty"><span>${U.icon('radar')}</span><h2>选择一个岗位</h2><p>查看匹配结果和岗位原文。</p></div></aside></div>${selectionHTML()}${settingsHTML()}${reviewHTML()}${exportHTML()}${importHTML()}${comparisonHTML()}`;
       U.releaseDrawer();
-      if(!set(html))return;
+      const sync=`<div id="match-sync-status" class="inventory-sync" role="status" aria-live="polite">${inventoryChecking?'正在核对最新岗位，当前显示上次浏览内容。':inventoryError?`暂未更新，当前显示上次浏览内容。${esc(inventoryError)} <button type="button" id="match-sync-retry" class="text-btn">重新读取</button>`:''}</div>`;
+      if(!set(html.replace('<form id="match-filter"',sync+'<form id="match-filter"'),{stable:true}))return;
+      restorePosition=false;
       U.placeDrawer(document.querySelector('#match-detail'));
       updateDetailNavigation?.();
       const $=s=>document.querySelector(s),on=(id,fn)=>{const el=$('#'+id);if(el)el.onclick=fn;};
+      on('match-sync-retry',()=>refresh().catch(()=>{}));
+      deadlines?.bind(document.querySelector('#deadline-overview'));
       if(paged){Promise.resolve().then(readCards);on('match-cards-retry',()=>{cardError='';render();});}
       $('#match-select-page-toggle').indeterminate=selectedOnPage>0&&selectedOnPage<slice.length;
       $('#match-select-page-toggle').onchange=e=>{if(preparing||bulkBusy)return;for(const row of slice){if(e.target.checked)selected.add(row.job.id);else selected.delete(row.job.id);}selectionChanged();};
@@ -509,9 +529,9 @@ const CampusMatching=(function(root){
       on('match-model',()=>{paused=true;navigate('models');});
       $('#match-consent').onchange=e=>{consentHash=e.target.checked?snapshot.candidate_hash:'';paused=true;render();};
       on('match-confirm',confirmAnalysis);on('match-review-reload',()=>requestAnalysis(intent.ids,intent.retry,intent.continuing));
-      $('#match-settings').onsubmit=async e=>{e.preventDefault();if(!e.target.reportValidity())return;const f=new FormData(e.target);try{snapshot.settings=await api('/api/matching/settings','PUT',{round_limit:Number(f.get('round_limit')),daily_calls:Number(f.get('daily_calls')),auto_new:f.get('auto_new')==='on'});notice='分析设置已保存。';panel='';render();}catch(err){notice=err.message;render();}};
+      $('#match-settings').onsubmit=async e=>{e.preventDefault();if(taskStateBlocked()||running||preparing||!current()||!e.target.reportValidity())return;const f=new FormData(e.target);try{snapshot.settings=await api('/api/matching/settings','PUT',{round_limit:Number(f.get('round_limit')),daily_calls:Number(f.get('daily_calls')),auto_new:f.get('auto_new')==='on'});if(!current())return;notice='分析设置已保存。';panel='';render();}catch(err){if(current()){notice=err.message;render();}}};
       $('#match-mask').onsubmit=async e=>{e.preventDefault();const name=String(new FormData(e.target).get('mask_name')||'').trim();if(name&&name.length<2){consentHash='';reviewError='请填写至少两个字的姓名或称呼。';render();return;}clearExport();maskName=name;consentHash='';const work=intent;try{await refresh();await requestAnalysis(work.ids,work.retry,work.continuing);}catch(err){reviewError=err.message;render();}};
-      const applyFilter=()=>{clearTimeout(searchTimer);const f=new FormData($('#match-filter'));query=String(f.get('q')||'');searchDraft=query;searchPending=false;queryMode=String(f.get('query_mode')||'ALL');excludeQuery=String(f.get('exclude')||'');filter=String(f.get('state')||'');directionFilter=String(f.get('direction')||'ALL');tierFilter=String(f.get('tier')||'');const nextWorkflow=String(f.get('workflow')||'');const openingIgnored=nextWorkflow==='IGNORED'&&workflowFilter!=='IGNORED';if(openingIgnored)directionFilter='ALL';workflowFilter=nextWorkflow;showIgnored=f.get('show_ignored')==='on';showQuotaFull=f.get('show_quota_full')==='on';const city=String(f.get('city')||'');if(city!=='__MULTI__')cityFilter=city;companyFilter=String(f.get('company')||'');const nextSort=String(f.get('sort')||'deep');if(nextSort!==sort)sortOrder=nextSort==='company'?'asc':'desc';sort=nextSort;onlySelected=!openingIgnored&&f.get('only_selected')==='on';pageNo=1;render();};
+      const applyFilter=()=>{if(searchComposing)return;clearTimeout(searchTimer);const f=new FormData($('#match-filter'));query=String(f.get('q')||'');searchDraft=query;searchPending=false;queryMode=String(f.get('query_mode')||'ALL');excludeQuery=String(f.get('exclude')||'');filter=String(f.get('state')||'');directionFilter=String(f.get('direction')||'ALL');tierFilter=String(f.get('tier')||'');const nextWorkflow=String(f.get('workflow')||'');const openingIgnored=nextWorkflow==='IGNORED'&&workflowFilter!=='IGNORED';if(openingIgnored)directionFilter='ALL';workflowFilter=nextWorkflow;showIgnored=f.get('show_ignored')==='on';showQuotaFull=f.get('show_quota_full')==='on';const city=String(f.get('city')||'');if(city!=='__MULTI__')cityFilter=city;companyFilter=String(f.get('company')||'');const nextSort=String(f.get('sort')||'deep');if(nextSort!==sort)sortOrder=nextSort==='company'?'asc':'desc';sort=nextSort;onlySelected=!openingIgnored&&f.get('only_selected')==='on';pageNo=1;render();};
       on('match-preset-save',()=>{checkpoint();const name=$('#match-preset-name').value;const ok=Navigation?.savePreset(cap.user_id,name,Navigation.readBrowse(cap.user_id));if(ok)presetName=name.trim();notice=ok?'常用筛选已保存在本机。':'请输入名称；最多保存 20 个预设。';render();});
       on('match-preset-delete',()=>{Navigation?.deletePreset(cap.user_id,presetName);presetName='';render();});
       $('#match-preset').onchange=e=>{const p=Navigation?.readPresets(cap.user_id).find(v=>v.name===e.target.value);if(!p)return;clearTimeout(searchTimer);searchPending=false;const f=p.filters;presetName=p.name;query=f.query;queryMode=f.queryMode;excludeQuery=f.excludeQuery;cityFilters=f.cities;filter=f.filter;tierFilter=f.tier;workflowFilter=f.workflow;companyFilter=f.company;cityFilter=f.city;directionFilter=f.direction||'ALL';showIgnored=f.showIgnored;showQuotaFull=f.showQuotaFull;sort=f.sort;sortOrder=f.sortOrder;onlySelected=false;pageNo=1;render();};
@@ -520,7 +540,10 @@ const CampusMatching=(function(root){
       on('match-clear-exclude',()=>{excludeQuery='';pageNo=1;render();});
       $('#match-filter').onsubmit=e=>{e.preventDefault();clearTimeout(searchTimer);applyFilter();};
       $('#match-filter').onchange=e=>{if(e?.target?.id==='match-only-selected'&&e.target.checked){switchView('SELECTED');return;}if(e?.target?.id==='match-preset-name'||e?.target?.id==='match-preset')return;if(e?.target?.id==='match-city'){if(e.target.value==='__PICK_CITIES__'){e.target.value=cityFilters.length?'__MULTI__':cityFilter;$('#match-advanced').open=true;$('#match-city-options').scrollIntoView?.({block:'nearest'});return;}cityFilters=[];}applyFilter();};
-      $('#match-search').oninput=()=>{searchDraft=$('#match-search').value;searchPending=true;clearTimeout(searchTimer);searchTimer=setTimeout(()=>{if(current())applyFilter();},240);};
+      const search=$('#match-search');
+      search.oncompositionstart=()=>{searchComposing=true;clearTimeout(searchTimer);};
+      search.oninput=e=>{searchDraft=search.value;searchPending=true;clearTimeout(searchTimer);if(e?.isComposing)searchComposing=true;if(searchComposing)return;searchTimer=setTimeout(()=>{if(current())applyFilter();},240);};
+      search.oncompositionend=()=>{searchComposing=false;search.oninput();};
       const resetFilters=()=>{clearTimeout(searchTimer);searchPending=false;cityFilters=[];excludeQuery='';queryMode='ALL';presetName='';query='';filter='';tierFilter='';workflowFilter='';cityFilter='';companyFilter='';onlySelected=false;directionFilter='ALL';showIgnored=showQuotaFull=false;pageNo=1;render();};
       on('match-sort-order',()=>{clearTimeout(searchTimer);checkpoint();sortOrder=sortOrder==='desc'?'asc':'desc';pageNo=1;render();});
       for(const key of new Set(['query','company','city',...chips.map(([key])=>key)]))on('match-clear-'+key,()=>{clearTimeout(searchTimer);checkpoint();if(key==='query')query='';if(key==='company')companyFilter='';if(key==='city'||key==='cities'){cityFilter='';cityFilters=[];}if(key==='exclude')excludeQuery='';if(key==='direction')directionFilter='ALL';if(key==='state')filter='';if(key==='tier')tierFilter='';if(key==='workflow')workflowFilter='';if(key==='selected')onlySelected=false;if(key==='query_mode')queryMode='ALL';if(key==='ignored')showIgnored=false;if(key==='quota')showQuotaFull=false;pageNo=1;render();});
@@ -567,6 +590,9 @@ const CampusMatching=(function(root){
       if(focus){opened.element.querySelector('#drawer-title').focus({preventScroll:true});if(root.matchMedia?.('(max-width: 760px)').matches)opened.element.scrollIntoView({block:'start',behavior:'instant'});}
       const valid=()=>current()&&U.drawerCurrent(opened.revision);
       const bindNavigation=()=>{
+        for(const b of opened.element.querySelectorAll('[data-detail-pref]'))b.disabled=inventoryBlocked();
+        for(const b of opened.element.querySelectorAll('[data-detail-plan],[data-overview-plan]'))b.disabled=loading||!application&&inventoryBlocked();
+        for(const b of opened.element.querySelectorAll('[data-detail-analyze],[data-overview-analyze]'))b.disabled=taskStateBlocked()||!eligible(row);
         const expand=opened.element.querySelector('[data-detail-expand]');if(expand)expand.onclick=()=>{if(valid())U.setDrawerReading(!U.isDrawerReading());};
         for(const button of opened.element.querySelectorAll('[data-detail-step]'))button.onclick=()=>{
           if(!valid())return;
@@ -588,14 +614,15 @@ const CampusMatching=(function(root){
         bindNavigation();
         opened.element.querySelector('[data-detail-compare]').onclick=()=>openComparison('ALL',row.job.company);
         for(const b of opened.element.querySelectorAll('[data-detail-record]'))b.onclick=()=>openRecord(id).catch(err=>U.notify(err.message));
-        const plan=opened.element.querySelector('[data-overview-plan]');if(plan){plan.textContent=application?'查看投递进展':loading?'读取投递状态…':applicationReady?'加入投递计划':'重试读取投递状态';plan.disabled=loading;plan.onclick=()=>opened.element.querySelector('[data-detail-plan]').click();}
+        const plan=opened.element.querySelector('[data-overview-plan]');if(plan){plan.textContent=application?'查看投递进展':loading?'读取投递状态…':applicationReady?'加入投递计划':'重试读取投递状态';plan.disabled=loading||!application&&inventoryBlocked();plan.onclick=()=>opened.element.querySelector('[data-detail-plan]').click();}
         const preparation=opened.element.querySelector('[data-overview-preparation]');if(preparation)preparation.onclick=()=>opened.element.querySelector('[data-detail-preparation]').click();
         const evidence=opened.element.querySelector('[data-overview-evidence]');if(evidence)evidence.onclick=()=>{lastTab='evidence';saveBrowse();U.activateTab(opened.element.querySelector('#drawer-tab-evidence'));};
         const analyze=opened.element.querySelector('[data-overview-analyze]');if(analyze)analyze.onclick=()=>opened.element.querySelector('[data-detail-analyze]').click();
         opened.element.querySelector('[data-detail-preparation]').onclick=()=>{lastTab='preparation';saveBrowse();const tab=opened.element.querySelector('#drawer-tab-preparation');if(tab){U.activateTab(tab);loadPreparation?.();}else initialTab='preparation';};
-        opened.element.querySelector('[data-detail-analyze]').onclick=()=>{opened.element.close();requestAnalysis([id]);};
+        opened.element.querySelector('[data-detail-analyze]').onclick=()=>{if(taskStateBlocked())return;opened.element.close();requestAnalysis([id]);};
         opened.element.querySelector('[data-detail-plan]').onclick=async e=>{
           if(application){navigate('applications',{applicationID:application.id});return;}
+          if(!valid()||inventoryBlocked())return;
           e.currentTarget.disabled=true;
           try{
             const apps=await api('/api/applications');if(!valid())return;
@@ -605,6 +632,7 @@ const CampusMatching=(function(root){
           }catch(err){if(valid()){updateHeader('[data-detail-plan]');U.notify(err.message);}}
         };
         for(const button of opened.element.querySelectorAll('[data-detail-pref]'))button.onclick=async()=>{
+          if(!valid()||inventoryBlocked())return;
           const disposition=row.disposition===button.dataset.detailPref?'NONE':button.dataset.detailPref;
           for(const b of opened.element.querySelectorAll('[data-detail-pref]'))b.disabled=true;
           try{
@@ -691,21 +719,25 @@ const CampusMatching=(function(root){
         notice=`已准备 ${exportFiles.length} 个分析包，请逐包检查完整文字后下载。`;
       }catch(err){notice=err.message;}finally{preparing=false;render();}
     }
-    async function refresh(){
-      const response=await api(paged?'/api/matching/inventory':'/api/matching/preview','POST',{...identity(),...(paged?{known_snapshot:snapshot.snapshot_key,job_ids:rows().slice((pageNo-1)*50,pageNo*50).map(r=>r.job.id)}:{summary_only:true})});if(!current())return;
-      const next=paged?root.CampusInventory.merge(snapshot,response):response;
+    async function refresh(prefetched){
+      const revision=++inventoryRevision;
+      inventoryChecking=true;inventoryError='';render();
+      let next;
+      try{const result=prefetched?await prefetched:{value:await api(paged?'/api/matching/inventory':'/api/matching/preview','POST',{...identity(),...(paged?{known_snapshot:snapshot.snapshot_key,job_ids:rows().slice((pageNo-1)*50,pageNo*50).map(r=>r.job.id)}:{summary_only:true})})};if(result.error)throw result.error;if(!current()||revision!==inventoryRevision)return;next=paged?root.CampusInventory.merge(snapshot,result.value):result.value;}
+      catch(error){if(!current()||revision!==inventoryRevision)return;inventoryChecking=false;inventoryError=error.message;render();throw error;}
+      if(!current()||revision!==inventoryRevision)return;
       const nextByID=new Map(next.jobs.map(j=>[j.job.id,j]));
       if(exportFiles.length&&(next.candidate_hash!==snapshot.candidate_hash||[...exportKeys].some(([id,key])=>!nextByID.has(id)||exportKey(nextByID.get(id))!==key))){clearExport();notice='资料或已选岗位已有变化，请重新准备分析包。';}
       C.pruneSelection(selected,next.jobs);C.storeSelection(cap.user_id,selected);
       if(next.candidate_hash!==snapshot.candidate_hash){consentHash='';paused=true;progress=readProgress(cap.user_id,next.candidate_hash,modelKey());autoQueue=[];notice='求职资料已变化，请重新核对外发资料。';}
       for(const j of next.jobs){if(baseline.has(j.job.id)&&baseline.get(j.job.id)!==j.input_key||!baseline.has(j.job.id)){if(eligible(j)&&!autoQueue.includes(j.job.id))autoQueue.push(j.job.id);}baseline.set(j.job.id,j.input_key);}
       const previousDetail=snapshot.jobs.find(j=>j.job.id===lastJob),nextDetail=next.jobs.find(j=>j.job.id===lastJob);
-      snapshot=next;cardError='';
+      snapshot=next;cardError='';inventoryChecking=false;inventoryError='';
       if(drawerOpen&&lastOpened&&U.drawerCurrent(lastOpened.revision)){
         if(!nextDetail)lastOpened.element.close();
         else if(previousDetail?.input_key!==nextDetail.input_key||previousDetail?.state!==nextDetail.state)await openMatchDetail(lastJob,lastTab,false);
       }
-      if(task?.kind!=='COMPANY')reconcileProgress(progress,snapshot.jobs);persist();
+      if(task?.kind!=='COMPANY')reconcileProgress(progress,snapshot.jobs);persist();render();
     }
     async function taskControl(action){
       if(!task)return;const id=task.id;
@@ -760,8 +792,9 @@ const CampusMatching=(function(root){
         if(!progress.pending.length&&!progress.failed.length)notice=`本轮已完成 ${progress.done} 个岗位；可继续分析下一批。`+reviewNotice();
       }catch(err){notice=err.message;}finally{running=false;persist();render();}
     }
-    render();
-    if(current())Navigation?.register({active:current,checkpoint});
+    inventoryPainted=true;render();
+    if(current())Navigation?.register({active:current,checkpoint,dispose:()=>deadlines?.dispose()});
+    const resumedRead=remembered?refresh(firstRead).catch(()=>{}):Promise.resolve();
     async function pollTask(){
       if(!current()||!durable)return;
       try{if(task&&Tasks.active(task)){const v=await api('/api/matching/tasks/'+encodeURIComponent(task.id));if(!current())return;const oldDone=progress.done;applyTask(v);if(progress.done!==oldDone||!Tasks.active(v)){await refresh();applyTask(v);notice=Tasks.active(v)?'成功结果已保存。':v.state==='WAITING_AUTH'?'本轮已停止，请核对设置与外发资料后继续。':'本轮进度已保存。';}if(!panel&&!(document.querySelector('#job-drawer')?.open&&!document.querySelector('#job-drawer')?.classList.contains('is-docked'))&&!['INPUT','SELECT','TEXTAREA'].includes(document.activeElement?.tagName))render();}}
@@ -769,6 +802,7 @@ const CampusMatching=(function(root){
       if(current())setTimeout(pollTask,5000);
     }
     if(durable){await loadTasks(taskRead);if(!current())return;setTimeout(pollTask,5000);}
+    await resumedRead;if(!current())return;
     if(current()&&initialComparison){await openComparison('SELECTED',initialComparison.company,initialComparison.jobIDs||[]);if(current()&&comparisonReport&&initialComparison.review&&!comparisonReport.holistic_notice&&comparisonReport.holistic_job_ids?.length)await requestAnalysis(comparisonReport.holistic_job_ids,false,false,{company:comparisonCompany,kind:'COMPANY',scopeKey:comparisonReport.holistic_input_key});}
     if(current()&&!initialComparison){if(initialJob){if(initialAnalyze)await requestAnalysis([initialJob]);else await openMatchDetail(initialJob,initialView);}else if(drawerOpen&&lastJob&&!lastOpened)await openMatchDetail(lastJob,lastTab,false);}
     async function poll(){if(!current())return;try{if(!running&&!preparing&&!bulkBusy&&!panel&&!exportFiles.length&&!(document.querySelector('#job-drawer')?.open&&!document.querySelector('#job-drawer')?.classList.contains('is-docked'))&&!['INPUT','SELECT','TEXTAREA'].includes(document.activeElement?.tagName)){await refresh();render();if(snapshot.settings.auto_new&&!paused&&authorized()&&autoQueue.length){const ids=autoQueue.splice(0,snapshot.settings.round_limit);await start(ids);}}}catch(err){notice=err.message;render();}if(current())setTimeout(poll,60000);}

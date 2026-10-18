@@ -18,6 +18,10 @@ test('malformed saved browsing is discarded and blocked storage retains only ses
   h.N.storeBrowse('alice',{page:-3,sort:'injected',filter:'<script>',lastTab:'unknown'});assert.equal(h.N.readBrowse('alice').page,1);assert.equal(h.N.readBrowse('alice').sort,'deep');assert.equal(h.N.readBrowse('alice').filter,'');
   const blocked=harness({storage:false});blocked.N.storeBrowse('alice',{query:'Go',page:2});assert.equal(blocked.N.readBrowse('alice').query,'Go');assert.equal(blocked.stored.size,0);
 });
+test('radar remembers window and list scroll positions while bounding malformed coordinates',()=>{
+ const h=harness();h.N.storeBrowse('alice',{scroll:536,listScroll:912});assert.equal(h.N.readBrowse('alice').scroll,536);assert.equal(h.N.readBrowse('alice').listScroll,912);assert.equal(h.N.readBrowse('bob').listScroll,0);
+ h.N.storeBrowse('alice',{scroll:Infinity,listScroll:-4});assert.equal(h.N.readBrowse('alice').scroll,0);assert.equal(h.N.readBrowse('alice').listScroll,0);h.N.storeBrowse('alice',{listScroll:1e10});assert.equal(h.N.readBrowse('alice').listScroll,1e7);
+});
 test('canceling navigation retains edits and guard; approved leave captures browsing and releases guard',async()=>{
   const h=harness();let captures=0,active=true;h.N.register({active:()=>active,dirty:()=>true,checkpoint:()=>captures++});
   assert.equal(await h.N.leave(),false);assert.equal(h.N.dirty(),true);assert.equal(captures,0);assert.equal(h.asked(),1);
@@ -69,8 +73,8 @@ test('named presets isolate accounts and discard selections, permissions and pri
  h.N.savePreset('alice','上海后端',{query:'后端'});assert.equal(h.N.readPresets('alice').length,1);assert.equal(h.N.readPresets('alice')[0].filters.query,'后端');h.N.deletePreset('alice','上海后端');assert.equal(h.N.readPresets('alice').length,0);
 });
 test('workflow location and ignore undo are scoped and never retain form drafts',()=>{
- const h=harness();h.N.storeWorkflow('alice','applications',{query:'后端',company:'合成公司',ongoingPage:3,endedPage:2,scroll:512,notes:'PRIVATE',resume:'PRIVATE'});
- const v=h.N.readWorkflow('alice','applications');assert.equal(v.ongoingPage,3);assert.equal(v.scroll,512);assert.equal(h.N.readWorkflow('alice','interviews').query,'');assert.equal(h.N.readWorkflow('bob','applications').query,'');assert.ok(![...h.stored.values()].join().includes('PRIVATE'));
+ const h=harness();h.N.storeWorkflow('alice','applications',{query:'后端',company:'合成公司',ongoingPage:3,endedPage:2,scroll:512,applicationSort:'followup',followUpOnly:true,notes:'PRIVATE',resume:'PRIVATE',next_action:'PRIVATE',follow_up_at:'PRIVATE'});
+ const v=h.N.readWorkflow('alice','applications');assert.equal(v.ongoingPage,3);assert.equal(v.scroll,512);assert.equal(v.applicationSort,'followup');assert.equal(v.followUpOnly,true);assert.equal(h.N.readWorkflow('alice','interviews').query,'');assert.equal(h.N.readWorkflow('bob','applications').followUpOnly,false);assert.equal(h.N.readWorkflow('bob','applications').query,'');assert.ok(![...h.stored.values()].join().includes('PRIVATE'));
  h.N.storeUndo('alice',['a','b','a']);assert.equal(h.N.readUndo('alice').length,2);assert.equal(h.N.readUndo('bob').length,0);
 });
 

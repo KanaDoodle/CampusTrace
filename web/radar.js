@@ -21,9 +21,11 @@ async function radarPage(name,set,box,query,{active=()=>true,reviewInterview}={}
  let discoveries='';
  if(digestResult.status==='fulfilled'){
   const v=digestResult.value,metrics=[['今日新增',v.counts.new_jobs],['优先投递',v.counts.recommended_jobs],['7 天内截止',v.counts.closing_soon],['状态变化',v.counts.status_changes],['本周面试',v.counts.upcoming_interviews]];
-  discoveries=`<details class="radar-discoveries"><summary>岗位发现与变化 <span>新增 ${v.counts.new_jobs} · 7 天内截止 ${v.counts.closing_soon}</span></summary><div class="radar-metrics">${metrics.map(([label,n])=>`<div><span>${esc(label)}</span><strong>${n}</strong></div>`).join('')}</div><p class="meta">更新于 ${esc(D.date(v.as_of))} · 新增与变化统计过去 24 小时${v.truncated?' · 岗位分类展示前 5 条，更多请进入分类查看':''}</p><div class="section-heading"><h2>今天最值得投</h2><button data-go="jobs">查看岗位库</button></div><div class="radar-grid">${radarCards(v.recommended_jobs)}</div><div class="radar-columns"><section><div class="section-heading"><h2>最近变化</h2><button data-go="changes">过去 7 天</button></div>${radarChanges(v.recent_changes)}</section><section><div class="section-heading"><h2>即将截止</h2><button data-go="closing">查看截止雷达</button></div>${radarCards(v.closing_soon)}</section></div><h2>今日新发现</h2><div class="radar-grid">${radarCards(v.new_jobs)}</div></details>`;
+  discoveries=`<details class="radar-discoveries"><summary>岗位发现与变化 <span>新增 ${v.counts.new_jobs} · 7 天内截止 ${v.counts.closing_soon}</span></summary><div class="radar-metrics">${metrics.map(([label,n])=>`<div><span>${esc(label)}</span><strong>${n}</strong></div>`).join('')}</div><p class="meta">更新于 ${esc(D.date(v.as_of))} · 新增与变化统计过去 24 小时${v.truncated?' · 岗位分类展示前 5 条，更多请进入分类查看':''}</p><div class="section-heading"><h2>今天最值得投</h2><button data-go="jobs">查看岗位库</button></div><div class="radar-grid">${radarCards(v.recommended_jobs)}</div><div class="radar-columns"><section><div class="section-heading"><h2>最近变化</h2><button data-go="changes">过去 7 天</button></div>${radarChanges(v.recent_changes)}</section></div><h2>今日新发现</h2><div class="radar-grid">${radarCards(v.new_jobs)}</div></details>`;
  }else discoveries=`<section class="note-box"><p>岗位动态暂不可用：${esc(digestResult.reason.message)}</p><button data-go="matching" class="btn btn-small">查看岗位库</button></section>`;
- if(!set(CampusUI.heading('今日待办','',`<button data-go="watches" class="btn" aria-label="关注来源">${CampusUI.icon('radar')}关注来源</button><button data-go="notifications" class="btn" aria-label="通知收件箱">${CampusUI.icon('bell')}通知收件箱</button>`)+todoHTML+discoveries))return;
+ if(!set(CampusUI.heading('今日待办','',`<button data-go="watches" class="btn" aria-label="关注来源">${CampusUI.icon('radar')}关注来源</button><button data-go="notifications" class="btn" aria-label="通知收件箱">${CampusUI.icon('bell')}通知收件箱</button>`)+'<div id="home-deadlines"></div>'+todoHTML+discoveries))return;
+ const deadlines=globalThis.CampusDeadlines?.mount(box.querySelector('#home-deadlines'),{api,esc,D,navigate:page,active});
+ globalThis.CampusNavigation?.register({active,dispose:()=>deadlines?.dispose()});
  if(todoResult.status==='fulfilled')CampusTodos.mount(box.querySelector('#today-todos'),todoResult.value,{api,esc,D,navigate:page,reviewInterview,active,notify:message=>CampusUI.notify(message)});
  for(const b of box.querySelectorAll('[data-go]'))b.onclick=()=>page(b.dataset.go).catch(fail);
  for(const b of box.querySelectorAll('[data-reload-radar]'))b.onclick=()=>page('radar').catch(fail);
@@ -35,28 +37,29 @@ async function radarPage(name,set,box,query,{active=()=>true,reviewInterview}={}
  for(const b of box.querySelectorAll('[data-days]'))b.onclick=()=>page(name,b.dataset.days).catch(fail);bindRadar(box,()=>page(name,days));return;
  }
  if(name==='watches'){
- let watches=[],sources=[],catalog=[],catalogFailed=false,previewMarkup='',busy=false,bulkStop=null;
- const sourceFilters={search:'',group:'',manualOpen:false};
+ let watches=[],sources=[],catalog=[],catalogFailed=false,previewMarkup='',busy=false,bulkStop=null,drawRevision=0;
+ const sourceFilters={search:'',group:'',manualOpen:false},watchFilters={search:'',status:'ALL',open:new Set()},bulkState={};
  const drafts=globalThis.CampusNavigation?.forms(document,{retainMissing:true});
  async function reload(){
    drafts?.capture();const latest=await Promise.all([api('/api/watches'),api('/api/sources'),api('/api/sources/catalog').catch(()=>null)]);if(!active())return;
    [watches,sources,catalog]=latest;catalogFailed=catalog===null;catalog=catalog||[];await draw();
  }
  async function draw(){
+ const revision=++drawRevision;
  const supported=sources.filter(s=>s.adapter),sourceOf=id=>sources.find(s=>s.id===id);
- const minimum=s=>['xiaohongshu','baidu','meituan','jd','netease','alibaba','bilibili','kuaishou','oppo','siemens','haier','lenovo','midea','byd','hikvision','qihoo360','sany','inovance','vivo','honor','sgm','ctrip','tencent','sap','ths','cmbnt','netease_game','leihuo','ctyun','ctcloud','mihoyo','pingan_tech','pingan_oneconnect','pingan_wallet','cmcloud','cmiot','cmhome','gbits','hundsun','yuewen','tcl_digital','tcl_honghu','cec_software'].includes(s?.adapter)?30:5;
+ const minimum=s=>CampusSourceWatches.minimum(s,catalog);
  const presets=catalog.length?CampusSources.render(catalog,esc,sourceFilters):catalogFailed?'<p class="pending-note">预设入口暂时无法读取，可直接填写已支持的校招网址后预览。</p>':'';
  const directionSelect=(selected='')=>`<label>岗位方向<select name="direction"><option value="">全部方向</option>${[['rd','研发'],['algorithm','算法'],['non_tech','非技术']].map(([value,label])=>`<option value="${value}" ${selected===value?'selected':''}>${label}</option>`).join('')}</select></label>`;
- const watchForm=(v={})=>`<div class="form-grid">${v.id?`<input type="hidden" name="source_id" value="${esc(v.source_id)}">`:`<label>招聘来源<select name="source_id" required>${supported.map(s=>`<option value="${esc(s.id)}">${esc(s.name)} · ${esc(s.adapter)}</option>`).join('')}</select></label>`}${input('check_interval','基础检查间隔（分钟）',(v.check_interval||3600)/60,'number',`required min="${minimum(v.id?sourceOf(v.source_id):supported[0])}" max="10080"`)}${input('keyword','标题或地点包含（可选）',v.keyword||'','text','maxlength="100"')}${v.id&&sourceOf(v.source_id)?.adapter==='xiaohongshu'?directionSelect(v.direction):''}</div><label class="check"><input type="checkbox" name="enabled" ${v.enabled===false?'':'checked'}>启用周期检查</label><label class="check"><input type="checkbox" name="adaptive" ${v.adaptive?'checked':''}>自动调整检查频率（无变化放缓，有变化加快）</label><label class="check"><input type="checkbox" name="priority" ${v.priority?'checked':''}>重点关注（自动调整时优先检查）</label><button>${v.id?'保存关注设置':'开始关注'}</button>`;
- const scheduleReasons={FIXED:'固定间隔',BASE:'基础间隔',PRIORITY:'重点关注或临近截止',RECENT_CHANGE:'近期有变化',UNCHANGED_BACKOFF:'连续无变化，降低频率',FAILURE_BACKOFF:'连续失败，等待恢复'};
- const outcomes={RESTORED_PAUSED:'恢复副本中的关注已暂停，请核对后重新启用',QUEUED:'等待后台检查',PENDING:'等待检查',PROCESSING:'正在核验岗位',SUCCESS:'检查完成',PARTIAL_FAILURE:'部分岗位获取失败',DISCOVERY_FAILED:'来源暂时无法读取',FAILED:'本次检查失败'};
- const progresses=await Promise.all(watches.map(v=>v.last_outcome==='PROCESSING'?api('/api/watches/'+encodeURIComponent(v.id)+'/progress').catch(()=>null):Promise.resolve(null)));
+ const watchForm=(v={})=>`<div class="form-grid">${v.id?`<input type="hidden" name="source_id" value="${esc(v.source_id)}">`:`<label>招聘来源<select name="source_id" required>${supported.map(s=>`<option value="${esc(s.id)}">${esc(s.name)}</option>`).join('')}</select></label>`}${input('check_interval','基础检查间隔（分钟）',(v.check_interval||3600)/60,'number',`required min="${minimum(v.id?sourceOf(v.source_id):supported[0])}" max="10080"`)}${input('keyword','标题或地点包含（可选）',v.keyword||'','text','maxlength="100"')}${v.id&&sourceOf(v.source_id)?.adapter==='xiaohongshu'?directionSelect(v.direction):''}</div><label class="check"><input type="checkbox" name="enabled" ${v.enabled===false?'':'checked'}>启用周期检查</label><label class="check"><input type="checkbox" name="adaptive" ${v.adaptive?'checked':''}>自动调整检查频率</label><label class="check"><input type="checkbox" name="priority" ${v.priority?'checked':''}>重点关注</label><button>${v.id?'保存关注设置':'开始关注'}</button>`;
+ const progresses=[];
  if(!active())return;drafts?.capture();
- if(!set(`<h2>关注源</h2><p>选择公司或填写校招网址，预览后开始导入。</p><div id="bulk-source-import"></div>${presets}<form id="source-preview" novalidate><label>公司校招网址<input name="url" type="url" required placeholder="https://job.xiaohongshu.com/campus/position"></label><button>预览岗位源</button></form><div id="source-preview-result">${previewMarkup}</div>${supported.length?`<details><summary>使用已登记的招聘来源</summary><form id="watch-create" novalidate>${watchForm()}</form></details>`:''}<div class="section-heading"><h3>我的关注</h3><button id="refresh-watches">刷新进度</button></div>${watches.length?watches.map((v,i)=>`<article class="card"><h3>${esc(sourceOf(v.source_id)?.name||v.source_id)} <span class="meta">${v.enabled?'已启用':'已暂停'}</span></h3><p>${esc(outcomes[v.last_outcome]||'状态待确认')}${progresses[i]?.expected?` · 已处理 ${progresses[i].completed}/${progresses[i].expected}${progresses[i].failed?`，失败 ${progresses[i].failed}`:''}`:''}</p><p class="meta">上次检查：${v.last_checked_at?esc(D.date(v.last_checked_at)):'尚未检查'} · 下次检查：${v.enabled?esc(D.date(v.next_check_at)):'已暂停'}${v.effective_interval?` · 当前间隔 ${Math.round(v.effective_interval/60)} 分钟（${esc(scheduleReasons[v.schedule_reason]||'等待检查')}）`:''}</p><div class="actions"><button data-source-jobs="${esc(v.source_id)}">查看已导入岗位</button><button data-delete-watch="${esc(v.id)}">删除关注</button></div><form id="watch-${esc(v.id)}" novalidate>${watchForm(v)}</form></article>`).join(''):empty('还没有关注来源。先输入公司校招网址，预览后即可开始关注。')}`))return;
+ const watchList=CampusSourceWatches.render(watches,sources,progresses,{esc,D,form:watchForm,state:watchFilters});
+ if(!set(`<h2>招聘来源</h2>${watchList}<div id="bulk-source-import"></div>${presets}<form id="source-preview" novalidate><label>公司校招网址<input name="url" type="url" required placeholder="https://job.xiaohongshu.com/campus/position"></label><button>预览岗位源</button></form><div id="source-preview-result">${previewMarkup}</div>${supported.length?`<details><summary>使用已登记的招聘来源</summary><form id="watch-create" novalidate>${watchForm()}</form></details>`:''}`))return;
+ CampusSourceWatches.mount(box.querySelector?.('#source-watches'),watches,sources,watchFilters);
 
  if(!active())return;
- bulkStop?.();bulkStop=globalThis.CampusSourceBulk?.mount(box.querySelector?.('#bulk-source-import'),{api,esc,D,active,navigate:(name,query)=>page(name,query).catch(fail),count:catalog.filter(s=>s.auto_import===true).length});
- drafts?.restore();globalThis.CampusNavigation?.register({active,dirty:()=>busy||drafts?.dirty()});
+ bulkStop?.();bulkStop=globalThis.CampusSourceBulk?.mount(box.querySelector?.('#bulk-source-import'),{api,esc,D,active,navigate:(name,query)=>page(name,query).catch(fail),count:catalog.filter(s=>s.auto_import===true).length,state:bulkState});
+ drafts?.restore();globalThis.CampusNavigation?.register({active,dirty:()=>busy||drafts?.dirty(),dispose:()=>bulkStop?.()});
  $('#refresh-watches').onclick=()=>{if(!busy)reload().catch(fail);};
  const bindPresets=()=>{for(const button of box.querySelectorAll('[data-campus-preset]'))button.onclick=()=>{if(busy)return;const form=$('#source-preview'),site=catalog[Number(button.dataset.campusPreset)];if(!site||!CampusSources.ready(site))return;form.elements.url.value=site.url;form.elements.url.dispatchEvent(new Event('input',{bubbles:true}));form.elements.url.focus();};};
  bindPresets();CampusSources.mount(box.querySelector?.('#source-directory'),catalog,{esc,state:sourceFilters,bind:bindPresets});
@@ -86,6 +89,8 @@ async function radarPage(name,set,box,query,{active=()=>true,reviewInterview}={}
    try{await api('/api/watches/'+b.dataset.deleteWatch,'DELETE');if(!active())return;drafts?.forget('#watch-'+b.dataset.deleteWatch);await refreshAfterSave('已删除关注。');}catch(e){fail(e);}finally{busy=false;}
  };
  for(const b of box.querySelectorAll('[data-source-jobs]'))b.onclick=()=>page('source_jobs',{sourceID:b.dataset.sourceJobs,page:1}).catch(fail);
+ // Detail progress must not delay the first usable render or replace edited forms.
+ for(const watch of watches.filter(v=>v.last_outcome==='PROCESSING'))api('/api/watches/'+encodeURIComponent(watch.id)+'/progress').then(progress=>{if(active()&&revision===drawRevision)CampusSourceWatches.progress(box.querySelector?.('#source-watches'),watch.id,progress);}).catch(()=>{});
  }
  async function refreshAfterSave(message){
    try{await reload();}catch{message+=' 刷新进度失败，请稍后点击“刷新进度”。';}

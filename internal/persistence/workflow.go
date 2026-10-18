@@ -174,6 +174,9 @@ func (s *Store) ApplyAction(ctx context.Context, user, nonce, kind string, raw [
 				return err
 			}
 			v.State = a.State
+			if applicationEnded(v.State) {
+				v.FollowUpAt, v.NextAction = nil, ""
+			}
 			v.Version++
 			v.UpdatedAt = now
 			if a.State == "APPLIED" {

@@ -15,3 +15,32 @@ test('application filters combine company, title and stage without treating offe
  assert.deepEqual(App.filtered(rows,{query:' go ',company:'甲公司',stage:'APPLIED'}).map(a=>a.id),['a']);assert.deepEqual(rows.filter(App.ended).map(a=>a.id),['b','c','d']);assert.equal(App.filtered(rows,{query:'不存在'}).length,0);assert.equal(App.filtered(rows).length,4);
  const many=Array.from({length:51},(_,i)=>({id:String(i)}));assert.equal(App.pageSlice(many,2).rows[0].id,'25');assert.equal(App.pageSlice(many,100).page,3);assert.equal(App.pageSlice(many,3).rows.length,1);
 });
+test('follow-up times use Beijing wall time and reject normalized invalid dates',()=>{
+ assert.equal(App.followUpTime('2026-10-11T10:00'),'2026-10-11T02:00:00.000Z');
+ assert.equal(App.followUpInput('2026-10-11T02:00:00Z'),'2026-10-11T10:00');
+ assert.equal(App.followUpTime('2000-01-01T00:00'),'1999-12-31T16:00:00.000Z');
+ assert.equal(App.followUpTime('2100-12-31T23:59'),'2100-12-31T15:59:00.000Z');
+ for(const value of ['2026-02-30T10:00','2026-10-11T24:00','1999-12-31T23:59','2101-01-01T00:00','2026-10-11',null])assert.equal(App.followUpTime(value),null,value);
+ assert.equal(App.followUpShortcut(1,Date.parse('2026-12-31T18:00:00Z')),'2027-01-02T10:00');
+});
+test('follow-up filtering uses the Beijing day, searches actions and sorts without changing the original list',()=>{
+ const now=Date.parse('2026-10-10T02:00:00Z'),rows=[
+  {id:'future',current_state:'APPLIED',follow_up_at:'2026-10-10T16:00:00Z',updated_at:'2026-10-09T00:00:00Z'},
+  {id:'today',current_state:'INTERVIEW',follow_up_at:'2026-10-10T15:59:59Z',next_action:'查看笔试通知',applied_at:'2026-10-07T00:00:00Z'},
+  {id:'past',current_state:'APPLIED',follow_up_at:'2026-10-08T02:00:00Z',applied_at:'2026-10-09T00:00:00Z'},
+  {id:'ended',current_state:'REJECTED',follow_up_at:'2026-10-07T00:00:00Z',updated_at:'2026-10-10T00:00:00Z'},
+  {id:'none',current_state:'PLANNED',updated_at:'2026-10-08T00:00:00Z'}];
+ const original=rows.map(r=>r.id);
+ assert.deepEqual(App.filtered(rows,{followUpOnly:true,sort:'followup',now}).map(r=>r.id),['past','today']);
+ assert.deepEqual(App.filtered(rows,{query:'笔试'}).map(r=>r.id),['today']);
+ assert.deepEqual(App.filtered(rows,{sort:'followup'}).map(r=>r.id),['past','today','future','ended','none']);
+ assert.deepEqual(App.filtered(rows,{sort:'applied'}).map(r=>r.id),['past','today','ended','future','none']);
+ assert.deepEqual(rows.map(r=>r.id),original);
+});
+test('reminders display escaped next actions and only active applications offer editing or completion',()=>{
+ const a={id:'a',current_state:'APPLIED',follow_up_at:'2026-10-10T02:00:00Z',next_action:'<img>跟进',next_states:[]};
+ const html=App.render([a],{esc,D,now:Date.parse('2026-10-10T03:00:00Z')});
+ for(const text of ['已到跟进时间','&lt;img&gt;跟进','完成跟进','北京时间','value="2026-10-10T10:00"','取消提醒','data-follow-up-days="7"'])assert.ok(html.includes(text),text);
+ assert.ok(!html.includes('<img>'));const closed=App.render([{...a,current_state:'OFFER'}],{esc,D});
+ assert.ok(!closed.includes('完成跟进'));assert.ok(!closed.includes('设置跟进提醒'));assert.ok(!closed.includes('取消提醒'));
+});

@@ -1,7 +1,7 @@
 'use strict';
 (function(root){
  const loaded=new Map();
- const shared=['models.js','knowledge.js','applications.js','campaigns.js','matching_chat.js','matching_decision.js','matching_tasks.js','inventory.js','matching.js'];
+ const shared=['models.js','knowledge.js','applications.js','campaigns.js','matching_chat.js','matching_decision.js','matching_tasks.js','inventory.js','deadlines.js','matching.js'];
  const routes={
   matching:shared,
   company:[...shared,'company_chat.js','company_decision.js','company_decision.css'],
@@ -11,9 +11,9 @@
   knowledge:['models.js','matching.js','knowledge.js','knowledge_bulk.js','knowledge.css','agent.css'],
   agent:[...shared,'agent_actions.js','agent_workspace.js','agent_harness.js','agent.css'],
   practice:['practice.js'],
-  applications:['campaigns.js','applications.js'],
+  applications:['campaigns.js','applications.js','drafts.js'],
   interviews:['interviews.js','drafts.js'],
-  radar:['todos.js','source_catalog.js','source_bulk.js','radar.js'],
+  radar:['todos.js','deadlines.js','source_catalog.js','source_bulk.js','source_watches.js','radar.js'],
   zip:['vendor/jszip.min.js'],drafts:['drafts.js']
  };
  function asset(path){
