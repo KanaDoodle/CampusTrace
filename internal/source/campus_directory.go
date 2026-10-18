@@ -18,19 +18,42 @@ func CampusDirectory() []CampusDirectoryEntry {
 		"sap": "外企与软件", "siemens": "外企与工业", "haier": "制造业", "sany": "制造业", "sgm": "汽车与制造", "inovance": "制造业", "midea": "制造业", "byd": "汽车与制造", "hikvision": "智能物联与制造",
 		"mthreads": "芯片与制造", "nexchip": "芯片与制造",
 		"h3c": "通信与制造", "yusys": "金融科技", "cksic": "国央企", "whxmc": "芯片与制造",
+		"venustech": "互联网", "hand": "互联网", "mediatek": "芯片与制造", "yealink": "通信与制造",
+		"dcits": "金融科技", "intsig": "互联网", "whalecloud": "互联网", "starnet": "通信与制造",
+		"digitalchina": "互联网", "beisen_hr": "互联网", "pylontech": "新能源与制造", "galaxyspace": "通信与制造",
+		"nrec": "制造业", "hec": "制造业", "transsion": "消费电子与制造", "sczq_securities": "证券",
 		"neusoft": "互联网", "kedacom": "智能物联与制造", "games37": "游戏",
 		"yonyou": "互联网", "sangfor": "互联网",
 		"bankcomm_tech": "银行", "cms_securities": "证券", "htsc_securities": "证券", "csc_securities": "证券", "guosen_securities": "证券", "galaxy_securities": "证券", "cicc_securities": "证券",
 		"cmb_tech": "银行", "citic_tech": "银行", "boc_software": "银行", "boc_operations": "银行",
 		"ths": "金融科技", "cmbnt": "金融科技", "netease_game": "游戏", "leihuo": "游戏", "ctyun": "国央企", "ctcloud": "国央企", "mihoyo": "游戏", "pingan_tech": "金融科技", "pingan_oneconnect": "金融科技", "pingan_wallet": "金融科技", "cmcloud": "国央企", "cmiot": "国央企", "cmhome": "国央企", "hundsun": "金融科技", "yuewen": "互联网", "gbits": "游戏", "tcl_digital": "消费电子与制造", "tcl_honghu": "消费电子与制造", "cec_software": "国央企",
 	}
-	out := make([]CampusDirectoryEntry, 0, 108)
+	out := make([]CampusDirectoryEntry, 0, 124)
 	for _, site := range CampusSites() {
 		entry := CampusDirectoryEntry{CampusSite: site, Category: categories[site.Adapter], AutoImport: true, Status: "已接入", Note: "预览时实时核验官网范围与岗位数量。", CheckedAt: "2026-10-05"}
 		if _, ok := sectorScopes[site.Adapter]; ok {
 			entry.CheckedAt = "2026-10-06"
 		}
 		switch site.Adapter {
+		case "nrec":
+			entry.Note = "完整读取南瑞继保官网校招分类，含研发设计与信息技术岗位；与南瑞集团总招聘入口分开登记，毕业范围及招聘单位以原文为准。"
+		case "hec":
+			entry.Note = "完整读取官网校招分类，含机器人、软件及制造研发岗位；保留公开城市、学历、工作性质、职责与要求，具体届别及招聘单位见原文。"
+		case "transsion":
+			entry.Note = "完整读取官网校招分类，含 AI 全栈、Agent、测试开发与海外地点；不局限于中国岗位，具体届别、地点及经验要求见原文。"
+		case "sczq_securities":
+			entry.CheckedAt = "2026-10-10"
+			entry.Note = "完整读取旧版官网校园招聘类别 r=2，不套用城市筛选；含总部、分支及其他招聘单位。保留完整原文与公开日期，用工形式、毕业范围及签约单位见原文。"
+		case "digitalchina":
+			entry.Note = "完整读取官网校招分类，含英才专项、Agent 与 AI 应用岗位及提前实习要求；与神州信息是独立来源，具体毕业范围见原文。"
+		case "beisen_hr":
+			entry.Note = "完整读取北森公司的官网校招分类，含不同届别和校招实习；城市、学历与工作性质保留官网字段，未明确类型时保留未知。"
+		case "pylontech", "galaxyspace":
+			entry.Note = "完整读取官网校招分类，保留软件、AI 及制造研发岗位的完整职责、要求、城市、学历与工作性质；具体届别见原文。"
+		case "dcits", "intsig", "whalecloud", "starnet":
+			entry.Note = "完整读取官网校招分类，保留公开城市、学历、工作性质、职责与要求；具体届别、招聘单位和经验要求以岗位原文为准。"
+		case "venustech", "hand", "mediatek", "yealink":
+			entry.Note = "完整读取官网校招分类，保留公开城市、学历、工作性质、职责与要求；分类可能包含不同届别及专项，具体毕业范围以岗位原文为准。"
 		case "bankcomm_tech":
 			entry.CheckedAt = "2026-10-08"
 			entry.Note = "完整读取总行校招后选择金融科技项目；不混入业务类、博士后及其他单位。官网入口需筛选总行；招聘季年份不等于毕业年份，具体毕业范围见原文。"

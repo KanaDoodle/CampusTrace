@@ -12,7 +12,7 @@ import (
 )
 
 func TestBeisenRequestsPublishedLocationAndQualificationFields(t *testing.T) {
-	for _, kind := range []string{"全职", "实习", ""} {
+	for _, kind := range []string{"全职", "实习", "其他", ""} {
 		t.Run("kind="+kind, func(t *testing.T) {
 			id := "00000000-0000-0000-0000-000000000001"
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -48,7 +48,13 @@ func TestBeisenRequestsPublishedLocationAndQualificationFields(t *testing.T) {
 				// Simulate the public API: LocNames stays empty unless LocId was
 				// requested. Returned labels, rather than a title or address guess,
 				// are the source of location and qualification metadata.
-				row := map[string]any{"Id": id, "JobAdId": 1, "JobAdName": "软件开发工程师（杭州）", "CategoryId": "2", "Status": 1, "LocNames": []string{}, "Duty": "开发 Go 服务", "Require": "Go 与并发编程"}
+				title := "软件开发工程师（杭州）"
+				if kind == "其他" {
+					// The campus category can contain internships whose public
+					// employment field is "other". Do not infer a type from title.
+					title = "2027届校招实习-软件开发工程师（杭州）"
+				}
+				row := map[string]any{"Id": id, "JobAdId": 1, "JobAdName": title, "CategoryId": "2", "Status": 1, "LocNames": []string{}, "Duty": "开发 Go 服务", "Require": "Go 与并发编程"}
 				if kind != "" {
 					if has("LocId") {
 						row["LocNames"] = []string{"浙江省·杭州市", "北京市"}
@@ -72,6 +78,9 @@ func TestBeisenRequestsPublishedLocationAndQualificationFields(t *testing.T) {
 			defer srv.Close()
 			a := PublicPlatform{Client: &http.Client{Transport: rewriteTransport{srv.URL}}}
 			s := d.Source{Adapter: "h3c", Tenant: "campus"}
+			if kind == "其他" {
+				s.Adapter = "beisen_hr"
+			}
 			refs, err := a.Discover(context.Background(), s, d.WatchTarget{})
 			if err != nil || len(refs) != 1 {
 				t.Fatal("list unavailable", err)
@@ -85,8 +94,11 @@ func TestBeisenRequestsPublishedLocationAndQualificationFields(t *testing.T) {
 					t.Fatal("missing public facts guessed from title or campus category", refs[0], res.Text)
 				}
 			} else {
-				wantType := "FULL_TIME"
-				if kind == "实习" {
+				wantType := "UNKNOWN"
+				switch kind {
+				case "全职":
+					wantType = "FULL_TIME"
+				case "实习":
 					wantType = "INTERNSHIP"
 				}
 				if refs[0].JobType != wantType || len(refs[0].Locations) != 2 || refs[0].Locations[0] != "浙江省·杭州市" || !strings.Contains(res.Text, "浙江省·杭州市") || !strings.Contains(res.Text, "官网工作性质："+kind) || !strings.Contains(res.Text, "官网学历要求：本科及以上") {
@@ -97,14 +109,22 @@ func TestBeisenRequestsPublishedLocationAndQualificationFields(t *testing.T) {
 	}
 }
 
-func TestH3CVerifiedAliasUsesCanonicalPreset(t *testing.T) {
-	for _, raw := range []string{"https://career.h3c.com/campus/jobs", "https://h3c.zhiye.com/Campus", "https://h3c.zhiye.com/"} {
-		site, err := campusSite(raw)
-		if err != nil || site.Adapter != "h3c" || site.URL != "https://career.h3c.com/campus/jobs" {
-			t.Fatal("official alias did not resolve to canonical preset", site, err)
+func TestBeisenVerifiedAliasesUseCanonicalPreset(t *testing.T) {
+	for _, tc := range []struct {
+		adapter, canonical string
+		aliases            []string
+	}{
+		{"h3c", "https://career.h3c.com/campus/jobs", []string{"https://career.h3c.com/campus/jobs", "https://h3c.zhiye.com/Campus", "https://h3c.zhiye.com/"}},
+		{"venustech", "https://venustech2.zhiye.com/campus/jobs", []string{"https://venustech2.zhiye.com/campus/jobs", "https://venustech.zhiye.com/Campus", "https://venustech.zhiye.com/"}},
+	} {
+		for _, raw := range tc.aliases {
+			site, err := campusSite(raw)
+			if err != nil || site.Adapter != tc.adapter || site.URL != tc.canonical {
+				t.Fatal("official alias did not resolve to canonical preset", raw, site, err)
+			}
 		}
 	}
-	for _, raw := range []string{"https://career.h3c.com/social", "https://h3c.zhiye.com/Campus?candidate=private", "https://h3c.zhiye.com/Intern"} {
+	for _, raw := range []string{"https://career.h3c.com/social", "https://h3c.zhiye.com/Campus?candidate=private", "https://h3c.zhiye.com/Intern", "https://venustech.zhiye.com/Social", "https://venustech2.zhiye.com/campus/jobs?candidate=private", "https://venustech.zhiye.com/Intern", "https://venustech.zhiye.com:443/Campus", "http://venustech.zhiye.com/Campus"} {
 		if RecognizeCampusURL(raw) == nil {
 			t.Fatal("foreign recruiting scope accepted", raw)
 		}

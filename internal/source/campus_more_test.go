@@ -16,7 +16,7 @@ import (
 	p "github.com/KanaDoodle/CampusTrace/internal/persistence"
 )
 
-var moreAdapters = []string{"h3c", "yusys", "cksic", "whxmc", "neusoft", "mthreads", "nexchip", "lenovo", "midea", "byd", "hikvision", "qihoo360", "sany", "inovance", "vivo", "honor", "sgm", "hundsun", "yuewen", "csc_securities", "guosen_securities", "galaxy_securities", "cicc_securities"}
+var moreAdapters = []string{"nrec", "hec", "transsion", "digitalchina", "beisen_hr", "pylontech", "galaxyspace", "dcits", "intsig", "whalecloud", "starnet", "venustech", "hand", "mediatek", "yealink", "h3c", "yusys", "cksic", "whxmc", "neusoft", "mthreads", "nexchip", "lenovo", "midea", "byd", "hikvision", "qihoo360", "sany", "inovance", "vivo", "honor", "sgm", "hundsun", "yuewen", "csc_securities", "guosen_securities", "galaxy_securities", "cicc_securities"}
 
 func moreID(adapter string, n int) string {
 	switch adapter {
@@ -558,7 +558,7 @@ func TestHikvisionMergedDepartmentsAreChecked(t *testing.T) {
 }
 func TestMoreCampusDirectoryAndStrictEntry(t *testing.T) {
 	entries := CampusDirectory()
-	if len(entries) != 108 {
+	if len(entries) != 124 {
 		t.Fatalf("directory %d", len(entries))
 	}
 	readyCount := 0
@@ -577,7 +577,7 @@ func TestMoreCampusDirectoryAndStrictEntry(t *testing.T) {
 			t.Fatal("manual entry promoted to import")
 		}
 	}
-	if readyCount != 64 {
+	if readyCount != 80 {
 		t.Fatalf("automatic sources %d", readyCount)
 	}
 	for _, adapter := range moreAdapters {

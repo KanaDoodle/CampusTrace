@@ -85,6 +85,22 @@ func CampusSites() []CampusSite {
 		{"yusys", "宇信科技", "https://yusys-campus.zhiye.com/", "官网校招分类（含高潜人才项目，具体届别见原文）", 1800, false},
 		{"cksic", "中科芯", "https://cksic.zhiye.com/campus/jobs", "官网校招分类（软件、AI 与芯片方向，具体届别见原文）", 1800, false},
 		{"whxmc", "新芯股份", "https://whxmc.zhiye.com/campus/jobs", "官网校招分类（软件、信息安全与制造研发，具体届别见原文）", 1800, false},
+		{"venustech", "启明星辰", "https://venustech2.zhiye.com/campus/jobs", "官网校招分类（软件研发、AI 与信息安全等方向，具体届别见原文）", 1800, false},
+		{"hand", "汉得信息", "https://hand-china.zhiye.com/campus/jobs", "官网校招分类（软件研发与数字化咨询等方向，具体届别见原文）", 1800, false},
+		{"mediatek", "联发科技", "https://mediatek.zhiye.com/campus/jobs", "官网校招分类（软件、算法与芯片研发等方向，具体届别见原文）", 1800, false},
+		{"yealink", "亿联网络", "https://yealink.zhiye.com/campus/jobs", "官网校招分类（软件、Agent、音视频与通信研发等方向，具体届别见原文）", 1800, false},
+		{"dcits", "神州信息", "https://dcits.zhiye.com/campus/jobs", "官网校招分类（金融科技、后端与 AI Agent 等方向，具体届别见原文）", 1800, false},
+		{"intsig", "合合信息", "https://intsig.zhiye.com/campus/jobs", "官网校招分类（后端、AI 全栈、RAG 与 Agent 等方向，具体届别见原文）", 1800, false},
+		{"whalecloud", "浩鲸科技", "https://iwhalecloud1.zhiye.com/campus/jobs", "官网校招分类（后端、通信、AI 与嵌入式等方向，部分岗位接受 2026 届，见原文）", 1800, false},
+		{"starnet", "星网锐捷", "https://starnet.zhiye.com/campus/jobs", "官网校招分类（软件、AI 与通信研发等方向，具体届别及招聘单位见原文）", 1800, false},
+		{"digitalchina", "神州数码", "https://digitalchina.zhiye.com/campus/jobs", "官网校招分类（Agent、AI 应用与企业软件等方向，含提前实习要求；具体届别见原文）", 1800, false},
+		{"beisen_hr", "北森", "https://beisen.zhiye.com/campus/jobs", "官网校招分类（后端、AI 算法与企业软件等方向，含校招实习及不同届别，工作性质见原文）", 1800, false},
+		{"pylontech", "派能科技", "https://pylontech1.zhiye.com/campus/jobs", "官网校招分类（软件、算法与储能研发等方向，具体届别见原文）", 1800, false},
+		{"galaxyspace", "银河航天", "https://galaxy.zhiye.com/campus/jobs", "官网校招分类（工业软件、AI 与卫星通信研发等方向，具体届别见原文）", 1800, false},
+		{"nrec", "南瑞继保", "https://nrec.zhiye.com/campus/jobs", "官网校招分类（研发设计、信息技术与电力设备等方向，具体届别及单位见原文）", 1800, false},
+		{"hec", "东阳光", "https://hec.zhiye.com/campus/jobs", "官网校招分类（软件、机器人与制造研发等方向，具体届别及招聘单位见原文）", 1800, false},
+		{"transsion", "传音控股", "https://transsion.zhiye.com/campus/jobs", "官网校招分类（AI 全栈、Agent、软件开发与制造等方向，含海外地点，具体届别见原文）", 1800, false},
+		{"sczq_securities", "首创证券", SCZQCampusURL, "官网校园招聘类别（含总部、分支及其他招聘单位，届别与签约单位见原文）", 1800, false},
 		{"neusoft", "东软集团", "https://neusoft-campus.zhiye.com/", "官网校招分类（含软件研发，具体届别见原文）", 1800, false},
 		{"kedacom", "苏州科达", KedacomCampusURL, "官网校园招聘类别（不含实习，包含不同届别，以原文为准）", 1800, false},
 		{"games37", "三七互娱", Games37CampusURL, "官网校园招聘分类（含游戏研发、AI 等方向，具体届别见原文）", 1800, false},
@@ -124,7 +140,7 @@ func campusSite(raw string) (CampusSite, error) {
 		if u.Fragment != "" {
 			continue
 		}
-		if cfg, ok := beisenCompanies[site.Adapter]; ok && (u.Host == strings.TrimPrefix(cfg.Origin, "https://") || (site.Adapter == "h3c" && u.Host == "h3c.zhiye.com")) && (u.String() == site.URL || path == "" || strings.EqualFold(path, "/campus") || strings.EqualFold(path, "/campus/jobs") || (site.Adapter == "sgm" && path == "/campusjobs")) && u.RawQuery == "" {
+		if cfg, ok := beisenCompanies[site.Adapter]; ok && (u.Host == strings.TrimPrefix(cfg.Origin, "https://") || (site.Adapter == "h3c" && u.Host == "h3c.zhiye.com") || (site.Adapter == "venustech" && u.Host == "venustech.zhiye.com")) && (u.String() == site.URL || path == "" || strings.EqualFold(path, "/campus") || strings.EqualFold(path, "/campus/jobs") || (site.Adapter == "sgm" && path == "/campusjobs")) && u.RawQuery == "" {
 			return site, nil
 		}
 		switch site.Adapter {

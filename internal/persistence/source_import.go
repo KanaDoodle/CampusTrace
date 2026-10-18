@@ -147,9 +147,12 @@ func (s *Store) LatestSourceImport(ctx context.Context, user string) (*SourceImp
 // One active batch per user. Selection comes from server presets, never request URLs.
 func (s *Store) StartSourceImport(ctx context.Context, user string, specs []SourceImportSpec) (SourceImportBatch, error) {
 	var out SourceImportBatch
-	if len(specs) == 0 || len(specs) > 64 {
+	if len(specs) == 0 {
 		return out, ErrValidation
 	}
+	// The adapter allowlist and duplicate rejection bound a batch to one item
+	// per supported source. A fixed count must not reject the server's catalog
+	// when new presets are added.
 	seen := map[string]bool{}
 	for _, v := range specs {
 		if !d.IsCampusSource(v.Adapter) || seen[v.Adapter] || v.Company == "" || len(v.Company) > 160 || len(v.URL) > 2000 || len(v.Scope) > 500 {

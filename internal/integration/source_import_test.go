@@ -70,6 +70,29 @@ func bulkWatchTask(t *testing.T, ctx context.Context, s *p.Store, id, typ string
 	must(t, err)
 	return v
 }
+func TestSourceImportRejectsUnregisteredOrRepeatedSources(t *testing.T) {
+	ctx, s, _, user, _ := setup(t)
+	valid := importSpecs("baidu")[0]
+	for _, tc := range []struct {
+		name  string
+		specs []p.SourceImportSpec
+	}{
+		{"empty", nil},
+		{"unregistered", []p.SourceImportSpec{{Adapter: "unregistered", Company: "synthetic", URL: "https://example.com/jobs"}}},
+		{"duplicate", []p.SourceImportSpec{valid, valid}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, err := s.StartSourceImport(ctx, user, tc.specs); !errors.Is(err, p.ErrValidation) {
+				t.Fatal("invalid selection accepted", err)
+			}
+			latest, err := s.LatestSourceImport(ctx, user)
+			if err != nil || latest != nil {
+				t.Fatal("invalid selection created a batch", latest, err)
+			}
+		})
+	}
+}
+
 func TestSourceImportAllPresetScopesPreservePausedFilteredWatches(t *testing.T) {
 	ctx, s, q, u, _ := setup(t)
 	normal, err := s.CreateCampusSource(ctx, u, "baidu", "GRADUATE", "百度", d.WatchInput{CheckInterval: 3600, Keyword: "只看Go", Enabled: false, Adaptive: true})

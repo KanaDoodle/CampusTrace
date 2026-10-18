@@ -16,6 +16,7 @@ const LeihuoCampusURL = "https://leihuo.163.com/campus/#/full"
 var sectorScopes = map[string]struct{ Tenant, Origin string }{
 	"yonyou":            {"106301", "https://career.yonyou.com"},
 	"kedacom":           {"campus_2", kedacomOrigin},
+	"sczq_securities":   {"campus_2", sczqOrigin},
 	"games37":           {"campus", games37Origin},
 	"sangfor":           {sangforScope, sangforOrigin},
 	"bankcomm_tech":     {"campus_head_it", bankcommOrigin},
@@ -47,6 +48,9 @@ var sectorScopes = map[string]struct{ Tenant, Origin string }{
 func sectorEntry(site CampusSite, u *url.URL) bool {
 	if site.Adapter == "kedacom" {
 		return u.Host == "kedacom.zhiye.com" && strings.EqualFold(strings.TrimRight(u.Path, "/"), "/campus") && u.Fragment == "" && (u.RawQuery == "" || u.RawQuery == "r=2")
+	}
+	if site.Adapter == "sczq_securities" {
+		return u.Host == "sczq.zhiye.com" && strings.EqualFold(strings.TrimRight(u.Path, "/"), "/campus") && u.Fragment == "" && (u.RawQuery == "" || u.RawQuery == "r=2")
 	}
 	if site.Adapter == "games37" {
 		return u.String() == Games37CampusURL
@@ -90,6 +94,8 @@ func sectorEntry(site CampusSite, u *url.URL) bool {
 
 func (a PublicPlatform) discoverSector(ctx context.Context, s d.Source) ([]PostingRef, error) {
 	switch s.Adapter {
+	case "sczq_securities":
+		return a.discoverSCZQ(ctx, s)
 	case "kedacom":
 		return a.discoverKedacom(ctx, s)
 	case "games37":
@@ -133,6 +139,8 @@ func (a PublicPlatform) discoverSector(ctx context.Context, s d.Source) ([]Posti
 }
 func (a PublicPlatform) fetchSector(ctx context.Context, s d.Source, r PostingRef) (string, error) {
 	switch s.Adapter {
+	case "sczq_securities":
+		return a.fetchSCZQ(ctx, s, r)
 	case "kedacom":
 		return a.fetchKedacom(ctx, s, r)
 	case "games37":

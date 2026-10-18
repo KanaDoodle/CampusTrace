@@ -12,6 +12,21 @@ import (
 // Beisen separates campus (2), social (1) and intern (3). Never infer a cohort
 // from a job title: these presets describe the official campus category only.
 var beisenCompanies = map[string]struct{ Origin, Company string }{
+	"nrec":              {"https://nrec.zhiye.com", "南瑞继保"},
+	"hec":               {"https://hec.zhiye.com", "东阳光"},
+	"transsion":         {"https://transsion.zhiye.com", "传音控股"},
+	"digitalchina":      {"https://digitalchina.zhiye.com", "神州数码"},
+	"beisen_hr":         {"https://beisen.zhiye.com", "北森"},
+	"pylontech":         {"https://pylontech1.zhiye.com", "派能科技"},
+	"galaxyspace":       {"https://galaxy.zhiye.com", "银河航天"},
+	"dcits":             {"https://dcits.zhiye.com", "神州信息"},
+	"intsig":            {"https://intsig.zhiye.com", "合合信息"},
+	"whalecloud":        {"https://iwhalecloud1.zhiye.com", "浩鲸科技"},
+	"starnet":           {"https://starnet.zhiye.com", "星网锐捷"},
+	"venustech":         {"https://venustech2.zhiye.com", "启明星辰"},
+	"hand":              {"https://hand-china.zhiye.com", "汉得信息"},
+	"mediatek":          {"https://mediatek.zhiye.com", "联发科技"},
+	"yealink":           {"https://yealink.zhiye.com", "亿联网络"},
 	"qihoo360":          {"https://360campus.zhiye.com", "360集团"},
 	"sany":              {"https://sanycampus.zhiye.com", "三一集团"},
 	"inovance":          {"https://inovance.zhiye.com", "汇川技术"},
@@ -128,7 +143,7 @@ func (a PublicPlatform) fetchBeisen(ctx context.Context, s d.Source, r PostingRe
 	if err != nil || ref.ExternalID != r.ExternalID || ref.Title != r.Title {
 		return "", fail("SCHEMA_INVALID", false, 200)
 	}
-	scope := "官网校园招聘分类（不混入社招、实习分类；具体毕业年份及用工形式以岗位原文为准）"
+	scope := "官网校园招聘分类（仅读取校招分类；可能含不同届别及校招实习，具体毕业年份及用工形式以岗位原文为准）"
 	if isSecuritiesBeisen(s.Adapter) {
 		scope = "官网校园招聘分类（用工形式、实习考察、毕业范围及经验要求以原文为准）"
 	}
