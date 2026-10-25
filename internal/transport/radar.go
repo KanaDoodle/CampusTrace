@@ -171,6 +171,7 @@ func (a *API) radarRoutes(on func(string, http.HandlerFunc)) {
 	})
 	on("GET /api/radar/digest", func(w http.ResponseWriter, r *http.Request) {
 		v, err := a.Store.DailyDigest(r.Context(), user(r))
+		w.Header().Set("Cache-Control", "no-store")
 		write(w, v, err)
 	})
 	on("GET /api/radar/changes", func(w http.ResponseWriter, r *http.Request) {
@@ -206,6 +207,27 @@ func (a *API) radarRoutes(on func(string, http.HandlerFunc)) {
 	})
 	on("GET /api/preferences", func(w http.ResponseWriter, r *http.Request) {
 		v, err := a.Store.Preferences(r.Context(), user(r))
+		write(w, v, err)
+	})
+	on("GET /api/preferences/jobs", func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		page, err := strconv.Atoi(q.Get("page"))
+		if q.Get("page") == "" {
+			page, err = 1, nil
+		}
+		if err != nil {
+			write(w, nil, p.ErrValidation)
+			return
+		}
+		disposition, order := q.Get("disposition"), q.Get("sort")
+		if disposition == "" {
+			disposition = "SAVED"
+		}
+		if order == "" {
+			order = "updated"
+		}
+		w.Header().Set("Cache-Control", "no-store")
+		v, err := a.Store.PreferenceJobs(r.Context(), user(r), disposition, q.Get("q"), order, page)
 		write(w, v, err)
 	})
 	on("PUT /api/jobs/preferences", func(w http.ResponseWriter, r *http.Request) {

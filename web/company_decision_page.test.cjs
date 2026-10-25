@@ -2,7 +2,8 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const D=require('./display.js');
 
-function harness({catalogCount=3,missingID=false,withReport=true,candidateJobs=null,stored=new Map(),discard=true}={}){
+function harness({catalogCount=3,missingID=false,withReport=true,candidateJobs=null,stored=new Map(),discard=true,withDeadlines=false}={}){
+ let deadlineChange;const deadlinePaints=[];
  const elements=new Map(),reads=[],exports=[],downloads=[],blobs=new Map(),chatCalls=[];let html='',guard,blockedRead=false,capReads=0,userID='synthetic-account',chatSaved=null;const navigations=[],controls=[];
  const decode=v=>String(v).replaceAll('&quot;','"').replaceAll('&#39;',"'").replaceAll('&lt;','<').replaceAll('&gt;','>').replaceAll('&amp;','&');
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -26,6 +27,7 @@ function harness({catalogCount=3,missingID=false,withReport=true,candidateJobs=n
  };
  const document={querySelector:s=>s==='#company-eval-form select'?elements.get('company-eval-form')?.elements.top:elements.get(s.slice(1)),querySelectorAll:s=>{const key=s.match(/\[data-company-([^\]]+)\]/)?.[1];return key?controls.filter(c=>Object.hasOwn(c.dataset,'company'+key[0].toUpperCase()+key.slice(1))):[];},body:{append(){}},createElement:()=>({click(){downloads.push({filename:this.download,blob:blobs.get(this.href)});},remove(){}})};
  const context={document,Blob,TextEncoder,sessionStorage:{getItem:k=>stored.get(k),setItem:(k,v)=>stored.set(k,v)},URL:{createObjectURL:blob=>{const id='blob:fixture-'+blobs.size;blobs.set(id,blob);return id;},revokeObjectURL(){}},setTimeout(){},CampusModels:{bindUser(){}},CampusMatching:{bindUser(){},matchIdentity:()=>({model_name:'fixture-model',mask_name:''})},CampusNavigation:{register:v=>guard=v,leave:async()=>true,confirmDiscard:async()=>discard},console};
+ if(withDeadlines)context.CampusDeadlines={create:options=>{deadlineChange=options.onChange;return {html:()=>'<section id="deadline-overview">合成截止提醒</section>',bind(){},start(){},dispose(){},paint:host=>{host.innerHTML='合成更新';deadlinePaints.push(host);}};}};
  vm.createContext(context);for(const file of ['matching_chat.js','applications.js','campaigns.js','matching_decision.js','company_chat.js','company_decision.js'])vm.runInContext(fs.readFileSync(__dirname+'/'+file,'utf8'),context);
  const api=async(path,method,body)=>{
   if(path==='/api/profile/resume/capabilities'){capReads++;return {user_id:userID};}
@@ -48,7 +50,7 @@ function harness({catalogCount=3,missingID=false,withReport=true,candidateJobs=n
   }
   throw Error('Unexpected API: '+path);
  };
- return {elements,reads,exports,downloads,stored,chatCalls,navigations,controls,capReads:()=>capReads,user:id=>userID=id,html:()=>html,dirty:()=>guard.dirty(),blockRead:()=>blockedRead=true,start:initial=>context.CampusCompanyDecision.page(set,'<h1>公司投递决策</h1>',{api,esc,D,navigate:(name,query)=>navigations.push({name,query}),initialCompany:'测试公司',...initial}),submit:()=>elements.get('company-eval-form').onsubmit({preventDefault(){},target:elements.get('company-eval-form')})};
+ return {elements,reads,exports,downloads,stored,chatCalls,navigations,controls,deadlinePaints,refreshDeadline:()=>deadlineChange(),capReads:()=>capReads,user:id=>userID=id,html:()=>html,dirty:()=>guard.dirty(),blockRead:()=>blockedRead=true,start:initial=>context.CampusCompanyDecision.page(set,'<h1>公司投递决策</h1>',{api,esc,D,navigate:(name,query)=>navigations.push({name,query}),initialCompany:'测试公司',...initial}),submit:()=>elements.get('company-eval-form').onsubmit({preventDefault(){},target:elements.get('company-eval-form')})};
 }
 
 test('company picker reveals temporarily hidden jobs without clearing a previously selected scope',async()=>{
@@ -206,4 +208,11 @@ test('entering company view from radar reuses freshly read capabilities',async()
  const h=harness();await h.start({capabilities:{user_id:'synthetic-account'}});
  assert.equal(h.capReads(),0);assert.match(h.html(),/测试公司/);
  const normal=harness();await normal.start();assert.equal(normal.capReads(),1);
+});
+
+test('deadline updates keep company search, selection and annotation controls intact',async()=>{
+ const h=harness({withDeadlines:true});await h.start({initialIDs:['a','b']});
+ const search=h.elements.get('company-picker-search'),form=h.elements.get('company-eval-form');search.value='中文尚在输入';form.elements.reason.value='尚未保存的理由';
+ const before=h.html();h.refreshDeadline();
+ assert.equal(h.elements.get('company-picker-search'),search);assert.equal(search.value,'中文尚在输入');assert.equal(h.elements.get('company-eval-form'),form);assert.equal(form.elements.reason.value,'尚未保存的理由');assert.equal(h.html(),before);assert.equal(h.deadlinePaints[0],h.elements.get('radar-deadline-slot'));assert.equal(h.reads.length,1);assert.match(h.html(),/已选 2 \/ 16/);
 });

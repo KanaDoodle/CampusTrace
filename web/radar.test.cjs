@@ -5,12 +5,35 @@ const app=fs.readFileSync(__dirname+'/app.js','utf8');vm.runInContext(app.slice(
 test('雷达卡片保留来源转义与四个快捷操作',()=>{context.rows=[{job:{id:'a'.repeat(32),company:'<img onerror=x>',title:'后端',current_status:'UNKNOWN',locations:['上海']},eligibility:'UNKNOWN',ranking:{}}];const html=vm.runInContext('radarCards(rows)',context);assert.match(html,/&lt;img/);assert.doesNotMatch(html,/<img/);for(const label of ['稍后看','忽略','准备投递','已投递','暂无法确认'])assert.ok(html.includes(label));});
 test('变化记录按业务状态翻译而不推断开放',()=>{context.rows=[{job_id:'a'.repeat(32),type:'JOB_STATUS_CHANGED',from:'OPEN',to:'UNKNOWN',title:'Go',created_at:'2026-09-14T00:00:00Z'}];const html=vm.runInContext('radarChanges(rows)',context);assert.match(html,/岗位状态变化/);assert.match(html,/暂无法确认/);assert.doesNotMatch(html,/UNKNOWN|OPEN/);});
 test('登录后进入岗位库并保留原有工作流入口',()=>{assert.match(app,/if\(token\)page\('matching'\)/);const html=fs.readFileSync(__dirname+'/index.html','utf8');for(const page of ['radar','watches','notifications','matching','applications','interviews','agent'])assert.ok(html.includes(`data-page="${page}"`));});
-test('home deadline panel stays visible when the optional legacy digest cannot read a large catalog',async()=>{
- let html='',mounted=false;const calls=[],host={isConnected:true};context.page=()=>{};
- context.api=async path=>{calls.push(path);if(path==='/api/radar/todos')return {items:[],counts:{}};throw Error('动态聚合容量限制');};
- context.CampusDeadlines={mount:box=>{assert.equal(box,host);mounted=true;return {dispose(){}};}};context.CampusTodos={mount(){}};
- await context.radarPage('radar',value=>(html=value,true),{querySelector:()=>host,querySelectorAll:()=>[]},'');
- assert.match(html,/id="home-deadlines"/);assert.ok(html.indexOf('home-deadlines')<html.indexOf('today-todos'));assert.equal(mounted,true);assert.match(html,/动态聚合容量限制/);assert.equal(calls.includes('/api/notifications/refresh'),false);delete context.CampusDeadlines;delete context.CampusTodos;
+function homeFixture(request){
+ let html='',alive=true,guard,todoMounts=0,deadlineMounts=0;const calls=[];
+ const node=()=>({innerHTML:'',textContent:'',open:false,isConnected:true,controls:new Map(),querySelector(s){return this.controls.get(s)||null;},querySelectorAll:()=>[]});
+ const nodes=new Map(['#home-deadlines','#today-todos','#radar-discoveries','#radar-discovery-content','[data-discovery-summary]'].map(id=>[id,node()]));
+ nodes.get('#today-todos').controls.set('[data-reload-todos]',{});nodes.get('#radar-discovery-content').controls.set('[data-refresh-discoveries]',{});
+ context.api=async path=>{calls.push(path);return request(path);};context.page=()=>{};
+ context.CampusDeadlines={mount:()=>{deadlineMounts++;return {dispose(){}};}};context.CampusTodos={mount:()=>todoMounts++};context.CampusNavigation={register:value=>guard=value};
+ return {calls,nodes,start:()=>context.radarPage('radar',value=>(html=value,true),{querySelector:s=>nodes.get(s),querySelectorAll:()=>[]},'',{active:()=>alive}),html:()=>html,deadlineMounts:()=>deadlineMounts,todoMounts:()=>todoMounts,leave:()=>{alive=false;guard?.dispose();delete context.CampusNavigation;delete context.CampusDeadlines;delete context.CampusTodos;},toggle:async()=>{const el=nodes.get('#radar-discoveries');el.open=true;el.ontoggle();await new Promise(setImmediate);},refresh:()=>nodes.get('#radar-discovery-content').controls.get('[data-refresh-discoveries]').onclick()};
+}
+const digest=()=>({as_of:'2026-10-18T00:00:00Z',counts:{new_jobs:8,recommended_jobs:2,closing_soon:3,status_changes:0,upcoming_interviews:0},new_jobs:[],recommended_jobs:[],recent_changes:[]});
+test('home reads deadlines and todos immediately, leaving optional discoveries idle until opened',async()=>{
+ const h=homeFixture(async path=>{if(path==='/api/radar/todos')return {items:[],counts:{}};throw Error('动态聚合容量限制');});await h.start();
+ assert.match(h.html(),/id="home-deadlines"/);assert.ok(h.html().indexOf('home-deadlines')<h.html().indexOf('today-todos'));assert.equal(h.deadlineMounts(),1);assert.equal(h.todoMounts(),1);assert.deepEqual(h.calls,['/api/radar/todos']);
+ await h.toggle();assert.match(h.nodes.get('#radar-discovery-content').innerHTML,/动态聚合容量限制/);assert.equal(h.deadlineMounts(),1);assert.equal(h.calls.includes('/api/notifications/refresh'),false);h.leave();
+});
+test('slow todos and discoveries never delay each other or replace the deadline region',async()=>{
+ let resolveTodos,resolveDigest;const h=homeFixture(path=>new Promise(resolve=>{if(path==='/api/radar/todos')resolveTodos=resolve;else resolveDigest=resolve;}));
+ const opening=h.start();assert.equal(h.deadlineMounts(),1);assert.match(h.html(),/正在读取待办/);await h.toggle();assert.equal(typeof resolveDigest,'function');assert.equal(h.todoMounts(),0);
+ resolveDigest(digest());await new Promise(setImmediate);assert.match(h.nodes.get('#radar-discovery-content').innerHTML,/今天最值得投/);assert.equal(h.todoMounts(),0);resolveTodos({items:[],counts:{}});await opening;assert.equal(h.todoMounts(),1);assert.equal(h.deadlineMounts(),1);h.leave();
+});
+test('discovery reads deduplicate, preserve a prior result on failure and ignore replies after navigation',async()=>{
+ let resolve,mode='slow';const h=homeFixture(async path=>path==='/api/radar/todos'?{items:[],counts:{}}:mode==='fail'?Promise.reject(Error('合成断网')):new Promise(done=>resolve=done));await h.start();
+ await h.toggle();await h.toggle();assert.equal(h.calls.filter(p=>p==='/api/radar/digest').length,1);resolve(digest());await new Promise(setImmediate);assert.match(h.nodes.get('[data-discovery-summary]').textContent,/新增 8/);
+ await h.toggle();assert.equal(h.calls.filter(p=>p==='/api/radar/digest').length,1,'reopening a loaded panel reuses the current result');mode='fail';await h.refresh();assert.match(h.nodes.get('#radar-discovery-content').innerHTML,/合成断网/);assert.match(h.nodes.get('#radar-discovery-content').innerHTML,/保留上次/);assert.match(h.nodes.get('#radar-discovery-content').innerHTML,/今天最值得投/);
+ mode='slow';const retry=h.refresh();const before=h.nodes.get('#radar-discovery-content').innerHTML;h.leave();resolve(digest());await retry;assert.equal(h.nodes.get('#radar-discovery-content').innerHTML,before);
+});
+test('todo retry touches only todos and late results cannot mount into another page',async()=>{
+ let fail=true,resolve;const h=homeFixture(async()=>fail?Promise.reject(Error('合成待办失败')):new Promise(done=>resolve=done));await h.start();assert.match(h.nodes.get('#today-todos').innerHTML,/合成待办失败/);fail=false;
+ const retry=h.nodes.get('#today-todos').controls.get('[data-reload-todos]').onclick();h.leave();resolve({items:[],counts:{}});await retry;assert.equal(h.todoMounts(),0);assert.equal(h.deadlineMounts(),1);assert.equal(h.calls.length,2);
 });
 test('关注源提供网址预览和分页岗位入口',async()=>{
   let html='';const box={querySelectorAll:()=>[],querySelector:()=>({addEventListener(){}})};
@@ -56,4 +79,35 @@ test('slow progress does not block the watch list, and a superseded or abandoned
   releases[1]({expected:50,completed:2});await new Promise(resolve=>setImmediate(resolve));assert.equal(updates.length,1);assert.equal(updates[0].value.completed,2);
   elements['#refresh-watches'].onclick();await new Promise(resolve=>setImmediate(resolve));alive=false;releases[2]({expected:50,completed:3});await new Promise(resolve=>setImmediate(resolve));assert.equal(updates.length,1,'leaving must prevent late progress writes');
  }finally{for(const release of releases)release(null);context.CampusSourceWatches.progress=old;}
+});
+
+test('radar job links open the unified matching detail and source-only dates retain the original day',async()=>{
+ const calls=[],button={dataset:{job:'deadline-job'}};context.page=async(name,query)=>calls.push({name,query});context.detail=async()=>{throw Error('旧详情不应打开');};
+ context.bindRadar({querySelectorAll:selector=>selector==='[data-job]'?[button]:[]},async()=>{});await button.onclick();assert.equal(calls[0].name,'matching');assert.equal(calls[0].query.jobID,'deadline-job');assert.equal(calls[0].query.view,'overview');
+ context.rows=[{job:{id:'deadline-job',company:'虚构公司',title:'Go',current_status:'OPEN',locations:[]},eligibility:'UNKNOWN',deadline:'2026-10-20T00:00:00+08:00',deadline_date:'2026-10-19'}];
+ const html=vm.runInContext('radarCards(rows)',context);assert.match(html,/2026-10-19 当天结束/);assert.doesNotMatch(html,/2026年10月20日/);
+});
+
+test('radar cards reflect saved and existing application state without suggesting duplicate creation',()=>{
+ context.rows=[{job:{id:'a',title:'Go',company:'甲',locations:[],current_status:'OPEN'},disposition:'SAVED',eligibility:'UNKNOWN',application:{id:'app',current_state:'PLANNED',version:4}}];
+ const html=vm.runInContext('radarCards(rows)',context);assert.match(html,/取消稍后看/);assert.match(html,/查看投递计划/);assert.match(html,/data-app-version="4"/);assert.doesNotMatch(html,/data-apply="PLANNED"/);assert.doesNotMatch(html,/资格暂无法判断/);
+ context.rows[0].application.current_state='APPLIED';const submitted=vm.runInContext('radarCards(rows)',context);assert.match(submitted,/查看投递进展/);assert.doesNotMatch(submitted,/data-apply=/);
+});
+function actionFixture(button,{request=async()=>({}),active=()=>true,pending=new Set()}={}){
+ const calls=[],errors=[],notice={textContent:''};let refreshes=0;
+ context.document.querySelector=()=>notice;context.api=async(path,method,body)=>{calls.push({path,method,body});return request(path,body);};context.fail=error=>errors.push(error.message);
+ const box={querySelectorAll:selector=>selector==='[data-id]'||selector==='[data-apply]'?[button]:[]};
+ context.bindRadar(box,async()=>refreshes++,{active,pending});return {calls,errors,notice,refreshes:()=>refreshes};
+}
+test('quick application actions use the observed application version or create directly, without a capped list lookup',async()=>{
+ const existing={dataset:{id:'job',apply:'APPLIED',appId:'app',appVersion:'4'},disabled:false},a=actionFixture(existing);await existing.onclick();assert.equal(a.calls.length,1);assert.equal(a.calls[0].path,'/api/applications/transition');assert.equal(a.calls[0].body.version,4);assert.equal(a.calls[0].body.application_id,'app');assert.equal(a.refreshes(),1);
+ const submitted={dataset:{id:'new',apply:'APPLIED'},disabled:false},b=actionFixture(submitted);await submitted.onclick();assert.equal(b.calls.length,1);assert.equal(b.calls[0].path,'/api/applications');assert.equal(b.calls[0].method,'POST');assert.equal(b.calls[0].body.submitted,true);
+ const planned={dataset:{id:'plan',apply:'PLANNED'},disabled:false},c=actionFixture(planned);await planned.onclick();assert.equal(c.calls[0].body.job_id,'plan');assert.equal(Object.hasOwn(c.calls[0].body,'submitted'),false);
+});
+test('quick actions deduplicate repeated clicks and never overwrite another page after navigation',async()=>{
+ let resolve,alive=true;const button={dataset:{id:'job',apply:'PLANNED'},disabled:false},h=actionFixture(button,{active:()=>alive,request:()=>new Promise(done=>resolve=done)});
+ const request=button.onclick();await button.onclick();assert.equal(h.calls.length,1);assert.equal(button.disabled,true);alive=false;resolve({});await request;assert.equal(h.refreshes(),0);assert.equal(h.notice.textContent,'');assert.equal(h.errors.length,0);
+});
+test('stale application versions fail without creating another application and retain an actionable retry',async()=>{
+ const button={dataset:{id:'job',apply:'APPLIED',appId:'app',appVersion:'4'},disabled:false},h=actionFixture(button,{request:async()=>{throw Error('投递状态已变化，请刷新。');}});await button.onclick();assert.equal(h.calls.length,1);assert.deepEqual(h.errors,['投递状态已变化，请刷新。']);assert.equal(h.refreshes(),0);assert.equal(button.disabled,false);
 });

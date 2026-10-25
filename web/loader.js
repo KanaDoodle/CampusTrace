@@ -13,7 +13,8 @@
   practice:['practice.js'],
   applications:['campaigns.js','applications.js','drafts.js'],
   interviews:['interviews.js','drafts.js'],
-  radar:['todos.js','deadlines.js','source_catalog.js','source_bulk.js','source_watches.js','radar.js'],
+  preferences:['matching_chat.js','preferences.js'],
+  radar:['radar_browse.js','notifications.js','todos.js','deadlines.js','source_catalog.js','source_bulk.js','source_watches.js','radar.js'],
   zip:['vendor/jszip.min.js'],drafts:['drafts.js']
  };
  function asset(path){

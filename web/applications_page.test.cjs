@@ -3,8 +3,8 @@ const {test}=require('node:test'),assert=require('node:assert/strict'),fs=requir
 const D=require('./display.js'),{esc}=require('./ui.js');
 const record=(extra={})=>({id:'application-a',job_id:'job-a',version:1,current_state:'APPLIED',next_states:['OA','INTERVIEW'],resume_version:'后端版',job:{company:'甲公司',title:'Go 后端',locations:['上海']},...extra});
 
-function harness({initial=[record()],request}={}){
- const elements=new Map(),forms=new Map(),notices=[],requests=[];let html='';
+function harness({initial=[record()],request,workflow={}}={}){
+ const elements=new Map(),forms=new Map(),notices=[],requests=[],navigations=[],positions=[];let html='';
  function parse(value){
   for(const m of value.matchAll(/<([a-z]+)\b([^>]*\bid="([^"]+)"[^>]*)>/gi))if(!elements.has(m[3]))elements.set(m[3],element(m[3],m[2]));
  }
@@ -17,7 +17,7 @@ function harness({initial=[record()],request}={}){
  }
  const document={querySelector(selector){if(selector.startsWith('[data-application-id='))return elements.get('article');return elements.get(selector.slice(1));},querySelectorAll(){return [];}};
  const draft={capture(){},restore(){},dirty:()=>false,savepoint:()=>null,saved(){},forget(){}};
- const context={document,CampusUI:{notify:message=>notices.push(message)},CampusNavigation:{readWorkflow:()=>({}),storeWorkflow(){},register(){},forms:()=>draft},console};
+ const context={document,CampusUI:{notify:message=>notices.push(message)},CampusNavigation:{readWorkflow:()=>workflow,storeWorkflow:(_u,_s,v)=>positions.push(v),register(){},forms:()=>draft},console};
  vm.createContext(context);vm.runInContext(fs.readFileSync(__dirname+'/applications.js','utf8'),context);
  const set=value=>{html=value;parse(value);elements.set('article',element('article'));return true;};
  let reads=0;
@@ -27,8 +27,8 @@ function harness({initial=[record()],request}={}){
   if(path==='/api/applications'&&reads++===0)return structuredClone(initial);
   return request(path,method,body);
  };
- return {elements,forms,notices,requests,html:()=>html,records:()=>elements.get('application-records').innerHTML,
-  start:()=>context.CampusApplications.page(set,'<h1>投递进展</h1>',{api,esc,D,formAction:(selector,action)=>forms.set(selector,action),navigate(){},scheduleInterview(){},table:()=>'',active:()=>true})};
+ return {elements,forms,notices,requests,navigations,positions,article:()=>elements.get('article'),html:()=>html,records:()=>elements.get('application-records').innerHTML,
+  start:()=>context.CampusApplications.page(set,'<h1>投递进展</h1>',{api,esc,D,formAction:(selector,action)=>forms.set(selector,action),navigate:(name,query)=>navigations.push({name,query}),scheduleInterview(){},table:()=>'',active:()=>true})};
 }
 
 test('refreshing applications updates company choices and clears a company that disappeared',async()=>{
@@ -62,4 +62,10 @@ test('a successful stage change never reuses old transitions or claims a nonterm
  await h.forms.get('#application-stage-application-a')(new Map([['state','OA'],['note','']]));
  assert.match(h.records(),/笔试/);assert.doesNotMatch(h.records(),/application-stage-application-a|这条投递已结束/);
  assert.match(h.records(),/请刷新记录后再更新进展/);
+});
+
+test('application details and preparation both carry a return context without clearing stored filters',async()=>{
+ const h=harness({workflow:{query:'Go',company:'甲公司',ongoingPage:2,applicationSort:'followup',scroll:480}});await h.start();await h.article().querySelector('[data-application-job]').onclick();await h.article().querySelector('[data-application-preparation]').onclick();
+ assert.equal(h.navigations.length,2);for(const call of h.navigations){assert.equal(call.name,'matching');assert.equal(call.query.returnTo.page,'applications');assert.equal(call.query.jobID,'job-a');}
+ assert.equal(h.navigations[1].query.view,'preparation');assert.equal(h.positions[1].lastApplication,'application-a');assert.equal(h.positions[1].query,'Go');assert.equal(h.positions[1].company,'甲公司');assert.equal(h.positions[1].applicationSort,'followup');
 });

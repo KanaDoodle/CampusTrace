@@ -39,14 +39,15 @@ const CampusApplications=(function(root){
     });
   }
   function pageSlice(rows,page=1,size=25){const pages=Math.max(1,Math.ceil(rows.length/size)),current=Math.max(1,Math.min(pages,page));return {rows:rows.slice((current-1)*size,current*size),page:current,pages};}
-  async function page(set,heading,{api,esc,D,formAction,navigate,scheduleInterview,table,initialApplication='',active=()=>true}){
+  async function page(set,heading,{api,esc,D,formAction,navigate,scheduleInterview,table,initialApplication='',resume=false,active=()=>true}){
     const [cap,records]=await Promise.all([api('/api/profile/resume/capabilities'),api('/api/applications')]);if(!active())return;
     let rows=records,localDrafts=null;const N=root.CampusNavigation,saved=N?.readWorkflow(cap.user_id,'applications')||{};
     let initialNotice='';
     if(initialApplication&&!rows.some(row=>row.id===initialApplication)){try{rows.push(await api('/api/applications/'+encodeURIComponent(initialApplication)));}catch(error){initialNotice=error.message;}}
     if(!active())return;
     let query=initialApplication?'':saved.query||'',company=initialApplication?'':saved.company||'',stage=initialApplication?'':saved.stage||'',openEnded=!!saved.openEnded,ongoingPage=saved.ongoingPage||1,endedPage=saved.endedPage||1,sort=['updated','applied','followup'].includes(saved.applicationSort)?saved.applicationSort:'updated',followUpOnly=!initialApplication&&saved.followUpOnly===true,busy=false,campaigns=null;
-    const editors=new Set(),drafts=root.CampusNavigation?.forms(document,{selector:'#application-records form',retainMissing:true});
+    let lastApplication=saved.lastApplication||'';
+    const editors=new Set(saved.openIDs||[]),drafts=root.CampusNavigation?.forms(document,{selector:'#application-records form',retainMissing:true});
     const localTracker=N?.forms(document,{selector:'#application-records form',retainMissing:true,ignoreNames:['resume_version']});
     const companies=[...new Set(rows.map(a=>a.job?.company).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'zh'));
     if(company&&!companies.includes(company))company='';if(stage&&!Object.hasOwn(D.enums.application,stage))stage='';
@@ -60,7 +61,8 @@ const CampusApplications=(function(root){
       q('#application-company').innerHTML=select(values.map(c=>[c,c]),'所有公司');q('#application-company').value=company;
     }
     const go=(...args)=>Promise.resolve(navigate(...args)).catch(error=>notify(error.message));
-    const savePosition=()=>N?.storeWorkflow(cap.user_id,'applications',{query:q('#application-search').value,company,stage,openEnded,ongoingPage,endedPage,applicationSort:sort,followUpOnly,scroll:root.scrollY||0});
+    const savePosition=()=>N?.storeWorkflow(cap.user_id,'applications',{query:q('#application-search').value,company,stage,openEnded,ongoingPage,endedPage,applicationSort:sort,followUpOnly,lastApplication,openIDs:[...q('#application-records').querySelectorAll('[data-application-editor]')].filter(el=>el.open).map(el=>el.dataset.applicationEditor),scroll:root.scrollY||0});
+    const openJob=(row,view='overview')=>{lastApplication=row.id;savePosition();return go('matching',{jobID:row.job_id,view,returnTo:{page:'applications'}});};
     const checkpoint=()=>{savePosition();localDrafts?.flush();};
     root.CampusNavigation?.register({active,checkpoint,dirty:()=>busy||drafts?.dirty()||campaigns?.dirty(),dispose:()=>localDrafts?.dispose()});
     const pager=(v,group)=>v.pages>1?`<div class="workflow-pagination"><span>第 ${v.page} / ${v.pages} 页</span><button class="btn btn-small" data-application-page="${group}" data-number="${v.page-1}" ${v.page===1?'disabled':''}>上一页</button><button class="btn btn-small" data-application-page="${group}" data-number="${v.page+1}" ${v.page===v.pages?'disabled':''}>下一页</button></div>`:'';
@@ -77,8 +79,8 @@ const CampusApplications=(function(root){
       for(const button of q('#application-records').querySelectorAll('[data-application-page]'))button.onclick=()=>{capture();if(button.dataset.applicationPage==='ended')endedPage=Number(button.dataset.number);else ongoingPage=Number(button.dataset.number);draw();};
       for(const a of [...ongoing.rows,...finished.rows]){
         const article=q(`[data-application-id="${a.id}"]`);if(!article)continue;
-        article.querySelector('[data-application-job]').onclick=()=>go('matching',{jobID:a.job_id});
-        article.querySelector('[data-application-preparation]').onclick=()=>go('matching',{jobID:a.job_id,view:'preparation'});
+        article.querySelector('[data-application-job]').onclick=()=>openJob(a);
+        article.querySelector('[data-application-preparation]').onclick=()=>openJob(a,'preparation');
         article.querySelector('[data-application-interview]').onclick=()=>Promise.resolve(scheduleInterview(a.id)).catch(error=>notify(error.message));
         article.querySelector('[data-application-history]').onclick=async()=>{try{const history=await api('/api/applications/'+encodeURIComponent(a.id)+'/history');if(active()){const box=q('#application-history-'+a.id);if(box)box.innerHTML='<h4>投递进展记录</h4>'+table(history,['from_state','to_state','occurred_at','note'],'暂未记录进展变化。');}}catch(error){if(active())notify(error.message);}};
         if(a.next_states?.length)formAction('#application-stage-'+a.id,async data=>save('#application-stage-'+a.id,()=>api('/api/applications/transition','POST',{application_id:a.id,state:data.get('state'),version:a.version,note:String(data.get('note')||'').trim()}),'投递进展已更新。'));
@@ -112,7 +114,7 @@ const CampusApplications=(function(root){
     q('#application-refresh').onclick=async()=>{if(busy)return;busy=true;const button=q('#application-refresh');button.disabled=true;try{const latest=await api('/api/applications');if(!active())return;replaceRows(latest);draw();notify('投递记录已刷新。');}catch(error){if(active())notify(error.message);}finally{busy=false;if(active()){button.disabled=false;draw();}}};
     draw();
     localDrafts=root.CampusDrafts?.mount({user:cap.user_id,scope:'applications',tracker:localTracker,active,allow:id=>id.startsWith('application-details-')||id.startsWith('application-follow-up-'),help:'仅在本机保留备注与跟进事项；简历版本不保留。',afterRestore:()=>{drafts?.capture();draw();for(const el of q('#application-records').querySelectorAll('[data-application-editor]')){if(localTracker?.entries().some(v=>v.id==='application-details-'+el.dataset.applicationEditor||v.id==='application-follow-up-'+el.dataset.applicationEditor.replace(/:follow$/,''))){el.open=true;editors.add(el.dataset.applicationEditor);}}}});
-    if(!initialApplication)root.requestAnimationFrame?.(()=>{if(active())root.scrollTo?.({top:saved.scroll||0,behavior:'instant'});});
+    if(!initialApplication)root.requestAnimationFrame?.(()=>{if(!active())return;root.scrollTo?.({top:saved.scroll||0,behavior:'instant'});if(resume&&lastApplication){const article=[...q('#application-records').querySelectorAll('[data-application-id]')].find(el=>el.dataset.applicationId===lastApplication);article?.querySelector('[data-application-preparation]')?.focus?.({preventScroll:true});}});
     if(initialNotice)notify(initialNotice);
     if(initialApplication){const article=q(`[data-application-id="${initialApplication}"]`);if(article){article.classList.add('application-current');article.scrollIntoView({block:'center',behavior:'instant'});article.querySelector('[data-application-job]').focus({preventScroll:true});}}
     if(root.CampusCampaigns)root.CampusCampaigns.mount(q('#application-campaigns'),{api,esc,active,notify}).then(controller=>{if(active())campaigns=controller;}).catch(error=>{if(active())notify(error.message);});

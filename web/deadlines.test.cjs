@@ -11,11 +11,11 @@ test('loading, read failure and confirmed empty state remain distinct',()=>{
  const expired=packet();expired.items[0].at=new Date(Date.now()-1000).toISOString();assert.doesNotMatch(Deadlines.render({snapshot:expired},{esc,D}),/data-deadline-job="a"/);
 });
 function fixture(request){
- const timers=[],calls=[],navigations=[];let changes=0,active=true;
- const c={Date,document:{visibilityState:'visible'},setTimeout:(fn,delay)=>(timers.push({fn,delay}),timers.length),clearTimeout:id=>{if(timers[id-1])timers[id-1].canceled=true;}};vm.createContext(c);vm.runInContext(fs.readFileSync(__dirname+'/deadlines.js','utf8'),c);
+ const timers=[],calls=[],navigations=[],listeners=new Map();let changes=0,active=true,now=Date.now();
+ const c={Date:class extends Date{static now(){return now;}},document:{visibilityState:'visible',addEventListener:(type,fn)=>listeners.set(type,fn),removeEventListener:type=>listeners.delete(type)},setTimeout:(fn,delay)=>(timers.push({fn,delay}),timers.length),clearTimeout:id=>{if(timers[id-1])timers[id-1].canceled=true;}};vm.createContext(c);vm.runInContext(fs.readFileSync(__dirname+'/deadlines.js','utf8'),c);
  const panel=c.CampusDeadlines.create({api:async path=>{calls.push(path);return request();},esc,D,navigate:(...args)=>navigations.push(args),active:()=>active,onChange:()=>changes++});
  const controls=new Map(['[data-deadline-refresh]','[data-deadline-all]','job'].map(k=>[k,{dataset:{deadlineJob:'a'}}]));const host={querySelector:s=>controls.get(s),querySelectorAll:()=>[controls.get('job')]};
- return {panel,calls,timers,navigations,controls,bind:()=>panel.bind(host),deactivate:()=>active=false,hide:()=>c.document.visibilityState='hidden',changes:()=>changes};
+ return {panel,calls,timers,navigations,controls,bind:()=>panel.bind(host),deactivate:()=>active=false,hide:()=>{c.document.visibilityState='hidden';return listeners.get('visibilitychange')?.();},show:()=>{c.document.visibilityState='visible';return listeners.get('visibilitychange')?.();},advance:ms=>now+=ms,listeners,changes:()=>changes};
 }
 test('deadline loading is deduplicated, read-only, navigable and preserves the prior view on retryable failure',async()=>{
  let resolve,fail=false;const h=fixture(()=>fail?Promise.reject(Error('合成失败')):new Promise(done=>resolve=done));const first=h.panel.start(),again=h.panel.load();await again;assert.equal(h.calls.length,1);resolve(packet());await first;assert.equal(h.timers[0].delay,60000);
@@ -26,5 +26,14 @@ test('a late response after leaving cannot update another page or schedule furth
  let resolve;const h=fixture(()=>new Promise(done=>resolve=done)),opening=h.panel.start();const before=h.changes();h.deactivate();resolve(packet());await opening;assert.equal(h.changes(),before);assert.equal(h.timers.length,0);assert.doesNotMatch(h.panel.html(),/data-deadline-job/);
 });
 test('a hidden page does not request deadline data and a disposed controller stops polling',async()=>{
- const h=fixture(packet);h.hide();await h.panel.start();assert.equal(h.calls.length,0);assert.equal(h.timers.length,1);h.panel.dispose();await h.timers[0].fn();assert.equal(h.calls.length,0);assert.equal(h.timers.length,1);
+ const h=fixture(packet);h.hide();await h.panel.start();assert.equal(h.calls.length,0);assert.equal(h.timers.length,0);assert.equal(h.listeners.size,1);h.panel.dispose();await h.show();assert.equal(h.calls.length,0);assert.equal(h.listeners.size,0);
+});
+
+test('returning to a stale tab refreshes immediately, while a fresh tab reuses the remaining interval',async()=>{
+ const h=fixture(packet);await h.panel.start();await h.panel.start();assert.equal(h.calls.length,1,'starting twice cannot add another request or timer');
+ await h.hide();assert.equal(h.timers[0].canceled,true);h.advance(10000);await h.show();assert.equal(h.calls.length,1);assert.equal(h.timers.at(-1).delay,50000);
+ await h.hide();h.advance(51000);await h.show();assert.equal(h.calls.length,2);assert.equal(h.timers.at(-1).delay,60000);h.panel.dispose();assert.equal(h.listeners.size,0);
+});
+test('a request that finishes in a hidden tab cannot restart a hidden polling loop',async()=>{
+ let resolve;const h=fixture(()=>new Promise(done=>resolve=done)),opening=h.panel.start();await h.hide();resolve(packet());await opening;assert.equal(h.timers.length,0);await h.show();assert.equal(h.calls.length,1);assert.equal(h.timers.length,1);h.panel.dispose();
 });

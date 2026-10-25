@@ -23,6 +23,8 @@ test('搜索不重绘其他表单，展开状态在重新筛选后保留',()=>{
  const list={innerHTML:'',querySelector:()=>manual},section={querySelector:s=>s==='[data-source-search]'?search:s==='[data-source-group]'?type:list};
  const state={search:'',group:'',manualOpen:false};S.mount(section,catalog,{esc,state,bind:()=>{rebound++;}});manual.ontoggle();search.value='SAP';search.oninput();assert.equal(state.manualOpen,true);assert.equal(state.search,'SAP');assert.equal(rebound,1);assert.match(list.innerHTML,/官网查看/);type.value='互联网';type.onchange();assert.match(list.innerHTML,/没有符合筛选/);
 });
+
+test('catalog search waits for complete Chinese composition before replacing result controls',()=>{const search={value:''},type={value:''},list={innerHTML:'previous',querySelector:()=>null},state={};let ended=0;S.mount({querySelector:s=>s==='[data-source-search]'?search:s==='[data-source-group]'?type:list},catalog,{esc,state,bind(){},onCompositionEnd:()=>ended++});search.oncompositionstart();search.value='网易';search.oninput({isComposing:true});assert.equal(list.innerHTML,'previous');search.oncompositionend();assert.equal(state.search,'网易');assert.equal(state.composing,false);assert.equal(ended,1);});
 test('银行独立筛选保留技术中心预设和四大行待接入状态',()=>{
  const rows=[{company:'中行 · 软件中心',category:'银行',auto_import:true,scope:'2027届'}, {company:'工商银行',category:'银行',auto_import:false,url:'https://job.icbc.com.cn/',status:'公开查询返回异常'}, {company:'招银网络科技',category:'金融科技',auto_import:true}];
  assert.deepEqual(S.select(rows,{group:'银行'}).map(v=>v.index),[0,1]);

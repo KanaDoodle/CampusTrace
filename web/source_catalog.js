@@ -17,12 +17,12 @@
   const checked=catalog.map(s=>s.checked_at||'').filter(d=>/^\d{4}-\d{2}-\d{2}$/.test(d)).sort().at(-1);
   return `<section id="source-directory" class="source-directory" aria-label="校招来源目录"><div class="source-directory-heading"><h3>校招来源目录</h3><span>${catalog.length} 个招聘来源</span></div><p class="meta">已支持的校招来源可选择后预览，确认范围与数量再开始导入。${checked?` 核验于 ${esc(checked)}，当前可用性以预览为准。`:""}</p><div class="source-filters"><label>搜索公司<input type="search" data-source-search placeholder="例如：网易、同花顺、天翼云" value="${esc(state.search||'')}"></label><label>来源类型<select data-source-group><option value="">全部类型</option>${groups.map(g=>`<option value="${g}" ${state.group===g?'selected':''}>${g}</option>`).join('')}</select></label></div><div data-source-results>${results(catalog,esc,state)}</div></section>`;
  }
- function mount(section,catalog,{esc,state,bind}){
+ function mount(section,catalog,{esc,state,bind,onCompositionEnd=()=>{}}){
   if(!section||!section.querySelector)return;
   const search=section.querySelector('[data-source-search]'),type=section.querySelector('[data-source-group]'),list=section.querySelector('[data-source-results]');
   const remember=()=>{const manual=list.querySelector('.source-manual');if(manual)manual.ontoggle=()=>{state.manualOpen=manual.open;};};
   const refresh=()=>{state.search=search.value;state.group=type.value;list.innerHTML=results(catalog,esc,state);bind();remember();};
-  search.oninput=refresh;type.onchange=refresh;remember();
+  search.oncompositionstart=()=>state.composing=true;search.oninput=event=>{if(!state.composing&&!event?.isComposing)refresh();};search.oncompositionend=()=>{state.composing=false;refresh();onCompositionEnd();};type.onchange=refresh;remember();
  }
  const api={select,render,mount,officialURL,ready,group};root.CampusSources=api;if(typeof module!=='undefined')module.exports=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

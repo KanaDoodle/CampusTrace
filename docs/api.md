@@ -83,14 +83,17 @@ All `/api/*` routes use the existing JWT owner scope; there is no body/query own
 | GET /api/radar/todos | Owner-only read snapshot; `as_of`, complete bounded `counts`, at most 5 `items` per kind, per-kind `truncated`; PLANNED_CLOSING / INTERVIEW_UPCOMING / REVIEW_PENDING / ANALYSIS_FAILED; no model or quota use, Cache-Control: no-store |
 | GET /api/radar/digest | Current SQL snapshot; `counts`, `as_of`, new/recommended/closing jobs, status/recent changes, upcoming interviews, explicit `truncated` |
 | GET /api/radar/changes?days=1 | days = 1 or 7; latest 100 visible, non-ignored change events |
-| GET /api/radar/closing?days=7 | days = 3, 7 or 14; current status/evidence timezone/eligibility/ranking/application/preference |
+| GET /api/radar/closing?days=7 | days = 3, 7 or 14; current status/evidence timezone/application/preference; no candidate scoring |
 | GET /api/preferences | Owner preference records, up to 500 |
+| GET /api/preferences/jobs?disposition=SAVED&q=&sort=updated&page=1 | Owner saved/ignored jobs with application metadata; SAVED or IGNORED, sort=updated/company/title; 50 rows per page plus complete filtered total; visible jobs only, no profile required; Cache-Control: no-store |
 | PUT /api/jobs/{id}/preference | `{"disposition":"NONE|SAVED|IGNORED"}`; verifies job access |
 | GET /api/notifications | Latest 100 owner notifications, including read_at |
 | POST /api/notifications/refresh | Explicitly materialize current notification facts; SQL dedup; counts created/deduplicated |
 | POST /api/notifications/{id}/read | Idempotently mark one owned notification as read |
 
-Digest is read-only and does not send/materialize notifications. It returns complete counts within the aggregation capacity; each job section shows at most 5 records, changes/interviews at most 10. Capacity overflows return HTTP 409 `code: RADAR_CAPACITY`, rather than claiming a complete result. Closing results exclude ignored/closed/past-deadline jobs and applications beyond PLANNED. Existing application creation and versioned transition routes implement quick actions.
+The inbox searches and filters only the latest 100 returned notifications, rendering 20 per page. Opening it, filtering, paging, and “刷新列表” are read-only; only “检查新提醒” invokes the refresh POST. A confirmed read updates the current list without fetching it again. Filters, page, scroll and the notification that opened a job are restored on return within the same account. Failed refreshes retain the last list; after a successful reminder check followed by a failed list read, retrying the list does not repeat generation.
+
+Digest is read-only and does not send/materialize notifications. It reads up to 10,000 visible jobs in keyset batches of 100 within one repeatable-read snapshot, loading the optional candidate profile once. It returns complete counts while retaining at most 5 records per job section and at most 10 changes/interviews; ignored jobs and applications beyond PLANNED do not enter recommendations or closing results. Missing profiles still allow new-job/deadline browsing with no recommendations. Responses use Cache-Control: no-store. Capacity overflows return HTTP 409 `code: RADAR_CAPACITY`, rather than claiming a complete result. Closing results exclude ignored/closed/past-deadline jobs and applications beyond PLANNED. Existing application creation and versioned transition routes implement quick actions.
 
 Source configuration is not a user-write API: a local operator registers `adapter` (`lever`, `greenhouse`, `smartrecruiters`), `tenant`, and optional `rate_limit` in the Source record. The Watch keyword filters posting title/location; URLs are derived from the registered platform and tenant. Editing a Watch increments its scheduling version and makes previous work stale. Already committed observations remain immutable history.
 

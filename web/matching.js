@@ -208,37 +208,42 @@ const CampusMatching=(function(root){
     box.querySelector('[data-open-matching]').onclick=()=>navigate('matching',{jobID:id});
     for(const b of box.querySelectorAll('[data-supplement]'))b.onclick=()=>navigate('profile',{evidence:{jobID:id,requirementID:b.dataset.supplement,identity:identity()}});
   }
-  async function page(set,heading,{api,esc,D,UserError,navigate,openRecord,initialQuery='',initialJob='',initialView='overview',initialAnalyze=false,initialTask='',initialComparison=null,initialWorkflow='',returnCompany='',active}){
+  async function page(set,heading,{api,esc,D,UserError,navigate,openRecord,initialQuery='',initialJob='',initialView='overview',initialAnalyze=false,initialTask='',initialComparison=null,initialWorkflow='',initialSelected=false,returnCompany='',returnTo=null,active}){
     const cap=await api('/api/profile/resume/capabilities');if(active?.()===false)return;root.CampusModels.bindUser(cap.user_id);bindUser(cap.user_id);
+    const destination=root.CampusNavigation?.returnTarget?.(returnTo),returnPage=destination?.page||'',returnMarkup=returnPage?`<div class="radar-return-company"><button id="match-return-radar" class="text-btn">返回${esc(destination.label)}</button></div>`:'';
+    const goBack=()=>navigate(returnPage,destination.query);
     const savedBrowse=root.CampusNavigation?.readBrowse(cap.user_id)||{};
-    if(savedBrowse.radarView==='company'&&!root.CampusCompanyDecision&&root.CampusAssets){await root.CampusAssets.ensure('company');if(active?.()===false)return;}
-    if(initialView==='overview'&&!initialJob&&!initialTask&&!initialComparison&&!initialQuery&&!initialWorkflow&&savedBrowse.radarView==='company'&&root.CampusCompanyDecision){return root.CampusCompanyDecision.page(set,heading,{api,esc,D,navigate,active,capabilities:cap});}
+    const requestedWorkflow=Object.hasOwn(workflows,initialWorkflow)?initialWorkflow:'',freshFilter=!!(initialQuery||requestedWorkflow||initialSelected);
+    const useSavedCompany=initialView==='overview'&&!initialJob&&!initialTask&&!initialComparison&&!freshFilter&&savedBrowse.radarView==='company';
+    if(useSavedCompany&&!root.CampusCompanyDecision&&root.CampusAssets){await root.CampusAssets.ensure('company');if(active?.()===false)return;}
+    if(useSavedCompany&&root.CampusCompanyDecision){return root.CampusCompanyDecision.page(set,heading,{api,esc,D,navigate,active,capabilities:cap});}
     let inventoryPainted=false;
     const deadlines=root.CampusDeadlines?.create({api,esc,D,navigate,active,onChange:()=>{
-      if(inventoryPainted)render();
-      else if(active()&&set(heading+deadlines.html()+root.CampusUI.loading('正在读取岗位列表…'),{stable:true}))deadlines.bind(document.querySelector('#deadline-overview'));
+      if(!active())return;
+      if(!inventoryPainted&&!document.querySelector('#radar-deadline-slot'))set(heading+'<div id="radar-deadline-slot"></div>'+root.CampusUI.loading('正在读取岗位列表…'),{stable:true});
+      deadlines.paint(document.querySelector('#radar-deadline-slot'));
     },onJob:id=>inventoryPainted&&snapshot.jobs.some(row=>row.job.id===id)?openMatchDetail(id):navigate('matching',{jobID:id,view:'overview'})});
     if(deadlines){root.CampusNavigation?.register({active,dispose:()=>deadlines.dispose()});deadlines.start();}
     const taskRead=cap.durable_matching&&root.CampusMatchTasks?api('/api/matching/tasks').then(value=>({value}),error=>({error})):Promise.resolve({value:[]});
     const paged=!!cap.inventory_paging&&!!root.CampusInventory,inventoryScope=JSON.stringify([cap.user_id,identity(),cap.model]),remembered=paged?root.CampusInventory.recall(inventoryScope):null;
     const firstRead=api(paged?'/api/matching/inventory':'/api/matching/preview','POST',{...identity(),...(paged?{known_snapshot:remembered?.snapshot_key||''}:{summary_only:true})}).then(value=>({value}),error=>({error}));
-    let snapshot=remembered;try{if(!snapshot){const result=await firstRead;if(result.error)throw result.error;snapshot=paged?root.CampusInventory.merge(null,result.value):result.value;}}catch(error){deadlines?.dispose();if(error.code!=='MATCH_PROFILE_REQUIRED')throw error;const inventory=await api('/api/jobs');if(!set(root.CampusUI.heading('岗位雷达')+'<div class="note-box"><p>先保存求职条件与技能，再开启岗位匹配。</p><button id="match-create-profile" class="btn btn-primary">完善求职资料</button></div>'+inventory.map(j=>`<article class="card"><h3>${esc(D.text(j.title))}</h3><p class="meta">${esc(D.text(j.company))} · ${esc((j.locations||[]).join('、'))}</p><button data-basic-job="${esc(j.id)}" class="btn">查看核验记录</button></article>`).join('')))return;document.querySelector('#match-create-profile').onclick=()=>navigate('profile');for(const b of document.querySelectorAll('[data-basic-job]'))b.onclick=()=>openRecord(b.dataset.basicJob).catch(err=>{document.querySelector('#notice').textContent=err.message;});return;}
+    let snapshot=remembered;try{if(!snapshot){const result=await firstRead;if(result.error)throw result.error;snapshot=paged?root.CampusInventory.merge(null,result.value):result.value;}}catch(error){deadlines?.dispose();if(error.code!=='MATCH_PROFILE_REQUIRED')throw error;const inventory=await api('/api/jobs');if(!set(root.CampusUI.heading('岗位雷达')+returnMarkup+'<div class="note-box"><p>先保存求职条件与技能，再开启岗位匹配。</p><button id="match-create-profile" class="btn btn-primary">完善求职资料</button></div>'+inventory.map(j=>`<article class="card"><h3>${esc(D.text(j.title))}</h3><p class="meta">${esc(D.text(j.company))} · ${esc((j.locations||[]).join('、'))}</p><button data-basic-job="${esc(j.id)}" class="btn">查看核验记录</button></article>`).join('')))return;if(returnPage)document.querySelector('#match-return-radar').onclick=goBack;document.querySelector('#match-create-profile').onclick=()=>navigate('profile');for(const b of document.querySelectorAll('[data-basic-job]'))b.onclick=()=>openRecord(b.dataset.basicJob).catch(err=>{document.querySelector('#notice').textContent=err.message;});if(initialJob&&active())await openRecord(initialJob);return;}
     if(!active())return;
     const Navigation=root.CampusNavigation,browse=Navigation?.readBrowse(cap.user_id)||{};
-    let query=initialQuery||browse.query||'',filter=initialQuery?'':browse.filter||'',tierFilter=initialQuery?'':browse.tier||'',sort=browse.sort||'deep',sortOrder=browse.sortOrder||'desc',pageNo=initialQuery?1:browse.page||1,running=false,paused=false,consentHash='',notice='';
+    let query=initialQuery||(freshFilter?'':browse.query||''),filter=freshFilter?'':browse.filter||'',tierFilter=freshFilter?'':browse.tier||'',sort=browse.sort||'deep',sortOrder=browse.sortOrder||'desc',pageNo=freshFilter?1:browse.page||1,running=false,paused=false,consentHash='',notice='';
     const C=root.CampusMatchingChat,U=root.CampusUI,Decision=root.CampusDecision;
-    let companyFilter=initialQuery?'':browse.company||'',cityFilter=initialQuery?'':browse.city||'',panel='',intent=null,reviewBundle=null,reviewBusy=false,reviewError='',reviewRevision=0,searchTimer;
-    let workflowFilter=Object.hasOwn(workflows,initialWorkflow)?initialWorkflow:initialQuery?'':browse.workflow||'';
+    let companyFilter=freshFilter?'':browse.company||'',cityFilter=freshFilter?'':browse.city||'',panel='',intent=null,reviewBundle=null,reviewBusy=false,reviewError='',reviewRevision=0,searchTimer;
+    let workflowFilter=initialSelected?'':requestedWorkflow||(freshFilter?'':browse.workflow||'');
     const targetRoles=()=>snapshot.candidate.facts.filter(f=>f.kind==='ROLE').map(f=>f.text);
-    let directionFilter=initialQuery||initialWorkflow?'ALL':browse.direction||(targetRoles().length?'MAIN':'ALL'),showIgnored=!!browse.showIgnored,showQuotaFull=!!browse.showQuotaFull,bulkBusy=false;
-    let lastJob=browse.lastJob||'',lastTab=browse.lastTab||'overview',drawerOpen=!!browse.drawerOpen,lastOpened=null;
+    let directionFilter=freshFilter?'ALL':browse.direction||(targetRoles().length?'MAIN':'ALL'),showIgnored=!freshFilter&&!!browse.showIgnored,showQuotaFull=!freshFilter&&!!browse.showQuotaFull,bulkBusy=false;
+    let lastJob=browse.lastJob||'',lastTab=browse.lastTab||'overview',drawerOpen=!freshFilter&&!!browse.drawerOpen,lastOpened=null;
     let comparisonCompany='',comparisonScope='ALL',comparisonReport=null,comparisonBusy=false,comparisonError='',comparisonRevision=0,comparisonTaskIDs=[];
     let reviewKeys=new Map(),renderedViewKey='',cardRead=null,cardError='',updateDetailNavigation=null,inventoryRevision=0;
     let searchDraft=query,searchPending=false,searchComposing=false;
-    let queryMode=browse.queryMode||'ALL',excludeQuery=initialQuery||initialTask?'':browse.excludeQuery||'',cityFilters=initialQuery||initialTask?[]:browse.cities||[],presetName='',bulkExpanded=false,undoIDs=Navigation?.readUndo(cap.user_id)||[];
+    let queryMode=freshFilter?'ALL':browse.queryMode||'ALL',excludeQuery=freshFilter||initialTask?'':browse.excludeQuery||'',cityFilters=freshFilter||initialTask?[]:browse.cities||[],presetName='',bulkExpanded=false,undoIDs=Navigation?.readUndo(cap.user_id)||[];
     let importText='',importDocument=null,importPreview=null,importError='',importBusy=false,importRevision=0,importMask=maskName,importOrigins=new Map();
     const selected=C.readSelection(cap.user_id,remembered?undefined:snapshot.jobs);
-    let onlySelected=initialQuery?false:!!browse.onlySelected,preparing=false,exportFiles=[],exportIndex=0,exportConsent=false,exportKeys=new Map();
+    let onlySelected=initialSelected||!freshFilter&&!!browse.onlySelected,preparing=false,exportFiles=[],exportIndex=0,exportConsent=false,exportKeys=new Map();
     const modelKey=()=>JSON.stringify([identity().model_url,identity().model_name,cap.model]);
     let progress=reconcileProgress(readProgress(cap.user_id,snapshot.candidate_hash,modelKey()),snapshot.jobs);
     const Tasks=root.CampusMatchTasks,durable=!!cap.durable_matching&&!!Tasks;
@@ -265,9 +270,12 @@ const CampusMatching=(function(root){
     const baseline=new Map(snapshot.jobs.map(j=>[j.job.id,j.input_key]));let autoQueue=[];
     const current=()=>active();
 
-    let browseScroll=Number(browse.scroll)||0,listScroll=Number(browse.listScroll)||0,restorePosition=!initialQuery&&!initialTask&&!initialJob;
+    let browseScroll=freshFilter?0:Number(browse.scroll)||0,listScroll=freshFilter?0:Number(browse.listScroll)||0,restorePosition=!freshFilter&&!initialTask&&!initialJob;
     function saveBrowse(){if(paged&&!inventoryChecking&&!inventoryError)root.CampusInventory.remember(inventoryScope,snapshot);Navigation?.storeBrowse(cap.user_id,{radarView:'list',query,queryMode,excludeQuery,cities:cityFilters,filter,tier:tierFilter,workflow:workflowFilter,direction:directionFilter,showIgnored,showQuotaFull,sort,sortOrder,page:pageNo,company:companyFilter,city:cityFilter,onlySelected,lastJob,lastTab,drawerOpen,scroll:browseScroll,listScroll});}
     function checkpoint(){
+      // Explicit navigation and toolbar actions commit the current search even
+      // if an interrupted IME session did not deliver compositionend.
+      searchComposing=false;
       browseScroll=root.scrollY||0;listScroll=document.querySelector('#match-job-list')?.scrollTop||0;
       const search=document.querySelector('#match-search');
       if(search&&search.value!==query){query=search.value;pageNo=1;}
@@ -459,7 +467,7 @@ const CampusMatching=(function(root){
       const quotaHidden=matchingRows(directionFilter,'quota').filter(j=>j.campaign?.hide_unsubmitted).length;
       const reverseLabel=sort==='company'?(sortOrder==='asc'?'名称正序':'名称倒序'):['updated','created'].includes(sort)?(sortOrder==='asc'?'从旧到新':'从新到旧'):(sortOrder==='asc'?'从低到高':'从高到低');
       const sortOption=([value,label])=>`<option value="${value}" ${sort===value?'selected':''}>${label}</option>`;
-      const html='<div class="radar-page-heading">'+U.heading('岗位雷达','',`<button id="match-open-import" class="btn" ${taskStateBlocked()||running||preparing||bulkBusy?'disabled':''}>${U.icon('upload')}导入聊天分析</button><button id="match-source" class="btn" aria-label="关注来源">${U.icon('radar')}招聘来源</button><button id="match-open-settings" class="btn" aria-label="分析设置">${U.icon('filter')}分析设置</button>`)+`<nav class="radar-view-tabs" aria-label="岗位雷达视图"><button aria-pressed="true" disabled>岗位列表</button><button id="match-company-view" aria-pressed="false">公司投递决策</button></nav></div>${returnCompany?`<div class="radar-return-company"><span>正在处理 ${esc(returnCompany)} 的分析</span><button id="match-return-company" class="text-btn">回到公司决策，继续已选岗位</button></div>`:''}`+(deadlines?.html()||'')+progressHTML(actions)+`
+      const html='<div class="radar-page-heading">'+U.heading('岗位雷达','',`<button id="match-open-import" class="btn" ${taskStateBlocked()||running||preparing||bulkBusy?'disabled':''}>${U.icon('upload')}导入聊天分析</button><button id="match-source" class="btn" aria-label="关注来源">${U.icon('radar')}招聘来源</button><button id="match-open-settings" class="btn" aria-label="分析设置">${U.icon('filter')}分析设置</button>`)+`<nav class="radar-view-tabs" aria-label="岗位雷达视图"><button aria-pressed="true" disabled>岗位列表</button><button id="match-company-view" aria-pressed="false">公司投递决策</button></nav></div>${returnCompany?`<div class="radar-return-company"><span>正在处理 ${esc(returnCompany)} 的分析</span><button id="match-return-company" class="text-btn">回到公司决策，继续已选岗位</button></div>`:''}`+returnMarkup+`<div id="radar-deadline-slot">${deadlines?.html()||''}</div>`+progressHTML(actions)+`
         <form id="match-filter" class="matching-filter radar-filter-bar" aria-label="筛选岗位">
           <div class="radar-filter-topline">${browseViewsHTML({direction:directionFilter,workflow:workflowFilter,onlySelected,hasDirection:!!targetRoles().length,selectedCount:selected.size})}<button type="button" id="match-clear-filters" class="text-btn" ${hasFilters?'':'disabled'}>清空条件</button></div>
           <div class="radar-filter-controls">
@@ -491,6 +499,7 @@ const CampusMatching=(function(root){
       updateDetailNavigation?.();
       const $=s=>document.querySelector(s),on=(id,fn)=>{const el=$('#'+id);if(el)el.onclick=fn;};
       on('match-sync-retry',()=>refresh().catch(()=>{}));
+      if(returnPage)on('match-return-radar',goBack);
       deadlines?.bind(document.querySelector('#deadline-overview'));
       if(paged){Promise.resolve().then(readCards);on('match-cards-retry',()=>{cardError='';render();});}
       $('#match-select-page-toggle').indeterminate=selectedOnPage>0&&selectedOnPage<slice.length;
@@ -544,7 +553,8 @@ const CampusMatching=(function(root){
       search.oncompositionstart=()=>{searchComposing=true;clearTimeout(searchTimer);};
       search.oninput=e=>{searchDraft=search.value;searchPending=true;clearTimeout(searchTimer);if(e?.isComposing)searchComposing=true;if(searchComposing)return;searchTimer=setTimeout(()=>{if(current())applyFilter();},240);};
       search.oncompositionend=()=>{searchComposing=false;search.oninput();};
-      const resetFilters=()=>{clearTimeout(searchTimer);searchPending=false;cityFilters=[];excludeQuery='';queryMode='ALL';presetName='';query='';filter='';tierFilter='';workflowFilter='';cityFilter='';companyFilter='';onlySelected=false;directionFilter='ALL';showIgnored=showQuotaFull=false;pageNo=1;render();};
+      search.onblur=()=>{if(searchComposing){searchComposing=false;search.oninput();}};
+      const resetFilters=()=>{clearTimeout(searchTimer);checkpoint();searchPending=false;cityFilters=[];excludeQuery='';queryMode='ALL';presetName='';query='';filter='';tierFilter='';workflowFilter='';cityFilter='';companyFilter='';onlySelected=false;directionFilter='ALL';showIgnored=showQuotaFull=false;pageNo=1;render();};
       on('match-sort-order',()=>{clearTimeout(searchTimer);checkpoint();sortOrder=sortOrder==='desc'?'asc':'desc';pageNo=1;render();});
       for(const key of new Set(['query','company','city',...chips.map(([key])=>key)]))on('match-clear-'+key,()=>{clearTimeout(searchTimer);checkpoint();if(key==='query')query='';if(key==='company')companyFilter='';if(key==='city'||key==='cities'){cityFilter='';cityFilters=[];}if(key==='exclude')excludeQuery='';if(key==='direction')directionFilter='ALL';if(key==='state')filter='';if(key==='tier')tierFilter='';if(key==='workflow')workflowFilter='';if(key==='selected')onlySelected=false;if(key==='query_mode')queryMode='ALL';if(key==='ignored')showIgnored=false;if(key==='quota')showQuotaFull=false;pageNo=1;render();});
       on('match-reset',resetFilters);on('match-clear-filters',resetFilters);on('match-recent',()=>openMatchDetail(lastJob,lastTab));
@@ -805,7 +815,7 @@ const CampusMatching=(function(root){
     await resumedRead;if(!current())return;
     if(current()&&initialComparison){await openComparison('SELECTED',initialComparison.company,initialComparison.jobIDs||[]);if(current()&&comparisonReport&&initialComparison.review&&!comparisonReport.holistic_notice&&comparisonReport.holistic_job_ids?.length)await requestAnalysis(comparisonReport.holistic_job_ids,false,false,{company:comparisonCompany,kind:'COMPANY',scopeKey:comparisonReport.holistic_input_key});}
     if(current()&&!initialComparison){if(initialJob){if(initialAnalyze)await requestAnalysis([initialJob]);else await openMatchDetail(initialJob,initialView);}else if(drawerOpen&&lastJob&&!lastOpened)await openMatchDetail(lastJob,lastTab,false);}
-    async function poll(){if(!current())return;try{if(!running&&!preparing&&!bulkBusy&&!panel&&!exportFiles.length&&!(document.querySelector('#job-drawer')?.open&&!document.querySelector('#job-drawer')?.classList.contains('is-docked'))&&!['INPUT','SELECT','TEXTAREA'].includes(document.activeElement?.tagName)){await refresh();render();if(snapshot.settings.auto_new&&!paused&&authorized()&&autoQueue.length){const ids=autoQueue.splice(0,snapshot.settings.round_limit);await start(ids);}}}catch(err){notice=err.message;render();}if(current())setTimeout(poll,60000);}
+    async function poll(){if(!current())return;try{if(root.document?.visibilityState!=='hidden'&&!running&&!preparing&&!bulkBusy&&!panel&&!exportFiles.length&&!(document.querySelector('#job-drawer')?.open&&!document.querySelector('#job-drawer')?.classList.contains('is-docked'))&&!['INPUT','SELECT','TEXTAREA'].includes(document.activeElement?.tagName)){await refresh();render();if(snapshot.settings.auto_new&&!paused&&authorized()&&autoQueue.length){const ids=autoQueue.splice(0,snapshot.settings.round_limit);await start(ids);}}}catch(err){notice=err.message;render();}if(current())setTimeout(poll,60000);}
     setTimeout(poll,60000);
   }
   const api={page,showJob,pack,shortlist,detailPosition,detailNavigationHTML,filtered,directionMatch,catalogVisible,bulkTargets,workflowMatch,workflowHTML,browseView,browseViewsHTML,jobRowHTML,overviewHTML,renderResult,renderRequirements,requirementStatus,orderByPriority,sortRows,cityNames,cityMatch,cityOptions,renderLocal,drawerActions,readProgress,reconcileProgress,queueWork,analysisActions,lock,bindUser,matchIdentity:identity};

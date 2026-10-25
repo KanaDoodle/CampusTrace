@@ -15,6 +15,7 @@ function harness({supportsDirection=false}={}){
  vm.runInContext(fs.readFileSync(__dirname+'/radar.js','utf8'),context);
  context.formAction=(selector,action)=>actions.set(selector,action);
  context.api=async(path,method,body)=>{
+  if(path==='/api/profile/resume/capabilities')return {user_id:'alice'};
   if(['/api/watches','/api/sources','/api/sources/catalog'].includes(path))return [];
   if(path==='/api/sources/preview')return {name:'校招测试',url,total:1,samples:[{title:'后端开发'}],supports_direction:supportsDirection,minimum_interval:1800};
   if(path==='/api/sources/from-url'){

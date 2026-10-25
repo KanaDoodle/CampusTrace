@@ -27,7 +27,9 @@ function harness({pending=['pending-a','pending-b'],failed=['failed-a','failed-b
   };
   const context={document,TextEncoder,setTimeout:(fn,delay)=>{timers.push({fn,delay});return timers.length;},FormData:class{get(k){const el=elements.get({q:'match-search',company:'match-company',state:'match-state',tier:'match-tier',direction:'match-direction',workflow:'match-workflow',city:'match-city',query_mode:'match-query-mode',exclude:'match-exclude',sort:'match-sort',only_selected:'match-only-selected',show_ignored:'match-show-ignored',show_quota_full:'match-show-quota-full'}[k]);return el?.tagName==='INPUT'&&['only_selected','show_ignored','show_quota_full'].includes(k)?el.checked?'on':'':el?.value||'';}},clearTimeout:id=>{if(timers[id-1])timers[id-1].canceled=true;},crypto:{randomUUID:()=>'synthetic-task-request-00000000000'},sessionStorage:{getItem:k=>stored.get(k),setItem:(k,v)=>stored.set(k,v)},CampusModels:{bindUser(){},requestConfig:()=>model,available:()=>true,label:()=> '测试模型'},CampusMatchingChat:{readSelection:()=>new Set(),selectedRows:()=>[],pruneSelection(){},storeSelection(){}},console};
   vm.createContext(context);vm.runInContext(fs.readFileSync(__dirname+'/ui.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/navigation.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching_decision.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching_tasks.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching_chat.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/inventory.js','utf8'),context);if(deadlineRequest)vm.runInContext(fs.readFileSync(__dirname+'/deadlines.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching.js','utf8'),context);
+  if(deadlineRequest)context.CampusUI.reconcile=(host,html)=>host.innerHTML=html;
   const api=async(path,method,body)=>{
+    if(path==='/api/jobs')return snapshot.jobs.map(row=>structuredClone(row.job));
     if(path==='/api/radar/deadlines'&&deadlineRequest)return deadlineRequest();
     if(path==='/api/profile/resume/capabilities')return {inventory_paging:paging,user_id:'alice',model:'server-model',model_available:true,durable_matching:durable};
     if(path.startsWith('/api/matching/tasks')){if(!method||method==='GET'){if(path==='/api/matching/tasks'&&taskRead)return taskRead();return structuredClone(path==='/api/matching/tasks'?taskRuns:taskRuns.find(v=>v.id===path.split('/')[4]));}taskRequests.push({path,body});if(taskRequest)return taskRequest(path,body);throw new Error('unexpected mutation');}
@@ -65,14 +67,14 @@ function harness({pending=['pending-a','pending-b'],failed=['failed-a','failed-b
     throw new Error('Unexpected local test API path: '+path);
   };
   const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  return {inventory:context.CampusInventory,model,inventoryRequests,navigations,navigation:context.CampusNavigation,start:(initial={})=>context.CampusMatching.page(set,'<h2>岗位匹配</h2>',{api,esc,D:{text:s=>s,date:()=>'',errorCode:s=>s,matchingDiagnostic:()=>'',label:(_kind,s)=>s},active:()=>true,navigate:(name,query)=>navigations.push({name,query}),...initial}),elements,requests,exports,decisionRequests,taskRequests,bulkRequests,importRequests,timers,stored,snapshot,review:()=>elements.get('match-confirm').onclick(),html:()=>html,consent:()=>elements.get('match-consent').onchange({target:{checked:true}}),progress:()=>JSON.parse(stored.get('campustrace:match-progress:v1:alice'))};
+  return {visibility:value=>document.visibilityState=value,inventory:context.CampusInventory,model,inventoryRequests,navigations,navigation:context.CampusNavigation,start:(initial={})=>context.CampusMatching.page(set,'<h2>岗位匹配</h2>',{api,esc,D:{text:s=>s,date:()=>'',errorCode:s=>s,matchingDiagnostic:()=>'',label:(_kind,s)=>s},active:()=>true,navigate:(name,query)=>navigations.push({name,query}),...initial}),elements,requests,exports,decisionRequests,taskRequests,bulkRequests,importRequests,timers,stored,snapshot,review:()=>elements.get('match-confirm').onclick(),html:()=>html,consent:()=>elements.get('match-consent').onchange({target:{checked:true}}),progress:()=>JSON.parse(stored.get('campustrace:match-progress:v1:alice'))};
 }
 
 test('home deadlines render before a slow cold inventory, without blocking the subsequent job list',async()=>{
  let resolveInventory;
  const h=harness({pending:['a'],failed:[],paging:true,inventoryRequest:()=>new Promise(resolve=>resolveInventory=resolve),deadlineRequest:async()=>({total:1,within_day:1,within_3_days:1,items:[{job:{id:'a',company:'虚构公司',title:'快截止的岗位'},at:new Date(Date.now()+3600000).toISOString()}]})});
  const opening=h.start();await new Promise(setImmediate);
- assert.match(h.html(),/即将截止/);assert.match(h.html(),/快截止的岗位/);assert.match(h.html(),/正在读取岗位列表/);assert.doesNotMatch(h.html(),/data-workbench-row=/);
+ assert.match(h.elements.get('radar-deadline-slot').innerHTML,/即将截止/);assert.match(h.elements.get('radar-deadline-slot').innerHTML,/快截止的岗位/);assert.match(h.html(),/正在读取岗位列表/);assert.doesNotMatch(h.html(),/data-workbench-row=/);
  resolveInventory(cachedPacket({},h.snapshot,'ready'));await opening;
  assert.match(h.html(),/快截止的岗位/);assert.match(h.html(),/data-workbench-row="a"/);assert.equal(h.requests.length,0);assert.equal(h.exports.length,0);
 });
@@ -695,4 +697,48 @@ test('empty results distinguish missing imports, hidden matches, and filtered se
  assert.equal(hidden.snapshot.jobs[0].disposition,'IGNORED');assert.equal(hidden.bulkRequests.length,0);assert.equal(hidden.requests.length,0);
  const selected=harness({pending:['a','b'],failed:[]});selected.stored.set('campustrace:match-selection:v1:alice',JSON.stringify(['b']));selected.navigation.storeBrowse('alice',{onlySelected:true,query:'a'});await selected.start();
  assert.match(selected.html(),/已选岗位被当前条件筛掉了/);selected.elements.get('match-empty-selection').onclick();assert.match(selected.html(),/data-workbench-row="b"/);assert.doesNotMatch(selected.html(),/data-workbench-row="a"/);
+});
+
+test('deadline polling patches only the deadline slot and keeps the search control and selected rows alive',async()=>{
+ const h=harness({pending:['a'],failed:[],deadlineRequest:async()=>({total:0,within_day:0,within_3_days:0,items:[]})});await h.start();
+ h.elements.get('match-select-all').onclick();
+ const liveSearch=h.elements.get('match-search');liveSearch.value='正在输入中文';
+ const poll=h.timers.find(t=>t.delay===60000&&t.fn.name==='tick');assert.ok(poll);await poll.fn();
+ assert.equal(h.elements.get('match-search'),liveSearch,'polling must not rebuild the workbench');assert.equal(liveSearch.value,'正在输入中文');assert.deepEqual(JSON.parse(h.stored.get('campustrace:match-selection:v1:alice')),['a']);assert.match(h.elements.get('radar-deadline-slot').innerHTML,/未来 7 天暂无/);await h.navigation.leave();
+});
+
+test('the inventory refresh skips hidden tabs and resumes reads while visible',async()=>{
+ const h=harness({pending:['a'],failed:[],paging:true});await h.start();const reads=h.inventoryRequests.length,poll=h.timers.find(t=>t.delay===60000);
+ h.visibility('hidden');await poll.fn();assert.equal(h.inventoryRequests.length,reads);h.visibility('visible');await h.timers.at(-1).fn();assert.equal(h.inventoryRequests.length,reads+1);
+});
+
+test('detail entry exposes a bounded return destination without disturbing radar selection',async()=>{
+ const h=harness({pending:['a'],failed:[]});await h.start({returnTo:{page:'closing'}});h.elements.get('match-select-all').onclick();await h.elements.get('match-return-radar').onclick();assert.equal(h.navigations[0].name,'closing');assert.equal(h.navigations[0].query.resume,true);assert.deepEqual(JSON.parse(h.stored.get('campustrace:match-selection:v1:alice')),['a']);
+ const inbox=harness({pending:['a'],failed:[]});await inbox.start({returnTo:{page:'notifications'}});assert.match(inbox.html(),/返回通知收件箱/);await inbox.elements.get('match-return-radar').onclick();assert.equal(inbox.navigations[0].name,'notifications');assert.equal(inbox.navigations[0].query.resume,true);
+ const invalid=harness({pending:['a'],failed:[]});await invalid.start({returnTo:{page:'https://invalid.example'}});assert.equal(invalid.elements.has('match-return-radar'),false);
+ const source=harness({pending:['a'],failed:[]});await source.start({returnTo:{page:'source_jobs',sourceID:'a'.repeat(32),sourcePage:3,scroll:628,lastJob:'a'}});assert.match(source.html(),/返回来源岗位/);await source.elements.get('match-return-radar').onclick();assert.equal(source.navigations[0].name,'source_jobs');assert.equal(source.navigations[0].query.page,3);assert.equal(source.navigations[0].query.scroll,628);
+});
+
+test('the saved-list selection shortcut clears narrowing filters and opens all shared selections',async()=>{
+ const h=harness({pending:['saved','other','outside'],failed:[]});h.snapshot.jobs[0].disposition='SAVED';h.snapshot.jobs[1].disposition='IGNORED';h.snapshot.jobs[1].campaign={hide_unsubmitted:true};h.stored.set('campustrace:match-selection:v1:alice',JSON.stringify(['saved','other']));h.navigation.storeBrowse('alice',{radarView:'company',query:'outside',company:'另一家公司',cities:['杭州'],excludeQuery:'Go',tier:'LOW',filter:'ANALYZED',direction:'MAIN',workflow:'APPLIED',page:5,drawerOpen:true,lastJob:'outside',onlySelected:false});
+ await h.start({initialSelected:true});assert.match(h.html(),/data-workbench-row="saved"/);assert.match(h.html(),/data-workbench-row="other"/);assert.doesNotMatch(h.html(),/data-workbench-row="outside"/);const saved=h.navigation.readBrowse('alice');assert.equal(saved.onlySelected,true);assert.equal(saved.query,'');assert.equal(saved.company,'');assert.equal(saved.excludeQuery,'');assert.equal(saved.cities.length,0);assert.equal(saved.drawerOpen,false);assert.equal(h.requests.length,0);assert.equal(h.exports.length,0);
+});
+
+test('an explicit workflow shortcut clears incompatible remembered search, city and selection filters',async()=>{
+ const h=harness({pending:['saved','ordinary'],failed:[]});h.snapshot.jobs[0].disposition='SAVED';h.navigation.storeBrowse('alice',{query:'ordinary',company:'不可见公司',cities:['北京'],queryMode:'ANY',excludeQuery:'saved',onlySelected:true,tier:'LOW',filter:'STALE',page:3,drawerOpen:true,lastJob:'ordinary'});await h.start({initialWorkflow:'SAVED'});assert.match(h.html(),/data-workbench-row="saved"/);assert.doesNotMatch(h.html(),/data-workbench-row="ordinary"/);const saved=h.navigation.readBrowse('alice');assert.equal(saved.onlySelected,false);assert.equal(saved.cities.length,0);assert.equal(saved.queryMode,'ALL');assert.equal(saved.workflow,'SAVED');
+});
+
+test('a saved job outside the basic fallback catalog still opens its record without a profile',async()=>{
+ const opened=[],h=harness({pending:['catalog-job'],failed:[],previewRequest:()=>{const error=Error('profile missing');error.code='MATCH_PROFILE_REQUIRED';throw error;}});await h.start({initialJob:'outside-the-first-100',returnTo:{page:'preferences'},openRecord:async id=>opened.push(id)});assert.deepEqual(opened,['outside-the-first-100']);assert.match(h.html(),/返回稍后看/);await h.elements.get('match-return-radar').onclick();assert.equal(h.navigations[0].name,'preferences');assert.equal(h.navigations[0].query.resume,true);assert.equal(h.requests.length,0);
+});
+
+test('browse tabs commit interrupted Chinese composition and keep selection plus current search',async()=>{
+ const h=harness({pending:[],failed:[]});h.snapshot.candidate.facts=[{kind:'ROLE',text:'后端开发'}];h.snapshot.jobs=[directionRow('backend','MATCH'),directionRow('marketing','UNRELATED')];await h.start();h.elements.get('match-select-all').onclick();
+ const search=h.elements.get('match-search');search.oncompositionstart();search.value='岗位';search.oninput({isComposing:true});
+ h.elements.get('match-view-ALL').onclick();assert.match(h.html(),/id="match-view-ALL" aria-pressed="true"/);assert.match(h.html(),/data-match-job="marketing"/);assert.equal(h.navigation.readBrowse('alice').query,'岗位');assert.deepEqual(JSON.parse(h.stored.get('campustrace:match-selection:v1:alice')),['backend']);
+ h.elements.get('match-view-MAIN').onclick();assert.match(h.html(),/id="match-view-MAIN" aria-pressed="true"/);assert.doesNotMatch(h.html(),/data-match-job="marketing"/);assert.deepEqual(h.requests,[]);assert.deepEqual(h.exports,[]);
+});
+test('search blur recovers an interrupted composition and does not leave a stale search timer after a tab change',async()=>{
+ const h=harness({pending:[],failed:[]});h.snapshot.candidate.facts=[{kind:'ROLE',text:'后端开发'}];h.snapshot.jobs=[directionRow('backend','MATCH'),directionRow('marketing','UNRELATED')];await h.start();const search=h.elements.get('match-search');search.oncompositionstart();search.value='岗位';search.oninput({isComposing:true});search.onblur();
+ h.elements.get('match-view-ALL').onclick();for(const timer of h.timers.filter(v=>v.delay===240&&!v.canceled))timer.fn();assert.match(h.html(),/id="match-view-ALL" aria-pressed="true"/);assert.match(h.html(),/data-match-job="marketing"/);assert.equal(h.navigation.readBrowse('alice').query,'岗位');
 });

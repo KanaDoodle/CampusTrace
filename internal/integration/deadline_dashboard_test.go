@@ -66,6 +66,19 @@ func TestDeadlineDashboardLargeCatalogAndNotificationWindows(t *testing.T) {
 	if view.Total != 525 || view.WithinDay != 1 || view.Within3Days != 525 || len(view.Items) != 5 || !view.Truncated || view.Items[0].Job.ID != o.JobID {
 		t.Fatalf("large dashboard incomplete: %+v", view)
 	}
+	// The optional digest must also work above the old 500-job limit. A profile
+	// is optional for reading new jobs/deadlines, and never fabricated for ranking.
+	digest, err := s.DailyDigest(ctx, u)
+	must(t, err)
+	if digest.Counts["new_jobs"] != 1 || digest.Counts["recommended_jobs"] != 0 || digest.Counts["closing_soon"] != 525 || len(digest.ClosingSoon) != 5 || !digest.Truncated {
+		t.Fatalf("large digest without a profile incomplete: %+v", digest.Counts)
+	}
+	must(t, s.SaveProfile(ctx, u, d.Profile{GraduationYear: 2027, Degree: "BACHELOR", Skills: []string{"go"}, PreferredTypes: []string{"FULL_TIME"}, PreferredCities: []string{"Shanghai"}}))
+	digest, err = s.DailyDigest(ctx, u)
+	must(t, err)
+	if digest.Counts["recommended_jobs"] != 525 || len(digest.RecommendedJobs) != 5 {
+		t.Fatalf("recommendations lost across batches: %+v", digest.Counts)
+	}
 	must(t, s.SetPreference(ctx, u, ids[1], "IGNORED"))
 	raw, err := s.ApplyAction(ctx, u, d.ID(), "create_application", []byte(d.JSON(p.CreateArgs{JobID: ids[2]})))
 	must(t, err)
@@ -73,6 +86,11 @@ func TestDeadlineDashboardLargeCatalogAndNotificationWindows(t *testing.T) {
 	must(t, json.Unmarshal(raw, &app))
 	_, err = s.ApplyAction(ctx, u, d.ID(), "transition_application", []byte(d.JSON(p.TransitionArgs{ApplicationID: app.ID, Version: app.Version, State: "APPLIED"})))
 	must(t, err)
+	digest, err = s.DailyDigest(ctx, u)
+	must(t, err)
+	if digest.Counts["recommended_jobs"] != 523 || digest.Counts["closing_soon"] != 523 {
+		t.Fatalf("digest ignored preferences or submitted applications: %+v", digest.Counts)
+	}
 	_, err = s.DB.ExecContext(ctx, "UPDATE observations SET body=JSON_SET(body,'$.fetch_status','BLOCKED') WHERE id=?", observations[3])
 	must(t, err)
 	stale := time.Now().UTC().Add(-8 * 24 * time.Hour)
@@ -113,6 +131,11 @@ func TestDeadlineDashboardLargeCatalogAndNotificationWindows(t *testing.T) {
 	if private.Total != 0 {
 		t.Fatal("deadline dashboard leaked private jobs")
 	}
+	privateDigest, err := s.DailyDigest(ctx, other)
+	must(t, err)
+	if privateDigest.Counts["new_jobs"] != 0 || privateDigest.Counts["recommended_jobs"] != 0 || privateDigest.Counts["closing_soon"] != 0 || len(privateDigest.NewJobs) != 0 {
+		t.Fatal("digest leaked private jobs")
+	}
 	authn := auth.Service{Store: s, Secret: []byte("synthetic-deadline-http-secret-32")}
 	token, err := authn.Token(u)
 	must(t, err)
@@ -128,6 +151,28 @@ func TestDeadlineDashboardLargeCatalogAndNotificationWindows(t *testing.T) {
 	h.ServeHTTP(unauth, httptest.NewRequest("GET", "/api/radar/deadlines", nil))
 	if unauth.Code != 401 {
 		t.Fatal("deadline endpoint omitted authentication")
+	}
+	// A large authenticated read returns bounded previews without materializing
+	// another notification, assessment or ranking as a side effect.
+	var before, after int
+	readCounts := func() int {
+		var n int
+		must(t, s.DB.QueryRowContext(ctx, "SELECT (SELECT COUNT(*) FROM notifications WHERE user_id=?) + (SELECT COUNT(*) FROM rankings WHERE user_id=?) + (SELECT COUNT(*) FROM eligibilities WHERE user_id=?)", u, u, u).Scan(&n))
+		return n
+	}
+	before = readCounts()
+	r = httptest.NewRequest("GET", "/api/radar/digest", nil)
+	r.Header.Set("Authorization", "Bearer "+token)
+	w = httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	after = readCounts()
+	if w.Code != 200 || w.Header().Get("Cache-Control") != "no-store" || before != after {
+		t.Fatalf("large digest read failed or changed records: status=%d counts=%d/%d", w.Code, before, after)
+	}
+	var response d.DailyDigest
+	must(t, json.Unmarshal(w.Body.Bytes(), &response))
+	if response.Counts["closing_soon"] != 517 || len(response.ClosingSoon) != 5 || len(response.RecommendedJobs) > 5 {
+		t.Fatal("large HTTP digest lost full counts or bounded previews")
 	}
 }
 

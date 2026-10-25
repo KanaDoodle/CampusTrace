@@ -168,7 +168,7 @@
     if (code==='AUTH_UNAVAILABLE') return '登录服务暂时不可用，请稍后重试。';
     if (code==='AUTH_ORIGIN_INVALID') return '当前登录页面地址与服务不一致，请从 CampusTrace 首页重新打开。';
     if (code==='TODO_CAPACITY') return '待办相关记录超过汇总容量，请进入投递进展、面试与复盘或岗位库查看；本页没有展示不完整的总数。';
-    if (code==='RADAR_CAPACITY') return '可见岗位已超过当前雷达容量（500 条）；请联系维护者处理。';
+    if (code==='RADAR_CAPACITY') return '本次汇总的数据量超过处理上限，仍可进入岗位雷达查看和筛选岗位。';
     if (code==='SOURCE_URL_UNSUPPORTED') return '请使用页面已支持的校招来源预设；带有其他筛选或内推参数的网址需先移除这些参数。';
     if (code==='SOURCE_PREVIEW_CAPACITY') return '此招聘项目超过当前单来源 500 个岗位的容量，本次没有创建关注。';
     if (code==='SOURCE_PREVIEW_RATE_LIMIT') return '网址预览太频繁，请一分钟后再试。';

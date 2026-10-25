@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-var ErrRadarCapacity = errors.New("radar capacity: narrow the visible catalog (maximum 500 jobs)")
+var ErrRadarCapacity = errors.New("radar aggregation capacity exceeded")
 
 func (s *Store) SetPreference(ctx context.Context, user, job, value string) error {
 	if !d.ValidDisposition(value) {
@@ -89,27 +89,29 @@ func radarDeadline(os []d.Observation, es []d.Evidence, now time.Time) (*time.Ti
 	return earliest, version
 }
 
-// One consistent SQL snapshot for status, current evidence, profile, preference and FSM.
-func (s *Store) radarJobs(ctx context.Context, q Queryer, user string, now time.Time) ([]d.RadarJob, error) {
-	if user == "" {
-		return nil, ErrNotFound
+func (s *Store) radarProfile(ctx context.Context, q Queryer, user string) (*d.Profile, error) {
+	profile, err := One[d.Profile](ctx, q, "SELECT body FROM profiles WHERE user_id=?", user)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
 	}
-	jobs, err := Many[d.Job](ctx, q, "SELECT body FROM jobs WHERE visibility='GLOBAL' OR (visibility='PRIVATE' AND owner_id=?) ORDER BY id LIMIT 501", user)
-	if err != nil {
-		return nil, err
-	}
-	if len(jobs) > 500 {
-		return nil, ErrRadarCapacity
-	}
-	return s.radarJobRows(ctx, q, user, now, jobs)
-}
-func (s *Store) radarJobRows(ctx context.Context, q Queryer, user string, now time.Time, jobs []d.Job) ([]d.RadarJob, error) {
-	return s.radarBatchRows(ctx, q, user, now, jobs, true)
+	return &profile, err
 }
 
 // Read evidence in bounded batches rather than two queries for every job.
 // Deadline browsing does not need candidate scoring or a saved profile.
 func (s *Store) radarBatchRows(ctx context.Context, q Queryer, user string, now time.Time, jobs []d.Job, score bool) ([]d.RadarJob, error) {
+	var profile *d.Profile
+	if score && len(jobs) > 0 {
+		var err error
+		profile, err = s.radarProfile(ctx, q, user)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return s.radarBatchRowsWithProfile(ctx, q, user, now, jobs, profile)
+}
+
+func (s *Store) radarBatchRowsWithProfile(ctx context.Context, q Queryer, user string, now time.Time, jobs []d.Job, profile *d.Profile) ([]d.RadarJob, error) {
 	out := []d.RadarJob{}
 	if len(jobs) == 0 {
 		return out, nil
@@ -151,15 +153,6 @@ func (s *Store) radarBatchRows(ctx context.Context, q Queryer, user string, now 
 	for _, v := range es {
 		evidence[v.JobID] = append(evidence[v.JobID], v)
 	}
-	var profile d.Profile
-	hasProfile := false
-	if score {
-		profile, err = One[d.Profile](ctx, q, "SELECT body FROM profiles WHERE user_id=?", user)
-		hasProfile = err == nil
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return nil, err
-		}
-	}
 	for _, j := range jobs {
 		if dispositions[j.ID] == "IGNORED" {
 			continue
@@ -172,8 +165,8 @@ func (s *Store) radarBatchRows(ctx context.Context, q Queryer, user string, now 
 		if value := dispositions[j.ID]; value != "" {
 			v.Disposition = value
 		}
-		if hasProfile {
-			evaluation := s.evaluateInputs(original, profile, os, es, now)
+		if profile != nil {
+			evaluation := s.evaluateInputs(original, *profile, os, es, now)
 			v.Eligibility, v.Ranking = evaluation.Eligibility.Status, evaluation.Ranking
 		}
 		v.Deadline, v.DeadlineVersion = radarDeadline(os, es, now)
@@ -194,19 +187,29 @@ func recentChanges(ctx context.Context, q Queryer, user string, days int, now ti
 		limit = limits[0]
 	}
 	since := now.Add(-time.Duration(days) * 24 * time.Hour)
-	// The SQL read model derives status transitions from the existing assessment history.
+	fromDate, untilDate := since.Add(-48*time.Hour).Format("2006-01-02"), now.Add(48*time.Hour).Format("2006-01-02")
+	// Read only the requested window, seeking the immediate predecessor through
+	// the (job_id, assessed_at) index. LAG over all historical JSON forced MySQL
+	// to materialize the entire history before applying the window.
+	// Job/change timestamps live in JSON, so their date filter is deliberately
+	// wider than the final instant check to preserve timezone offsets.
 	return Many[d.ChangeItem](ctx, q, `WITH visible AS (
  SELECT j.* FROM jobs j LEFT JOIN user_job_preferences p ON p.job_id=j.id AND p.user_id=?
  WHERE (j.visibility='GLOBAL' OR (j.visibility='PRIVATE' AND j.owner_id=?)) AND COALESCE(p.disposition,'NONE')<>'IGNORED'
  ), status_history AS (
- SELECT a.id,a.job_id,a.assessed_at,a.body,LAG(JSON_UNQUOTE(JSON_EXTRACT(a.body,'$.status'))) OVER(PARTITION BY a.job_id ORDER BY a.assessed_at,a.id) previous
- FROM assessments a JOIN visible j ON j.id=a.job_id
+ SELECT a.id,a.job_id,a.assessed_at,a.body,
+ (SELECT JSON_UNQUOTE(JSON_EXTRACT(p.body,'$.status')) FROM assessments p
+ WHERE p.job_id=a.job_id AND p.assessed_at<=a.assessed_at AND (p.assessed_at<a.assessed_at OR p.id<a.id)
+ ORDER BY p.assessed_at DESC,p.id DESC LIMIT 1) previous
+ FROM assessments a JOIN visible j ON j.id=a.job_id WHERE a.assessed_at>=? AND a.assessed_at<=?
  ), events AS (
  SELECT JSON_OBJECT('id',j.id,'job_id',j.id,'title',JSON_UNQUOTE(JSON_EXTRACT(j.body,'$.title')),'type','NEW_JOB','created_at',JSON_UNQUOTE(JSON_EXTRACT(j.body,'$.created_at'))) body FROM visible j
+ WHERE JSON_UNQUOTE(JSON_EXTRACT(j.body,'$.created_at'))>=? AND JSON_UNQUOTE(JSON_EXTRACT(j.body,'$.created_at'))<?
  UNION ALL
  SELECT JSON_OBJECT('id',c.id,'job_id',c.job_id,'title',JSON_UNQUOTE(JSON_EXTRACT(j.body,'$.title')),'type',IF(JSON_UNQUOTE(JSON_EXTRACT(c.body,'$.type'))='JD_CONTENT_CHANGED','JOB_CONTENT_CHANGED','DEADLINE_CHANGED'),'from',JSON_UNQUOTE(JSON_EXTRACT(c.body,'$.from_observation')),'to',JSON_UNQUOTE(JSON_EXTRACT(c.body,'$.to_observation')),'created_at',JSON_UNQUOTE(JSON_EXTRACT(c.body,'$.created_at')))
  FROM changes c JOIN visible j ON j.id=c.job_id JOIN observations o ON o.id=JSON_UNQUOTE(JSON_EXTRACT(c.body,'$.to_observation'))
  WHERE JSON_UNQUOTE(JSON_EXTRACT(c.body,'$.type')) IN ('JD_CONTENT_CHANGED','DEADLINE_CHANGED')
+ AND JSON_UNQUOTE(JSON_EXTRACT(c.body,'$.created_at'))>=? AND JSON_UNQUOTE(JSON_EXTRACT(c.body,'$.created_at'))<?
  AND JSON_UNQUOTE(JSON_EXTRACT(o.body,'$.extraction_status'))='COMPLETE'
  AND COALESCE(JSON_EXTRACT(o.body,'$.active_analysis_generation'),0)=COALESCE(JSON_EXTRACT(o.body,'$.current_analysis_generation'),0)
  UNION ALL
@@ -216,7 +219,7 @@ func recentChanges(ctx context.Context, q Queryer, user string, days int, now ti
  SELECT body, CONVERT_TZ(
  CAST(REPLACE(REGEXP_REPLACE(JSON_UNQUOTE(JSON_EXTRACT(body,'$.created_at')),'(Z|[+-][0-9]{2}:[0-9]{2})$',''),'T',' ') AS DATETIME(6)),
  IF(RIGHT(JSON_UNQUOTE(JSON_EXTRACT(body,'$.created_at')),1)='Z','+00:00',RIGHT(JSON_UNQUOTE(JSON_EXTRACT(body,'$.created_at')),6)), '+00:00') event_at FROM events
- ) SELECT body FROM timed WHERE event_at>=? AND event_at<=? ORDER BY event_at DESC,JSON_UNQUOTE(JSON_EXTRACT(body,'$.id')) LIMIT ?`, user, user, since.UTC(), now.UTC(), limit)
+ ) SELECT body FROM timed WHERE event_at>=? AND event_at<=? ORDER BY event_at DESC,JSON_UNQUOTE(JSON_EXTRACT(body,'$.id')) LIMIT ?`, user, user, since.UTC(), now.UTC(), fromDate, untilDate, fromDate, untilDate, since.UTC(), now.UTC(), limit)
 }
 func (s *Store) RecentChanges(ctx context.Context, user string, days int) ([]d.ChangeItem, error) {
 	return recentChanges(ctx, s.DB, user, days, time.Now().UTC())
@@ -274,7 +277,7 @@ func (s *Store) closingJobs(ctx context.Context, q Queryer, user string, now tim
 func closing(jobs []d.RadarJob, now time.Time, days int) []d.RadarJob {
 	out := []d.RadarJob{}
 	for _, v := range jobs {
-		if actionable(v) && v.Deadline != nil && v.Deadline.After(now) && !v.Deadline.After(now.Add(time.Duration(days)*24*time.Hour)) {
+		if hasUpcomingDeadline(v, now, days) {
 			out = append(out, v)
 		}
 	}
@@ -320,63 +323,6 @@ func upcoming(ctx context.Context, q Queryer, user string, now time.Time) ([]d.I
 	return out, nil
 }
 
-func (s *Store) DailyDigest(ctx context.Context, user string) (d.DailyDigest, error) {
-	v := d.DailyDigest{NewJobs: []d.RadarJob{}, RecommendedJobs: []d.RadarJob{}, StatusChanges: []d.ChangeItem{}}
-	err := s.radarSnapshot(ctx, func(q Queryer, now time.Time) error {
-		v.AsOf = now
-		jobs, err := s.radarJobs(ctx, q, user, now)
-		if err != nil {
-			return err
-		}
-		for _, j := range jobs {
-			if j.Job.CreatedAt.After(now.Add(-24 * time.Hour)) {
-				v.NewJobs = append(v.NewJobs, j)
-			}
-			if recommended(j) {
-				v.RecommendedJobs = append(v.RecommendedJobs, j)
-			}
-		}
-		sort.Slice(v.NewJobs, func(i, j int) bool {
-			if v.NewJobs[i].Job.CreatedAt.Equal(v.NewJobs[j].Job.CreatedAt) {
-				return v.NewJobs[i].Job.ID < v.NewJobs[j].Job.ID
-			}
-			return v.NewJobs[i].Job.CreatedAt.After(v.NewJobs[j].Job.CreatedAt)
-		})
-		sort.Slice(v.RecommendedJobs, func(i, j int) bool {
-			if v.RecommendedJobs[i].Ranking.Score == v.RecommendedJobs[j].Ranking.Score {
-				return v.RecommendedJobs[i].Job.ID < v.RecommendedJobs[j].Job.ID
-			}
-			return v.RecommendedJobs[i].Ranking.Score > v.RecommendedJobs[j].Ranking.Score
-		})
-		v.ClosingSoon = closing(jobs, now, 7)
-		v.RecentChanges, err = recentChanges(ctx, q, user, 1, now, 10001)
-		if err != nil {
-			return err
-		}
-		for _, c := range v.RecentChanges {
-			if c.Type == "JOB_STATUS_CHANGED" {
-				v.StatusChanges = append(v.StatusChanges, c)
-			}
-		}
-		v.UpcomingInterviews, err = upcoming(ctx, q, user, now)
-		if err != nil {
-			return err
-		}
-		if len(v.RecentChanges) > 10000 {
-			return ErrRadarCapacity
-		}
-		v.Counts = map[string]int{"new_jobs": len(v.NewJobs), "recommended_jobs": len(v.RecommendedJobs), "closing_soon": len(v.ClosingSoon), "status_changes": len(v.StatusChanges), "upcoming_interviews": len(v.UpcomingInterviews)}
-		v.Truncated = len(v.NewJobs) > 5 || len(v.RecommendedJobs) > 5 || len(v.ClosingSoon) > 5 || len(v.StatusChanges) > 10 || len(v.RecentChanges) > 10 || len(v.UpcomingInterviews) > 10
-		v.NewJobs = v.NewJobs[:min(5, len(v.NewJobs))]
-		v.RecommendedJobs = v.RecommendedJobs[:min(5, len(v.RecommendedJobs))]
-		v.ClosingSoon = v.ClosingSoon[:min(5, len(v.ClosingSoon))]
-		v.StatusChanges = v.StatusChanges[:min(10, len(v.StatusChanges))]
-		v.RecentChanges = v.RecentChanges[:min(10, len(v.RecentChanges))]
-		v.UpcomingInterviews = v.UpcomingInterviews[:min(10, len(v.UpcomingInterviews))]
-		return nil
-	})
-	return v, err
-}
 func notification(ctx context.Context, tx *sql.Tx, n d.Notification) (bool, error) {
 	n.ID = d.ID()
 	n.CreatedAt = time.Now().UTC()

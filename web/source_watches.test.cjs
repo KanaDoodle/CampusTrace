@@ -29,3 +29,5 @@ test('late progress updates change only the matching watch and leave edited form
  const host={querySelectorAll:()=>spans,form};W.progress(host,'three',{expected:50,completed:30,failed:2});
  assert.equal(spans[0].textContent,'');assert.equal(spans[1].textContent,' · 已处理 30/50，失败 2');assert.equal(form.value,'尚未保存');W.progress(host,'missing',{expected:2});assert.equal(spans[1].textContent,' · 已处理 30/50，失败 2');
 });
+
+test('watch search commits Chinese composition only when complete and signals deferred page refresh',()=>{const search={value:''},count={},state={};let ended=0;const host={querySelector:s=>s==='[data-watch-search]'?search:s==='[data-watch-count]'?count:null,querySelectorAll:()=>[]};W.mount(host,watches,sources,state,{onCompositionEnd:()=>ended++});search.oncompositionstart();search.value='北森';search.oninput({isComposing:true});assert.equal(state.composing,true);assert.equal(state.search,undefined);search.oncompositionend();assert.equal(state.search,'北森');assert.equal(state.composing,false);assert.equal(ended,1);});
