@@ -8,9 +8,11 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
+	"github.com/KanaDoodle/CampusTrace/internal/eventbus"
 	"github.com/KanaDoodle/CampusTrace/internal/observability"
 	"github.com/KanaDoodle/CampusTrace/internal/searchapi"
 	"github.com/KanaDoodle/CampusTrace/internal/searchservice"
@@ -67,6 +69,21 @@ func run() error {
 	service, err := searchservice.NewServer(backend, os.Getenv("SEARCH_QUERY_TOKEN"), os.Getenv("SEARCH_WRITE_TOKEN"))
 	if err != nil {
 		return err
+	}
+	if os.Getenv("KAFKA_BROKERS") != "" {
+		cfg, e := eventbus.FromEnv(env("KAFKA_SEARCH_GROUP", "campustrace-search-v1"))
+		if e != nil {
+			return e
+		}
+		consumer, e := eventbus.NewConsumer(cfg, service.Metrics)
+		if e != nil {
+			return e
+		}
+		defer consumer.Close()
+		var consumerWG sync.WaitGroup
+		consumerWG.Add(1)
+		go func() { defer consumerWG.Done(); _ = consumer.Run(ctx, service.ConsumeEvents) }()
+		defer func() { cancel(); consumerWG.Wait() }()
 	}
 	server := &http.Server{Addr: env("SEARCH_ADDR", "127.0.0.1:18083"), Handler: service.Handler(), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
 	go func() {

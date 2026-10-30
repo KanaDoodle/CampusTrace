@@ -23,5 +23,6 @@ redis_port=$(docker port "$redis_name" 6379/tcp | sed -n 's/^127.0.0.1://p')
 etcd_port=$(docker port "$etcd_name" 2379/tcp | sed -n 's/^127.0.0.1://p')
 export MYSQL_DSN="synthetic:synthetic-test-only@tcp(127.0.0.1:$mysql_port)/campustrace_adversarial?parseTime=true&loc=UTC"
 export MYSQL_TEST_DSN="$MYSQL_DSN" REDIS_ADDR="127.0.0.1:$redis_port" ETCD_ENDPOINTS="127.0.0.1:$etcd_port"
+export MYSQL_TEST_ADMIN_DSN="root:synthetic-test-only@tcp(127.0.0.1:$mysql_port)/mysql?parseTime=true&loc=UTC"
 go test -race -count=1 -v ./internal/integration -run "${ADVERSARIAL_TESTS:-Test(Adversarial|Scheduler|Application|Campaign|Durable|ExpiredTask|Whole|Company|MatchingV2|Decision|InventoryCampaign|MyRPC|RunningWorkerOutboxRPC|RepairAnalysisRegistrationReadiness)}"
 go test -race -count=1 -v ./internal/pipeline ./internal/scheduling ./internal/recruitmentmail

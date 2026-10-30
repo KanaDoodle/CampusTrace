@@ -18,6 +18,7 @@ const Protocol = "campustrace-search-v1"
 const MaxHits = 1001
 const MaxBatch = 64
 
+var ErrPending = errors.New("search event not applied yet")
 var ErrUnavailable = errors.New("search unavailable")
 var ErrConflict = errors.New("search generation or version conflict")
 var ErrInvalid = errors.New("invalid search request")
@@ -197,4 +198,17 @@ func (q Query) Matches(d Document) bool {
 		}
 	}
 	return true
+}
+
+// AppliedQuery is an internal visibility fence. It contains no JD text.
+type AppliedQuery struct {
+	Protocol   string `json:"protocol"`
+	Generation string `json:"generation"`
+	Dataset    string `json:"dataset"`
+	Hits       []Hit  `json:"hits"`
+}
+type AppliedResult struct {
+	Protocol   string `json:"protocol"`
+	Generation string `json:"generation"`
+	Ready      bool   `json:"ready"`
 }

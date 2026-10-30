@@ -1,5 +1,7 @@
 # 独立 Search 服务
 
+本文默认描述直接 HTTP 同步模式。可选 Kafka 模式保留这里的版本、generation、Core 权限复核和回退规则，将更新改由 Search 独立消费；Core 通过搜索可见性接口确认索引，详情见[岗位事件](job-events.md)。
+
 Search 解决岗位名称无法覆盖 JD 技术要求的问题。例如，标题只有「服务器工程师」，JD 中包含 C++、Redis 或分布式开发要求，用户仍可用这些词找到岗位。岗位雷达与 Agent 的 `search_jobs` 共用 Core 搜索入口；求职资料、资格判断、个人优先级和投递状态继续由 Core 处理。
 
 ## 运行边界

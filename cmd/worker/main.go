@@ -7,8 +7,10 @@ import (
 	"github.com/KanaDoodle/CampusTrace/internal/bootstrap"
 	"github.com/KanaDoodle/CampusTrace/internal/config"
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
+	"github.com/KanaDoodle/CampusTrace/internal/eventbus"
 	"github.com/KanaDoodle/CampusTrace/internal/observability"
 	"github.com/KanaDoodle/CampusTrace/internal/pipeline"
+	"github.com/KanaDoodle/CampusTrace/internal/searchapi"
 	"log/slog"
 	"net/http"
 	"os"
@@ -47,6 +49,26 @@ func main() {
 	if err = app.Store.Migrate(ctx); err != nil {
 		slog.Error("worker database migration failed")
 		return
+	}
+	if app.Store.JobEvents {
+		cfg, e := eventbus.FromEnv("")
+		if e != nil {
+			slog.Error("invalid event configuration")
+			return
+		}
+		producer, e := eventbus.NewProducer(cfg)
+		if e != nil {
+			slog.Error("event producer startup failed")
+			return
+		}
+		defer producer.Close()
+		if client, ok := app.Store.Search.(*searchapi.Client); ok {
+			app.Store.Search = &eventbus.SearchTransport{HTTP: client, Producer: producer}
+		}
+		var publishWG sync.WaitGroup
+		publishWG.Add(1)
+		go func() { defer publishWG.Done(); app.Store.RunJobEventPublisher(ctx, producer) }()
+		defer func() { cancel(); publishWG.Wait() }()
 	}
 	if app.Store.Search != nil {
 		var syncWG sync.WaitGroup

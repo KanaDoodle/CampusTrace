@@ -10,6 +10,8 @@ CampusTrace is a personal job-search tool built in **Go**. It brings recruiting 
 
 Optional independent job search: `make search-stack` starts a separate Go Search image with OpenSearch. Core keeps authoritative data and authorization, with a bounded database fallback; existing Analysis services remain. See [Search service](docs/search-service.md) for synchronization, isolation, operations and synthetic acceptance limits.
 
+Optional Kafka job events: `make kafka-stack` runs independent Search and in-app notification consumer groups. A transactional SQL outbox, version checks and durable receipts support recovery and duplicate delivery; existing Redis task scheduling remains. See [job events](docs/job-events.md), `make kafka-test` and `make kafka-stack-test` for operations and disposable acceptance.
+
 ```text
 Follow recruiting sources → Screen locally → Analyze selected roles → Plan applications → Interview and review
 ```

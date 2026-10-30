@@ -403,17 +403,19 @@ func (s *Store) RefreshNotifications(ctx context.Context, user string) (created,
 			}
 		}
 	}
-	changes, e := recentChanges(ctx, tx, user, 7, now, 10001)
-	if e != nil {
-		return 0, 0, e
-	}
-	if len(changes) > 10000 {
-		return 0, 0, ErrRadarCapacity
-	}
-	for _, c := range changes {
-		if c.Type == "JOB_STATUS_CHANGED" {
-			if e = add(c.Type, "JOB", c.JobID, c.ID, "岗位状态变化", c.Title+" · "+radarStatus(c.From)+" → "+radarStatus(c.To)); e != nil {
-				return 0, 0, e
+	if !s.JobEvents {
+		changes, e := recentChanges(ctx, tx, user, 7, now, 10001)
+		if e != nil {
+			return 0, 0, e
+		}
+		if len(changes) > 10000 {
+			return 0, 0, ErrRadarCapacity
+		}
+		for _, c := range changes {
+			if c.Type == "JOB_STATUS_CHANGED" {
+				if e = add(c.Type, "JOB", c.JobID, c.ID, "岗位状态变化", c.Title+" · "+radarStatus(c.From)+" → "+radarStatus(c.To)); e != nil {
+					return 0, 0, e
+				}
 			}
 		}
 	}

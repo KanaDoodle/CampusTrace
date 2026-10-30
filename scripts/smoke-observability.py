@@ -115,7 +115,7 @@ trace = eventually('continuous cross-process trace', lambda: assert_trace(first)
 def targets_ready():
     data, _ = request('prometheus', '/api/v1/query?' + urllib.parse.urlencode({'query': 'up{job=~"campustrace-.*"}'}))
     rows = data['data']['result']
-    return rows if len(rows) == (3 if os.environ.get('CAMPUS_SMOKE_SEARCH') == '1' else 2) and all(row['value'][1] == '1' for row in rows) else False
+    return rows if len(rows) == (4 if os.environ.get('CAMPUS_SMOKE_KAFKA')=='1' else 3 if os.environ.get('CAMPUS_SMOKE_SEARCH')=='1' else 2) and all(row['value'][1] == '1' for row in rows) else False
 
 
 targets = eventually('Prometheus API and Worker scraping', targets_ready)

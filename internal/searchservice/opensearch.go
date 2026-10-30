@@ -274,3 +274,62 @@ func (b *Backend) Rebuild(ctx context.Context) (a.Status, error) {
 	}
 	return b.Status(ctx)
 }
+
+// Applied uses search rather than realtime GET: acknowledgement must observe
+// refreshed documents, otherwise Core could clear its journal before search sees them.
+func (b *Backend) Applied(ctx context.Context, q a.AppliedQuery) (a.AppliedResult, error) {
+	out := a.AppliedResult{Protocol: a.Protocol, Generation: q.Generation}
+	if q.Protocol != a.Protocol || !a.ID(q.Dataset) || len(q.Hits) == 0 || len(q.Hits) > a.MaxBatch {
+		return out, a.ErrInvalid
+	}
+	ids := []string{}
+	expected := map[string]a.Hit{}
+	for _, hit := range q.Hits {
+		if !a.ID(hit.ID) || hit.Version < 1 || len(hit.Hash) != 64 {
+			return out, a.ErrInvalid
+		}
+		if _, ok := expected[hit.ID]; ok {
+			return out, a.ErrInvalid
+		}
+		expected[hit.ID] = hit
+		ids = append(ids, q.Dataset+"-"+hit.ID)
+	}
+	index, generation, err := b.current(ctx)
+	if err != nil {
+		return out, err
+	}
+	if generation != q.Generation {
+		return out, a.ErrConflict
+	}
+	body, _ := json.Marshal(map[string]any{"size": len(ids), "query": map[string]any{"ids": map[string]any{"values": ids}}, "_source": []string{"id", "version", "hash"}})
+	status, raw, err := b.request(ctx, "POST", "/"+index+"/_search", body)
+	if err != nil || status != 200 {
+		return out, a.ErrUnavailable
+	}
+	var result struct {
+		TimedOut bool `json:"timed_out"`
+		Shards   struct {
+			Failed int `json:"failed"`
+		} `json:"_shards"`
+		Hits struct {
+			Hits []struct {
+				Source a.Hit `json:"_source"`
+			} `json:"hits"`
+		} `json:"hits"`
+	}
+	if json.Unmarshal(raw, &result) != nil || result.TimedOut || result.Shards.Failed > 0 {
+		return out, a.ErrUnavailable
+	}
+	if len(result.Hits.Hits) != len(expected) {
+		return out, nil
+	}
+	for _, hit := range result.Hits.Hits {
+		want, ok := expected[hit.Source.ID]
+		if !ok || hit.Source.Version < want.Version || hit.Source.Version == want.Version && hit.Source.Hash != want.Hash {
+			return out, nil
+		}
+		delete(expected, hit.Source.ID)
+	}
+	out.Ready = len(expected) == 0
+	return out, nil
+}

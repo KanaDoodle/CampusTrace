@@ -13,7 +13,7 @@ go build ./...
 search_deps=$(go list -deps ./cmd/search)
 for dependency in $search_deps;do
  case "$dependency" in
-  github.com/KanaDoodle/CampusTrace/internal/observability|github.com/KanaDoodle/CampusTrace/internal/searchapi|github.com/KanaDoodle/CampusTrace/internal/searchservice) ;;
+  github.com/KanaDoodle/CampusTrace/internal/observability|github.com/KanaDoodle/CampusTrace/internal/eventbus|github.com/KanaDoodle/CampusTrace/internal/jobevent|github.com/KanaDoodle/CampusTrace/internal/searchapi|github.com/KanaDoodle/CampusTrace/internal/searchservice) ;;
   github.com/KanaDoodle/CampusTrace/internal/*|github.com/go-sql-driver/*|github.com/redis/*|go.etcd.io/*|github.com/KanaDoodle/KanaRPC-Go*)
    printf 'FAIL: Search imported a Core dependency: %s\n' "$dependency" >&2;exit 1;;
  esac

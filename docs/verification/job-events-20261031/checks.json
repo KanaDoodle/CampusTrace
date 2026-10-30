@@ -1,0 +1,32 @@
+{
+  "date": "2026-10-31",
+  "base_revision": "3a7541eb3f6309595ed33c29d4845192b079d445",
+  "shared_worktree": true,
+  "checks": {
+    "go_build": true,
+    "go_vet": true,
+    "go_test_default": true,
+    "go_race_internal": true,
+    "frontend_passed": 444,
+    "public_module_and_search_dependency_boundary": true,
+    "kafka_targeted_real_dependencies": true,
+    "full_container_fault_acceptance": true,
+    "direct_search_regression": true,
+    "full_integration_passed": 189,
+    "pipeline_scheduling_recruitmentmail_passed": 24,
+    "full_integration_skipped": 8
+  },
+  "first_run_observations": [
+    "Existing 250ms model quarantine timing assertion failed under concurrent full-stack load; isolated case and complete independent rerun passed without changing its code or assertion.",
+    "Agent backend selection was being changed in the shared worktree; its isolated test and complete internal race rerun passed after that work changed."
+  ],
+  "remote_github_actions_run": false,
+  "test_data": "isolated synthetic inputs; no external model calls",
+  "limits": [
+    "single Kafka broker, three partitions, replication factor one",
+    "at-least-once delivery with idempotent effects; no distributed exactly-once claim",
+    "no production capacity, throughput or cluster HA claim",
+    "eight skipped full-suite entries include live websites, subprocess entry and Kafka/OpenSearch cases exercised separately; live websites not exercised"
+  ],
+  "evidence": "Raw local logs and traces: bin/verification/kafka-20261031 (ignored); acceptance.json is copied from the completed full-stack smoke."
+}

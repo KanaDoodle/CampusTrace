@@ -40,6 +40,10 @@ __debug_bin*
 !/docs/adversarial-acceptance.md
 !/docs/model-control.md
 !/docs/search-service.md
+!/docs/job-events.md
+!/docs/verification/
+/docs/verification/*
+!/docs/verification/job-events-20261031/
 !/docs/images/
 /docs/images/*
 !/docs/images/job-radar.jpg

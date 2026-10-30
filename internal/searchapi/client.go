@@ -119,3 +119,12 @@ func (c *Client) Rebuild(ctx context.Context) (out Status, err error) {
 	err = c.call(ctx, "/v1/rebuild", c.WriteToken, struct{}{}, &out)
 	return
 }
+
+func (c *Client) Applied(ctx context.Context, q AppliedQuery) (AppliedResult, error) {
+	var out AppliedResult
+	err := c.call(ctx, "/v1/applied", c.QueryToken, q, &out)
+	if err == nil && (out.Protocol != Protocol || out.Generation != q.Generation) {
+		err = ErrConflict
+	}
+	return out, err
+}

@@ -83,3 +83,19 @@ performance-test:
 performance-compare:
 	@test -n "$(PERF_BASELINE)" && test -n "$(PERF_CANDIDATE)" || { echo 'Set PERF_BASELINE and PERF_CANDIDATE to report.json paths'; exit 1; }
 	PYTHONDONTWRITEBYTECODE=1 python3 scripts/performance/report.py "$(PERF_CANDIDATE)" --baseline "$(PERF_BASELINE)"
+
+KAFKA_COMPOSE = docker compose --file docker-compose.yml --file compose.app.yml --file compose.search.yml --file compose.kafka.yml
+.PHONY: kafka-stack kafka-stop kafka-status kafka-replay kafka-test kafka-stack-test
+kafka-stack:
+	$(KAFKA_COMPOSE) run --rm kafka-init
+	$(KAFKA_COMPOSE) up -d --build --wait api worker analysis-1 analysis-2 search notify
+kafka-stop:
+	$(KAFKA_COMPOSE) stop
+kafka-status:
+	$(KAFKA_COMPOSE) ps -a
+kafka-replay:
+	$(KAFKA_COMPOSE) exec -T worker /app/events replay $(EVENT_ARGS)
+kafka-test:
+	sh scripts/kafka-local.sh
+kafka-stack-test:
+	CAMPUS_SMOKE_KAFKA=1 sh scripts/observability-local.sh

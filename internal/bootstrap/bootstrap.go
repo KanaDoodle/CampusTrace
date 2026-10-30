@@ -44,6 +44,12 @@ func Open(ctx context.Context) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
+	mode := config.Env("JOB_EVENTS_MODE", "direct")
+	if mode != "direct" && mode != "kafka" {
+		s.DB.Close()
+		return nil, fmt.Errorf("invalid JOB_EVENTS_MODE")
+	}
+	s.JobEvents = mode == "kafka"
 	if endpoint := os.Getenv("SEARCH_URL"); endpoint != "" {
 		s.Search, err = searchapi.NewClient(endpoint, os.Getenv("SEARCH_QUERY_TOKEN"), os.Getenv("SEARCH_WRITE_TOKEN"))
 		if err != nil {

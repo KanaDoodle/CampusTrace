@@ -66,6 +66,10 @@ flowchart TD
 
 MySQL 事务与唯一约束承担业务正确性；Redis 承担队列、重试、限流、缓存及短期 Agent 状态。Analysis 通过 KanaRPC 返回候选 claims；可选 Search 通过版本化 HTTP 提供岗位全文检索，只拥有派生索引。主后端保留权限、决策与 CRUD 职责。同步、水位、回退和独立部署见 [Search 服务](search-service.md)。
 
+### 可选 Kafka 岗位事件
+
+`compose.kafka.yml` 在已有 Core、Analysis、Search 架构上增加岗位事件分发。岗位写入和不可变事件 Outbox 同事务提交，Worker 发布到 Kafka；Search 与独立 Notify 进程使用不同消费组，业务效果持久化后才提交各自 offset。Search 索引确认与 Kafka 发布确认分开，未追平时 Core 继续基础回退；Notify 按当前权限和 SQL 回执去重。Redis 的任务执行、重试与公平调度保留。Notify 仍属于 Core 业务域并共享其数据库，默认 Compose 的 Kafka 是单节点演示配置。详细一致性、恢复和验证边界见[岗位变更事件](job-events.md)。
+
 ### 岗位来源、归并与变化记录
 
 - 来源为运营者登记的 `OFFICIAL`、`THIRD_PARTY` 或 `MANUAL`；可信度不是系统自动认证的。公共 API 导入只能创建用户自有的 `PRIVATE` manual source，不能自行赋予官方可信度。官方/系统来源为 `GLOBAL`，私人观察不会并入共享岗位雷达。

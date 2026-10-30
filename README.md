@@ -16,6 +16,8 @@ CampusTrace 就是为这些小麻烦做的。它是一个用 **Go** 写的个人
 
 `make performance` 可在独立合成环境运行 Search 的 k6 端到端压测，覆盖正常查询、基础回退、索引重建和并发更新；同机参考／候选版本的性能回归与证据说明见[性能验证](docs/performance.md#search-的-k6-端到端性能回归2026-10-31)。
 
+岗位变更现可通过 Kafka 分发：`make kafka-stack` 启动 Search 与站内通知的独立消费组；MySQL 事务事件、消费回执与版本检查支持故障恢复和去重，Redis 继续负责原有任务调度。使用 `make kafka-test` / `make kafka-stack-test` 运行真实依赖验收，详见[岗位事件](docs/job-events.md)。
+
 ```text
 关注招聘来源 → 本地筛选 → 挑选岗位深入分析 → 安排投递 → 面试与复盘
 ```
@@ -179,6 +181,7 @@ CLI 使用固定的 `campustrace` Compose 项目名。备份和数据都留在�
 | 一家公司最后一个投递名额，不能被并发占两次 | 同一事务检查限投规则、名额和记录版本 |
 | 抓取和模型调用不能无限开 goroutine | 有界 Worker、独立并发限制、超时、限流、退避重试与失败队列 |
 | 出了问题，要知道卡在哪一步 | 请求编号、任务阶段事件、Prometheus 指标，以及可复现的性能测量 |
+| 搜索与通知不能相互阻塞 | Kafka 独立消费组、事务事件 Outbox、至少一次投递与幂等回执，保留 Redis 任务调度 |
 | 分析服务需要独立运行 | 使用 [KanaRPC-Go](https://github.com/KanaDoodle/KanaRPC-Go) 的公开接口，配合 etcd 发现两个 Analysis 实例 |
 
 招聘观察链路把「抓到了什么」「原文依据是什么」「规则如何判断」分开保存。页面还能访问，不会仅凭这一点就说岗位仍开放；已有投递也不会因为岗位关闭而自动终止。
@@ -215,6 +218,7 @@ make verify-boundary
 | --- | --- |
 | [岗位匹配与求职资料](docs/matching.md) | 初筛、简历导入、整体适配、公司取舍、缓存与批量分析 |
 | [学习资料检索](docs/knowledge-retrieval.md) | 本地笔记、语义索引、可选重排序与检索评测 |
+| [岗位变更事件](docs/job-events.md) | Kafka 接入、独立消费、业务确认、回放与故障验收 |
 | [架构与处理链路](docs/architecture.md) | 原文与证据、队列恢复、RPC、Agent / RAG / MCP、版本与容量限制 |
 | [后端升级说明](docs/backend-upgrade.md) | 持久分析任务、限投事务、缓存依赖与招聘源检查频率 |
 | [招聘来源清单](docs/campus-source-inventory.md) | 公司入口、已适配范围、验证记录与接入限制 |

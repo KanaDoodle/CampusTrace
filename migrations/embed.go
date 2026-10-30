@@ -52,3 +52,6 @@ var ModelControlSQL string
 
 //go:embed 017_search.sql
 var SearchSQL string
+
+//go:embed 018_job_events.sql
+var JobEventsSQL string

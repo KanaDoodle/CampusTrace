@@ -11,6 +11,7 @@ import (
 	"unicode/utf8"
 
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
+	"github.com/KanaDoodle/CampusTrace/internal/jobevent"
 	"github.com/KanaDoodle/CampusTrace/internal/observability"
 	a "github.com/KanaDoodle/CampusTrace/internal/searchapi"
 )
@@ -70,7 +71,7 @@ func projectSearchJob(job d.Job, visibility, owner, text string) a.Document {
 
 // Called inside the business transaction, with the job row locked first.
 // Latest-state coalescing bounds backlog by number of jobs, not update count.
-func touchSearchJob(ctx context.Context, tx *sql.Tx, id string) error {
+func (s *Store) touchSearchJob(ctx context.Context, tx *sql.Tx, id string) error {
 	doc, err := searchDocument(ctx, tx, id, true)
 	if err != nil {
 		return err
@@ -80,7 +81,8 @@ func touchSearchJob(ctx context.Context, tx *sql.Tx, id string) error {
 	}
 	doc.Hash = doc.ContentHash()
 	var previous string
-	err = tx.QueryRowContext(ctx, "SELECT content_hash FROM search_documents WHERE job_id=?", id).Scan(&previous)
+	var previousBody []byte
+	err = tx.QueryRowContext(ctx, "SELECT content_hash,body FROM search_documents WHERE job_id=?", id).Scan(&previous, &previousBody)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return err
 	}
@@ -92,6 +94,15 @@ func touchSearchJob(ctx context.Context, tx *sql.Tx, id string) error {
 		return err
 	}
 	doc.Version++
+	if s.JobEvents {
+		var pending int
+		if err = tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM job_event_outbox WHERE published_at IS NULL").Scan(&pending); err != nil {
+			return err
+		}
+		if pending >= 100000 {
+			return ErrQueueBusy
+		}
+	}
 	if !doc.Valid() {
 		return ErrValidation
 	}
@@ -102,6 +113,24 @@ func touchSearchJob(ctx context.Context, tx *sql.Tx, id string) error {
 		return err
 	}
 	_, err = tx.ExecContext(ctx, "INSERT INTO search_outbox(job_id,version,traceparent) VALUES(?,?,?) ON DUPLICATE KEY UPDATE version=VALUES(version),traceparent=VALUES(traceparent),created_at=CURRENT_TIMESTAMP(6)", id, doc.Version, observability.TraceParent(ctx))
+	if err != nil {
+		return err
+	}
+	if s.JobEvents {
+		var old *a.Document
+		if len(previousBody) > 0 {
+			var value a.Document
+			if err = json.Unmarshal(previousBody, &value); err != nil {
+				return err
+			}
+			old = &value
+		}
+		event := jobevent.New(doc, old, observability.TraceParent(ctx))
+		if !event.Valid() {
+			return ErrValidation
+		}
+		_, err = tx.ExecContext(ctx, "INSERT INTO job_event_outbox(event_id,dataset,job_id,event_version,occurred_at,body) VALUES(?,?,?,?,?,?)", event.ID, doc.Dataset, doc.ID, doc.Version, event.OccurredAt, d.JSON(event))
+	}
 	return err
 }
 
@@ -135,7 +164,7 @@ func (s *Store) reconcileSearch(ctx context.Context) error {
 		return err
 	}
 	for _, id := range ids {
-		if err = s.Tx(ctx, func(tx *sql.Tx) error { return touchSearchJob(ctx, tx, id) }); err != nil {
+		if err = s.Tx(ctx, func(tx *sql.Tx) error { return s.touchSearchJob(ctx, tx, id) }); err != nil {
 			return err
 		}
 	}
@@ -167,7 +196,7 @@ func (s *Store) reconcileSearch(ctx context.Context) error {
 		return err
 	}
 	for _, id := range ids {
-		if err = s.Tx(ctx, func(tx *sql.Tx) error { return touchSearchJob(ctx, tx, id) }); err != nil {
+		if err = s.Tx(ctx, func(tx *sql.Tx) error { return s.touchSearchJob(ctx, tx, id) }); err != nil {
 			return err
 		}
 	}
@@ -310,7 +339,7 @@ func (s *Store) RunSearchSync(ctx context.Context) {
 	for ctx.Err() == nil {
 		err := s.SyncSearchOnce(ctx)
 		delay := 250 * time.Millisecond
-		if err != nil {
+		if err != nil && !errors.Is(err, a.ErrPending) {
 			delay = 3 * time.Second
 			if s.Metrics != nil {
 				s.Metrics.Add("search_sync_errors_total", 1)

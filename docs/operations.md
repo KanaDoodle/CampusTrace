@@ -139,3 +139,7 @@ Worker 平时每分钟只查询到期索引，每批最多 100 个；批次满�
 健康检查平时每 30 秒一次，启动阶段仍每 3 秒检查，避免常驻组件频繁拉起探针；故障发现可能比原来的 3 秒间隔晚一些。暂时不用时运行 `./campustrace stop --all`，下次 `./campustrace start` 即可继续，保留数据卷。
 
 实现依据：[Redis XTRIM 的 MINID 与有界近似裁剪](https://redis.io/docs/latest/commands/xtrim/)、[MySQL 8.4 Performance Schema 配置](https://dev.mysql.com/doc/refman/8.4/en/performance-schema-system-variables.html)、[Compose 健康检查](https://docs.docker.com/reference/compose-file/services/#healthcheck)。Redis 7.4 没有新版本的 `ACKED` 裁剪选项，所以消费组边界由原子脚本显式保护。
+
+## 可选 Kafka 部署
+
+岗位变更可通过 `make kafka-stack` 启动 Kafka、Search 独立消费组和 Notify 进程。切换时 API/Worker 配置必须一致，先停止旧 writer 并备份；Redis 调度保留。CLI 普通启动不管理这个可选栈，切换、回放、观测及验收命令见[岗位事件运行说明](job-events.md)。

@@ -1,0 +1,18 @@
+{
+  "scope": "Kafka-only staged tree exported without unstaged/untracked Agent changes",
+  "tested_source_tree": "3fc2fcef33ffc2422d3781012b49f0363ac6f024",
+  "base_revision": "3a7541eb3f6309595ed33c29d4845192b079d445",
+  "go_build": true,
+  "go_vet": true,
+  "go_test_default": true,
+  "go_race_internal": true,
+  "go_mod_tidy_diff_empty": true,
+  "frontend_passed": 436,
+  "kafka_top_level_tests_passed": 4,
+  "full_container_fault_acceptance": true,
+  "public_kana_rpc_dependency": "v0.1.0; no replace or workspace",
+  "search_imports_no_core_db_redis_rpc": true,
+  "remote_actions_execution_claimed": false,
+  "local_logs": "bin/verification/kafka-20261031/publish-selected-tree (ignored)",
+  "limits": "Single-host, synthetic input, single Kafka broker. Publication verification adds documentation/evidence and a CI path trigger after exporting the tested source tree."
+}

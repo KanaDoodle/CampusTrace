@@ -129,6 +129,19 @@ func (s *Server) Handler() http.Handler {
 		}
 		return s.Engine.Query(ctx, q)
 	})
+	on("POST /v1/applied", false, func(ctx context.Context, r *http.Request) (any, error) {
+		var q a.AppliedQuery
+		if decode(r, &q) != nil {
+			return nil, a.ErrInvalid
+		}
+		engine, ok := s.Engine.(interface {
+			Applied(context.Context, a.AppliedQuery) (a.AppliedResult, error)
+		})
+		if !ok {
+			return nil, a.ErrUnavailable
+		}
+		return engine.Applied(ctx, q)
+	})
 	on("POST /v1/batch", true, func(ctx context.Context, r *http.Request) (any, error) {
 		var b a.Batch
 		if decode(r, &b) != nil {

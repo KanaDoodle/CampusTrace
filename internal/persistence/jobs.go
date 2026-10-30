@@ -279,7 +279,7 @@ func (s *Store) ingestTx(ctx context.Context, tx *sql.Tx, i Ingest) (d.Observati
 		if err != nil {
 			return err
 		}
-		if err = touchSearchJob(ctx, tx, o.JobID); err != nil {
+		if err = s.touchSearchJob(ctx, tx, o.JobID); err != nil {
 			return err
 		}
 		if err = enqueueAssessment(ctx, tx, o.JobID); err != nil {
@@ -382,7 +382,7 @@ func (s *Store) Assess(ctx context.Context, taskID, jobID string) error {
 		if err != nil {
 			return err
 		}
-		if err = touchSearchJob(ctx, tx, jobID); err != nil {
+		if err = s.touchSearchJob(ctx, tx, jobID); err != nil {
 			return err
 		}
 		previous := map[string]d.Observation{}
