@@ -6,11 +6,15 @@ services:
     environment:
       SEARCH_URL: http://search:18083
       SEARCH_QUERY_TOKEN: ${SEARCH_QUERY_TOKEN:-local-search-query-token-change-me-2027}
+      SEARCH_QUERY_TIMEOUT_MS: ${SEARCH_QUERY_TIMEOUT_MS:-200}
+      SEARCH_FALLBACK_RESERVE_MS: ${SEARCH_FALLBACK_RESERVE_MS:-150}
   worker:
     networks: [default, search-rpc]
     environment:
       SEARCH_URL: http://search:18083
       SEARCH_QUERY_TOKEN: ${SEARCH_QUERY_TOKEN:-local-search-query-token-change-me-2027}
+      SEARCH_QUERY_TIMEOUT_MS: ${SEARCH_QUERY_TIMEOUT_MS:-200}
+      SEARCH_FALLBACK_RESERVE_MS: ${SEARCH_FALLBACK_RESERVE_MS:-150}
       SEARCH_WRITE_TOKEN: ${SEARCH_WRITE_TOKEN:-local-search-write-token-change-me-2027}
   search:
     image: campustrace-search:local

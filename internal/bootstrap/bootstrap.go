@@ -44,6 +44,8 @@ func Open(ctx context.Context) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
+	metrics := observability.New()
+	s.Metrics = metrics
 	mode := config.Env("JOB_EVENTS_MODE", "direct")
 	if mode != "direct" && mode != "kafka" {
 		s.DB.Close()
@@ -51,7 +53,16 @@ func Open(ctx context.Context) (*App, error) {
 	}
 	s.JobEvents = mode == "kafka"
 	if endpoint := os.Getenv("SEARCH_URL"); endpoint != "" {
-		s.Search, err = searchapi.NewClient(endpoint, os.Getenv("SEARCH_QUERY_TOKEN"), os.Getenv("SEARCH_WRITE_TOKEN"))
+		var client *searchapi.Client
+		client, err = searchapi.NewClient(endpoint, os.Getenv("SEARCH_QUERY_TOKEN"), os.Getenv("SEARCH_WRITE_TOKEN"))
+		if err == nil {
+			var policy searchapi.QueryPolicy
+			policy, err = searchapi.QueryPolicyFromEnv()
+			if err == nil {
+				err = client.ConfigureQueries(policy, metrics)
+			}
+		}
+		s.Search = client
 		if err != nil {
 			s.DB.Close()
 			return nil, fmt.Errorf("invalid Search configuration")
@@ -91,8 +102,6 @@ func Open(ctx context.Context) (*App, error) {
 		resumeModel = client
 	}
 	runtime := &agent.Runtime{Store: s, MaxToolResultBytes: config.Int("AGENT_MAX_TOOL_RESULT_BYTES", 32768), MaxFactsBytes: config.Int("AGENT_MAX_FACTS_BYTES", 98304), MaxAnswerBytes: config.Int("AGENT_MAX_ANSWER_BYTES", 32768), MaxFinalBytes: config.Int("AGENT_MAX_FINAL_BYTES", 163840), Model: model, Tools: tools, R: r, Prefix: q.Prefix, MaxModels: config.Int("AGENT_MAX_MODEL_CALLS", 4), MaxTools: config.Int("AGENT_MAX_TOOL_CALLS", 8), Deadline: time.Duration(config.Int("AGENT_DEADLINE_SECONDS", 35)) * time.Second, ToolTimeout: time.Duration(config.Int("AGENT_TOOL_TIMEOUT_SECONDS", 8)) * time.Second}
-	metrics := observability.New()
-	s.Metrics = metrics
 	return &App{Config: c, Store: s, Queue: q, Tools: tools, Agent: runtime, Metrics: metrics, ResumeModel: resumeModel}, nil
 }
 func (a *App) Close() { a.Store.DB.Close(); a.Queue.R.Close() }

@@ -8,6 +8,8 @@
 
 CampusTrace 就是为这些小麻烦做的。它是一个用 **Go** 写的个人求职工具，把招聘更新、简历资料、岗位匹配、投递和面试记录放在一起，帮你少翻几个网页、少漏几件事。
 
+后端工程设计与证据可以从[三条问题主线](docs/engineering-evidence.md)开始看：岗位事件可靠投递、Search 故障隔离、跨 API 付费模型控制。每条都提供故障窗口、实现边界与隔离复现命令；实验条件和未验证能力单独说明。
+
 后台任务现按类型和用户／系统归属隔离，岗位分析按批次公平分配执行名额，带排队期限与过载反馈。设计、升级顺序、合成负载实测和复现方法见[可靠任务调度](docs/task-scheduling.md)。
 
 匹配模型调用新增跨 API 的共享许可、次数额度和未知结果核对，已完成双进程与强杀验收，见[模型执行控制](docs/model-control.md)。排障时可用 `make observability` 启动 OpenTelemetry、Prometheus / Grafana / Tempo，查看跨服务耗时和预置面板；已有数据升级前先备份。普通启动仍保持轻量，详见[完整观测栈](docs/operations.md#可选的完整观测栈)。
@@ -218,6 +220,8 @@ make verify-boundary
 | --- | --- |
 | [岗位匹配与求职资料](docs/matching.md) | 初筛、简历导入、整体适配、公司取舍、缓存与批量分析 |
 | [学习资料检索](docs/knowledge-retrieval.md) | 本地笔记、语义索引、可选重排序与检索评测 |
+| [工程证据与讲解入口](docs/engineering-evidence.md) | 三条问题主线、复现和结果边界 |
+| [Search 故障隔离](docs/search-resilience.md) | 查询预算、并发隔离、熔断、数据库回退与前后对照 |
 | [岗位变更事件](docs/job-events.md) | Kafka 接入、独立消费、业务确认、回放与故障验收 |
 | [架构与处理链路](docs/architecture.md) | 原文与证据、队列恢复、RPC、Agent / RAG / MCP、版本与容量限制 |
 | [后端升级说明](docs/backend-upgrade.md) | 持久分析任务、限投事务、缓存依赖与招聘源检查频率 |

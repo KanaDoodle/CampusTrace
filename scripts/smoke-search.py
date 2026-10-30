@@ -106,5 +106,7 @@ def prometheus_query(expr):
 eventually('Search scrape',lambda:any(row['value'][1]=='1' for row in prometheus_query('up{job="campustrace-search"}')))
 eventually('backlog metric',lambda:any(row['value'][1]=='0' for row in prometheus_query('campustrace_search_pending')))
 dashboard,_=request('grafana','/api/dashboards/uid/campustrace-search');assert len(dashboard['dashboard']['panels'])==9
-result={'separate_search_image':True,'independent_search_replacement':True,'core_and_analysis_kept_running':True,'outage_fallback_and_write':True,'recovered_outbox':True,'rebuild_replay':True,'index_outage_and_loss_recovered':True,'database_network_isolated':True,'search_dashboard_panels':9,'query_trace':trace}
+resilience,_=request('grafana','/api/dashboards/uid/campustrace-search-resilience');assert len(resilience['dashboard']['panels'])==6
+eventually('read admission metrics',lambda:bool(prometheus_query('campustrace_search_read_limit{job="campustrace-api"}')))
+result={'separate_search_image':True,'independent_search_replacement':True,'core_and_analysis_kept_running':True,'outage_fallback_and_write':True,'recovered_outbox':True,'rebuild_replay':True,'index_outage_and_loss_recovered':True,'database_network_isolated':True,'search_dashboard_panels':9,'resilience_dashboard_panels':6,'query_trace':trace}
 (evidence/'search-acceptance.json').write_text(json.dumps(result,indent=2));print(json.dumps(result,ensure_ascii=False))

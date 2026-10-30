@@ -4,8 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"strings"
-	"time"
 
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
 	a "github.com/KanaDoodle/CampusTrace/internal/searchapi"
@@ -32,25 +32,66 @@ func (w searchWatermark) usable() bool { return w.initial && w.ready && !w.dirty
 // Search returns only data hydrated from Core in a consistent ACL snapshot.
 // Any unacknowledged write, changed generation, missing hit or content mismatch
 // causes the entire request to use the bounded authoritative fallback.
-func (s *Store) SearchJobs(ctx context.Context, user string, q a.Query) (JobSearch, error) {
+func (s *Store) SearchJobs(ctx context.Context, user string, q a.Query) (out JobSearch, err error) {
 	if !a.ID(user) {
 		return JobSearch{}, ErrNotFound
 	}
-	if err := q.Normalize(); err != nil || q.Limit > 1000 {
+	if e := q.Normalize(); e != nil || q.Limit > 1000 {
 		return JobSearch{}, ErrValidation
 	}
+	if e := ctx.Err(); e != nil {
+		return JobSearch{}, e
+	}
+	if !s.searchReads.enter(false) {
+		if s.Metrics != nil {
+			s.Metrics.Add("search_read_rejected_total", 1)
+		}
+		return JobSearch{}, ErrSearchBusy
+	}
+	defer s.searchReads.leave(false)
+	// Includes watermark SQL, remote query, hydration and fallback. Reserve the
+	// caller's tighter deadline; never continue background DB work after timeout.
+	parent := ctx
+	ctx, cancel := context.WithTimeout(ctx, a.RequestBudget)
+	defer cancel()
+	defer func() {
+		if err != nil && ctx.Err() != nil && parent.Err() == nil {
+			err = ErrSearchBusy
+			if s.Metrics != nil {
+				s.Metrics.Add("search_read_timeout_total", 1)
+			}
+		}
+	}()
+	reason := "disabled"
 	if s.Search != nil {
-		before, err := readSearchWatermark(ctx, s.DB)
-		if err == nil && before.usable() {
+		before, e := readSearchWatermark(ctx, s.DB)
+		if e != nil {
+			return JobSearch{}, errors.Join(ErrBackendUnavailable, e)
+		}
+		reason = "pending"
+		if before.usable() {
 			q.User, q.Dataset, q.Generation = user, before.dataset, before.generation
 			requested := q.Limit
-			remote, cancel := context.WithTimeout(ctx, 1500*time.Millisecond)
 			remoteQuery := q
 			remoteQuery.Limit = q.Limit + 1
-			result, e := s.Search.Query(remote, remoteQuery)
-			cancel()
+			result, e := s.Search.Query(ctx, remoteQuery)
+			reason = "unavailable"
+			if ctx.Err() != nil {
+				return JobSearch{}, ctx.Err()
+			}
+			switch {
+			case errors.Is(e, a.ErrCircuitOpen):
+				reason = "circuit"
+			case errors.Is(e, a.ErrQueryBusy):
+				reason = "remote_busy"
+			case errors.Is(e, a.ErrQueryBudget):
+				reason = "budget"
+			case errors.Is(e, a.ErrConflict):
+				reason = "snapshot"
+			}
 			if e == nil {
-				if out, e := s.hydrateSearch(ctx, user, before, result); e == nil {
+				out, e := s.hydrateSearch(ctx, user, before, result)
+				if e == nil {
 					if len(out.IDs) > requested {
 						out.More = true
 						out.IDs = out.IDs[:requested]
@@ -61,14 +102,17 @@ func (s *Store) SearchJobs(ctx context.Context, user string, q a.Query) (JobSear
 					}
 					return out, nil
 				}
+				if !errors.Is(e, a.ErrConflict) {
+					return JobSearch{}, errors.Join(ErrBackendUnavailable, e)
+				}
+				reason = "snapshot"
 			}
 		}
 	}
-	if s.Metrics != nil {
-		s.Metrics.Add("search_basic_total", 1)
-	}
-	return s.basicSearch(ctx, user, q)
+	s.recordSearchFallback(reason)
+	return s.guardedBasicSearch(ctx, user, q)
 }
+
 func (s *Store) hydrateSearch(ctx context.Context, user string, before searchWatermark, result a.Result) (JobSearch, error) {
 	out := JobSearch{Jobs: []d.Job{}, IDs: []string{}, Mode: "fulltext", More: false}
 	if result.Protocol != a.Protocol || result.Generation != before.generation || len(result.Hits) > a.MaxHits {

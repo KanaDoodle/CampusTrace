@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/KanaDoodle/CampusTrace/internal/observability"
+	"github.com/KanaDoodle/CampusTrace/internal/searchapi"
 )
 
 func (a *API) prometheus(w http.ResponseWriter, r *http.Request) {
@@ -22,6 +23,19 @@ func (a *API) prometheus(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		gauges = append(gauges, observability.Gauge{Name: "model_pool_scrape_success", Value: up})
+	}
+	active, limit, fallback, fallbackLimit := a.Store.SearchReadStats()
+	gauges = append(gauges, observability.Gauge{Name: "search_read_active", Value: float64(active)}, observability.Gauge{Name: "search_read_limit", Value: float64(limit)}, observability.Gauge{Name: "search_fallback_active", Value: float64(fallback)}, observability.Gauge{Name: "search_fallback_limit", Value: float64(fallbackLimit)})
+	if query, ok := a.Store.Search.(interface{ QueryState() searchapi.QueryState }); ok {
+		state := query.QueryState()
+		code := 0.
+		if state.State == "open" {
+			code = 1
+		}
+		if state.State == "half_open" {
+			code = 2
+		}
+		gauges = append(gauges, observability.Gauge{Name: "search_query_circuit_state", Value: code}, observability.Gauge{Name: "search_query_active", Value: float64(state.Active)}, observability.Gauge{Name: "search_query_limit", Value: float64(state.Limit)}, observability.Gauge{Name: "search_query_retry_seconds", Value: state.RetryAfter.Seconds()})
 	}
 	if a.Store.Search != nil {
 		pending, ready, e := a.Store.SearchSyncStats(ctx)

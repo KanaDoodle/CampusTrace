@@ -99,3 +99,7 @@ kafka-test:
 	sh scripts/kafka-local.sh
 kafka-stack-test:
 	CAMPUS_SMOKE_KAFKA=1 sh scripts/observability-local.sh
+
+.PHONY: resilience-test
+resilience-test:
+	SEARCH_TESTS='^TestSearch(Read|Fallback)' sh scripts/search-local.sh

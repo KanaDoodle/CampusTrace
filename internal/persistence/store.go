@@ -22,6 +22,7 @@ var ErrBackendUnavailable = errors.New("backend unavailable")
 var ErrValidation = errors.New("business validation")
 
 type Store struct {
+	searchReads      searchReads
 	JobEvents        bool
 	Search           searchapi.Transport
 	Metrics          *observability.Metrics

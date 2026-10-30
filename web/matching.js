@@ -500,12 +500,13 @@ const CampusMatching=(function(root){
         <div class="table-footer"><span>今日分析调用 ${snapshot.calls_today} / ${snapshot.settings.daily_calls}</span><span><button id="match-refresh" class="btn btn-small" ${taskStateBlocked()||running||preparing||bulkBusy?'disabled':''}>刷新</button> 第 ${pageNo} / ${totalPages} 页 <button id="match-prev" class="btn btn-small" ${pageNo===1?'disabled':''}>上一页</button><button id="match-next" class="btn btn-small" ${pageNo===totalPages?'disabled':''}>下一页</button></span></div></section><aside id="match-detail" data-scroll-region class="workbench-detail" aria-label="岗位详情"><div class="workbench-detail-empty"><span>${U.icon('radar')}</span><h2>选择一个岗位</h2><p>查看匹配结果和岗位原文。</p></div></aside></div>${selectionHTML()}${settingsHTML()}${reviewHTML()}${exportHTML()}${importHTML()}${comparisonHTML()}`;
       U.releaseDrawer();
       const sync=`<div id="match-sync-status" class="inventory-sync" role="status" aria-live="polite">${inventoryChecking?'正在核对最新岗位，当前显示上次浏览内容。':inventoryError?`暂未更新，当前显示上次浏览内容。${esc(inventoryError)} <button type="button" id="match-sync-retry" class="text-btn">重新读取</button>`:''}</div>`;
-      if(!set(html.replace('<form id="match-filter"',sync+(jobSearchState?`<p class="form-note" role="status">${jobSearchState.pending?'正在搜索岗位内容…':jobSearchState.error?'搜索暂不可用，当前按列表中的岗位资料筛选。':jobSearchState.mode==='basic'?'当前使用基础搜索。':'已搜索岗位名称和 JD 内容。'}${jobSearchState.more?' 结果较多，请缩小搜索范围。':''}</p>`:'')+'<form id="match-filter"'),{stable:true}))return;
+      if(!set(html.replace('<form id="match-filter"',sync+(jobSearchState?`<p class="form-note" role="status">${jobSearchState.pending?'正在搜索岗位内容…':jobSearchState.error?'搜索暂不可用，当前按列表中的岗位资料筛选。 <button type="button" id="match-search-retry" class="text-btn">重试搜索</button>':jobSearchState.mode==='basic'?'当前使用基础搜索。':'已搜索岗位名称和 JD 内容。'}${jobSearchState.more?' 结果较多，请缩小搜索范围。':''}</p>`:'')+'<form id="match-filter"'),{stable:true}))return;
       restorePosition=false;
       U.placeDrawer(document.querySelector('#match-detail'));
       updateDetailNavigation?.();
       const $=s=>document.querySelector(s),on=(id,fn)=>{const el=$('#'+id);if(el)el.onclick=fn;};
       on('match-sync-retry',()=>refresh().catch(()=>{}));
+      on('match-search-retry',()=>{if(jobSearch?.retry())render();});
       if(returnPage)on('match-return-radar',goBack);
       deadlines?.bind(document.querySelector('#deadline-overview'));
       if(paged){Promise.resolve().then(readCards);on('match-cards-retry',()=>{cardError='';render();});}

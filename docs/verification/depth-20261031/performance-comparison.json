@@ -1,0 +1,59 @@
+{
+  "base_revision": "e375960cf606389e5c5764d98f2651f0512c4172",
+  "candidate_runtime_sha256": "7eebe221d72a7524cab6a46e02da7103386f176eea2c2aa40d539ee37b5890f7",
+  "same_workload": true,
+  "same_environment": true,
+  "comparison": {
+    "performed": true,
+    "ratio": 1.5,
+    "allowance_ms": 25,
+    "quantiles": [
+      {
+        "phase": "fulltext",
+        "quantile": "p(95)",
+        "baseline_ms": 14.5224019,
+        "candidate_ms": 14.233592,
+        "limit_ms": 46.78360285,
+        "passed": true
+      },
+      {
+        "phase": "fulltext",
+        "quantile": "p(99)",
+        "baseline_ms": 15.70628474,
+        "candidate_ms": 14.870306079999999,
+        "limit_ms": 48.55942711,
+        "passed": true
+      },
+      {
+        "phase": "fallback",
+        "quantile": "p(95)",
+        "baseline_ms": 1250.2358339999998,
+        "candidate_ms": 6.802437999999996,
+        "limit_ms": 1900.3537509999996,
+        "passed": true
+      },
+      {
+        "phase": "fallback",
+        "quantile": "p(99)",
+        "baseline_ms": 1264.9218755,
+        "candidate_ms": 205.36333349999998,
+        "limit_ms": 1922.3828132499998,
+        "passed": true
+      }
+    ]
+  },
+  "workload": {
+    "jobs": 1000,
+    "seconds": 15,
+    "query_rate": 10,
+    "write_rate": 1,
+    "reader_vus": 32,
+    "query_limit": 10,
+    "read_accounts": 2,
+    "jd_template_version": 1,
+    "seed_analysis": "suppressed_in_owned_fixture",
+    "jd_utf8_bytes": 1032,
+    "load_script_sha256": "65202aef92190219a94e7bf0451aeca3fca34236a8c76959addc483a8911a0b7"
+  },
+  "limits": "Single-host synthetic HTTP test; not production capacity, HA, model quality or user-effect evidence."
+}

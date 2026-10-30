@@ -16,6 +16,7 @@ import (
 type Client struct {
 	URL, QueryToken, WriteToken string
 	HTTP                        *http.Client
+	guard                       *queryGuard
 }
 
 func NewClient(endpoint, queryToken, writeToken string) (*Client, error) {
@@ -23,7 +24,7 @@ func NewClient(endpoint, queryToken, writeToken string) (*Client, error) {
 	if e != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.Path != "" && u.Path != "/" || len(queryToken) < 32 || writeToken != "" && (len(writeToken) < 32 || queryToken == writeToken) {
 		return nil, ErrInvalid
 	}
-	return &Client{URL: strings.TrimRight(endpoint, "/"), QueryToken: queryToken, WriteToken: writeToken, HTTP: &http.Client{Timeout: 3 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}, nil
+	return &Client{URL: strings.TrimRight(endpoint, "/"), QueryToken: queryToken, WriteToken: writeToken, guard: newQueryGuard(DefaultQueryPolicy(), nil), HTTP: &http.Client{Timeout: 3 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}, nil
 }
 func (c *Client) call(ctx context.Context, path, token string, input, output any) (err error) {
 	ctx, span := observability.Client(ctx, "search.http")
@@ -108,13 +109,37 @@ func (c *Client) Apply(ctx context.Context, b Batch) error {
 	}
 	return nil
 }
+
+// ConfigureQueries is a startup-only operation, before sharing this client.
+func (c *Client) ConfigureQueries(policy QueryPolicy, metrics *observability.Metrics) error {
+	if !policy.Valid() {
+		return ErrInvalid
+	}
+	c.guard = newQueryGuard(policy, metrics)
+	return nil
+}
+func (c *Client) QueryState() QueryState {
+	if c.guard == nil {
+		return QueryState{State: "unmanaged"}
+	}
+	return c.guard.snapshot()
+}
 func (c *Client) Query(ctx context.Context, q Query) (out Result, err error) {
-	err = c.call(ctx, "/v1/query", c.QueryToken, q, &out)
-	if err == nil && (out.Protocol != Protocol || out.Generation != q.Generation || len(out.Hits) > q.Limit) {
-		err = ErrConflict
+	call := func(ctx context.Context) error {
+		e := c.call(ctx, "/v1/query", c.QueryToken, q, &out)
+		if e == nil && (out.Protocol != Protocol || out.Generation != q.Generation || len(out.Hits) > q.Limit) {
+			return ErrConflict
+		}
+		return e
+	}
+	if c.guard == nil {
+		err = call(ctx)
+	} else {
+		err = c.guard.run(ctx, call)
 	}
 	return
 }
+
 func (c *Client) Rebuild(ctx context.Context) (out Status, err error) {
 	err = c.call(ctx, "/v1/rebuild", c.WriteToken, struct{}{}, &out)
 	return

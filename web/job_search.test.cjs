@@ -16,3 +16,14 @@ test('a departed page ignores results; errors do not start an automatic request 
 test('clearing a query invalidates in-flight results and preserves no search data',async()=>{
  let resolve,changes=0;const s=create({api:()=>new Promise(r=>resolve=r),changed:()=>changes++});s.ensure({scope:'one',text:'Redis'});await tick();s.ensure({scope:'one'});resolve({job_ids:['private'],mode:'basic',more:true});await tick();assert.equal(changes,0);assert.equal(s.ensure({scope:'two'}),null);
 });
+test('explicit retry recovers a failed query once and keeps render retries inert',async()=>{
+ let calls=0,resolve;const s=create({api:()=>{calls++;if(calls===1)return Promise.reject(Error('SEARCH_BUSY'));return new Promise(r=>resolve=r)}});
+ const query={scope:'same-account',text:'Redis',mode:'ALL',exclude:'实习'};
+ s.ensure(query);await tick();assert.equal(s.ensure(query).error,true);
+ for(let i=0;i<10;i++)s.ensure(query);await tick();assert.equal(calls,1);
+ assert.equal(s.retry(),true);assert.equal(s.ensure(query).pending,true);
+ assert.equal(s.retry(),false);s.ensure(query);await tick();assert.equal(calls,2);
+ resolve({job_ids:['recovered'],mode:'fulltext'});await tick();
+ assert.equal(s.ensure(query).error,false);assert.equal(s.ensure(query).ids.has('recovered'),true);
+ assert.equal(s.retry(),false);assert.equal(calls,2);
+});

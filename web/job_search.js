@@ -14,7 +14,8 @@
    }).catch(()=>{if(version!==revision||!active())return;state={pending:false,ids:null,mode:'',more:false,error:true};changed();});
    return state;
   }
-  return {ensure};
+  function retry(){if(!state?.error)return false;key='';revision++;state=null;return true;}
+  return {ensure,retry};
  }
  const api={create};root.CampusJobSearch=api;if(typeof module==='object'&&module.exports)module.exports=api;
 })(typeof window==='undefined'?globalThis:window);

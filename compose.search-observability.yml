@@ -12,3 +12,4 @@ services:
   grafana:
     volumes:
       - ./configs/observability/grafana/search.json:/var/lib/grafana/dashboards/search.json:ro
+      - ./configs/observability/grafana/resilience.json:/var/lib/grafana/dashboards/resilience.json:ro

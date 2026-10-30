@@ -127,6 +127,11 @@ func write(w http.ResponseWriter, v any, err error) {
 		if rec, ok := w.(*recorder); ok {
 			rec.err = err
 		}
+		if errors.Is(err, p.ErrSearchBusy) {
+			w.Header().Set("Retry-After", "1")
+			codedError(w, http.StatusServiceUnavailable, "SEARCH_BUSY")
+			return
+		}
 		status := http.StatusBadRequest
 		if errors.Is(err, p.ErrQueueBusy) {
 			w.Header().Set("Retry-After", "2")
