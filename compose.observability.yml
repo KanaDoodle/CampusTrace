@@ -47,6 +47,8 @@ services:
       GF_ANALYTICS_REPORTING_ENABLED: "false"
       GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
       GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
+      # Use the datasource bundled in the pinned image throughout the demo.
+      GF_PLUGINS_PREINSTALL_AUTO_UPDATE: "false"
     volumes:
       - ./configs/observability/grafana/datasources.yml:/etc/grafana/provisioning/datasources/campustrace.yml:ro
       - ./configs/observability/grafana/dashboards.yml:/etc/grafana/provisioning/dashboards/campustrace.yml:ro

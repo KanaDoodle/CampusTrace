@@ -12,6 +12,7 @@ name: Kafka job event acceptance
       - go.sum
       - compose.kafka*.yml
       - compose.app.yml
+      - compose.observability.yml
       - compose.search*.yml
       - docker-compose.yml
       - cmd/events/**
@@ -29,10 +30,14 @@ name: Kafka job event acceptance
       - internal/persistence/store.go
       - internal/persistence/visibility.go
       - internal/transport/monitoring.go
+      - internal/persistence/recovery_state.go
+      - internal/launcher/recovery*.go
+      - internal/integration/recovery_epoch_test.go
       - internal/integration/kafka_test.go
       - internal/testsupport/sqlfixture/**
       - migrations/**
       - configs/observability/**
+      - scripts/recovery-local.sh
       - scripts/kafka-local.sh
       - scripts/smoke-kafka.py
       - scripts/smoke-search.py
@@ -54,6 +59,8 @@ jobs:
           go-version: '1.25.9'
       - name: Download pinned public modules
         run: GOWORK=off go mod download
+      - name: Real SQL backup and isolated restore
+        run: make recovery-test
       - name: Real Kafka and SQL transaction / consumer recovery
         run: make kafka-test
       - name: Full application, Redis continuity, replay, DLQ and traces
@@ -63,6 +70,8 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: kafka-job-events
-          path: bin/verification/kafka-20261031/
+          path: |
+            bin/verification/kafka-20261031/
+            bin/verification/recovery-epoch-20261031/
           if-no-files-found: ignore
           retention-days: 14

@@ -6,7 +6,8 @@ cd "$(dirname "$0")/.."
 kafka_name="ct-kafka-validation-$$"
 search_name="ct-kafka-search-validation-$$"
 evidence="$PWD/bin/verification/kafka-20261031"
-mkdir -p "$evidence"
+mkdir -p "$evidence" "$PWD/bin/verification/recovery-epoch-20261031"
+export CAMPUS_RECOVERY_EVIDENCE="${CAMPUS_RECOVERY_EVIDENCE:-$PWD/bin/verification/recovery-epoch-20261031/drill.json}"
 cleanup(){ docker rm -f "$kafka_name" "$search_name" >/dev/null 2>&1 || true; }
 trap cleanup EXIT HUP INT TERM
 export GOWORK=off GOTOOLCHAIN=local
@@ -31,5 +32,11 @@ until docker exec "$kafka_name" /opt/kafka/bin/kafka-topics.sh --bootstrap-serve
  attempt=$((attempt+1));if [ "$attempt" -ge 90 ];then docker logs --tail 30 "$kafka_name";docker logs --tail 30 "$search_name";exit 1;fi;sleep 1
 done
 export KAFKA_TEST_BROKERS="127.0.0.1:$kafka_port" OPENSEARCH_TEST_URL="http://$(docker port "$search_name" 9200/tcp)"
-go test -race -count=1 -v ./internal/jobevent ./internal/eventbus
-ADVERSARIAL_TESTS='^TestKafka' sh scripts/adversarial-local.sh
+if ! go test -race -count=1 -v ./internal/jobevent ./internal/eventbus > "$evidence/producer-consumer.log" 2>&1;then
+ cat "$evidence/producer-consumer.log" >&2;exit 1
+fi
+cat "$evidence/producer-consumer.log"
+if ! ADVERSARIAL_TESTS='^TestKafka' sh scripts/adversarial-local.sh > "$evidence/transactions.log" 2>&1;then
+ cat "$evidence/transactions.log" >&2;exit 1
+fi
+cat "$evidence/transactions.log"

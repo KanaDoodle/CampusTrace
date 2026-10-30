@@ -25,6 +25,19 @@ var scopes = struct {
 // MYSQL_TEST_ADMIN_DSN is an explicit opt-in to create disposable resources.
 func Database(t *testing.T, template, purpose string) string {
 	t.Helper()
+	return database(t, template, "ct_test_", purpose)
+}
+
+// RecoveryDatabase owns an empty schema whose name exercises the production
+// recovery guard. The template database is never imported into or modified.
+func RecoveryDatabase(t *testing.T, template, purpose string) string {
+	t.Helper()
+	return database(t, template, "campustrace_restore_", purpose)
+}
+
+func database(t *testing.T, template, prefix, purpose string) string {
+	t.Helper()
+	purpose = prefix + purpose
 	scopes.Lock()
 	defer scopes.Unlock()
 	if value := scopes.dsn[t][purpose]; value != "" {
@@ -60,7 +73,7 @@ func Database(t *testing.T, template, purpose string) string {
 		t.Fatal(err)
 	}
 	id := hex.EncodeToString(token[:])
-	schema, account, password := "ct_test_"+id, "ct_test_"+id[:16], id
+	schema, account, password := prefix+id, "ct_test_"+id[:16], id
 	created, userCreated := false, false
 	// Register before creating anything, so a partial setup failure is cleaned.
 	t.Cleanup(func() {

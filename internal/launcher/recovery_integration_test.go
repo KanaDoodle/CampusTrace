@@ -7,6 +7,7 @@ import (
 	p "github.com/KanaDoodle/CampusTrace/internal/persistence"
 	"github.com/go-sql-driver/mysql"
 	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -26,6 +27,14 @@ func TestRecoveryRoundTripAndImportIsolation(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 	m := manager{root: root, out: io.Discard, errOut: io.Discard, execute: command}
+	if container := os.Getenv("MYSQL_TEST_CONTAINER"); container != "" {
+		m.execute = func(ctx context.Context, _ string, args []string, out, errOut io.Writer) error {
+			return ownedRecoveryCommand(ctx, container, args, nil, out, errOut)
+		}
+		m.executeInput = func(ctx context.Context, _ string, args []string, in io.Reader, out, errOut io.Writer) error {
+			return ownedRecoveryCommand(ctx, container, args, in, out, errOut)
+		}
+	}
 	schema := "ct_recovery_fixture_" + d.ID()
 	if _, err = m.adminSQL(ctx, "CREATE DATABASE `"+schema+"`; GRANT ALL ON `"+schema+"`.* TO 'campus'@'%';"); err != nil {
 		t.Fatal(err)
@@ -110,13 +119,18 @@ func TestRecoveryRoundTripAndImportIsolation(t *testing.T) {
 		t.Fatal(err)
 	}
 	// The backup target is only this newly-created fixture, not the personal database.
-	configRaw := d.JSON(map[string]any{"services": map[string]any{"api": map[string]any{"environment": map[string]string{"MYSQL_DSN": parsed.FormatDSN()}}, "mysql": map[string]any{"ports": []map[string]string{{"published": "13306"}}}}})
+	_, publishedPort, err := net.SplitHostPort(parsed.Addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	configRaw := d.JSON(map[string]any{"services": map[string]any{"api": map[string]any{"environment": map[string]string{"MYSQL_DSN": parsed.FormatDSN()}}, "mysql": map[string]any{"ports": []map[string]string{{"published": publishedPort}}}}})
+	baseExecute := m.execute
 	m.execute = func(ctx context.Context, dir string, args []string, out, errOut io.Writer) error {
 		if strings.Contains(strings.Join(args, " "), "config --format json") {
 			_, e := io.WriteString(out, configRaw)
 			return e
 		}
-		return command(ctx, dir, args, out, errOut)
+		return baseExecute(ctx, dir, args, out, errOut)
 	}
 	path := filepath.Join(t.TempDir(), "fixture.sql")
 	if _, err = m.backup(ctx, path); err != nil {
@@ -221,7 +235,7 @@ func TestRecoveryRoundTripAndImportIsolation(t *testing.T) {
 		t.Fatal(err)
 	}
 	for name, want := range baseline.Tables {
-		if name != "watch_targets" && name != "match_runs" && name != "source_import_items" && proof.Tables[name] != want {
+		if name != "watch_targets" && name != "match_runs" && name != "source_import_items" && name != "search_documents" && name != "search_outbox" && name != "search_revision_state" && name != "search_sync_state" && name != "job_dataset_recovery" && proof.Tables[name] != want {
 			t.Fatal("kept data changed", name)
 		}
 	}
@@ -232,6 +246,9 @@ func TestRecoveryRoundTripAndImportIsolation(t *testing.T) {
 	var state, token string
 	if err = restored.DB.QueryRowContext(ctx, "SELECT state,token FROM match_runs WHERE id=?", run.ID).Scan(&state, &token); err != nil || state != "WAITING_AUTH" || token != "" {
 		t.Fatal("restored task retained execution", state, token, err)
+	}
+	if kept.JobDataset == nil || kept.JobDataset.Previous == kept.JobDataset.Current || kept.RecoveryChanges["rotated_job_dataset"] != 1 {
+		t.Fatal("recovery did not rotate job namespace", kept.JobDataset, kept.RecoveryChanges)
 	}
 	if kept.RecoveryChanges["paused_watches"] != 2 || kept.RecoveryChanges["interrupted_matching_tasks"] != 1 {
 		t.Fatal(kept.RecoveryChanges)

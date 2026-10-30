@@ -36,7 +36,7 @@ func (s *Store) PublishJobEventsOnce(ctx context.Context, publisher JobEventPubl
 		defer cancel()
 		_, _ = conn.ExecContext(cleanup, "DO RELEASE_LOCK(?)", name)
 	}()
-	events, err := Many[jobevent.Event](ctx, s.DB, "SELECT body FROM job_event_outbox WHERE published_at IS NULL ORDER BY event_version LIMIT 64")
+	events, err := Many[jobevent.Event](ctx, s.DB, "SELECT body FROM job_event_outbox WHERE dataset=(SELECT dataset FROM search_revision_state WHERE id='jobs') AND published_at IS NULL ORDER BY event_version LIMIT 64")
 	if err != nil || len(events) == 0 {
 		return 0, err
 	}
@@ -218,6 +218,16 @@ func (s *Store) ConsumeNotificationEvent(ctx context.Context, event jobevent.Eve
 				return e
 			}
 		}
+		// Acquire the epoch share lock only at commit, in job -> revision order.
+		// If recovery rotated while this event was materializing, roll back every
+		// side effect; retry will discard the now-foreign namespace at the entrance.
+		var latest string
+		if e = tx.QueryRowContext(ctx, "SELECT dataset FROM search_revision_state WHERE id='jobs' FOR SHARE").Scan(&latest); e != nil {
+			return e
+		}
+		if latest != dataset {
+			return ErrConflict
+		}
 		return nil
 	})
 }
@@ -239,7 +249,7 @@ func (s *Store) ReplayPublishedJobEvents(ctx context.Context, after int64, limit
 	changed := 0
 	var last int64
 	err := s.Tx(ctx, func(tx *sql.Tx) error {
-		rows, e := tx.QueryContext(ctx, "SELECT event_id,event_version FROM job_event_outbox WHERE event_version>? AND published_at IS NOT NULL ORDER BY event_version LIMIT ? FOR UPDATE", after, limit)
+		rows, e := tx.QueryContext(ctx, "SELECT event_id,event_version FROM job_event_outbox WHERE dataset=(SELECT dataset FROM search_revision_state WHERE id='jobs') AND event_version>? AND published_at IS NOT NULL ORDER BY event_version LIMIT ? FOR UPDATE", after, limit)
 		if e != nil {
 			return e
 		}

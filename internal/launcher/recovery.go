@@ -31,17 +31,18 @@ type BackupMetadata struct {
 	Collation         string    `json:"collation,omitempty"`
 }
 type RecoveryReport struct {
-	Format            int             `json:"format"`
-	SHA256            string          `json:"sha256"`
-	Database          string          `json:"database"`
-	CheckedAt         time.Time       `json:"checked_at"`
-	DurationMS        int64           `json:"duration_ms"`
-	SnapshotStartedAt time.Time       `json:"snapshot_started_at"`
-	ServerVersion     string          `json:"server_version"`
-	BeforeMigration   p.DatabaseProof `json:"before_migration"`
-	AfterMigration    p.DatabaseProof `json:"after_migration"`
-	Kept              bool            `json:"kept"`
-	RecoveryChanges   map[string]int  `json:"recovery_changes,omitempty"`
+	Format            int                   `json:"format"`
+	SHA256            string                `json:"sha256"`
+	Database          string                `json:"database"`
+	CheckedAt         time.Time             `json:"checked_at"`
+	DurationMS        int64                 `json:"duration_ms"`
+	SnapshotStartedAt time.Time             `json:"snapshot_started_at"`
+	ServerVersion     string                `json:"server_version"`
+	BeforeMigration   p.DatabaseProof       `json:"before_migration"`
+	AfterMigration    p.DatabaseProof       `json:"after_migration"`
+	Kept              bool                  `json:"kept"`
+	RecoveryChanges   map[string]int        `json:"recovery_changes,omitempty"`
+	JobDataset        *p.JobDatasetRecovery `json:"job_dataset,omitempty"`
 }
 
 func privateJSON(path string, v any) error {
@@ -317,6 +318,10 @@ func (m *manager) verifyBackup(ctx context.Context, path string, keep bool) (rep
 	}
 	if keep {
 		report.RecoveryChanges, err = store.PrepareRecovery(ctx)
+		if err != nil {
+			return report, err
+		}
+		report.JobDataset, err = store.JobDatasetRecovery(ctx)
 		if err != nil {
 			return report, err
 		}

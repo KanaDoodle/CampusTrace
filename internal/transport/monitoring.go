@@ -50,7 +50,7 @@ func (a *API) prometheus(w http.ResponseWriter, r *http.Request) {
 	if a.Store.JobEvents {
 		var pending int64
 		var age float64
-		if e := a.Store.DB.QueryRowContext(ctx, "SELECT COUNT(*),COALESCE(TIMESTAMPDIFF(MICROSECOND,MIN(occurred_at),UTC_TIMESTAMP(6))/1000000,0) FROM job_event_outbox WHERE published_at IS NULL").Scan(&pending, &age); e == nil {
+		if e := a.Store.DB.QueryRowContext(ctx, "SELECT COUNT(*),COALESCE(TIMESTAMPDIFF(MICROSECOND,MIN(occurred_at),UTC_TIMESTAMP(6))/1000000,0) FROM job_event_outbox WHERE dataset=(SELECT dataset FROM search_revision_state WHERE id='jobs') AND published_at IS NULL").Scan(&pending, &age); e == nil {
 			gauges = append(gauges, observability.Gauge{Name: "job_event_outbox_pending", Value: float64(pending)}, observability.Gauge{Name: "job_event_publish_age_seconds", Value: age})
 		}
 	}

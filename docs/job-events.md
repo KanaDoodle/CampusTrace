@@ -125,3 +125,7 @@ make kafka-stack-test  # 实际 API/Worker/Search/Notify + 观测栈，自动清
 该副本重新运行 `make kafka-test` 与 `make kafka-stack-test`，四个 Kafka 顶层用例及完整容器故障验收通过；五种服务的 trace 本次有 144 个跨度。Kafka 测试显式创建自身数据库和受限账号，不依赖其他未提交的测试隔离改动。
 
 本次发布复核结果见 [publish-checks.json](verification/job-events-20261031/publish-checks.json) 和 [publish-acceptance.json](verification/job-events-20261031/publish-acceptance.json)；原始日志保留在 ignored `bin/verification/kafka-20261031/publish-selected-tree/`。上节 444 项前端及全量数据库回归是共享工作区的历史记录，436 项是本次独立提交副本的前端结果。未宣称远端 CI 已执行。
+
+## 数据库快照恢复
+
+恢复副本使用新的岗位数据集代次。发布、回放和积压指标只针对当前数据集；旧历史保留但不再进入当前业务。搜索基线只发布快照，避免重新通知所有旧岗位。真实 Kafka/OpenSearch 的保留消息重投与 MySQL t0 恢复演练包含在 `make kafka-test` 中，机制和切换约束见 [恢复说明](recovery.md#kafka-与-search-的恢复代次)。

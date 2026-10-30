@@ -288,6 +288,7 @@ func TestKafkaNotificationAudienceAndCurrentStatus(t *testing.T) {
 	ctx, s, _, owner, source := kafkaSetup(t)
 	s.JobEvents = true
 	searchFixture(t, s)
+	must(t, s.SyncSearchOnce(ctx)) // Complete baseline before testing later operator changes.
 	user := func() string { id, e := s.NewUser(ctx, d.ID()+"@events.invalid", "unused"); must(t, e); return id }
 	saved, watching, ignored, outsider := user(), user(), user(), user()
 	radarWatch(t, ctx, s, watching, source)

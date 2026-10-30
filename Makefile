@@ -103,3 +103,7 @@ kafka-stack-test:
 .PHONY: resilience-test
 resilience-test:
 	SEARCH_TESTS='^TestSearch(Read|Fallback)' sh scripts/search-local.sh
+
+.PHONY: recovery-test
+recovery-test:
+	sh scripts/recovery-local.sh

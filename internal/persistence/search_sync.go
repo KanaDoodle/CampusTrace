@@ -72,11 +72,16 @@ func projectSearchJob(job d.Job, visibility, owner, text string) a.Document {
 // Called inside the business transaction, with the job row locked first.
 // Latest-state coalescing bounds backlog by number of jobs, not update count.
 func (s *Store) touchSearchJob(ctx context.Context, tx *sql.Tx, id string) error {
+	return s.writeSearchProjection(ctx, tx, id, s.JobEvents)
+}
+func (s *Store) writeSearchProjection(ctx context.Context, tx *sql.Tx, id string, events bool) error {
 	doc, err := searchDocument(ctx, tx, id, true)
 	if err != nil {
 		return err
 	}
-	if err = tx.QueryRowContext(ctx, "SELECT dataset FROM search_revision_state WHERE id='jobs'").Scan(&doc.Dataset); err != nil {
+	// Read namespace and revision under one lock. A writer which started before
+	// recovery must not capture an old namespace and later use a new revision.
+	if err = tx.QueryRowContext(ctx, "SELECT dataset,version FROM search_revision_state WHERE id='jobs' FOR UPDATE").Scan(&doc.Dataset, &doc.Version); err != nil {
 		return err
 	}
 	doc.Hash = doc.ContentHash()
@@ -89,14 +94,11 @@ func (s *Store) touchSearchJob(ctx context.Context, tx *sql.Tx, id string) error
 	if err == nil && previous == doc.Hash {
 		return nil
 	}
-	// A single small counter orders source snapshots. It does not cover remote I/O.
-	if err = tx.QueryRowContext(ctx, "SELECT version FROM search_revision_state WHERE id='jobs' FOR UPDATE").Scan(&doc.Version); err != nil {
-		return err
-	}
+	// The dataset/revision lock covers SQL only, never remote I/O.
 	doc.Version++
-	if s.JobEvents {
+	if events {
 		var pending int
-		if err = tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM job_event_outbox WHERE published_at IS NULL").Scan(&pending); err != nil {
+		if err = tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM job_event_outbox WHERE dataset=? AND published_at IS NULL", doc.Dataset).Scan(&pending); err != nil {
 			return err
 		}
 		if pending >= 100000 {
@@ -116,7 +118,7 @@ func (s *Store) touchSearchJob(ctx context.Context, tx *sql.Tx, id string) error
 	if err != nil {
 		return err
 	}
-	if s.JobEvents {
+	if events {
 		var old *a.Document
 		if len(previousBody) > 0 {
 			var value a.Document
@@ -136,12 +138,12 @@ func (s *Store) touchSearchJob(ctx context.Context, tx *sql.Tx, id string) error
 
 func (s *Store) reconcileSearch(ctx context.Context) error {
 	var cursor string
-	var initial bool
+	var initialDone bool
 	var next sql.NullTime
-	if err := s.DB.QueryRowContext(ctx, "SELECT reconcile_cursor,initial_done,next_reconcile_at FROM search_revision_state WHERE id='jobs'").Scan(&cursor, &initial, &next); err != nil {
+	if err := s.DB.QueryRowContext(ctx, "SELECT reconcile_cursor,initial_done,next_reconcile_at FROM search_revision_state WHERE id='jobs'").Scan(&cursor, &initialDone, &next); err != nil {
 		return err
 	}
-	if initial && next.Valid && time.Now().Before(next.Time) {
+	if initialDone && next.Valid && time.Now().Before(next.Time) {
 		return nil
 	}
 	rows, err := s.DB.QueryContext(ctx, "SELECT id FROM jobs WHERE id>? ORDER BY id LIMIT 100", cursor)
@@ -164,7 +166,7 @@ func (s *Store) reconcileSearch(ctx context.Context) error {
 		return err
 	}
 	for _, id := range ids {
-		if err = s.Tx(ctx, func(tx *sql.Tx) error { return s.touchSearchJob(ctx, tx, id) }); err != nil {
+		if err = s.Tx(ctx, func(tx *sql.Tx) error { return s.writeSearchProjection(ctx, tx, id, s.JobEvents && initialDone) }); err != nil {
 			return err
 		}
 	}
@@ -196,7 +198,7 @@ func (s *Store) reconcileSearch(ctx context.Context) error {
 		return err
 	}
 	for _, id := range ids {
-		if err = s.Tx(ctx, func(tx *sql.Tx) error { return s.touchSearchJob(ctx, tx, id) }); err != nil {
+		if err = s.Tx(ctx, func(tx *sql.Tx) error { return s.writeSearchProjection(ctx, tx, id, s.JobEvents && initialDone) }); err != nil {
 			return err
 		}
 	}
@@ -215,7 +217,7 @@ func (s *Store) SyncSearchOnce(ctx context.Context) (err error) {
 	}
 	defer conn.Close()
 	var name string
-	if err = conn.QueryRowContext(ctx, "SELECT CONCAT(DATABASE(),':search-sync-v1')").Scan(&name); err != nil {
+	if err = conn.QueryRowContext(ctx, "SELECT CONCAT('ct-search-sync:',LEFT(SHA2(DATABASE(),256),32))").Scan(&name); err != nil {
 		return err
 	}
 	var held int

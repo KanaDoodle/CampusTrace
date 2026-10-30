@@ -123,8 +123,13 @@ rules, _ = request('prometheus', '/api/v1/rules')
 assert sum(len(group['rules']) for group in rules['data']['groups']) == 4
 dashboard, _ = request('grafana', '/api/dashboards/uid/campustrace-overview')
 assert len(dashboard['dashboard']['panels']) == 14
-proxy, _ = request('grafana', '/api/datasources/proxy/uid/campustrace-prometheus/api/v1/query?' + urllib.parse.urlencode({'query': 'campustrace_queue_capacity'}))
-assert len(proxy['data']['result']) == 10
+def grafana_query_ready():
+    proxy, _ = request('grafana', '/api/datasources/proxy/uid/campustrace-prometheus/api/v1/query?' + urllib.parse.urlencode({'query': 'campustrace_queue_capacity'}))
+    assert len(proxy['data']['result']) == 10
+    return True
+
+
+eventually('Grafana provisioned datasource query', grafana_query_ready)
 subprocess.run(compose + ['stop', '-t', '10', 'tempo'], check=True, stdout=subprocess.DEVNULL)
 while_down, down_latency = ingest('collector-unavailable-synthetic')
 assert down_latency < 3, 'trace export blocked the business request'
