@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
+	"github.com/KanaDoodle/CampusTrace/internal/observability"
 	p "github.com/KanaDoodle/CampusTrace/internal/persistence"
 	"github.com/redis/go-redis/v9"
 	"math/rand/v2"
@@ -74,7 +75,10 @@ func (q *Queue) Init(ctx context.Context) error {
 	}
 	return err
 }
-func (q *Queue) Publish(ctx context.Context, t p.Task) error {
+func (q *Queue) Publish(ctx context.Context, t p.Task) (err error) {
+	ctx, span := observability.Producer(observability.Extract(ctx, t.TraceParent), "queue.publish")
+	defer func() { observability.End(span, err) }()
+	t.TraceParent = observability.TraceParent(ctx)
 	if q.Partitioned || q.Lane != "" {
 		return q.publishTyped(ctx, t)
 	}
@@ -308,6 +312,9 @@ func Decode(m redis.XMessage) (p.Task, error) {
 const MaxTaskAttempt = 100
 
 func ValidateTask(t p.Task) error {
+	if !observability.ValidTraceParent(t.TraceParent) {
+		return errors.New("schema: invalid trace context")
+	}
 	if t.OwnerID != "" {
 		if len(t.OwnerID) != 32 {
 			return errors.New("schema: invalid task owner")

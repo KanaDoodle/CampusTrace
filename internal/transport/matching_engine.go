@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/KanaDoodle/CampusTrace/internal/matching"
+	"github.com/KanaDoodle/CampusTrace/internal/observability"
 	p "github.com/KanaDoodle/CampusTrace/internal/persistence"
 	"github.com/KanaDoodle/CampusTrace/internal/resume"
 	"strings"
@@ -32,6 +33,8 @@ type matchBatchOutcome struct {
 }
 
 func (a *API) executeMatchBatch(ctx context.Context, user string, in matchBatchInput, model resume.Completer, identity string, hook func(string, string, int) error) (out matchBatchOutcome, err error) {
+	ctx, span := observability.Start(ctx, "matching.batch")
+	defer func() { observability.End(span, err) }()
 	snapshot, err := a.Store.MatchSnapshot(ctx, user, identity, strings.TrimSpace(in.MaskName), in.JobIDs)
 	if err != nil {
 		return out, err
@@ -55,7 +58,28 @@ func (a *API) executeMatchBatch(ctx context.Context, user string, in matchBatchI
 	if err := a.Store.CheckMatchBatchInputs(ctx, user, keys); err != nil {
 		return out, err
 	}
-	budget := &budgetedMatchModel{model: model, store: a.Store, user: user}
+	budget := &budgetedMatchModel{model: model, store: a.Store, user: user, control: a.ModelControl, identity: identity}
+	if a.ModelControl != nil {
+		budget.preflight = func(check context.Context) error {
+			fresh, e := a.Store.MatchSnapshot(check, user, identity, strings.TrimSpace(in.MaskName), in.JobIDs)
+			if e != nil {
+				return e
+			}
+			if fresh.CandidateHash != snapshot.CandidateHash {
+				return p.ErrStaleInput
+			}
+			old := map[string]string{}
+			for _, row := range snapshot.Jobs {
+				old[row.Job.ID] = row.InputKey
+			}
+			for _, row := range fresh.Jobs {
+				if row.InputKey != old[row.Job.ID] || row.ExcludedReason != "" {
+					return p.ErrStaleInput
+				}
+			}
+			return a.Store.CheckMatchRunGuard(check, user)
+		}
+	}
 	defer func() {
 		out.Calls = budget.calls
 		if a.Metrics != nil {
@@ -105,6 +129,8 @@ func (a *API) executeMatchBatch(ctx context.Context, user string, in matchBatchI
 }
 
 func (a *API) executeCompanyBatch(ctx context.Context, user string, in matchBatchInput, model resume.Completer, identity string, hook func(string, string, int) error) (out matchBatchOutcome, err error) {
+	ctx, span := observability.Start(ctx, "matching.company")
+	defer func() { observability.End(span, err) }()
 	snapshot, err := a.Store.MatchSnapshot(ctx, user, identity, in.MaskName, in.JobIDs)
 	if err != nil {
 		return out, err
@@ -129,7 +155,28 @@ func (a *API) executeCompanyBatch(ctx context.Context, user string, in matchBatc
 	} else if e != nil && !errors.Is(e, p.ErrNotFound) {
 		return out, e
 	}
-	budget := &budgetedMatchModel{model: model, store: a.Store, user: user}
+	budget := &budgetedMatchModel{model: model, store: a.Store, user: user, control: a.ModelControl, identity: identity}
+	if a.ModelControl != nil {
+		budget.preflight = func(check context.Context) error {
+			fresh, e := a.Store.MatchSnapshot(check, user, identity, strings.TrimSpace(in.MaskName), in.JobIDs)
+			if e != nil {
+				return e
+			}
+			if fresh.CandidateHash != snapshot.CandidateHash {
+				return p.ErrStaleInput
+			}
+			old := map[string]string{}
+			for _, row := range snapshot.Jobs {
+				old[row.Job.ID] = row.InputKey
+			}
+			for _, row := range fresh.Jobs {
+				if row.InputKey != old[row.Job.ID] || row.ExcludedReason != "" {
+					return p.ErrStaleInput
+				}
+			}
+			return a.Store.CheckMatchRunGuard(check, user)
+		}
+	}
 	defer func() {
 		out.Calls = budget.calls
 		if a.Metrics != nil {

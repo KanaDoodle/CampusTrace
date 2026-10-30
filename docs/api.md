@@ -42,6 +42,8 @@ API binds localhost by default. JSON requests are strict and limited to 64KiB ex
 | POST /api/matching/preview | all accessible jobs, redacted candidate facts, and `local` version/score/tier/role/reasons/warnings/checks with source and candidate excerpts; optional model_url/model_name/mask_name; no model call |
 | PUT /api/matching/settings | round_limit 1..100, daily_calls 1..200, auto_new |
 | POST /api/matching/analyze | job_ids (1..3), candidate_hash, optional mask_name/model_config; evidence-checked cached comparison with daily quota |
+| GET /api/matching/calls | latest 100 owned call-ledger entries and aggregate shared-pool status; no model call; no-store |
+| POST /api/matching/calls/{id}/review | version, decision USED/NOT_SENT, verified=true, review note; versioned idempotent reconciliation only, never starts a model retry |
 | POST /api/matching/results/{id} | optional model_url/model_name/mask_name; BASIC/ANALYZED/STALE, current owner-scoped `local` screening/excluded_reason and optional saved model result; no model call |
 | POST /api/matching/export | job_ids (1..1000 unique visible IDs), candidate_hash, optional model_url/model_name/mask_name; no model or quota use; ordered redacted facts/preferences/job text and metadata, max 5 MiB, Cache-Control: no-store |
 | GET, POST /api/applications | latest 500 owner-scoped records with visible job metadata, safe official URL and allowed next states; or directly create a plan (human API path) |
@@ -149,6 +151,10 @@ Legacy model evidence containing only `id` and `excerpt` remains accepted with e
 - `DELETE /api/application-campaigns/{id}`: `{version}`. Removes only rule/assignments; application records remain.
 - `POST /api/applications` accepts optional `submitted:true` for human truthful APPLIED recording. Plain creation reserves planned quota transactionally and returns `409 CAMPAIGN_LIMIT_REACHED` if full. Actual submitted records are allowed even over quota and surfaced as conflicts. Submitted withdrawn/rejected records retain usage. Agent tools cannot call the human-only submitted-record action.
 - `GET /metrics/prometheus`: Prometheus histograms, safe counters and runtime/DB gauges. Existing JSON `/metrics` remains unchanged. Worker exposes the same additional metrics format.
+
+Matching calls share SQL-backed capacity and daily call-count admission across API processes. Overload returns `503 / MODEL_GLOBAL_QUEUE_FULL` with `Retry-After: 2`; global daily exhaustion returns `429 / MODEL_GLOBAL_BUDGET`. Unknown outcomes require `409 / MODEL_REVIEW_REQUIRED`; lost execution ownership returns `409 / MODEL_EXECUTION_LOST`. These limits cover matching and company comparison, not all Agent/resume/background model calls. Review details and verified boundaries: [model-control.md](model-control.md).
+
+When optional tracing is configured, responses include `X-Trace-ID`; W3C traceparent connects durable tasks and the application RPC envelope. Metrics additionally expose fixed queue-lane gauges and shared model-pool aggregates, with no user/job/request labels. See [operations.md](operations.md#可选的完整观测栈) for sampling, optional local monitoring, and data boundaries.
 
 See [backend-upgrade.md](backend-upgrade.md), [performance.md](performance.md) and [operations.md](operations.md) for measured results and execution/privacy boundaries.
 

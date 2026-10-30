@@ -10,7 +10,7 @@ cleanup(){ docker rm -f "$mysql_name" "$redis_name" "$etcd_name" >/dev/null 2>&1
 trap cleanup EXIT HUP INT TERM
 export GOWORK=off GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local CAMPUS_INTEGRATION=1 CAMPUS_ADVERSARIAL=1 CAMPUS_LIVE_SOURCES=0
 mkdir -p bin/verification/adversarial-20261030
-export CAMPUS_ADVERSARIAL_EVIDENCE="$PWD/bin/verification/adversarial-20261030/processes.jsonl"
+export CAMPUS_ADVERSARIAL_EVIDENCE="${CAMPUS_ADVERSARIAL_EVIDENCE:-$PWD/bin/verification/adversarial-20261030/processes.jsonl}"
 docker run --rm -d --name "$mysql_name" --tmpfs /var/lib/mysql -p 127.0.0.1::3306 -e MYSQL_ROOT_PASSWORD=synthetic-test-only -e MYSQL_DATABASE=campustrace_adversarial -e MYSQL_USER=synthetic -e MYSQL_PASSWORD=synthetic-test-only mysql:8.4 --mysqlx=OFF >/dev/null
 docker run --rm -d --name "$redis_name" -p 127.0.0.1::6379 redis:7.4-alpine --save '' --appendonly no >/dev/null
 docker run --rm -d --name "$etcd_name" -p 127.0.0.1::2379 quay.io/coreos/etcd:v3.6.7 etcd --data-dir=/tmp/test-etcd --listen-client-urls=http://0.0.0.0:2379 --advertise-client-urls=http://127.0.0.1:2379 >/dev/null

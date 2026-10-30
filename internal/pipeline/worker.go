@@ -14,6 +14,8 @@ import (
 	"log/slog"
 	"sync"
 	"time"
+
+	"go.opentelemetry.io/otel/attribute"
 )
 
 type Analyzer interface {
@@ -97,9 +99,26 @@ func (w *Worker) dispatch(ctx context.Context) (int, error) {
 	})
 	return count, err
 }
-func (w *Worker) Process(ctx context.Context, t p.Task) error {
+func (w *Worker) Process(ctx context.Context, t p.Task) (err error) {
 	if err := ValidateTask(t); err != nil {
 		return err
+	}
+	ctx, span := observability.Consumer(ctx, "task.process", t.TraceParent)
+	defer func() { observability.End(span, err) }()
+	span.SetAttributes(attribute.String("task.type", t.Type), attribute.String("task.id", t.ID), attribute.Int("task.attempt", t.Attempt))
+	fields := observability.From(ctx)
+	fields.RequestID = t.CorrelationID
+	fields.TaskID = t.ID
+	ctx = observability.With(ctx, fields)
+	if w.Metrics != nil {
+		w.Metrics.Observe("task_age_seconds", max(0, time.Since(t.CreatedAt).Seconds()))
+		started := time.Now()
+		defer func() {
+			w.Metrics.Since("task_process", started)
+			if err != nil {
+				w.Metrics.Add("task_errors_total", 1)
+			}
+		}()
 	}
 	if t.Type == "WATCH_CHECK" || t.Type == "WATCH_FETCH" {
 		return w.processWatch(ctx, t)
@@ -271,7 +290,7 @@ func (w *Worker) handle(root context.Context, m redis.XMessage, consumers ...str
 	} else {
 		w.Metrics.Add("dlq_count", 1)
 	}
-	slog.Warn("task failed", "task_id", t.ID, "observation_id", t.EntityID, "request_id", t.CorrelationID, "retry", retry, "category", func() string {
+	slog.WarnContext(observability.Extract(root, t.TraceParent), "task failed", "task_id", t.ID, "observation_id", t.EntityID, "request_id", t.CorrelationID, "retry", retry, "category", func() string {
 		if Transient(err) {
 			return "TRANSIENT"
 		}

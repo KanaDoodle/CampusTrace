@@ -46,3 +46,6 @@ var ApplicationJourneySQL string
 
 //go:embed 015_task_scheduling.sql
 var TaskSchedulingSQL string
+
+//go:embed 016_model_control.sql
+var ModelControlSQL string

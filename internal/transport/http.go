@@ -10,6 +10,7 @@ import (
 	"github.com/KanaDoodle/CampusTrace/internal/auth"
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
 	"github.com/KanaDoodle/CampusTrace/internal/modelconfig"
+	"github.com/KanaDoodle/CampusTrace/internal/modelcontrol"
 	"github.com/KanaDoodle/CampusTrace/internal/observability"
 	p "github.com/KanaDoodle/CampusTrace/internal/persistence"
 	"github.com/KanaDoodle/CampusTrace/internal/pipeline"
@@ -25,6 +26,9 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 )
 
 type API struct {
@@ -40,6 +44,7 @@ type API struct {
 	ResumeModelName  string
 	CustomModelSlots chan struct{}
 	MatchTasks       *MatchTaskRunner
+	ModelControl     *modelcontrol.Controller
 }
 
 func (a *API) customModel(cfg modelconfig.Config) (*analysis.ChatClient, error) {
@@ -210,7 +215,7 @@ func (a *API) Handler() http.Handler {
 		write(w, map[string]string{"status": "ready"}, nil)
 	})
 	mux.Handle("GET /metrics", a.Metrics)
-	mux.HandleFunc("GET /metrics/prometheus", func(w http.ResponseWriter, r *http.Request) { a.Metrics.Prometheus(w, r, a.Store.DB.Stats()) })
+	mux.HandleFunc("GET /metrics/prometheus", a.prometheus)
 	for _, route := range []string{"register", "login"} {
 		mux.HandleFunc("POST /auth/"+route, func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Cache-Control", "no-store")
@@ -757,6 +762,11 @@ func (a *API) Handler() http.Handler {
 		w.Header().Set("Referrer-Policy", "no-referrer")
 		w.Header().Set("Content-Security-Policy", "default-src 'self'; style-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'")
 		ctx := observability.With(r.Context(), observability.Fields{RequestID: id})
+		ctx, span := observability.Server(observability.HTTPContext(ctx, r.Header), "HTTP")
+		defer span.End()
+		if parent := observability.TraceParent(ctx); parent != "" {
+			w.Header().Set("X-Trace-ID", parent[3:35])
+		}
 		rec := &recorder{ResponseWriter: w}
 		start := time.Now()
 		request := r.WithContext(ctx)
@@ -770,6 +780,13 @@ func (a *API) Handler() http.Handler {
 		}
 		if rec.status == 0 {
 			rec.status = http.StatusOK
+		}
+		if request.Pattern != "" {
+			span.SetName(request.Pattern)
+		}
+		span.SetAttributes(attribute.String("http.request.method", r.Method), attribute.String("http.route", request.Pattern), attribute.Int("http.response.status_code", rec.status))
+		if rec.status >= 500 {
+			span.SetStatus(codes.Error, "HTTP server error")
 		}
 		fields := []any{"request_id", id, "method", r.Method, "route", request.Pattern, "status", rec.status, "duration_ms", time.Since(start).Milliseconds()}
 		switch {

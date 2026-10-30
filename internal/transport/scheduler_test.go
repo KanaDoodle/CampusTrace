@@ -6,7 +6,35 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/KanaDoodle/CampusTrace/internal/modelcontrol"
+	p "github.com/KanaDoodle/CampusTrace/internal/persistence"
 )
+
+func TestModelControlFailuresPreserveActionableHTTPStatus(t *testing.T) {
+	for _, tc := range []struct {
+		err    error
+		status int
+		code   string
+	}{
+		{p.ErrModelQueueFull, 503, "MODEL_GLOBAL_QUEUE_FULL"},
+		{modelcontrol.ErrWaitDeadline, 503, "MATCH_QUEUE_TIMEOUT"},
+		{p.ErrModelBudget, 429, "MODEL_GLOBAL_BUDGET"},
+		{p.ErrModelReview, 409, "MODEL_REVIEW_REQUIRED"},
+		{p.ErrModelLease, 409, "MODEL_EXECUTION_LOST"},
+	} {
+		t.Run(tc.code, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			matchFailure(rec, tc.err)
+			if rec.Code != tc.status || !strings.Contains(rec.Body.String(), tc.code) {
+				t.Fatal(rec.Code, rec.Body.String())
+			}
+			if tc.status == 503 && rec.Header().Get("Retry-After") != "2" {
+				t.Fatal("missing overload retry hint")
+			}
+		})
+	}
+}
 
 func TestMatchingAdmissionReturnsRetryAfterBeforeAnyDatabaseOrModelWork(t *testing.T) {
 	api := &API{}

@@ -19,12 +19,19 @@ import (
 )
 
 type schedulerAnalyzer struct {
+	onlyObservation  string
 	calls            atomic.Int32
 	entered, release chan struct{}
 	failure          error
 }
 
 func (a *schedulerAnalyzer) Analyze(ctx context.Context, o d.Observation, _ string) ([]d.Claim, error) {
+	// Dispatch reads the shared SQL outbox, so a full-suite worker can also see
+	// unrelated synthetic catalog work. Barriers/counters belong to this test's
+	// selected observation, not whichever unrelated message wins the first slot.
+	if a.onlyObservation != "" && o.ID != a.onlyObservation {
+		return []d.Claim{}, nil
+	}
 	if a.calls.Add(1) == 1 && a.entered != nil {
 		close(a.entered)
 		select {
@@ -41,7 +48,7 @@ func TestSchedulerWorkerLaneIsolationAndDurableUnknownFence(t *testing.T) {
 	q.ResolveOwner = s.TaskOwner
 	o, e := s.IngestForUser(ctx, u, p.Ingest{Company: "Synthetic Scheduler", Title: "后端", JobType: "FULL_TIME", ExternalID: d.ID(), Text: "熟悉 Go。", FetchStatus: "SUCCESS"})
 	must(t, e)
-	model := &schedulerAnalyzer{entered: make(chan struct{}), release: make(chan struct{})}
+	model := &schedulerAnalyzer{onlyObservation: o.ID, entered: make(chan struct{}), release: make(chan struct{})}
 	w := &pipeline.Worker{Store: s, Queue: q, Analyzer: model, Concurrency: 1, Timeout: 2 * time.Second, ClaimIdle: 3 * time.Second, MaxAttempts: 3, Metrics: observability.New()}
 	workCtx, cancel := context.WithCancel(ctx)
 	done := make(chan error, 1)
@@ -204,7 +211,7 @@ func TestSchedulerWorkerRestartReclaimsPendingWithoutRepeatingUnknownCall(t *tes
 	q.ResolveOwner = s.TaskOwner
 	o, e := s.IngestForUser(ctx, u, p.Ingest{Company: "Synthetic Restart", Title: "后端", JobType: "FULL_TIME", ExternalID: d.ID(), Text: "Go 任务恢复", FetchStatus: "SUCCESS"})
 	must(t, e)
-	initial := &schedulerAnalyzer{entered: make(chan struct{}), release: make(chan struct{})}
+	initial := &schedulerAnalyzer{onlyObservation: o.ID, entered: make(chan struct{}), release: make(chan struct{})}
 	startWorker := func(a *schedulerAnalyzer) (context.CancelFunc, <-chan error) {
 		w := worker(s, q)
 		w.Analyzer = a
@@ -225,7 +232,7 @@ func TestSchedulerWorkerRestartReclaimsPendingWithoutRepeatingUnknownCall(t *tes
 	}
 	cancel()
 	must(t, <-done)
-	restarted := &schedulerAnalyzer{}
+	restarted := &schedulerAnalyzer{onlyObservation: o.ID}
 	cancel, done = startWorker(restarted)
 	defer func() { cancel(); must(t, <-done) }()
 	deadline := time.Now().Add(5 * time.Second)

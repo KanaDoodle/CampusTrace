@@ -7,6 +7,7 @@ import (
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
 	"github.com/KanaDoodle/CampusTrace/internal/matching"
 	"github.com/KanaDoodle/CampusTrace/internal/modelconfig"
+	"github.com/KanaDoodle/CampusTrace/internal/modelcontrol"
 	"github.com/KanaDoodle/CampusTrace/internal/observability"
 	p "github.com/KanaDoodle/CampusTrace/internal/persistence"
 	"github.com/KanaDoodle/CampusTrace/internal/resume"
@@ -104,6 +105,7 @@ func (a *API) taskModel(in matchTaskRequest) (resume.Completer, string, error) {
 	return model, identity, nil
 }
 func (a *API) matchingTaskRoutes(on func(string, http.HandlerFunc)) {
+	a.modelCallRoutes(on)
 	on("GET /api/matching/tasks/scheduler", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		if a.MatchTasks == nil {
@@ -281,6 +283,7 @@ func (a *API) matchingTaskRoutes(on func(string, http.HandlerFunc)) {
 }
 func (r *MatchTaskRunner) launch(user string, run p.MatchRun, g p.MatchRunGuard, in matchTaskRequest, model resume.Completer) {
 	ctx, cancel := context.WithCancel(r.root)
+	ctx = observability.Extract(ctx, run.TraceParent)
 	ctx = p.WithMatchRunGuard(ctx, g)
 	ctx = observability.With(ctx, observability.Fields{RequestID: run.RequestID, RunID: run.ID})
 	r.mu.Lock()
@@ -288,6 +291,8 @@ func (r *MatchTaskRunner) launch(user string, run p.MatchRun, g p.MatchRunGuard,
 	r.wg.Add(1)
 	r.mu.Unlock()
 	go func() {
+		ctx, span := observability.Start(ctx, "matching.run")
+		defer span.End()
 		defer func() { <-r.admission }()
 		defer r.wg.Done()
 		defer cancel()
@@ -381,7 +386,11 @@ func (r *MatchTaskRunner) process(ctx context.Context, user string, run p.MatchR
 			return
 		}
 		waitCtx, stopWait := context.WithDeadline(ctx, waitUntil)
-		release, waitErr := r.fair.Acquire(waitCtx, user)
+		release := func() {}
+		var waitErr error
+		if r.api.ModelControl == nil {
+			release, waitErr = r.fair.Acquire(waitCtx, user)
+		}
 		stopWait()
 		if waitErr != nil {
 			if ctx.Err() != nil {
@@ -394,7 +403,7 @@ func (r *MatchTaskRunner) process(ctx context.Context, user string, run p.MatchR
 			r.queueStopped(ctx, user, g, ids, code)
 			return
 		}
-		if r.api.Metrics != nil {
+		if r.api.Metrics != nil && r.api.ModelControl == nil {
 			r.api.Metrics.Observe("matching_queue_seconds", time.Since(queuedAt).Seconds())
 		}
 		// The permit belongs to a single paid-analysis quantum, not the whole run.
@@ -405,7 +414,11 @@ func (r *MatchTaskRunner) process(ctx context.Context, user string, run p.MatchR
 	}
 }
 func (r *MatchTaskRunner) processQuantum(ctx context.Context, user string, run p.MatchRun, g p.MatchRunGuard, in matchTaskRequest, model resume.Completer, ids []string) bool {
-	until := time.Now().Add(r.ExecutionTimeout)
+	quantumLimit := r.ExecutionTimeout
+	if r.api.ModelControl != nil {
+		quantumLimit += r.api.ModelControl.Options.Wait
+	}
+	until := time.Now().Add(quantumLimit)
 	if e := r.api.Store.UpdateMatchRun(ctx, user, g, func(v *p.MatchRun) error {
 		if v.State == "PAUSING" {
 			v.State = "PAUSED"
@@ -525,6 +538,25 @@ func (r *MatchTaskRunner) processQuantum(ctx context.Context, user string, run p
 		// context; never automatically replay a potentially charged call.
 		cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 		defer cancel()
+		if out.Calls == 0 && (errors.Is(err, p.ErrModelQueueFull) || errors.Is(err, modelcontrol.ErrWaitDeadline)) {
+			_ = r.api.Store.UpdateMatchRun(cleanup, user, g, func(v *p.MatchRun) error {
+				for i := range v.Items {
+					for _, id := range ids {
+						if v.Items[i].JobID == id && v.Items[i].State == "RUNNING" {
+							v.Items[i].State = "QUEUED"
+							v.Items[i].Stage = "QUEUE"
+						}
+					}
+				}
+				return nil
+			})
+			code := "MATCH_QUEUE_TIMEOUT"
+			if errors.Is(err, p.ErrModelQueueFull) {
+				code = "MATCH_QUEUE_FULL"
+			}
+			r.queueStopped(cleanup, user, g, ids, code)
+			return true
+		}
 		return r.fail(cleanup, user, g, ids, err, phase, out.Calls)
 	}
 	err = r.api.Store.UpdateMatchRun(ctx, user, g, func(v *p.MatchRun) error {
@@ -562,7 +594,7 @@ func (r *MatchTaskRunner) fail(ctx context.Context, user string, g p.MatchRunGua
 	if job, ok := diagnostic["job_index"].(int); ok && job > 0 && job <= len(ids) {
 		diagnostic["source_job_id"] = ids[job-1]
 	}
-	stop := errors.Is(err, p.ErrStaleInput) || errors.Is(err, p.ErrMatchQuota) || errors.Is(err, p.ErrMatchRunLease) || errors.Is(err, context.Canceled) || errors.Is(err, p.ErrMatchRunBusy) || errors.Is(err, p.ErrBackendUnavailable) || code == "MODEL_PROVIDER_FAILED" || code == "MODEL_RESPONSE_INVALID" || code == "MODEL_AUTH_FAILED" || code == "MODEL_BALANCE_LOW" || code == "MODEL_PROVIDER_BUSY" || code == "MODEL_CONNECTION_FAILED" || code == "MODEL_TIMEOUT"
+	stop := strings.HasPrefix(code, "MODEL_GLOBAL_") || code == "MODEL_REVIEW_REQUIRED" || code == "MODEL_EXECUTION_LOST" || errors.Is(err, p.ErrStaleInput) || errors.Is(err, p.ErrMatchQuota) || errors.Is(err, p.ErrMatchRunLease) || errors.Is(err, context.Canceled) || errors.Is(err, p.ErrMatchRunBusy) || errors.Is(err, p.ErrBackendUnavailable) || code == "MODEL_PROVIDER_FAILED" || code == "MODEL_RESPONSE_INVALID" || code == "MODEL_AUTH_FAILED" || code == "MODEL_BALANCE_LOW" || code == "MODEL_PROVIDER_BUSY" || code == "MODEL_CONNECTION_FAILED" || code == "MODEL_TIMEOUT"
 	_ = r.api.Store.AddMatchRunEvent(ctx, user, g, p.MatchRunEvent{RequestID: observability.From(ctx).RequestID, Stage: stage, JobIDs: ids, Code: code})
 	persistErr := r.api.Store.UpdateMatchRun(ctx, user, g, func(v *p.MatchRun) error {
 		v.Calls += calls
@@ -589,6 +621,16 @@ func (r *MatchTaskRunner) fail(ctx context.Context, user string, g p.MatchRunGua
 func matchTaskFailure(err error, stage string) (string, map[string]any) {
 	code := resumeDraftFailure(err)
 	switch {
+	case errors.Is(err, p.ErrModelQueueFull):
+		code = "MODEL_GLOBAL_QUEUE_FULL"
+	case errors.Is(err, p.ErrModelBudget):
+		code = "MODEL_GLOBAL_BUDGET"
+	case errors.Is(err, p.ErrModelReview):
+		code = "MODEL_REVIEW_REQUIRED"
+	case errors.Is(err, p.ErrModelLease):
+		code = "MODEL_EXECUTION_LOST"
+	case errors.Is(err, modelcontrol.ErrWaitDeadline):
+		code = "MATCH_QUEUE_TIMEOUT"
 	case errors.Is(err, p.ErrMatchRunBusy):
 		code = "MATCH_BUSY"
 	case errors.Is(err, p.ErrStaleInput):

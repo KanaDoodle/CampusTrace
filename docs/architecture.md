@@ -233,5 +233,5 @@ Scripted eval 不代表真实模型准确率，synthetic loadgen 不代表线上
 - **RPC**：KanaRPC 为教育性 v0.x 框架，API 稳定性及提前远程取消存在上述限制。
 - **Agent 与检索**：自由生成事实回答被刻意限制。可选 live provider 未完成效果评估；可选语义 Embedding 与重排序已接入协议，但未用真实账号材料和真实模型评估检索质量。弱点提取依赖经过验证的显式输入，非 LLM extractor。RAG 容量、重复导入和文档更新/删除限制见上文。
 - **会话与认证**：SSE 无 replay/reconnect；MCP 认证仅在启动时进行；没有邮箱验证、密码重置或撤销服务。Redis 故障可影响短期状态与 trace 保存。
-- **队列与运维**：没有自动队列/历史归档或 Redis Cluster 支持；DLQ 仅通过 operator CLI 管理。Redis 相关 metrics 是进程内计数，重启重置；API 与 Worker 保留 `/metrics` JSON，新增 `/metrics/prometheus`；应用任务阶段事件保存在 MySQL，尚未安装独立监控或告警服务。
+- **队列与运维**：没有自动队列/历史归档或 Redis Cluster 支持；DLQ 仅通过 operator CLI 管理。进程内计数重启重置；队列和共享池另提供实时聚合指标。API 与 Worker 保留 `/metrics` JSON 和 `/metrics/prometheus`，任务阶段事件保存在 MySQL；可选 OpenTelemetry / Prometheus / Grafana / Tempo 连接本地服务追踪并提供面板与本地告警，不包含外部告警投递或生产高可用，见[监控与排障](operations.md#可选的完整观测栈)。
 - **UI**：中文优先，使用结构化资料与复盘表单；岗位雷达最多 10,000 条、每页 50 条；独立普通搜索最多 100 条。没有使用前端框架。

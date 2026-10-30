@@ -44,6 +44,7 @@ func (i Ingest) Validate() error {
 }
 
 type Task struct {
+	TraceParent       string    `json:"traceparent,omitempty"`
 	OwnerID           string    `json:"owner_id,omitempty"`
 	QueueUntil        time.Time `json:"queue_until,omitempty"`
 	Posting           *Ingest   `json:"posting,omitempty"`
@@ -64,7 +65,10 @@ type Task struct {
 func NewTask(typ, id string) Task {
 	return Task{ID: d.ID(), Type: typ, EntityID: id, Attempt: 1, CreatedAt: time.Now().UTC(), CorrelationID: d.ID(), Version: 1}
 }
-func Outbox(ctx context.Context, tx *sql.Tx, t Task) error {
+func Outbox(ctx context.Context, tx *sql.Tx, t Task) (err error) {
+	ctx, span := observability.Producer(ctx, "outbox.enqueue")
+	defer func() { observability.End(span, err) }()
+	t.TraceParent = observability.TraceParent(ctx)
 	if id := observability.From(ctx).RequestID; id != "" {
 		t.CorrelationID = id
 	}

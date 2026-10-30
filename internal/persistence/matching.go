@@ -121,29 +121,35 @@ func (s *Store) SaveMatchSettings(ctx context.Context, user string, v matching.S
 }
 func (s *Store) ReserveMatchCall(ctx context.Context, user string, now time.Time) error {
 	return s.Tx(ctx, func(tx *sql.Tx) error {
-		var id string
-		if err := tx.QueryRowContext(ctx, "SELECT id FROM users WHERE id=? FOR UPDATE", user).Scan(&id); err != nil {
-			return err
+		if e := lockRunUser(ctx, tx, user); e != nil {
+			return e
 		}
-		settings, err := matchSettings(ctx, tx, user)
-		if err != nil {
-			return err
+		if e := checkMatchRunGuard(ctx, tx, user, "", ""); e != nil {
+			return e
 		}
-		day := matchDay(now)
-		if _, err = tx.ExecContext(ctx, "INSERT IGNORE INTO match_daily_usage(user_id,usage_day,calls) VALUES(?,?,0)", user, day); err != nil {
-			return err
-		}
-		var calls int
-		if err = tx.QueryRowContext(ctx, "SELECT calls FROM match_daily_usage WHERE user_id=? AND usage_day=? FOR UPDATE", user, day).Scan(&calls); err != nil {
-			return err
-		}
-		if calls >= settings.DailyCalls {
-			return ErrMatchQuota
-		}
-		_, err = tx.ExecContext(ctx, "UPDATE match_daily_usage SET calls=calls+1 WHERE user_id=? AND usage_day=?", user, day)
-		return err
+		return reserveMatchCallTx(ctx, tx, user, now)
 	})
 }
+func reserveMatchCallTx(ctx context.Context, tx *sql.Tx, user string, now time.Time) error {
+	settings, err := matchSettings(ctx, tx, user)
+	if err != nil {
+		return err
+	}
+	day := matchDay(now)
+	if _, err = tx.ExecContext(ctx, "INSERT IGNORE INTO match_daily_usage(user_id,usage_day,calls) VALUES(?,?,0)", user, day); err != nil {
+		return err
+	}
+	var calls int
+	if err = tx.QueryRowContext(ctx, "SELECT calls FROM match_daily_usage WHERE user_id=? AND usage_day=? FOR UPDATE", user, day).Scan(&calls); err != nil {
+		return err
+	}
+	if calls >= settings.DailyCalls {
+		return ErrMatchQuota
+	}
+	_, err = tx.ExecContext(ctx, "UPDATE match_daily_usage SET calls=calls+1 WHERE user_id=? AND usage_day=?", user, day)
+	return err
+}
+
 func matchCandidate(ctx context.Context, q Queryer, user, maskName string) (d.Profile, matching.Candidate, error) {
 	p, err := One[d.Profile](ctx, q, "SELECT body FROM profiles WHERE user_id=?", user)
 	if err != nil {

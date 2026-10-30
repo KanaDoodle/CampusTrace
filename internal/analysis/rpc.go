@@ -9,11 +9,15 @@ import (
 	"log/slog"
 	"net"
 	"time"
+
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 )
 
 const ServiceName = "CampusTraceAnalysis"
 
 type Request struct {
+	TraceParent   string    `json:"traceparent,omitempty"`
 	TaskID        string    `json:"task_id"`
 	JobID         string    `json:"job_id"`
 	ObservationID string    `json:"observation_id"`
@@ -44,7 +48,7 @@ type Service struct {
 	Delay     time.Duration
 }
 
-func (s *Service) AnalyzeObservation(req *Request, resp *Response) error {
+func (s *Service) AnalyzeObservation(req *Request, resp *Response) (err error) {
 	// MyRPC only supports net/rpc-style methods. Explicit envelope deadline bounds
 	// server work. Early remote cancellation is unavailable in its wire protocol.
 	deadline := req.Deadline
@@ -53,6 +57,15 @@ func (s *Service) AnalyzeObservation(req *Request, resp *Response) error {
 	}
 	ctx, cancel := context.WithDeadline(s.Root, deadline)
 	defer cancel()
+	ctx, span := observability.Server(observability.Extract(ctx, req.TraceParent), "rpc.AnalyzeObservation")
+	defer func() {
+		if resp.Error != "" {
+			span.SetStatus(codes.Error, "analysis rejected")
+		}
+		observability.End(span, err)
+	}()
+	ctx = observability.With(ctx, observability.Fields{RequestID: req.CorrelationID, TaskID: req.TaskID, JobID: req.JobID})
+	span.SetAttributes(attribute.String("rpc.system", "kanarpc"), attribute.String("rpc.method", "AnalyzeObservation"), attribute.String("task.id", req.TaskID))
 	resp.Instance = s.Instance
 	if s.Delay > 0 {
 		timer := time.NewTimer(s.Delay)
@@ -117,10 +130,11 @@ func (c *RPCClient) Analyze(ctx context.Context, o d.Observation, correlation st
 	r, err := c.Call(ctx, Request{ObservationID: o.ID, Text: o.Text, CorrelationID: correlation, TaskID: observability.From(ctx).TaskID, JobID: o.JobID})
 	return r.Claims, err
 }
-func (c *RPCClient) Call(ctx context.Context, req Request) (Response, error) {
+func (c *RPCClient) Call(ctx context.Context, req Request) (out Response, err error) {
+	ctx, span := observability.Client(ctx, "rpc.AnalyzeObservation")
+	defer func() { observability.End(span, err) }()
 	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
-	var out Response
 	select {
 	case c.sem <- struct{}{}:
 		defer func() { <-c.sem }()
@@ -128,7 +142,8 @@ func (c *RPCClient) Call(ctx context.Context, req Request) (Response, error) {
 		return out, ctx.Err()
 	}
 	req.Deadline, _ = ctx.Deadline()
-	err := c.client.Invoke(ctx, c.service, "AnalyzeObservation", &req, &out)
+	req.TraceParent = observability.TraceParent(ctx)
+	err = c.client.Invoke(ctx, c.service, "AnalyzeObservation", &req, &out)
 	if err != nil {
 		return out, err
 	}

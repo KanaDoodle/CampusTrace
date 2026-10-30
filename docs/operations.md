@@ -52,7 +52,67 @@ HTTP 响应带 `X-Request-ID`。日志记录请求编号、HTTP 方法、路由�
 
 排障：先在页面查看失败阶段和具体核对原因，再用任务/请求编号定位 `./campustrace logs api`。401/403 检查模型密钥，402 检查模型账户余额，429/服务错误稍后明确重试，超时不要自动重放。结构或摘录核对失败会保留可以复用的要求解析。取消或过期租约禁止旧执行写回匹配结果。服务中断后重新核对资料与模型即可继续；不同模型或输入变化需发起新一轮。
 
-任务记录是应用内部的持久阶段追踪，配合现有 Worker/KanaRPC 关联字段；不是跨外部模型供应商的完整分布式 tracing。
+任务记录是应用内部的持久阶段追踪。可选 OpenTelemetry 进一步连接本地 API、Worker、KanaRPC 和 Analysis；外部模型只记录客户端调用耗时，不包含提供商内部追踪。
+
+## 可选的完整观测栈
+
+保留普通 `./campustrace start` 的轻量启动。需要排障时，在项目目录运行：
+
+```sh
+# 升级已有数据时先备份；已停止或尚未初始化的部署可跳过备份命令。
+./campustrace backup
+make observability
+make observability-status
+# 停整个项目及观测组件，保留所有数据卷。
+make observability-stop
+```
+
+`make observability` 先停止四个应用进程，再构建并启动应用与观测组件，避免新旧严格任务解码器混跑。新增 `traceparent` 是可选字段，旧任务仍可读取；旧二进制不能保证读取新任务字段，因此不要滚动混跑或带新任务直接回退。启用完整观测后，用 `make observability-stop` 停止所有组件；旧 CLI 的 `stop --all` 只管理原有应用和依赖，不停止这三个可选组件。
+
+- Grafana：<http://127.0.0.1:13000/d/campustrace-overview>，预置 14 个面板和 Prometheus / Tempo 数据源，本机匿名只读。
+- Prometheus：<http://127.0.0.1:19090>，每 15 秒采集 API / Worker，包含四条本地告警规则。
+- Tempo：<http://127.0.0.1:13200>，通过 Grafana Explore 查询追踪；OTLP 接收端仅在 Compose 网络内开放。
+
+端口可分别用 `CAMPUS_GRAFANA_PORT`、`CAMPUS_PROMETHEUS_PORT`、`CAMPUS_TEMPO_PORT` 修改。镜像固定为 Prometheus 3.13.3、Grafana 13.2.4、Tempo 2.10.10，配置在 `configs/observability/`。这是单机可选观测服务，匿名查看依赖本机端口绑定，不提供公网多租户部署配置。
+
+### 链路和采集范围
+
+```text
+HTTP → db.transaction / db.begin → outbox.enqueue
+     → queue.publish → task.process → KanaRPC client → Analysis server
+付费匹配：HTTP → matching.run → matching.batch/company
+         → model.control → model.queue_wait / model.provider → model.request
+```
+
+Outbox 与任务消息只携带固定长度 W3C `traceparent`；匹配任务保存该上下文，脱离 HTTP 连接运行时继续同一条追踪，人工续跑绑定新的确认请求。重试保留原追踪，attempt 标识执行次数；派生任务从执行上下文继续传播。现有 SQL 回执、generation、租约和人工确认规则不依赖追踪状态。
+
+HTTP 返回 `X-Trace-ID`，带上下文的结构化日志追加 `trace_id` / `span_id`。Grafana 的“打开任务追踪”链接进入 Tempo；也可以在 Explore 选择 CampusTrace Tempo，按响应中的 Trace ID 查询。任务等待可从 producer / consumer 间隙观察；`task_age_seconds` 是从任务首次创建到本次执行的年龄，包含历史等待和重试，不能解释成每次尝试的纯排队耗时。
+
+默认采样率为 0.1，不保证每个 Trace ID 都已采集；定位可复现问题时临时设置 `OTEL_TRACES_SAMPLER_ARG=1`。独立启动二进制可指定 `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://127.0.0.1:4318/v1/traces`，端口由操作者自行映射；默认 Compose 不发布该接收端口。未配置 endpoint 则不导出，`OTEL_TRACES_EXPORTER=none` 可关闭已配置二进制的导出。Go SDK 固定为兼容项目 Go 1.25.9 的 1.44.0。
+
+追踪只保留固定操作名、路由模板、任务编号、尝试次数、HTTP 状态、固定错误分类、模型调用状态，以及提供商确实返回的 Token 数。不会采集 SQL 语句与参数、请求查询字符串、JD、简历、模型输入输出、密钥、提供商 URL 或 baggage/tracestate；外部模型请求不注入追踪头。数据库跨度覆盖通用读操作、事务和 BeginTx，尚未逐条覆盖所有直接 Exec / QueryRow，也不能单靠 db.begin 区分连接建立、连接池等待与事务启动。
+
+### 面板、告警和故障边界
+
+现有 Prometheus text 输出继续提供 HTTP、Go 运行时、数据库池与阶段直方图；新增按固定 lane 标签的 ready / inflight / outstanding / capacity，以及模型共享池等待、占用、隔离、未知与每日调用计数。账号、岗位、请求编号和模型地址不作为指标标签。共享池指标是全局状态，多 API 抓取时应取 max，不应累加。模型排队 P95 仅来自成功获准调用；无样本的图表会显示无数据。
+
+采集请求只读业务状态。未知调用指标还按数据库时钟统计已过期但尚未收敛的 STARTED；实际持久状态仍由正常控制、状态查询或核对操作收敛。依赖不可用时保留应用采集响应，并令 `model_pool_scrape_success` 或 `queue_scrape_success` 为 0，以区别没有任务与无法读取。
+
+四条规则覆盖指标目标失联、队列持续超过 80%、未知调用待核对、依赖指标读取失败。告警可在 Prometheus 页面查看；没有配置 Alertmanager、外部邮件或聊天通知。Prometheus 保留 7 天且设置 512 MB 的时序数据保留目标；Tempo 保留 24 小时追踪。这些不是整个容器内存或磁盘的硬上限。
+
+OTLP 使用有界后台批处理（最多 2048 个待导出跨度、每批 256、导出超时 2 秒），不让采集服务参与业务 readiness 或模型准入。导出失败只输出限频固定告警，不阻塞业务请求；队列满或导出失败可能丢失遥测，不提供持久补传。进程强杀也可能丢失尚未导出的追踪。观测栈停止或恢复时，业务回执与模型账本仍由原数据库机制决定。
+
+### 隔离复现
+
+```sh
+make observability-test
+```
+
+脚本不读取 `.env`，清空模型配置，创建自己的镜像、Compose 项目、网络、临时业务库和观测数据卷，退出只清理本次资源。验收包含真实容器间 HTTP → Outbox → Redis → Worker → etcd/KanaRPC → Analysis 的跨度父子关系、追踪敏感标记检查、两个 Prometheus 抓取目标、十条队列通道、14 个 Grafana 面板、四条规则，以及停止/恢复 Tempo 后业务处理和后续采集。日志与追踪 JSON 保存在 `bin/verification/observability-20261030/`。另外运行 Go 竞态检查、现有前端测试、模型控制多进程验收和旧后台反例回归。
+
+2026-10-30 最终验收：Go 全包 race、vet、build、Go 1.25.9 Docker 构建、已发布 KanaRPC 依赖边界及 432 项前端测试通过。独立 SQL / Redis / etcd 全量集成有 175 个顶层测试通过、无失败；4 个按条件跳过的是子进程辅助入口、需要另一空数据库的历史迁移修复和两个真实来源检查，未将它们算作通过。十个模型控制专项测试包含在集成结果中。完整观测烟测在停机前、恢复后各读取到 34 个跨度，覆盖三个实际应用进程；采集器停止期间业务解析继续完成。汇总为本机 `acceptance.json`。全量回归还修复了 Agent 以目录前 100 条代替来源权限查询的问题，并让恢复测试的屏障与计数只绑定自己的观察，避免误认共享 Outbox 中其他合成任务。初次失败记录也保留在同目录。
+
+这是单机、合成输入和本地受控验收；不构成生产吞吐、真实模型质量、完整隐私安全或高可用证明。实现参考 [OpenTelemetry Go](https://opentelemetry.io/docs/languages/go/instrumentation/)、[OTLP 导出](https://opentelemetry.io/docs/languages/go/exporters/)、[Prometheus 配置](https://prometheus.io/docs/prometheus/latest/configuration/configuration/)。
 
 ## 运行与资源占用
 

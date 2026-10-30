@@ -10,6 +10,8 @@ CampusTrace 就是为这些小麻烦做的。它是一个用 **Go** 写的个人
 
 后台任务现按类型和用户／系统归属隔离，岗位分析按批次公平分配执行名额，带排队期限与过载反馈。设计、升级顺序、合成负载实测和复现方法见[可靠任务调度](docs/task-scheduling.md)。
 
+匹配模型调用新增跨 API 的共享许可、次数额度和未知结果核对，已完成双进程与强杀验收，见[模型执行控制](docs/model-control.md)。排障时可用 `make observability` 启动 OpenTelemetry、Prometheus / Grafana / Tempo，查看跨服务耗时和预置面板；已有数据升级前先备份。普通启动仍保持轻量，详见[完整观测栈](docs/operations.md#可选的完整观测栈)。
+
 ```text
 关注招聘来源 → 本地筛选 → 挑选岗位深入分析 → 安排投递 → 面试与复盘
 ```

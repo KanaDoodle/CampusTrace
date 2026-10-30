@@ -23,7 +23,7 @@ import (
 )
 
 func Root() (context.Context, context.CancelFunc) {
-	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stderr, nil)))
+	slog.SetDefault(slog.New(observability.ContextHandler{Handler: slog.NewJSONHandler(os.Stderr, nil)}))
 	return signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 }
 

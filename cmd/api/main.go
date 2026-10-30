@@ -7,6 +7,10 @@ import (
 	"github.com/KanaDoodle/CampusTrace/internal/analysis"
 	"github.com/KanaDoodle/CampusTrace/internal/auth"
 	"github.com/KanaDoodle/CampusTrace/internal/bootstrap"
+	"github.com/KanaDoodle/CampusTrace/internal/config"
+	"github.com/KanaDoodle/CampusTrace/internal/modelcontrol"
+	"github.com/KanaDoodle/CampusTrace/internal/observability"
+	p "github.com/KanaDoodle/CampusTrace/internal/persistence"
 	"github.com/KanaDoodle/CampusTrace/internal/practice"
 	"github.com/KanaDoodle/CampusTrace/internal/transport"
 	"log/slog"
@@ -26,6 +30,15 @@ func main() {
 func run() error {
 	ctx, cancel := bootstrap.Root()
 	defer cancel()
+	shutdown, err := observability.Setup(ctx, "campustrace-api")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		flush, stop := context.WithTimeout(context.Background(), 3*time.Second)
+		defer stop()
+		_ = shutdown(flush)
+	}()
 	app, err := bootstrap.Open(ctx)
 	if err != nil {
 		return err
@@ -48,6 +61,13 @@ func run() error {
 	}
 	a := &transport.API{Practice: &practice.Client{URL: os.Getenv("PRACTICE_RUNNER_URL"), Key: []byte(os.Getenv("PRACTICE_SECRET"))}, Store: app.Store, Queue: app.Queue, Tools: app.Tools, Agent: app.Agent, Auth: auth.Service{Store: app.Store, Secret: []byte(app.Config.JWT)}, Metrics: app.Metrics, ResumeModel: app.ResumeModel, ResumeModelName: app.Config.LLMModel, CustomModelSlots: slots}
 	runner := a.StartMatchTasks(ctx, app.Config.LLMConcurrency)
+	a.ModelControl, err = modelcontrol.New(ctx, app.Store, modelcontrol.Options{
+		Policy: p.ModelPoolPolicy{ID: "matching-v1", Capacity: config.BoundedInt("MATCH_GLOBAL_CAPACITY", 2, 16), QueueLimit: config.BoundedInt("MATCH_GLOBAL_QUEUE", 64, 256), OwnerQueueLimit: config.BoundedInt("MATCH_GLOBAL_OWNER_QUEUE", 1, 16), DailyLimit: config.BoundedInt("MATCH_GLOBAL_DAILY_CALLS", 400, 100000), LeaseMS: 10000},
+		Wait:   app.Config.MatchQueueWait, Execution: app.Config.MatchExecution, Grace: 30 * time.Second,
+	})
+	if err != nil {
+		return fmt.Errorf("matching resource control unavailable: %w", err)
+	}
 	runner.WaitTimeout = app.Config.MatchQueueWait
 	runner.ExecutionTimeout = app.Config.MatchExecution
 	a.StartAgentFeed(ctx)

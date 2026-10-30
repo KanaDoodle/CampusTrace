@@ -7,6 +7,7 @@ import (
 	"github.com/KanaDoodle/CampusTrace/internal/bootstrap"
 	"github.com/KanaDoodle/CampusTrace/internal/config"
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
+	"github.com/KanaDoodle/CampusTrace/internal/observability"
 	"github.com/KanaDoodle/CampusTrace/internal/pipeline"
 	"log/slog"
 	"net/http"
@@ -16,6 +17,16 @@ import (
 func main() {
 	ctx, cancel := bootstrap.Root()
 	defer cancel()
+	shutdown, err := observability.Setup(ctx, "campustrace-worker")
+	if err != nil {
+		slog.Error("tracing configuration failed")
+		return
+	}
+	defer func() {
+		flush, stop := context.WithTimeout(context.Background(), 3*time.Second)
+		defer stop()
+		_ = shutdown(flush)
+	}()
 	historyHours := config.Int("TASK_HISTORY_HOURS", 24)
 	if historyHours > 365*24 {
 		slog.Error("TASK_HISTORY_HOURS must be in 1..8760")
@@ -50,7 +61,23 @@ func main() {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(stats)
 	})
-	metricsMux.HandleFunc("GET /metrics/prometheus", func(w http.ResponseWriter, r *http.Request) { app.Metrics.Prometheus(w, r, app.Store.DB.Stats()) })
+	metricsMux.HandleFunc("GET /metrics/prometheus", func(w http.ResponseWriter, r *http.Request) {
+		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+		defer cancel()
+		gauges := []observability.Gauge{}
+		stats, e := app.Queue.Stats(ctx)
+		up := 0.
+		if e == nil {
+			up = 1
+			for _, lane := range stats {
+				for name, value := range map[string]int64{"queue_ready": lane.Ready, "queue_inflight": lane.InFlight, "queue_outstanding": lane.Outstanding, "queue_capacity": lane.Capacity} {
+					gauges = append(gauges, observability.Gauge{Name: name, Labels: map[string]string{"lane": lane.Lane}, Value: float64(value)})
+				}
+			}
+		}
+		gauges = append(gauges, observability.Gauge{Name: "queue_scrape_success", Value: up})
+		app.Metrics.Prometheus(w, r, app.Store.DB.Stats(), gauges...)
+	})
 	metricsMux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("ok")) })
 	metricsServer := &http.Server{Addr: config.Env("WORKER_METRICS_ADDR", "127.0.0.1:18081"), Handler: metricsMux, ReadHeaderTimeout: 3 * time.Second}
 	go func() {

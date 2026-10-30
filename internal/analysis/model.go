@@ -6,10 +6,13 @@ import (
 	"encoding/json"
 	"fmt"
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
+	"github.com/KanaDoodle/CampusTrace/internal/observability"
 	"io"
 	"net/http"
 	"net/url"
 	"time"
+
+	"go.opentelemetry.io/otel/attribute"
 )
 
 type HTTPError struct{ Status int }
@@ -61,7 +64,15 @@ func (c *ChatClient) complete(ctx context.Context, messages any, tools any, json
 	return v, err
 }
 
-func (c *ChatClient) completeUsage(ctx context.Context, messages any, tools any, jsonOutput bool) (json.RawMessage, Usage, error) {
+func (c *ChatClient) completeUsage(ctx context.Context, messages any, tools any, jsonOutput bool) (result json.RawMessage, usage Usage, err error) {
+	ctx, span := observability.Client(ctx, "model.request")
+	defer func() {
+		span.SetAttributes(attribute.Bool("model.usage.known", usage.Known))
+		if usage.Known {
+			span.SetAttributes(attribute.Int("model.input_tokens", usage.PromptTokens), attribute.Int("model.output_tokens", usage.CompletionTokens))
+		}
+		observability.End(span, err)
+	}()
 	select {
 	case c.Sem <- struct{}{}:
 		defer func() { <-c.Sem }()

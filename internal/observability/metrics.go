@@ -26,6 +26,14 @@ type Metrics struct {
 	started time.Time
 }
 
+// Gauge labels are fixed operational dimensions (such as a queue lane), never
+// account, job, request, model URL or other unbounded identifiers.
+type Gauge struct {
+	Name   string
+	Labels map[string]string
+	Value  float64
+}
+
 func New() *Metrics {
 	return &Metrics{Values: map[string]float64{}, hist: map[string]*histogram{}, started: time.Now()}
 }
@@ -61,7 +69,7 @@ func (m *Metrics) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(m.Values)
 }
-func (m *Metrics) Prometheus(w http.ResponseWriter, r *http.Request, db sql.DBStats) {
+func (m *Metrics) Prometheus(w http.ResponseWriter, r *http.Request, db sql.DBStats, gauges ...Gauge) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
@@ -93,5 +101,29 @@ func (m *Metrics) Prometheus(w http.ResponseWriter, r *http.Request, db sql.DBSt
 		v    float64
 	}{{"go_goroutines", float64(runtime.NumGoroutine())}, {"go_heap_bytes", float64(mem.HeapAlloc)}, {"process_uptime_seconds", time.Since(m.started).Seconds()}, {"db_connections_open", float64(db.OpenConnections)}, {"db_connections_in_use", float64(db.InUse)}, {"db_connections_idle", float64(db.Idle)}, {"db_wait_total", float64(db.WaitCount)}, {"db_wait_seconds_total", db.WaitDuration.Seconds()}} {
 		fmt.Fprintf(w, "campustrace_%s %g\n", g.name, g.v)
+	}
+	seen := map[string]bool{}
+	for _, g := range gauges {
+		if !seen[g.Name] {
+			fmt.Fprintf(w, "# TYPE campustrace_%s gauge\n", g.Name)
+			seen[g.Name] = true
+		}
+		fmt.Fprintf(w, "campustrace_%s", g.Name)
+		if len(g.Labels) > 0 {
+			labels := make([]string, 0, len(g.Labels))
+			for key := range g.Labels {
+				labels = append(labels, key)
+			}
+			sort.Strings(labels)
+			fmt.Fprint(w, "{")
+			for i, key := range labels {
+				if i > 0 {
+					fmt.Fprint(w, ",")
+				}
+				fmt.Fprintf(w, "%s=%q", key, g.Labels[key])
+			}
+			fmt.Fprint(w, "}")
+		}
+		fmt.Fprintf(w, " %g\n", g.Value)
 	}
 }

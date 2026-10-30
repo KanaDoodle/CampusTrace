@@ -50,3 +50,14 @@ verify-boundary:
 .PHONY: retrieval-eval
 retrieval-eval:
 	go run ./cmd/retrieval-eval
+
+.PHONY: observability observability-stop observability-status observability-test
+observability:
+	docker compose --file docker-compose.yml --file compose.app.yml --file compose.observability.yml stop api worker analysis-1 analysis-2
+	docker compose --file docker-compose.yml --file compose.app.yml --file compose.observability.yml up -d --build --wait
+observability-stop:
+	docker compose --file docker-compose.yml --file compose.app.yml --file compose.observability.yml stop
+observability-status:
+	docker compose --file docker-compose.yml --file compose.app.yml --file compose.observability.yml ps
+observability-test:
+	sh scripts/observability-local.sh

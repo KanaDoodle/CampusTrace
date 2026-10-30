@@ -74,6 +74,11 @@ func setup(t *testing.T) (context.Context, *p.Store, *pipeline.Queue, string, st
 
 func cleanupFixture(ctx context.Context, s *p.Store, owner, source string) error {
 	return s.Tx(ctx, func(tx *sql.Tx) error {
+		for _, table := range []string{"model_call_ledger", "model_resource_tickets"} {
+			if _, e := tx.ExecContext(ctx, "DELETE FROM "+table+" WHERE user_id=?", owner); e != nil {
+				return e
+			}
+		}
 		if _, err := tx.ExecContext(ctx, `DELETE FROM outbox WHERE JSON_UNQUOTE(JSON_EXTRACT(body,'$.entity_id')) IN (SELECT i.id FROM source_import_items i JOIN source_import_batches b ON b.id=i.batch_id WHERE b.user_id=?)`, owner); err != nil {
 			return err
 		}

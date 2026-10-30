@@ -27,6 +27,8 @@ import (
 type adversarialConfig struct {
 	Role, Prefix, Owner, Entity, Mode, Gate string
 	Capacity, OwnerCapacity, Count          int
+	ModelPolicy                             p.ModelPoolPolicy
+	ProviderURL                             string
 }
 
 func adversarialEnabled(t *testing.T) {
@@ -220,6 +222,8 @@ func TestAdversarialChild(t *testing.T) {
 		childWait(ctx, r, c.Gate)
 	}
 	switch c.Role {
+	case "model-api":
+		runModelControlAPI(t, ctx, s, q, c)
 	case "publish":
 		for i := 0; i < c.Count; i++ {
 			task := p.NewTask("ASSESS", c.Entity)

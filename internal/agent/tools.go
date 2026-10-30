@@ -365,18 +365,8 @@ func (t *Tools) Propose(ctx context.Context, user, kind string, args json.RawMes
 	if kind == "watch_source" {
 		var a d.WatchInput
 		json.Unmarshal(args, &a)
-		sources, err := t.Store.SourcesForUser(ctx, user)
-		if err != nil {
+		if _, err := t.Store.WatchableSourceForUser(ctx, user, a.SourceID); err != nil {
 			return v, err
-		}
-		found := false
-		for _, src := range sources {
-			if src.ID == a.SourceID && src.Adapter != "" {
-				found = true
-			}
-		}
-		if !found {
-			return v, p.ErrNotFound
 		}
 	}
 	if kind == "unwatch_source" {
