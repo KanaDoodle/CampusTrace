@@ -14,6 +14,8 @@ CampusTrace 就是为这些小麻烦做的。它是一个用 **Go** 写的个人
 
 岗位关键词搜索现可独立部署：`make search-stack` 启动 Go Search + OpenSearch，搜索 JD 中的技术要求；故障或索引追平期间回退到 Core。Core 和已有 Analysis 保留原职责，详见[Search 服务](docs/search-service.md)。
 
+`make performance` 可在独立合成环境运行 Search 的 k6 端到端压测，覆盖正常查询、基础回退、索引重建和并发更新；同机参考／候选版本的性能回归与证据说明见[性能验证](docs/performance.md#search-的-k6-端到端性能回归2026-10-31)。
+
 ```text
 关注招聘来源 → 本地筛选 → 挑选岗位深入分析 → 安排投递 → 面试与复盘
 ```

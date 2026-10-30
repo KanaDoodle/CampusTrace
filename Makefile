@@ -73,3 +73,13 @@ search-rebuild:
 	docker compose --file docker-compose.yml --file compose.app.yml --file compose.search.yml exec -T search /app/search rebuild
 search-test:
 	sh scripts/search-local.sh
+
+.PHONY: performance performance-test performance-compare
+performance:
+	./scripts/performance-local.sh $(PERF_ARGS)
+performance-test:
+	PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts/performance -p 'test_*.py' -v
+	node --test scripts/performance/contract.test.mjs
+performance-compare:
+	@test -n "$(PERF_BASELINE)" && test -n "$(PERF_CANDIDATE)" || { echo 'Set PERF_BASELINE and PERF_CANDIDATE to report.json paths'; exit 1; }
+	PYTHONDONTWRITEBYTECODE=1 python3 scripts/performance/report.py "$(PERF_CANDIDATE)" --baseline "$(PERF_BASELINE)"

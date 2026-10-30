@@ -1,0 +1,77 @@
+name: Search HTTP performance regression
+
+"on":
+  workflow_dispatch:
+    inputs:
+      baseline_ref:
+        description: Git commit or ref with the Search stack to compare on the same runner
+        default: b4a871f18fde0206af91bc512067bc283db4fc83
+        required: true
+        type: string
+  pull_request:
+    paths:
+      - .github/workflows/performance.yml
+      - Makefile
+      - Dockerfile
+      - go.mod
+      - go.sum
+      - compose.app.yml
+      - cmd/api/**
+      - cmd/worker/**
+      - internal/bootstrap/**
+      - internal/persistence/jobs.go
+      - internal/persistence/store.go
+      - internal/persistence/visibility.go
+      - internal/transport/http.go
+      - migrations/**
+      - scripts/performance/**
+      - scripts/performance-local.sh
+      - internal/searchapi/**
+      - internal/searchservice/**
+      - internal/persistence/search_*.go
+      - internal/transport/search.go
+      - compose.search*.yml
+      - Dockerfile.search
+
+permissions:
+  contents: read
+
+jobs:
+  search-performance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PERF_BASELINE_REF: ${{ inputs.baseline_ref || 'b4a871f18fde0206af91bc512067bc283db4fc83' }}
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Response contracts and fail-closed regression gate
+        run: make performance-test
+      - name: Reference revision on this runner
+        run: >-
+          ./scripts/performance-local.sh --revision "$PERF_BASELINE_REF"
+          --jobs 200 --seconds 15 --rate 10
+          --output bin/performance-ci/reference
+      - name: Candidate revision and relative regression check
+        run: >-
+          ./scripts/performance-local.sh --revision HEAD
+          --jobs 200 --seconds 15 --rate 10
+          --baseline bin/performance-ci/reference/report.json
+          --output bin/performance-ci/candidate
+      - name: Keep performance evidence, including failures
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: search-http-performance
+          path: bin/performance-ci/
+          if-no-files-found: ignore
+          retention-days: 14
