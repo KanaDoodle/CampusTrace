@@ -13,6 +13,7 @@ import (
 	"github.com/KanaDoodle/CampusTrace/internal/rag"
 	"github.com/KanaDoodle/CampusTrace/internal/resume"
 	"github.com/KanaDoodle/CampusTrace/internal/rules"
+	"github.com/KanaDoodle/CampusTrace/internal/searchapi"
 	"github.com/redis/go-redis/v9"
 	"log/slog"
 	"os"
@@ -42,6 +43,13 @@ func Open(ctx context.Context) (*App, error) {
 	s, err := p.Open(ctx, c.DSN)
 	if err != nil {
 		return nil, err
+	}
+	if endpoint := os.Getenv("SEARCH_URL"); endpoint != "" {
+		s.Search, err = searchapi.NewClient(endpoint, os.Getenv("SEARCH_QUERY_TOKEN"), os.Getenv("SEARCH_WRITE_TOKEN"))
+		if err != nil {
+			s.DB.Close()
+			return nil, fmt.Errorf("invalid Search configuration")
+		}
 	}
 	if raw := os.Getenv("RANKING_WEIGHTS"); raw != "" {
 		if err = json.Unmarshal([]byte(raw), &s.Weights); err != nil {

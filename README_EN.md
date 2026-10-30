@@ -8,6 +8,8 @@ Too many careers tabs. Several roles at one company, but only one application al
 
 CampusTrace is a personal job-search tool built in **Go**. It brings recruiting updates, candidate profiles, role matching, applications and interview notes into one workspace, so you have fewer things to remember.
 
+Optional independent job search: `make search-stack` starts a separate Go Search image with OpenSearch. Core keeps authoritative data and authorization, with a bounded database fallback; existing Analysis services remain. See [Search service](docs/search-service.md) for synchronization, isolation, operations and synthetic acceptance limits.
+
 ```text
 Follow recruiting sources → Screen locally → Analyze selected roles → Plan applications → Interview and review
 ```

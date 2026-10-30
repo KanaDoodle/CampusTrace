@@ -289,6 +289,7 @@ func (a *API) Handler() http.Handler {
 	a.matchingTaskRoutes(on)
 	a.campaignRoutes(on)
 	a.journeyRoutes(on)
+	on("POST /api/jobs/search", a.searchJobs)
 	on("GET /api/jobs", func(w http.ResponseWriter, r *http.Request) {
 		v, err := a.Store.JobsForUser(r.Context(), user(r), r.URL.Query().Get("q"))
 		write(w, v, err)
@@ -415,7 +416,7 @@ func (a *API) Handler() http.Handler {
 		write(w, map[string]bool{"saved": true}, a.Store.SaveProfile(r.Context(), user(r), v))
 	})
 	on("GET /api/profile/resume/capabilities", func(w http.ResponseWriter, r *http.Request) {
-		write(w, map[string]any{"model_available": a.ResumeModel != nil, "model": a.ResumeModelName, "user_id": user(r), "durable_matching": a.MatchTasks != nil, "application_campaigns": true, "inventory_paging": true, "foundation_topics": d.FoundationTopics()}, nil)
+		write(w, map[string]any{"model_available": a.ResumeModel != nil, "model": a.ResumeModelName, "user_id": user(r), "durable_matching": a.MatchTasks != nil, "application_campaigns": true, "inventory_paging": true, "job_search": true, "foundation_topics": d.FoundationTopics()}, nil)
 	})
 	on("GET /api/profile/document", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")

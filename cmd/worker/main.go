@@ -11,6 +11,8 @@ import (
 	"github.com/KanaDoodle/CampusTrace/internal/pipeline"
 	"log/slog"
 	"net/http"
+	"os"
+	"sync"
 	"time"
 )
 
@@ -38,9 +40,19 @@ func main() {
 		return
 	}
 	defer app.Close()
+	if app.Store.Search != nil && len(os.Getenv("SEARCH_WRITE_TOKEN")) < 32 {
+		slog.Error("worker requires SEARCH_WRITE_TOKEN for projection sync")
+		return
+	}
 	if err = app.Store.Migrate(ctx); err != nil {
 		slog.Error("worker database migration failed")
 		return
+	}
+	if app.Store.Search != nil {
+		var syncWG sync.WaitGroup
+		syncWG.Add(1)
+		go func() { defer syncWG.Done(); app.Store.RunSearchSync(ctx) }()
+		defer func() { cancel(); syncWG.Wait() }()
 	}
 	rpc, err := analysis.NewClient(app.Config.Endpoints(), app.Config.AnalysisConcurrency, app.Config.TaskTimeout)
 	if err != nil {

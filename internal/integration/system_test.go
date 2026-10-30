@@ -131,6 +131,8 @@ func cleanupFixture(ctx context.Context, s *p.Store, owner, source string) error
 			// from this fixture's owner/source, never from the complete catalog.
 			in := "(" + strings.TrimSuffix(strings.Repeat("?,", len(ids)), ",") + ")"
 			for _, query := range []string{
+				`DELETE FROM search_outbox WHERE job_id IN ` + in,
+				`DELETE FROM search_documents WHERE job_id IN ` + in,
 				`DELETE FROM reviews WHERE interview_id IN (SELECT i.id FROM interviews i JOIN applications a ON a.id=i.application_id WHERE a.job_id IN ` + in + `)`,
 				`DELETE FROM interviews WHERE application_id IN (SELECT id FROM applications WHERE job_id IN ` + in + `)`,
 				`DELETE FROM application_events WHERE application_id IN (SELECT id FROM applications WHERE job_id IN ` + in + `)`,

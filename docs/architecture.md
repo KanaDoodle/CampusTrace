@@ -39,6 +39,10 @@ flowchart TD
   Radar --> Inbox[MySQL Notification Inbox]
   API --> Preference[UserJobPreference / SAVED / IGNORED]
   O --> DB[(MySQL / authoritative data + Outbox)]
+  DB --> SearchSync[Core Worker / search outbox]
+  SearchSync --> Search[独立 Go Search / HTTP]
+  API --> Search
+  Search --> OS[(独立 OpenSearch 派生索引)]
   DB --> Publisher[Outbox publisher]
   Publisher --> Stream[(按类型与用户／系统归属隔离的 Redis 队列)]
   Stream --> Worker[独立有界执行池]
@@ -60,7 +64,7 @@ flowchart TD
   Tools --> RAG[MySQL chunks / BM25 + optional semantic vectors / RRF + rerank]
 ```
 
-MySQL 事务与唯一约束承担业务正确性；Redis 承担队列、重试、限流、缓存及短期 Agent 状态。**Analysis 是唯一远程业务服务**：它通过 KanaRPC 返回候选 claims，主后端保留决策与 CRUD 职责。
+MySQL 事务与唯一约束承担业务正确性；Redis 承担队列、重试、限流、缓存及短期 Agent 状态。Analysis 通过 KanaRPC 返回候选 claims；可选 Search 通过版本化 HTTP 提供岗位全文检索，只拥有派生索引。主后端保留权限、决策与 CRUD 职责。同步、水位、回退和独立部署见 [Search 服务](search-service.md)。
 
 ### 岗位来源、归并与变化记录
 

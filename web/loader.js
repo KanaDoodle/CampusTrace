@@ -1,7 +1,7 @@
 'use strict';
 (function(root){
  const loaded=new Map();
- const shared=['models.js','knowledge.js','applications.js','campaigns.js','matching_chat.js','matching_decision.js','matching_tasks.js','inventory.js','deadlines.js','matching.js'];
+ const shared=['models.js','knowledge.js','applications.js','campaigns.js','matching_chat.js','matching_decision.js','matching_tasks.js','inventory.js','job_search.js','deadlines.js','matching.js'];
  const routes={
   matching:shared,
   company:[...shared,'company_chat.js','company_decision.js','company_decision.css'],

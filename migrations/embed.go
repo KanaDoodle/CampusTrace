@@ -49,3 +49,6 @@ var TaskSchedulingSQL string
 
 //go:embed 016_model_control.sql
 var ModelControlSQL string
+
+//go:embed 017_search.sql
+var SearchSQL string

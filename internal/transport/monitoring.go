@@ -23,5 +23,15 @@ func (a *API) prometheus(w http.ResponseWriter, r *http.Request) {
 		}
 		gauges = append(gauges, observability.Gauge{Name: "model_pool_scrape_success", Value: up})
 	}
+	if a.Store.Search != nil {
+		pending, ready, e := a.Store.SearchSyncStats(ctx)
+		if e == nil {
+			v := 0.
+			if ready {
+				v = 1
+			}
+			gauges = append(gauges, observability.Gauge{Name: "search_pending", Value: float64(pending)}, observability.Gauge{Name: "search_ready", Value: v})
+		}
+	}
 	a.Metrics.Prometheus(w, r, a.Store.DB.Stats(), gauges...)
 }

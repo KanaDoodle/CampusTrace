@@ -39,6 +39,7 @@ __debug_bin*
 !/docs/task-scheduling.md
 !/docs/adversarial-acceptance.md
 !/docs/model-control.md
+!/docs/search-service.md
 !/docs/images/
 /docs/images/*
 !/docs/images/job-radar.jpg

@@ -6,10 +6,12 @@ task_dir=$(mktemp -d /tmp/campustrace-observer.XXXXXX)
 project="ct-observer-test-$$"
 image="campustrace-observer-test:$$"
 evidence="$PWD/bin/verification/observability-20261030"
+if [ "${CAMPUS_SMOKE_SEARCH:-0}" = 1 ];then evidence="$PWD/bin/verification/search-20261030/stack";fi
+search_image="$image-search"
 mkdir -p "$evidence"
 cleanup(){
  if test -f "$task_dir/compose.json"; then docker compose --project-name "$project" --file "$task_dir/compose.json" down --volumes --remove-orphans >/dev/null 2>&1 || true;fi
- docker image rm "$image" >/dev/null 2>&1 || true
+ docker image rm "$image" "$search_image" >/dev/null 2>&1 || true
  rm -rf "$task_dir"
 }
 trap cleanup EXIT HUP INT TERM
@@ -19,7 +21,12 @@ export JWT_SECRET=synthetic-observer-test-secret-at-least-32
 export CAMPUS_REDIS_PREFIX=test:observer: CAMPUS_DATABASE=campustrace
 export OTEL_TRACES_SAMPLER_ARG=1
 docker build --tag "$image" . > "$evidence/build.log" 2>&1
-docker compose --env-file /dev/null --file docker-compose.yml --file compose.app.yml --file compose.observability.yml config --format json > "$task_dir/source.json"
+if [ "${CAMPUS_SMOKE_SEARCH:-0}" = 1 ];then
+ docker build --file Dockerfile.search --tag "$search_image" . > "$evidence/search-build.log" 2>&1
+ docker compose --env-file /dev/null --file docker-compose.yml --file compose.app.yml --file compose.search.yml --file compose.observability.yml --file compose.search-observability.yml config --format json > "$task_dir/source.json"
+else
+ docker compose --env-file /dev/null --file docker-compose.yml --file compose.app.yml --file compose.observability.yml config --format json > "$task_dir/source.json"
+fi
 python3 - "$task_dir/source.json" "$task_dir/compose.json" "$project" "$image" <<'PY'
 import json,sys
 source,dest,project,image=sys.argv[1:]
@@ -30,6 +37,8 @@ for name,s in v['services'].items():
  s['restart']='no'
  if name in ('api','worker','analysis-1','analysis-2','sandbox-runner'):
   s['image']=image;s.pop('build',None)
+ if name=='search':s['image']=image+'-search';s.pop('build',None)
+ if name=='opensearch':s['volumes']=[];s['tmpfs']=['/usr/share/opensearch/data:uid=1000,gid=1000']
  if name=='mysql':s['volumes']=[];s['tmpfs']=['/var/lib/mysql']
  if name=='redis':s['volumes']=[];s['command']=['redis-server','--appendonly','no','--save','']
  if name=='etcd':s['volumes']=[];s['tmpfs']=['/etcd-data']
@@ -56,5 +65,13 @@ python3 scripts/smoke-observability.py "$task_dir" "$evidence" "$project" > "$ev
  cat "$evidence/smoke.log" >&2
  exit 1
 }
+if [ "${CAMPUS_SMOKE_SEARCH:-0}" = 1 ];then
+ python3 scripts/smoke-search.py "$task_dir" "$evidence" "$project" > "$evidence/search-smoke.log" 2>&1 || {
+  docker compose --project-name "$project" --file "$task_dir/compose.json" logs --no-color > "$evidence/services.log" 2>&1
+  cat "$evidence/search-smoke.log" >&2
+  exit 1
+ }
+ cat "$evidence/search-smoke.log"
+fi
 docker compose --project-name "$project" --file "$task_dir/compose.json" logs --no-color > "$evidence/services.log" 2>&1
 cat "$evidence/smoke.log"

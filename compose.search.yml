@@ -1,0 +1,71 @@
+# Optional local search stack. OpenSearch has no host port and uses a dedicated
+# internal network. These defaults are local demonstration credentials only.
+services:
+  api:
+    networks: [default, search-rpc]
+    environment:
+      SEARCH_URL: http://search:18083
+      SEARCH_QUERY_TOKEN: ${SEARCH_QUERY_TOKEN:-local-search-query-token-change-me-2027}
+  worker:
+    networks: [default, search-rpc]
+    environment:
+      SEARCH_URL: http://search:18083
+      SEARCH_QUERY_TOKEN: ${SEARCH_QUERY_TOKEN:-local-search-query-token-change-me-2027}
+      SEARCH_WRITE_TOKEN: ${SEARCH_WRITE_TOKEN:-local-search-write-token-change-me-2027}
+  search:
+    image: campustrace-search:local
+    build:
+      context: .
+      dockerfile: Dockerfile.search
+      args:
+        GO_IMAGE: ${CAMPUS_GO_IMAGE:-golang:1.25.9-bookworm}
+    restart: unless-stopped
+    stop_grace_period: 10s
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 256m
+    environment:
+      SEARCH_ADDR: 0.0.0.0:18083
+      SEARCH_URL: http://127.0.0.1:18083
+      SEARCH_QUERY_TOKEN: ${SEARCH_QUERY_TOKEN:-local-search-query-token-change-me-2027}
+      SEARCH_WRITE_TOKEN: ${SEARCH_WRITE_TOKEN:-local-search-write-token-change-me-2027}
+      OPENSEARCH_URL: http://opensearch:9200
+      SEARCH_INDEX_ALIAS: campustrace-jobs-v1
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:-}
+      OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-0.1}
+    networks: [search-rpc, search-index]
+    healthcheck:
+      test: [CMD, /app/search, probe]
+      interval: 30s
+      start_interval: 3s
+      start_period: 20s
+      timeout: 4s
+      retries: 30
+    depends_on:
+      opensearch: {condition: service_healthy}
+  opensearch:
+    image: opensearchproject/opensearch:3.9.0
+    restart: unless-stopped
+    mem_limit: 1536m
+    environment:
+      discovery.type: single-node
+      DISABLE_SECURITY_PLUGIN: 'true'
+      DISABLE_INSTALL_DEMO_CONFIG: 'true'
+      OPENSEARCH_JAVA_OPTS: -Xms512m -Xmx512m
+    networks: [search-index]
+    volumes: [search-data:/usr/share/opensearch/data]
+    healthcheck:
+      test: [CMD-SHELL, 'curl -fsS "http://127.0.0.1:9200/_cluster/health?wait_for_status=yellow&timeout=2s" >/dev/null']
+      interval: 30s
+      start_interval: 3s
+      start_period: 30s
+      timeout: 4s
+      retries: 40
+networks:
+  search-rpc:
+    internal: true
+  search-index:
+    internal: true
+volumes:
+  search-data:

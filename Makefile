@@ -61,3 +61,15 @@ observability-status:
 	docker compose --file docker-compose.yml --file compose.app.yml --file compose.observability.yml ps
 observability-test:
 	sh scripts/observability-local.sh
+
+.PHONY: search-stack search-stop search-status search-rebuild search-test
+search-stack:
+	docker compose --file docker-compose.yml --file compose.app.yml --file compose.search.yml up -d --build --wait
+search-stop:
+	docker compose --file docker-compose.yml --file compose.app.yml --file compose.search.yml stop
+search-status:
+	docker compose --file docker-compose.yml --file compose.app.yml --file compose.search.yml ps
+search-rebuild:
+	docker compose --file docker-compose.yml --file compose.app.yml --file compose.search.yml exec -T search /app/search rebuild
+search-test:
+	sh scripts/search-local.sh

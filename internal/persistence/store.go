@@ -9,6 +9,7 @@ import (
 	"github.com/KanaDoodle/CampusTrace/internal/observability"
 	"github.com/KanaDoodle/CampusTrace/internal/resume"
 	"github.com/KanaDoodle/CampusTrace/internal/rules"
+	"github.com/KanaDoodle/CampusTrace/internal/searchapi"
 	"github.com/KanaDoodle/CampusTrace/migrations"
 	"github.com/go-sql-driver/mysql"
 	"strings"
@@ -21,6 +22,7 @@ var ErrBackendUnavailable = errors.New("backend unavailable")
 var ErrValidation = errors.New("business validation")
 
 type Store struct {
+	Search           searchapi.Transport
 	Metrics          *observability.Metrics
 	DB               *sql.DB
 	Weights          rules.Weights
@@ -73,7 +75,7 @@ func (s *Store) Migrate(ctx context.Context) error {
 	if err := s.migrateBackend(ctx); err != nil {
 		return err
 	}
-	for _, stmt := range strings.Split(migrations.LocalReliabilitySQL+";"+migrations.SourceImportSQL+";"+migrations.HolisticSQL+";"+migrations.AgentWorkspaceSQL+";"+migrations.AgentHarnessSQL+";"+migrations.KnowledgeRetrievalSQL+";"+migrations.AssessmentScheduleSQL+";"+migrations.ApplicationJourneySQL+";"+migrations.TaskSchedulingSQL+";"+migrations.ModelControlSQL, ";") {
+	for _, stmt := range strings.Split(migrations.LocalReliabilitySQL+";"+migrations.SourceImportSQL+";"+migrations.HolisticSQL+";"+migrations.AgentWorkspaceSQL+";"+migrations.AgentHarnessSQL+";"+migrations.KnowledgeRetrievalSQL+";"+migrations.AssessmentScheduleSQL+";"+migrations.ApplicationJourneySQL+";"+migrations.TaskSchedulingSQL+";"+migrations.ModelControlSQL+";"+migrations.SearchSQL, ";") {
 		if strings.TrimSpace(stmt) != "" {
 			if _, err := s.DB.ExecContext(ctx, stmt); err != nil {
 				return err

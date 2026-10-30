@@ -1,0 +1,14 @@
+# Add after both compose.search.yml and compose.observability.yml.
+services:
+  search:
+    environment:
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://tempo:4318/v1/traces
+  tempo:
+    networks: [default, search-rpc]
+  prometheus:
+    networks: [default, search-rpc]
+    volumes:
+      - ./configs/observability/prometheus-search.yml:/etc/prometheus/prometheus.yml:ro
+  grafana:
+    volumes:
+      - ./configs/observability/grafana/search.json:/var/lib/grafana/dashboards/search.json:ro
