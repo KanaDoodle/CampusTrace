@@ -120,7 +120,7 @@
     if (key==='value') return requirement(value,context.rule||context.type,key);
     if (key==='confidence') return `${Math.round(Number(value)*100)}%`;
     if (key==='round') return `第 ${value} 轮`;
-    if (key==='error_category') return enums.fetch[value] || ({ANALYSIS_FAILED:'岗位分析失败',SCHEMA:'资料格式不符合要求',TRANSIENT:'暂时性异常',PERMANENT:'需人工处理的异常'}[value]) || '其他异常';
+    if (key==='error_category') return enums.fetch[value] || ({ANALYSIS_OUTCOME_UNKNOWN:'调用结果未知，需人工核对，不能自动重放',QUEUE_EXPIRED:'排队等待已超时，未开始执行',ANALYSIS_FAILED:'岗位分析失败',SCHEMA:'资料格式不符合要求',TRANSIENT:'暂时性异常',PERMANENT:'需人工处理的异常'}[value]) || '其他异常';
     if (key==='preferred_job_types') return label('job_type',value);
     if (key==='evidence_sources'||key==='weak_evidence') {const m=String(value).match(/^([a-f0-9]{32}):(.*)$/s);if(m)return `复盘 ${m[1]}：${text(m[2])}`;}
     return text(value);
@@ -160,7 +160,7 @@
     if(code==='MATCH_EXPORT_CAPACITY')return '每次最多导出 1,000 个岗位，文字总量不超过 5 MB；请减少选择后重试。';
     if(code==='MATCH_EXPORT_TEXT_REQUIRED')return '所选岗位中有原文缺失或最近读取失败的项，请移除这些岗位后再导出。';
     const chatErrors={MATCH_CHAT_FORMAT:'结果格式无法读取，请使用完整的 JSON 文件或代码块。',MATCH_CHAT_INVALID:'聊天结果未通过原文与资料核对，请查看具体原因并让 ChatGPT 修正对应条目。',MATCH_CHAT_CAPACITY:'单次最多导入 100 个岗位、2 MB 结果，每岗最多 64 项要求；请分批导入或重新拆解要求。',MATCH_CHAT_STALE:'资料、岗位或已有结果发生变化，或者预览已失效。请重新核对；分析包过期时需重新导出。'};if(chatErrors[code])return chatErrors[code];
-    const matchingErrors={MATCH_DAILY_LIMIT:'已达到每日岗位匹配调用上限，未完成项已保留，可在额度重置后继续。',MATCH_INPUT_CHANGED:'求职资料或岗位内容已变化，请刷新并重新核对外发资料。',MATCH_BUSY:'此账号已有一批岗位正在分析，请等当前批次完成后再继续。',MATCH_CAPACITY:'分析输入超过处理上限，请查看具体原因；资料容量和岗位批次分别检查。',MATCH_OUTPUT_INVALID:'模型结果未通过岗位原文或项目依据核对，已保留可复用的解析结果，可单独重试。',MATCH_PROFILE_REQUIRED:'请先在求职资料中保存技能和项目事实，再使用岗位匹配。',MATCH_JOB_UNAVAILABLE:'本批包含已关闭、已忽略或原文不可用的岗位，请刷新后重新选择。'};
+    const matchingErrors={MATCH_QUEUE_FULL:'当前分析名额已满，请稍后重新提交；本次未开始模型调用。',MATCH_QUEUE_TIMEOUT:'等待执行名额已超时，未处理项已保留，本批未调用模型。核对后可继续。',QUEUE_BUSY:'后台排队已满，请稍后重试。',MATCH_DAILY_LIMIT:'已达到每日岗位匹配调用上限，未完成项已保留，可在额度重置后继续。',MATCH_INPUT_CHANGED:'求职资料或岗位内容已变化，请刷新并重新核对外发资料。',MATCH_BUSY:'此账号已有一批岗位正在分析，请等当前批次完成后再继续。',MATCH_CAPACITY:'分析输入超过处理上限，请查看具体原因；资料容量和岗位批次分别检查。',MATCH_OUTPUT_INVALID:'模型结果未通过岗位原文或项目依据核对，已保留可复用的解析结果，可单独重试。',MATCH_PROFILE_REQUIRED:'请先在求职资料中保存技能和项目事实，再使用岗位匹配。',MATCH_JOB_UNAVAILABLE:'本批包含已关闭、已忽略或原文不可用的岗位，请刷新后重新选择。'};
     if(matchingErrors[code])return matchingErrors[code];
     if (code==='EMAIL_TAKEN') return '该邮箱已经注册过，请直接登录，或换一个邮箱注册。';
     if (code==='PASSWORD_LENGTH_INVALID') return '密码需为 8–20 字节，请调整后注册。';

@@ -2,6 +2,8 @@
 
 原有 `/metrics` JSON 保持兼容。新增 API `http://127.0.0.1:8080/metrics/prometheus` 和 Worker `http://127.0.0.1:18081/metrics/prometheus`，提供 Prometheus text exposition；Worker 在 Compose 内监听配置地址，可通过容器内部端口抓取，不需要把该端口发布到公网。
 
+默认 typed 队列的运行参数、旧 Stream/Pending/Retry 迁移和回退条件见[可靠任务调度](task-scheduling.md)。Worker `/queues` 返回各固定通道的 outstanding、inflight、ready 及容量；账号不作为指标标签。新 typed Stream 在完成可靠交接后立即删除消息，以下 `TASK_HISTORY_HOURS` 仅控制旧 Stream 的保守清理。
+
 ## 指标
 
 - `campustrace_http_requests_total`、`campustrace_http_errors_total`（5xx）、`campustrace_http_request_seconds` 直方图。

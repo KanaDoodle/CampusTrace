@@ -129,3 +129,12 @@
 .company-picker-options { display:flex; flex-wrap:wrap; gap:10px 20px; margin-top:14px; font-size:12px; }
 .company-picker-options .check { display:flex; align-items:center; gap:7px; margin:0; }
 .company-picker-options input { width:16px; height:16px; margin:0; }
+
+.company-auto-summary { margin: 12px 0 18px; padding: 12px 0; border-block: 1px solid var(--line); }
+.company-auto-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+.company-auto-heading strong { font-size:14px; color:var(--accent); }
+.company-auto-summary p, .company-auto-summary li { font-size:12px; line-height:1.8; color:var(--muted); }
+.company-auto-summary p { margin:5px 0; }
+.company-auto-summary details { margin:8px 0 0 !important; }
+.company-auto-summary ul { padding-left:20px; }
+@media(max-width:600px) { .company-auto-heading { align-items:flex-start; flex-direction:column; gap:6px; } }

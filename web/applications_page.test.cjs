@@ -66,6 +66,6 @@ test('a successful stage change never reuses old transitions or claims a nonterm
 
 test('application details and preparation both carry a return context without clearing stored filters',async()=>{
  const h=harness({workflow:{query:'Go',company:'甲公司',ongoingPage:2,applicationSort:'followup',scroll:480}});await h.start();await h.article().querySelector('[data-application-job]').onclick();await h.article().querySelector('[data-application-preparation]').onclick();
- assert.equal(h.navigations.length,2);for(const call of h.navigations){assert.equal(call.name,'matching');assert.equal(call.query.returnTo.page,'applications');assert.equal(call.query.jobID,'job-a');}
- assert.equal(h.navigations[1].query.view,'preparation');assert.equal(h.positions[1].lastApplication,'application-a');assert.equal(h.positions[1].query,'Go');assert.equal(h.positions[1].company,'甲公司');assert.equal(h.positions[1].applicationSort,'followup');
+ assert.equal(h.navigations.length,2);assert.equal(h.navigations[0].name,'matching');assert.equal(h.navigations[0].query.returnTo.page,'applications');assert.equal(h.navigations[0].query.jobID,'job-a');assert.equal(h.navigations[1].name,'dossier');assert.equal(h.navigations[1].query.applicationID,'application-a');
+ assert.equal(h.positions[1].lastApplication,'application-a');assert.equal(h.positions[1].query,'Go');assert.equal(h.positions[1].company,'甲公司');assert.equal(h.positions[1].applicationSort,'followup');
 });

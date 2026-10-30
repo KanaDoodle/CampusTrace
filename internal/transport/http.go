@@ -123,6 +123,11 @@ func write(w http.ResponseWriter, v any, err error) {
 			rec.err = err
 		}
 		status := http.StatusBadRequest
+		if errors.Is(err, p.ErrQueueBusy) {
+			w.Header().Set("Retry-After", "2")
+			codedError(w, 503, "QUEUE_BUSY")
+			return
+		}
 		if errors.Is(err, p.ErrNotFound) {
 			status = 404
 		}
@@ -278,6 +283,7 @@ func (a *API) Handler() http.Handler {
 	a.knowledgeRoutes(on)
 	a.matchingTaskRoutes(on)
 	a.campaignRoutes(on)
+	a.journeyRoutes(on)
 	on("GET /api/jobs", func(w http.ResponseWriter, r *http.Request) {
 		v, err := a.Store.JobsForUser(r.Context(), user(r), r.URL.Query().Get("q"))
 		write(w, v, err)
@@ -512,13 +518,13 @@ func (a *API) Handler() http.Handler {
 		write(w, v, err)
 	})
 	on("POST /api/applications", func(w http.ResponseWriter, r *http.Request) {
-		b, err := io.ReadAll(io.LimitReader(r.Body, 65537))
+		b, err := io.ReadAll(io.LimitReader(r.Body, 131073))
 		if err != nil {
 			write(w, nil, err)
 			return
 		}
 		var in p.CreateArgs
-		if err := d.Strict(b, &in); err != nil {
+		if err := d.StrictLimit(b, &in, 131072); err != nil {
 			write(w, nil, err)
 			return
 		}
@@ -530,7 +536,7 @@ func (a *API) Handler() http.Handler {
 		write(w, v, err)
 	})
 	on("POST /api/applications/transition", func(w http.ResponseWriter, r *http.Request) {
-		b, err := io.ReadAll(io.LimitReader(r.Body, 65537))
+		b, err := io.ReadAll(io.LimitReader(r.Body, 131073))
 		if err != nil {
 			write(w, nil, err)
 			return

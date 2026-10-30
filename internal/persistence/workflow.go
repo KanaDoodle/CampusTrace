@@ -11,15 +11,19 @@ import (
 )
 
 type CreateArgs struct {
-	JobID     string `json:"job_id"`
-	Resume    string `json:"resume_version,omitempty"`
-	Submitted bool   `json:"submitted,omitempty"`
+	JobID      string `json:"job_id"`
+	Resume     string `json:"resume_version,omitempty"`
+	Submitted  bool   `json:"submitted,omitempty"`
+	ContextKey string `json:"context_key,omitempty"`
+	ResumeText string `json:"resume_text,omitempty"`
 }
 type TransitionArgs struct {
 	ApplicationID string `json:"application_id"`
 	State         string `json:"state"`
 	Version       int    `json:"version"`
 	Note          string `json:"note,omitempty"`
+	ContextKey    string `json:"context_key,omitempty"`
+	ResumeText    string `json:"resume_text,omitempty"`
 }
 
 func ValidateAction(kind string, raw []byte) error {
@@ -49,18 +53,18 @@ func ValidateAction(kind string, raw []byte) error {
 
 	case "create_application", "record_submitted_application":
 		var a CreateArgs
-		if err := d.Strict(raw, &a); err != nil {
+		if err := d.StrictLimit(raw, &a, 131072); err != nil {
 			return err
 		}
-		if len(a.JobID) != 32 || len(a.Resume) > 200 || (kind == "create_application" && a.Submitted) {
+		if len(a.JobID) != 32 || len(a.Resume) > 200 || len(a.ResumeText) > 60000 || (a.ContextKey != "" && len(a.ContextKey) != 64) || (kind == "create_application" && a.Submitted) {
 			return ErrValidation
 		}
 	case "transition_application":
 		var a TransitionArgs
-		if err := d.Strict(raw, &a); err != nil {
+		if err := d.StrictLimit(raw, &a, 131072); err != nil {
 			return err
 		}
-		if len(a.ApplicationID) != 32 || a.Version < 1 || len(a.Note) > 2000 {
+		if len(a.ApplicationID) != 32 || a.Version < 1 || len(a.Note) > 2000 || len(a.ResumeText) > 60000 || (a.ContextKey != "" && len(a.ContextKey) != 64) {
 			return ErrValidation
 		}
 		valid := false
@@ -152,6 +156,13 @@ func (s *Store) ApplyAction(ctx context.Context, user, nonce, kind string, raw [
 			if err != nil {
 				return err
 			}
+			phase := "PLANNED"
+			if kind == "record_submitted_application" {
+				phase = "SUBMITTED"
+			}
+			if err = saveApplicationContext(ctx, tx, user, v, phase, a.ContextKey, a.ResumeText); err != nil {
+				return err
+			}
 			event := d.ApplicationEvent{ID: d.ID(), ApplicationID: v.ID, To: v.State, OccurredAt: now, Actor: user}
 			_, err = tx.ExecContext(ctx, "INSERT INTO application_events(id,application_id,body) VALUES(?,?,?)", event.ID, v.ID, d.JSON(event))
 			result = []byte(d.JSON(v))
@@ -167,6 +178,11 @@ func (s *Store) ApplyAction(ctx context.Context, user, nonce, kind string, raw [
 			}
 			if e = d.Transition(v.State, a.State); e != nil {
 				return errors.Join(ErrValidation, e)
+			}
+			if a.State == "APPLIED" {
+				if e = saveApplicationContext(ctx, tx, user, v, "SUBMITTED", a.ContextKey, a.ResumeText); e != nil {
+					return e
+				}
 			}
 			event := d.ApplicationEvent{ID: d.ID(), ApplicationID: v.ID, From: v.State, To: a.State, OccurredAt: now, Note: a.Note, Actor: user}
 			_, err = tx.ExecContext(ctx, "INSERT INTO application_events(id,application_id,body) VALUES(?,?,?)", event.ID, v.ID, d.JSON(event))

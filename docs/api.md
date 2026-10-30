@@ -1,5 +1,27 @@
 # HTTP and operator interfaces
 
+## Application journey
+
+All routes below are account-scoped and do not call models or mailbox providers. Reads/previews return `Cache-Control: no-store`.
+
+| Method / path | Contract |
+| --- | --- |
+| GET /api/applications/{id}/dossier | Immutable contexts, selected submitted/planned context, legacy absence, frozen preparation, confirmed notices, interviews |
+| POST /api/applications/{id}/context-preview | Optional `resume_text` (60,000 UTF-8 bytes); current full materials and `context_key`; no write |
+| POST /api/recruitment-notices | `content`, `format: text|eml`; max 128 KiB content; saves pending item and returns current candidate reasons and ambiguity; duplicates return existing item |
+| GET /api/recruitment-notices | Latest 100 owned items |
+| GET /api/recruitment-notices/{id} | Owned item and current candidate versions |
+| POST /api/recruitment-notices/{id}/confirm | Notice `version`, `application_id`, `application_version`, `kind`, optional RFC3339 `scheduled_at`, `round`, `reference`, `note`; RESCHEDULE also requires `interview_id`, `previous_scheduled_at` |
+| POST /api/matching/company-plan | Company workspace identity/scope plus `decision_key`, `selected_job_ids`; atomic batch plans and original-result replay |
+
+Company workspace includes `plan` with suggested/available IDs, unknown-rule IDs, blocked reasons and dependency key. Model ranking does not allocate slots; unknown rules do not imply unlimited submissions. Confirm scope must match the viewed scope.
+
+Application create/transition additionally accepts optional `context_key`, `resume_text`; JSON bound is 128 KiB. SUBMITTED preserves PLANNED. Old callers without a key remain compatible, marked unreviewed. Legacy already-submitted records are not backfilled.
+
+Notice import/context preview use a 1 MiB JSON envelope, with smaller field bounds. Optional dates must be omitted, never `null`. Confirmation replay uses the original full payload; changed payload, stale dependencies/versions or mismatched original interview time return 409. Quota errors use `CAMPAIGN_LIMIT_REACHED`. Notice transactions never silently regress stages.
+
+Migration, demo, limits and acceptance: [application journey](application-journey.md).
+
 API binds localhost by default. JSON requests are strict and limited to 64KiB except imports (1MiB / 100 rows). Every `/api/*` and `/agent/*` route requires a Bearer JWT or a browser session cookie. User identity is derived from the credential, never from a client-supplied ownership argument. Cookie-authenticated writes require a matching Origin. `/metrics` and health routes are local operational endpoints without authentication.
 
 | Method / path | Behavior |
@@ -210,6 +232,7 @@ Agent execution responses include server-computed `can_resume` and optional `lea
 ## 公司投递决策与匹配评测
 
 - `GET /api/matching/company-catalog`：当前账号可见公司的数量目录；加 `?company=...` 返回该公司岗位元数据，可在读取完整决策前缩小范围。公司目录上限 1,000，公司岗位目录上限 10,000，超限明确拒绝。
+- `POST /api/matching/company-auto-candidates`：接收匹配模型身份、company 与补充遮盖姓名，不接受 job_ids。对本人可见的该公司完整本地候选目录（最多 10,000）进行只读挑选，返回 company、as_of、total、eligible、selected（job_id/title/reason）、skipped 分类计数与 deferred。跳过不可用、已关闭、忽略、已投、限投已满及明显无关岗位；当前有效整体分析为优先/相关时可覆盖本地方向判断。相同 JD 优先只选一个代表，最多16个，按完整资料与 JD 的128,000字节上限装入。不会创建任务或调用模型，不回传个人资料；后续确认与任务创建继续使用原有完整输入校验。
 - `POST /api/matching/company-workspace`：接收匹配模型身份、company 与可选 job_ids，返回 comparison 和 workflow。完整读取上限 200 个岗位；workflow 包含当前范围岗位的截止、官网链接、投递状态，以及整家公司的个人限投规则和可见投递记录。只读、不调用模型，响应禁止缓存。
 - `POST /api/matching/evaluation/export`：明确选择 1～16 个岗位，提交 expected_scope_key 与人工 reference（acceptable_top_job_ids、reason、reviewed=true；可附 pairs），返回 `campustrace-matching-eval-v1` 案例与当前可复用报告。输入变化返回 MATCH_INPUT_CHANGED，越界参考结论拒绝；不创建任务、不调用模型、不修改个人资料。前端展示完整脱敏文字后再下载。
 

@@ -7,6 +7,7 @@ const text=(v,n)=>typeof v==='string'&&v.trim()&&new TextEncoder().encode(v).len
 function destination(v){
  if(!v||typeof v!=='object')return null;
  switch(v.kind){
+ case 'dossier':return id(v.application_id)?{page:'dossier',query:{applicationID:v.application_id}}:null;
  case 'job':return id(v.job_id)?{page:'matching',query:{jobID:v.job_id}}:null;
  case 'preparation':return id(v.job_id)?{page:'matching',query:{jobID:v.job_id,view:'preparation'}}:null;
  case 'company':return text(v.company,200)?{page:'company_decision',query:{company:v.company}}:null;

@@ -9,6 +9,9 @@ import (
 )
 
 type Config struct {
+	QueueMode                                                                       string
+	QueueCapacity, QueueOwnerCapacity                                               int
+	MatchQueueWait, MatchExecution                                                  time.Duration
 	DSN, Redis, Etcd, HTTP, JWT, LLMURL, LLMKey, LLMModel                           string
 	Workers, AnalysisConcurrency, LLMConcurrency, EmbeddingConcurrency, MaxAttempts int
 	TaskTimeout, ClaimIdle                                                          time.Duration
@@ -28,6 +31,21 @@ func Int(k string, d int) int {
 	return v
 }
 func Load() Config {
-	return Config{DSN: Env("MYSQL_DSN", "campus:local-campus-only@tcp(127.0.0.1:13306)/campustrace?parseTime=true&loc=UTC"), Redis: Env("REDIS_ADDR", "127.0.0.1:16379"), Etcd: Env("ETCD_ENDPOINTS", "127.0.0.1:12379"), HTTP: Env("HTTP_ADDR", "127.0.0.1:8080"), JWT: os.Getenv("JWT_SECRET"), LLMURL: os.Getenv("LLM_URL"), LLMKey: os.Getenv("LLM_API_KEY"), LLMModel: os.Getenv("LLM_MODEL"), Workers: Int("WORKER_CONCURRENCY", 4), AnalysisConcurrency: Int("ANALYSIS_CONCURRENCY", 2), LLMConcurrency: Int("LLM_CONCURRENCY", 2), EmbeddingConcurrency: Int("EMBEDDING_CONCURRENCY", 2), MaxAttempts: Int("MAX_ATTEMPTS", 4), TaskTimeout: time.Duration(Int("TASK_TIMEOUT_SECONDS", 15)) * time.Second, ClaimIdle: time.Duration(Int("CLAIM_IDLE_SECONDS", 45)) * time.Second}
+	return Config{QueueMode: queueMode(), QueueCapacity: BoundedInt("QUEUE_CAPACITY", 256, 4096), QueueOwnerCapacity: BoundedInt("QUEUE_OWNER_CAPACITY", 32, 1024), MatchQueueWait: time.Duration(BoundedInt("MATCH_QUEUE_WAIT_SECONDS", 30, 600)) * time.Second, MatchExecution: time.Duration(BoundedInt("MATCH_EXECUTION_SECONDS", 175, 300)) * time.Second, DSN: Env("MYSQL_DSN", "campus:local-campus-only@tcp(127.0.0.1:13306)/campustrace?parseTime=true&loc=UTC"), Redis: Env("REDIS_ADDR", "127.0.0.1:16379"), Etcd: Env("ETCD_ENDPOINTS", "127.0.0.1:12379"), HTTP: Env("HTTP_ADDR", "127.0.0.1:8080"), JWT: os.Getenv("JWT_SECRET"), LLMURL: os.Getenv("LLM_URL"), LLMKey: os.Getenv("LLM_API_KEY"), LLMModel: os.Getenv("LLM_MODEL"), Workers: Int("WORKER_CONCURRENCY", 4), AnalysisConcurrency: Int("ANALYSIS_CONCURRENCY", 2), LLMConcurrency: Int("LLM_CONCURRENCY", 2), EmbeddingConcurrency: Int("EMBEDDING_CONCURRENCY", 2), MaxAttempts: Int("MAX_ATTEMPTS", 4), TaskTimeout: time.Duration(Int("TASK_TIMEOUT_SECONDS", 15)) * time.Second, ClaimIdle: time.Duration(Int("CLAIM_IDLE_SECONDS", 45)) * time.Second}
 }
 func (c Config) Endpoints() []string { return strings.Split(c.Etcd, ",") }
+
+func BoundedInt(key string, fallback, maximum int) int {
+	n := Int(key, fallback)
+	if n > maximum {
+		panic(fmt.Sprintf("%s exceeds maximum %d", key, maximum))
+	}
+	return n
+}
+func queueMode() string {
+	mode := Env("TASK_QUEUE_MODE", "typed")
+	if mode != "typed" && mode != "legacy" {
+		panic("TASK_QUEUE_MODE must be typed or legacy")
+	}
+	return mode
+}

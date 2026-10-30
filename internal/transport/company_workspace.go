@@ -44,9 +44,34 @@ func (a *API) companyWorkspaceRoutes(on func(string, http.HandlerFunc)) {
 	})
 	on("POST /api/matching/company-workspace", a.companyWorkspace)
 	on("POST /api/matching/company-candidates", a.companyCandidates)
+	on("POST /api/matching/company-auto-candidates", a.autoCompanyCandidates)
 	on("POST /api/matching/evaluation/export", a.exportMatchingEvaluation)
 	on("POST /api/matching/company-chat/export", a.exportCompanyChat)
 	on("POST /api/matching/company-chat/{action}", a.importCompanyChat)
+}
+
+func (a *API) autoCompanyCandidates(w http.ResponseWriter, r *http.Request) {
+	var in companyWorkspaceRequest
+	if err := decode(r, &in); err != nil {
+		write(w, nil, err)
+		return
+	}
+	in.Company = strings.TrimSpace(in.Company)
+	if in.Company == "" || len(in.Company) > 1024 || len(in.JobIDs) != 0 {
+		write(w, nil, p.ErrValidation)
+		return
+	}
+	identity, err := a.matchIdentity(in.matchPreviewRequest)
+	if err != nil {
+		write(w, nil, err)
+		return
+	}
+	selection, err := a.Store.AutoCompanyCandidates(r.Context(), user(r), identity, strings.TrimSpace(in.MaskName), in.Company)
+	if err != nil {
+		matchFailure(w, err)
+		return
+	}
+	decisionWrite(w, selection)
 }
 
 func (a *API) companyCandidates(w http.ResponseWriter, r *http.Request) {
@@ -136,5 +161,6 @@ func (a *API) companyWorkspace(w http.ResponseWriter, r *http.Request) {
 	decisionWrite(w, struct {
 		Comparison matching.CompanyComparison `json:"comparison"`
 		Workflow   *p.CompanyWorkflow         `json:"workflow"`
-	}{report, snapshot.CompanyWorkflow})
+		Plan       p.CompanyDecisionPlan      `json:"plan"`
+	}{report, snapshot.CompanyWorkflow, p.BuildCompanyDecisionPlan(snapshot, report)})
 }

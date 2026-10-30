@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
 	"github.com/KanaDoodle/CampusTrace/internal/analysis"
 	"github.com/KanaDoodle/CampusTrace/internal/bootstrap"
 	"github.com/KanaDoodle/CampusTrace/internal/config"
@@ -25,6 +27,10 @@ func main() {
 		return
 	}
 	defer app.Close()
+	if err = app.Store.Migrate(ctx); err != nil {
+		slog.Error("worker database migration failed")
+		return
+	}
 	rpc, err := analysis.NewClient(app.Config.Endpoints(), app.Config.AnalysisConcurrency, app.Config.TaskTimeout)
 	if err != nil {
 		slog.Error("RPC startup failed", "error", err)
@@ -33,6 +39,17 @@ func main() {
 	defer rpc.Close()
 	metricsMux := http.NewServeMux()
 	metricsMux.Handle("GET /metrics", app.Metrics)
+	metricsMux.HandleFunc("GET /queues", func(w http.ResponseWriter, r *http.Request) {
+		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+		defer cancel()
+		stats, e := app.Queue.Stats(ctx)
+		if e != nil {
+			http.Error(w, "queue stats unavailable", 503)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(stats)
+	})
 	metricsMux.HandleFunc("GET /metrics/prometheus", func(w http.ResponseWriter, r *http.Request) { app.Metrics.Prometheus(w, r, app.Store.DB.Stats()) })
 	metricsMux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("ok")) })
 	metricsServer := &http.Server{Addr: config.Env("WORKER_METRICS_ADDR", "127.0.0.1:18081"), Handler: metricsMux, ReadHeaderTimeout: 3 * time.Second}
@@ -43,6 +60,14 @@ func main() {
 	}()
 	defer metricsServer.Close()
 	w := pipeline.Worker{Version: config.Env("ANALYSIS_VERSION", d.AnalysisVersion), Store: app.Store, Queue: app.Queue, Analyzer: rpc, Concurrency: app.Config.Workers, MaxAttempts: app.Config.MaxAttempts, Timeout: app.Config.TaskTimeout, ClaimIdle: app.Config.ClaimIdle, TaskHistory: time.Duration(historyHours) * time.Hour, Metrics: app.Metrics}
+	w.LaneConcurrency = map[string]int{}
+	for _, lane := range pipeline.QueueLanes() {
+		fallback := 1
+		if lane == "ANALYZE" || lane == "WATCH_FETCH" {
+			fallback = 2
+		}
+		w.LaneConcurrency[lane] = config.BoundedInt("WORKER_"+lane+"_CONCURRENCY", fallback, 16)
+	}
 	if err = w.Run(ctx); err != nil {
 		slog.Error("worker stopped", "error", err)
 	}

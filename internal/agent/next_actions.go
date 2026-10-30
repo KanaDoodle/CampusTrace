@@ -15,15 +15,16 @@ import (
 // Only successful application tools can supply targets. A click re-reads the
 // destination with the current account and its current data.
 type NextAction struct {
-	Kind       string `json:"kind"`
-	Label      string `json:"label"`
-	Reason     string `json:"reason"`
-	Source     string `json:"source_tool"`
-	JobID      string `json:"job_id,omitempty"`
-	Company    string `json:"company,omitempty"`
-	DocumentID string `json:"document_id,omitempty"`
-	Topic      string `json:"topic,omitempty"`
-	RunID      string `json:"run_id,omitempty"`
+	Kind          string `json:"kind"`
+	Label         string `json:"label"`
+	Reason        string `json:"reason"`
+	Source        string `json:"source_tool"`
+	JobID         string `json:"job_id,omitempty"`
+	Company       string `json:"company,omitempty"`
+	DocumentID    string `json:"document_id,omitempty"`
+	Topic         string `json:"topic,omitempty"`
+	RunID         string `json:"run_id,omitempty"`
+	ApplicationID string `json:"application_id,omitempty"`
 }
 
 var actionID = regexp.MustCompile(`^[a-f0-9]{32}$`)
@@ -45,7 +46,7 @@ func NextActions(facts []any) []NextAction {
 	items := []candidate{}
 	seen := map[string]int{}
 	add := func(a NextAction, priority int) {
-		key := a.Kind + ":" + a.JobID + ":" + a.Company + ":" + a.DocumentID + ":" + a.Topic + ":" + a.RunID
+		key := a.Kind + ":" + a.JobID + ":" + a.Company + ":" + a.DocumentID + ":" + a.Topic + ":" + a.RunID + ":" + a.ApplicationID
 		if i, ok := seen[key]; ok {
 			if priority < items[i].priority {
 				items[i] = candidate{a, priority}
@@ -74,6 +75,13 @@ func NextActions(facts []any) []NextAction {
 			add(NextAction{Kind: kind, Label: label + actionText(title, 60), Reason: reason, Source: item.Tool, JobID: id}, priority)
 		}
 		switch item.Tool {
+		case "get_application_dossier":
+			var v struct {
+				ID string `json:"application_id"`
+			}
+			if json.Unmarshal(item.Data, &v) == nil && actionID.MatchString(v.ID) {
+				add(NextAction{Kind: "dossier", ApplicationID: v.ID, Label: "打开这次申请的档案与准备", Reason: "核对固定材料、已确认通知与面试安排。", Source: item.Tool}, 0)
+			}
 		case "compare_company_jobs":
 			var v struct {
 				Company string `json:"company"`

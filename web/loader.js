@@ -13,6 +13,8 @@
   practice:['practice.js'],
   applications:['campaigns.js','applications.js','drafts.js'],
   interviews:['interviews.js','drafts.js'],
+  journey:['journey.js','journey.css'],
+  dossier:['journey.js','journey.css'],
   preferences:['matching_chat.js','preferences.js'],
   radar:['radar_browse.js','notifications.js','todos.js','deadlines.js','source_catalog.js','source_bulk.js','source_watches.js','radar.js'],
   zip:['vendor/jszip.min.js'],drafts:['drafts.js']

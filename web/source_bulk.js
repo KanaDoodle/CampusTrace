@@ -1,7 +1,7 @@
 (function(root){
  'use strict';
  const labels={PENDING:'等待开始',PREPARING:'准备来源',QUEUED:'等待读取',FETCHING:'导入岗位',RETRYING:'自动重试中',SUCCESS:'已完成',EMPTY:'暂无岗位',FAILED:'需要重试'};
- const errors={SOURCE_IMPORT_NETWORK:'连接超时或网络异常',SOURCE_IMPORT_BLOCKED:'官网限制了访问',SOURCE_IMPORT_BUSY:'官网暂时繁忙',SOURCE_IMPORT_CAPACITY:'岗位数超过单来源上限，可先到官网查看',SOURCE_IMPORT_CHANGED:'官网返回格式或招聘范围有变化',SOURCE_IMPORT_FAILED:'暂时无法读取来源',SOURCE_IMPORT_DISCOVERY_FAILED:'暂时无法读取完整岗位列表',SOURCE_IMPORT_PARTIAL_FAILURE:'部分岗位未能读取，已保留成功项',SOURCE_IMPORT_INTERRUPTED:'恢复副本中的导入已中断，可重新开始'};
+ const errors={QUEUE_EXPIRED:'排队等待已超时，未开始本次读取；可重新核对并重试',SOURCE_IMPORT_NETWORK:'连接超时或网络异常',SOURCE_IMPORT_BLOCKED:'官网限制了访问',SOURCE_IMPORT_BUSY:'官网暂时繁忙',SOURCE_IMPORT_CAPACITY:'岗位数超过单来源上限，可先到官网查看',SOURCE_IMPORT_CHANGED:'官网返回格式或招聘范围有变化',SOURCE_IMPORT_FAILED:'暂时无法读取来源',SOURCE_IMPORT_DISCOVERY_FAILED:'暂时无法读取完整岗位列表',SOURCE_IMPORT_PARTIAL_FAILURE:'部分岗位未能读取，已保留成功项',SOURCE_IMPORT_INTERRUPTED:'恢复副本中的导入已中断，可重新开始'};
  const status=item=>item.state==='FAILED'?'FAILED':['SUCCESS','EMPTY'].includes(item.state)?'DONE':'ACTIVE';
  function select(items,state={}){
   const query=String(state.search||'').trim().toLocaleLowerCase();

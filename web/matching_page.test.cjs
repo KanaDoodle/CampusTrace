@@ -3,7 +3,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
 
-function harness({pending=['pending-a','pending-b'],failed=['failed-a','failed-b'],analyze,exportError,compare,exportRequest,evidenceReviews=0,durable=false,taskRuns=[],taskRequest,taskRead,bulkRequest,importRequest,paging=false,inventoryRequest,previewRequest,deadlineRequest}={}){
+function harness({pending=['pending-a','pending-b'],failed=['failed-a','failed-b'],analyze,exportError,compare,exportRequest,evidenceReviews=0,durable=false,taskRuns=[],taskRequest,taskRead,bulkRequest,importRequest,paging=false,inventoryRequest,previewRequest,deadlineRequest,preserveDialogs=false}={}){
   const stored=new Map(),elements=new Map(),requests=[],exports=[],decisionRequests=[],taskRequests=[],bulkRequests=[],importRequests=[],inventoryRequests=[],timers=[],navigations=[];
   const model={url:'https://model.example/chat',model:'test-model',api_key:'synthetic-test-key'};
   const modelKey=JSON.stringify([model.url,model.model,'server-model']);
@@ -13,10 +13,10 @@ function harness({pending=['pending-a','pending-b'],failed=['failed-a','failed-b
   const document={activeElement:null,querySelector:selector=>elements.get(selector.slice(1)),querySelectorAll:()=>[],getElementById:id=>elements.get(id)};
   let html='';
   const set=value=>{
-    html=value;elements.clear();
+    html=value;const previousElements=new Map(elements);elements.clear();
     for(const match of value.matchAll(/<([a-z][\w:-]*)\b([^>]*\bid="([^"]+)"[^>]*)>/gi)){
       const [,tag,attributes,id]=match;
-      elements.set(id,{id,tagName:tag.toUpperCase(),disabled:/\sdisabled(?:\s|>|$)/.test(attributes),checked:/\schecked(?:\s|>|$)/.test(attributes),value:attributes.match(/\bvalue="([^"]*)"/)?.[1]||'',isConnected:true,innerHTML:'',dataset:{},querySelector:()=>({onclick:null}),querySelectorAll:()=>[],getClientRects:()=>[],showModal(){this.open=true;},close(){this.open=false;this.onclose?.();}});
+      elements.set(id,preserveDialogs&&tag.toUpperCase()==='DIALOG'&&previousElements.has(id)?previousElements.get(id):{id,tagName:tag.toUpperCase(),disabled:/\sdisabled(?:\s|>|$)/.test(attributes),checked:/\schecked(?:\s|>|$)/.test(attributes),value:attributes.match(/\bvalue="([^"]*)"/)?.[1]||'',isConnected:true,innerHTML:'',dataset:{},querySelector:()=>({onclick:null}),querySelectorAll:()=>[],getClientRects:()=>[],showModal(){this.open=true;},close(){this.open=false;this.onclose?.();}});
     }
     for(const match of value.matchAll(/<select\b[^>]*id="([^"]+)"[^>]*>([\s\S]*?)<\/select>/gi)){
       const options=[...match[2].matchAll(/<option\b([^>]*)>([^<]*)<\/option>/gi)];
@@ -741,4 +741,11 @@ test('browse tabs commit interrupted Chinese composition and keep selection plus
 test('search blur recovers an interrupted composition and does not leave a stale search timer after a tab change',async()=>{
  const h=harness({pending:[],failed:[]});h.snapshot.candidate.facts=[{kind:'ROLE',text:'后端开发'}];h.snapshot.jobs=[directionRow('backend','MATCH'),directionRow('marketing','UNRELATED')];await h.start();const search=h.elements.get('match-search');search.oncompositionstart();search.value='岗位';search.oninput({isComposing:true});search.onblur();
  h.elements.get('match-view-ALL').onclick();for(const timer of h.timers.filter(v=>v.delay===240&&!v.canceled))timer.fn();assert.match(h.html(),/id="match-view-ALL" aria-pressed="true"/);assert.match(h.html(),/data-match-job="marketing"/);assert.equal(h.navigation.readBrowse('alice').query,'岗位');
+});
+
+test('changing radar panels closes the previous dialog without its close callback canceling the new one',async()=>{
+ const h=harness({preserveDialogs:true});await h.start();h.elements.get('match-compare-company').onclick();const previous=h.elements.get('match-comparison-dialog');let closed=0;previous.close=()=>{closed++;previous.open=false;previous.onclose?.();};h.elements.get('match-open-settings').onclick();assert.equal(closed,1);assert.equal(h.elements.get('match-settings-dialog').open,true);assert.equal(!!h.elements.get('match-comparison-dialog')?.open,false);
+});
+test('confirmed analysis closes the reviewed dialog and preserves authorization for its one submission',async()=>{
+ const h=harness({pending:['job-a'],failed:[],preserveDialogs:true});await h.start();await h.elements.get('match-run').onclick();h.consent();const previous=h.elements.get('match-review-dialog');let closed=0;previous.close=()=>{closed++;previous.open=false;previous.onclose?.();};await h.review();assert.equal(closed,1);assert.equal(h.requests.length,1);assert.equal(h.elements.get('match-review-dialog').open,false);
 });

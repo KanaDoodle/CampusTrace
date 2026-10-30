@@ -40,3 +40,10 @@ test('quick selection preferences accept only the supported batch sizes',()=>{
  C.storeState('quick-user','A',{quickCount:1000});
  assert.equal(C.readState('quick-user','A').quickCount,4);
 });
+
+test('automatic-selection browse state bounds counts and IDs and does not retain extra private fields',()=>{
+ const value={company:'A',total:20,eligible:18,deferred:17,as_of:'2026-10-25T08:00:00Z',selected:[{job_id:'a',title:'Go后端',reason:'主投相关'}],skipped:{closed:2,private:99},previous:['b'],document:'private material',api_key:'private secret'};
+ C.storeState('auto-alice','A',{auto:value});const state=C.readState('auto-alice','A');assert.equal(state.auto.selected[0].job_id,'a');assert.deepEqual(state.auto.previous,['b']);assert.equal(C.readState('auto-bob','A').auto,null);assert.equal(C.readState('auto-alice','B').auto,null);assert.doesNotMatch(JSON.stringify(state),/private/);
+ for(const bad of [{...value,eligible:-1},{...value,deferred:0},{...value,selected:[value.selected[0],value.selected[0]]}])assert.equal(C.cleanAuto(bad),null);
+ const html=C.autoSummaryHTML(C.cleanAuto({...value,selected:[{job_id:'a',title:'<script>',reason:'<img>'}]}),{esc,D});assert.match(html,/本地共 20 个岗位/);assert.match(html,/未纳入本轮 17 个/);assert.match(html,/&lt;script&gt;/);assert.doesNotMatch(html,/<script>|<img>/);
+});

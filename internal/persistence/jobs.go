@@ -44,6 +44,8 @@ func (i Ingest) Validate() error {
 }
 
 type Task struct {
+	OwnerID           string    `json:"owner_id,omitempty"`
+	QueueUntil        time.Time `json:"queue_until,omitempty"`
 	Posting           *Ingest   `json:"posting,omitempty"`
 	WatchID           string    `json:"watch_id,omitempty"`
 	ScheduleVersion   uint64    `json:"schedule_version,omitempty"`
@@ -66,7 +68,37 @@ func Outbox(ctx context.Context, tx *sql.Tx, t Task) error {
 	if id := observability.From(ctx).RequestID; id != "" {
 		t.CorrelationID = id
 	}
-	_, err := tx.ExecContext(ctx, "INSERT INTO outbox(id,body,created_at) VALUES(?,?,?)", t.ID, d.JSON(t), t.CreatedAt)
+	owner, err := taskOwner(ctx, tx, t)
+	if err != nil {
+		return err
+	}
+	t.OwnerID = owner
+	if t.QueueUntil.IsZero() {
+		t.QueueUntil = time.Now().UTC().Add(10 * time.Minute)
+	}
+	// A fixed durable bound complements Redis resident capacity. The lock is
+	// independent of the dispatch cursor, so writers never wait on a dispatcher
+	// holding a job lock in the reverse order.
+	var admission string
+	if err = tx.QueryRowContext(ctx, "SELECT id FROM queue_admission_lock WHERE id='outbox' FOR UPDATE").Scan(&admission); err != nil {
+		return err
+	}
+	var total, owned int
+	if err = tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM outbox WHERE sent=FALSE").Scan(&total); err != nil {
+		return err
+	}
+	// Until legacy ownership is backfilled, count unknown rows conservatively
+	// against each owner; an incomplete index cannot grant extra capacity.
+	if err = tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM outbox o LEFT JOIN outbox_tenants f ON f.task_id=o.id WHERE o.sent=FALSE AND (f.owner_id=? OR f.task_id IS NULL)", queueOwner(owner)).Scan(&owned); err != nil {
+		return err
+	}
+	if total >= 100000 || owned >= 20000 {
+		return ErrQueueBusy
+	}
+	if _, err = tx.ExecContext(ctx, "INSERT INTO outbox(id,body,created_at) VALUES(?,?,?)", t.ID, d.JSON(t), t.CreatedAt); err != nil {
+		return err
+	}
+	_, err = tx.ExecContext(ctx, "INSERT INTO outbox_tenants(task_id,owner_id,created_at) VALUES(?,?,?)", t.ID, queueOwner(owner), t.CreatedAt)
 	return err
 }
 func (s *Store) SaveSource(ctx context.Context, v d.Source) error {

@@ -65,7 +65,7 @@ func Open(ctx context.Context) (*App, error) {
 		r.Close()
 		return nil, fmt.Errorf("invalid Redis namespace")
 	}
-	q := &pipeline.Queue{R: r, Prefix: prefix}
+	q := &pipeline.Queue{R: r, Prefix: prefix, Partitioned: c.QueueMode == "typed", Capacity: c.QueueCapacity, OwnerCapacity: c.QueueOwnerCapacity, ResolveOwner: s.TaskOwner}
 	rg := &rag.Service{Cache: &rag.QueryCache{}, Store: s, Sem: make(chan struct{}, c.EmbeddingConcurrency), Allow: func(ctx context.Context) (bool, error) { return q.Allow(ctx, "embedding:global", 120, time.Minute) }}
 	tools := &agent.Tools{Store: s, RAG: rg, Queue: q}
 	var model agent.Model = agent.DemoModel{}

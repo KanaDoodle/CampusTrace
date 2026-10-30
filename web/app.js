@@ -56,7 +56,7 @@ const authUI=CampusAuth.mount({api,formAction,UserError,fail,onLogin:()=>{authVe
 function clearLogin(){CampusUI.closeAll();pageVersion++;authVersion++;token='';sessionStorage.removeItem('campustrace-token');globalThis.CampusModels?.lock();globalThis.CampusMatching?.lock();globalThis.CampusInventory?.forget();globalThis.CampusKnowledge?.lock();globalThis.CampusDrafts?.lock();$('#content').replaceChildren();authUI.reset();}
 $('#logout').onclick=async()=>{if(!await CampusNavigation.leave())return;const button=$('#logout');button.disabled=true;try{await api('/auth/logout','POST',{});clearLogin();$('#notice').textContent='';show();}catch(error){fail(error);}finally{button.disabled=false;}};
 for (const b of document.querySelectorAll('[data-page]')) b.onclick=()=>page(b.dataset.page).catch(fail);
-const pageTitles={radar:'我的校招雷达',watches:'关注源',source_jobs:'来源岗位',notifications:'通知收件箱',preferences:'稍后看与忽略',closing:'截止雷达',changes:'最近变化',jobs:'校招岗位',matching:'岗位雷达',company_decision:'公司投递决策',applications:'投递进展',interviews:'面试与复盘',weak_topics:'待加强知识点',project_facts:'项目事实',practice:'Go 练习',agent:'求职问答',knowledge:'学习资料',profile:'求职资料',models:'模型设置',ingest:'录入岗位'};
+const pageTitles={journey:'招聘通知',dossier:'申请档案与准备',radar:'我的校招雷达',watches:'关注源',source_jobs:'来源岗位',notifications:'通知收件箱',preferences:'稍后看与忽略',closing:'截止雷达',changes:'最近变化',jobs:'校招岗位',matching:'岗位雷达',company_decision:'公司投递决策',applications:'投递进展',interviews:'面试与复盘',weak_topics:'待加强知识点',project_facts:'项目事实',practice:'Go 练习',agent:'求职问答',knowledge:'学习资料',profile:'求职资料',models:'模型设置',ingest:'录入岗位'};
 function input(name,label,value='',type='text',extra='') {return `<label>${esc(label)}<input name="${esc(name)}" type="${type}" value="${esc(value)}" ${extra}></label>`;}
 function area(name,label,value='',extra='') {return `<label>${esc(label)}<textarea name="${esc(name)}" ${extra}>${esc(value)}</textarea></label>`;}
 function displayQuery(query) {
@@ -69,7 +69,7 @@ async function page(name,query='') {
   if(name==='jobs')name='matching';
   if(name==='company_decision'){name='matching';query={...(typeof query==='object'?query:{}),view:'company'};}
   CampusUI.closeAll();
-  const navName=name==='source_jobs'?'watches':['closing','changes'].includes(name)?'radar':name;
+  const navName=name==='dossier'?'applications':name==='source_jobs'?'watches':['closing','changes'].includes(name)?'radar':name;
   for(const b of document.querySelectorAll('nav [data-page]')){if(b.dataset.page===navName)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');}
   $('#crumb').textContent=pageTitles[name]||'求职记录';
   document.querySelector('.sidebar').classList.remove('menu-open');
@@ -82,6 +82,7 @@ async function page(name,query='') {
   const route=name==='matching'&&query?.view==='company'?'company':name==='profile'&&query?.evidence?'evidence':['radar','watches','source_jobs','notifications','closing','changes'].includes(name)?'radar':name;
   try{await CampusAssets.ensure(route);}catch(error){if(version===pageVersion){set(heading+'<p class="empty">页面组件暂时无法读取。</p><button id="page-load-retry" class="btn">重新读取页面</button>');$('#page-load-retry').onclick=()=>page(name,query).catch(fail);}return;}
   if(version!==pageVersion)return;
+  if(name==='journey'||name==='dossier'){try{const helpers={api,esc,D,navigate:page,active:()=>version===pageVersion,id:query?.applicationID||''};if(name==='journey')await CampusJourney.page(set,heading,helpers);else await CampusJourney.dossier(set,heading,helpers);}catch(error){if(set(heading+'<p class="empty">'+esc(error.message)+'</p><button class="btn" id="journey-retry">重新读取</button>'))$('#journey-retry').onclick=()=>page(name,query).catch(fail);}return;}
   if(name==='knowledge'){await CampusKnowledge.page(set,heading,{api,esc,formAction,UserError,navigate:page,initialDocument:query?.documentID||'',active:()=>version===pageVersion});return;}
   if(name==='practice'){await CampusPractice.page(set,heading,{api,esc,formAction,UserError,active:()=>version===pageVersion});return;}
   if (name==='models') {await CampusModels.page(set,heading,{api,esc,formAction,UserError,isCurrent:()=>version===pageVersion});return;}

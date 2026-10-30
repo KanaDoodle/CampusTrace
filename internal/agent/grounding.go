@@ -23,6 +23,8 @@ func GroundedAnswer(facts []any) string {
 			continue
 		}
 		switch item.Tool {
+		case "get_application_dossier":
+			lines = append(lines, dossierAnswer(item.Data)...)
 		case "get_candidate_document":
 			lines = append(lines, "已读取你核对过的完整求职资料；项目段落和教育经历按原有结构保留。")
 		case "get_agent_todos":

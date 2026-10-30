@@ -3,9 +3,9 @@ package analysis
 import (
 	"context"
 	"errors"
-	"github.com/KanaDoodle/KanaRPC-Go/rpc"
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
 	"github.com/KanaDoodle/CampusTrace/internal/observability"
+	"github.com/KanaDoodle/KanaRPC-Go/rpc"
 	"log/slog"
 	"net"
 	"time"
@@ -22,10 +22,11 @@ type Request struct {
 	CorrelationID string    `json:"correlation_id"`
 }
 type Response struct {
-	Claims   []d.Claim `json:"claims"`
-	Instance string    `json:"instance"`
-	Error    string    `json:"error,omitempty"`
-	Category string    `json:"category,omitempty"`
+	Claims         []d.Claim `json:"claims"`
+	Instance       string    `json:"instance"`
+	Error          string    `json:"error,omitempty"`
+	Category       string    `json:"category,omitempty"`
+	RejectedStatus int       `json:"rejected_status,omitempty"`
 }
 type Extractor interface {
 	Claims(context.Context, string) ([]d.Claim, error)
@@ -69,6 +70,10 @@ func (s *Service) AnalyzeObservation(req *Request, resp *Response) error {
 		}
 		resp.Error = "analysis failed"
 		resp.Category = "SCHEMA"
+		var rejected *HTTPError
+		if errors.As(err, &rejected) && (rejected.Status == 429 || rejected.Status == 401 || rejected.Status == 403) {
+			resp.RejectedStatus = rejected.Status
+		}
 		if IsTransient(err) {
 			resp.Category = "TRANSIENT"
 		}
@@ -128,6 +133,9 @@ func (c *RPCClient) Call(ctx context.Context, req Request) (Response, error) {
 		return out, err
 	}
 	if out.Error != "" {
+		if out.RejectedStatus == 429 || out.RejectedStatus == 401 || out.RejectedStatus == 403 {
+			return out, &HTTPError{Status: out.RejectedStatus}
+		}
 		if out.Category == "TRANSIENT" {
 			return out, errors.New("503: analysis transient failure")
 		}

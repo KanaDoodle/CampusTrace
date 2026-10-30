@@ -25,6 +25,9 @@ type MatchRunItem struct {
 	Job        *ApplicationJob `json:"job,omitempty"`
 }
 type MatchRun struct {
+	ExecutionState     string         `json:"execution_state,omitempty"`
+	QueueUntil         *time.Time     `json:"queue_until,omitempty"`
+	ExecutionUntil     *time.Time     `json:"execution_until,omitempty"`
 	Kind               string         `json:"kind,omitempty"`
 	Company            string         `json:"company,omitempty"`
 	ScopeKey           string         `json:"scope_key,omitempty"`
@@ -95,6 +98,12 @@ func lockRunUser(ctx context.Context, tx *sql.Tx, user string) error {
 	return tx.QueryRowContext(ctx, "SELECT id FROM users WHERE id=? FOR UPDATE", user).Scan(&id)
 }
 func writeRun(ctx context.Context, tx *sql.Tx, user string, v *MatchRun) error {
+	if v.State != "RUNNING" && v.State != "PAUSING" {
+		v.QueueUntil, v.ExecutionUntil = nil, nil
+		if v.ExecutionState == "QUEUED" || v.ExecutionState == "EXECUTING" {
+			v.ExecutionState = ""
+		}
+	}
 	v.Version++
 	v.UpdatedAt = time.Now().UTC()
 	_, err := tx.ExecContext(ctx, "UPDATE match_runs SET state=?,updated_at=?,body=? WHERE id=? AND user_id=?", v.State, v.UpdatedAt, d.JSON(v), v.ID, user)
@@ -288,6 +297,9 @@ func (s *Store) ControlMatchRun(ctx context.Context, user, id string, version in
 				return ErrConflict
 			}
 			v.State = "PAUSING"
+			if v.ExecutionState == "QUEUED" {
+				v.State = "PAUSED"
+			}
 		case "CANCEL":
 			if v.State == "COMPLETED" || v.State == "CANCELLED" {
 				return ErrConflict

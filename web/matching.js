@@ -440,6 +440,11 @@ const CampusMatching=(function(root){
     function render(){
       // Replacing the focused input would end the browser's IME session.
       if(!current()||searchComposing)return;
+      const dialogIDs={settings:'match-settings-dialog',review:'match-review-dialog',export:'match-export-review',import:'match-import-dialog',company:'match-comparison-dialog'};
+      for(const id of Object.values(dialogIDs)){
+        const dialog=document.querySelector('#'+id);
+        if(id!==dialogIDs[panel]&&dialog?.open)dialog.close();
+      }
       if(!searchPending)searchDraft=query;
       if(!inventoryBlocked()){
         if(companyFilter&&!snapshot.jobs.some(j=>j.job.company===companyFilter))companyFilter='';
@@ -583,8 +588,8 @@ const CampusMatching=(function(root){
       for(const b of document.querySelectorAll('[data-match-task]'))b.onclick=()=>{applyTask(taskRuns.find(v=>v.id===b.dataset.matchTask));notice='';render();};
       on('match-prev',()=>{clearTimeout(searchTimer);checkpoint();pageNo=Math.max(1,pageNo-1);render();});on('match-next',()=>{clearTimeout(searchTimer);checkpoint();pageNo=Math.min(Math.max(1,Math.ceil(rows().length/50)),pageNo+1);render();});
       for(const b of document.querySelectorAll('[data-match-job]'))b.onclick=()=>openMatchDetail(b.dataset.matchJob);
-      const dialogID={settings:'match-settings-dialog',review:'match-review-dialog',export:'match-export-review',import:'match-import-dialog',company:'match-comparison-dialog'}[panel];
-      if(dialogID){const dialog=$('#'+dialogID);U.openDialog(dialog,()=>{if(document.querySelector('#'+dialogID)!==dialog)return;panel='';if(dialogID==='match-import-dialog'){importRevision++;importBusy=false;importPreview=null;}if(dialogID==='match-comparison-dialog'){comparisonRevision++;comparisonBusy=false;}if(dialogID==='match-review-dialog'){consentHash='';paused=true;reviewRevision++;reviewBusy=false;}});}
+      const dialogID=dialogIDs[panel],dialogPanel=panel;
+      if(dialogID){const dialog=$('#'+dialogID);U.openDialog(dialog,()=>{if(document.querySelector('#'+dialogID)!==dialog||panel!==dialogPanel)return;panel='';if(dialogID==='match-import-dialog'){importRevision++;importBusy=false;importPreview=null;}if(dialogID==='match-comparison-dialog'){comparisonRevision++;comparisonBusy=false;}if(dialogID==='match-review-dialog'){consentHash='';paused=true;reviewRevision++;reviewBusy=false;}});}
       U.restore(saved);
     }
     async function openMatchDetail(id,initialTab='overview',focus=true){

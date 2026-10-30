@@ -35,6 +35,9 @@ __debug_bin*
 !/docs/campus-source-inventory.csv
 !/docs/architecture.md
 !/docs/matching.md
+!/docs/application-journey.md
+!/docs/task-scheduling.md
+!/docs/adversarial-acceptance.md
 !/docs/images/
 /docs/images/*
 !/docs/images/job-radar.jpg

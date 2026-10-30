@@ -40,8 +40,8 @@ flowchart TD
   API --> Preference[UserJobPreference / SAVED / IGNORED]
   O --> DB[(MySQL / authoritative data + Outbox)]
   DB --> Publisher[Outbox publisher]
-  Publisher --> Stream[(Redis Stream / Consumer Group)]
-  Stream --> Worker[Bounded Go workers]
+  Publisher --> Stream[(按类型与用户／系统归属隔离的 Redis 队列)]
+  Stream --> Worker[独立有界执行池]
   Worker --> RPC[KanaRPC client / independent semaphore]
   Etcd[(etcd discovery)] -.-> RPC
   RPC --> A1[Analysis instance 1]
@@ -87,7 +87,7 @@ WatchTarget (MySQL next_check_at)
   → Radar read models / idempotent Notification Inbox
 ```
 
-抓取子任务共享现有 Stream，每个岗位独立 timeout/retry；来源不增加服务或 RPC 边界。重复投递会收敛到同一 Observation；更改设置、暂停或删除后，旧 generation 不再写观察或调度状态。来源 429 至少等待一分钟再重试，5xx/timeout 使用已有 backoff，401/403/格式不兼容为本次任务的永久失败。访问失败、列表中消失或 HTTP 200 都不能直接决定 CLOSED/OPEN。
+抓取子任务默认进入独立 WATCH_FETCH 队列与执行池，每个岗位独立 timeout/retry；来源不增加服务或 RPC 边界。重复投递会收敛到同一 Observation；更改设置、暂停或删除后，旧 generation 不再写观察或调度状态。来源 429 至少等待一分钟再重试，5xx/timeout 使用已有 backoff，401/403/格式不兼容为本次任务的永久失败。访问失败、列表中消失或 HTTP 200 都不能直接决定 CLOSED/OPEN。
 
 
 容量与展示：每个用户最多 100 个 Watch，每个 Watch 最多 500 个已发现/历史 posting；响应解压后最多 1 MiB，岗位正文最多 60,000 bytes。Radar 动态摘要最多 10,000 个可见 Job、500 个未完成 Interview、10,000 个窗口内 change，超限明确返回 `RADAR_CAPACITY`；不提供无界扫描。摘要计数完整，岗位各展示前 5 条、变化/面试各前 10 条，并标明 `truncated`。变化 feed 和 Inbox 最近 100 条，尚未提供历史翻页。最近窗口为滚动 24h/7d，截止窗口为滚动 3/7/14 天。状态变化只读取窗口内的 Assessment，通过现有 `(job_id, assessed_at)` 索引寻找每条记录的直接前序（同一时刻按 ID 区分），保留窗口外前序状态，不再对全部历史 JSON 做窗口排序。新增与内容变化先按放宽的日期范围缩小候选，再按原时区转换后的时刻精确核对。
@@ -108,9 +108,9 @@ MySQL Outbox → Redis Stream → Worker → KanaRPC Analysis
 
 整体采用 **at-least-once** 投递。Outbox 在崩溃后可能重复发布，业务结果通过数据库幂等收敛；SQL analysis result 与已完成 Assessment task key 是正确性边界。
 
-- 同一个 Stream 承载 `WATCH_CHECK`、`WATCH_FETCH`、`ANALYZE` 和 `ASSESS` envelope。Worker 使用固定池，RPC 有独立 semaphore；模型和 embedding 工作另有可配置并发上限，不意味着默认使用外部 embedding 服务。
-- PEL 通过 `XAUTOCLAIM` 恢复，idle time 大于任务 deadline。恢复在有界轮次间保留 stream/group cursor，每轮最多 32 次命令；每个串行 worker 只为一个空闲槽 claim 一条消息。任务执行超过 claim idle timeout 时仍可能再次被 claim，没有 fencing 或 lease renewal。
-- 临时失败按 2s、4s、8s 等指数退避并加入 jitter。Lua 将 retry/DLQ 状态记录与 ACK 放在同一操作中；另一个脚本将到期 retry 原子转回 Stream。永久 schema/auth/validation 错误直接进入 DLQ。终态分析失败写入 MySQL，并重新评估为未知。
+- 默认 typed 模式将 `WATCH_CHECK`、`WATCH_FETCH`、`SOURCE_IMPORT`、`ANALYZE` 和 `ASSESS` 拆成用户与系统通道，分别使用 Redis ready 轮转、Stream 和执行池。旧共用 Stream 保留作迁移入口。RPC、模型和 embedding 工作仍有原有独立并发／限速边界，不意味着默认使用外部 embedding 服务。详见[可靠任务调度](task-scheduling.md)。
+- PEL 通过 `XAUTOCLAIM` 恢复，idle time 大于任务 deadline。恢复在有界轮次间保留 stream/group cursor，每轮最多 32 次命令；每个串行 worker 只为一个空闲槽 claim 一条消息。后台执行没有持续延长 PEL idle 的租约，任务超过 claim idle 仍可能再次被领取；generation／回执限制写入，新增 SQL 调用凭据阻止未知分析自动重复调用。
+- 临时失败按 2s、4s、8s 等指数退避并加入 jitter。Lua 将 retry/DLQ 状态记录与 ACK 放在同一操作中；另一个脚本将到期 retry 原子转回 typed ready（legacy 模式转回原 Stream），目标满时保留原任务。永久 schema/auth/validation 错误直接进入 DLQ。终态分析失败写入 MySQL，并重新评估为未知。
 - 测试覆盖数据库已提交、ACK 前崩溃的场景。异常 envelope 被保存为净化后的 DLQ 记录；`poison` hash 保留有界诊断、digest、时间、consumer 与可恢复的关联 ID，不保留完整畸形原始 payload。隔离失败则继续留在 PEL。
 - 失败转移先检查 Redis key 类型/group，写 retry/DLQ 后写 v2 completion marker，最后 ACK。Lua 运行时错误不会回滚已发生的写入，因此使用稳定转移字节支持重跑，不信任旧的提前完成 marker。
 
@@ -121,7 +121,7 @@ go run ./cmd/dlq
 go run ./cmd/dlq -redrive TASK_ID
 ```
 
-滑动窗口限流使用 Redis server time 和原子 ZSET/Lua，包含来源独立 key 及全局 LLM/embedding key。当前使用 standalone Redis，多 key Lua 不支持 Redis Cluster slot 分布。Stream、完成任务和 Outbox 历史需要人工保留策略，尚无自动归档。
+滑动窗口限流使用 Redis server time 和原子 ZSET/Lua，包含来源独立 key 及全局 LLM/embedding key。当前使用 standalone Redis，多 key Lua 不支持 Redis Cluster slot 分布。typed Stream 完成可靠交接即删除传输消息；旧 Stream 采用保守的已确认历史清理。完成任务与 Outbox 历史仍需人工保留策略，尚无自动归档。
 
 ## Analysis 服务与 KanaRPC
 
