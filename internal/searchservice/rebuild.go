@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -192,7 +193,26 @@ func (b *Backend) prepareCandidate(ctx context.Context, r *rebuildRecord) (a.Sta
 		return a.Status{}, e
 	}
 	if e = b.saveRebuild(ctx, r, false); e != nil {
-		return a.Status{}, e
+		if !errors.Is(e, a.ErrConflict) {
+			return a.Status{}, e
+		}
+		// Status can finish preparing this same physical index concurrently.
+		// Observe its durable publication; never overwrite a newer dataset or
+		// cutover state, and keep conflicts for a different or aborted rebuild.
+		latest, readErr := b.rebuildRecord(ctx)
+		if readErr != nil {
+			return a.Status{}, readErr
+		}
+		if latest == nil || latest.TargetIndex != r.TargetIndex || latest.Plan.Operation != r.Plan.Operation || latest.Plan.Source != r.Plan.Source || latest.Plan.Target != r.Plan.Target || latest.Plan.Mode != r.Plan.Mode {
+			return a.Status{}, a.ErrConflict
+		}
+		switch latest.Plan.Phase {
+		case "BUILDING", "CUTTING", "COMMITTED", "DONE":
+			_, generation, err := b.current(ctx)
+			return a.Status{Protocol: a.Protocol, Generation: generation, Rebuild: &latest.Plan}, err
+		default:
+			return a.Status{}, a.ErrConflict
+		}
 	}
 	return b.Status(ctx)
 }

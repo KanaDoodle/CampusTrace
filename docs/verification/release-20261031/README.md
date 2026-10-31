@@ -1,15 +1,16 @@
 # 发布收尾验收 · 2026-10-31
 
-本轮固定已有实现、串联演示入口并补齐公开回归，不再增加产品功能。业务闭环为：导入岗位 → 搜索 → 公司内选择与计划 → 冻结投递材料 → 面试通知与改期 → 复盘 → 学习笔记 → 下一次准备。
+本轮固定已有实现、串联演示入口并补齐公开回归；同时修复 CI 验收发现的候选索引并发发布问题，不再增加产品功能。业务闭环为：导入岗位 → 搜索 → 公司内选择与计划 → 冻结投递材料 → 面试通知与改期 → 复盘 → 学习笔记 → 下一次准备。
 
 ## 当前源码与本地结果
 
-运行时代码清单在 [source-files.json](source-files.json)，其 SHA-256 指纹为 `b5a3a6b2f6690c7be7c7e4026a0695900fc5d3f003c1e87a59b4b90ea7791c43`，与[技术要求修复的最终验收源码](../technology-requirements-20261031/README.md)一致。指纹覆盖生产源码、测试、前端、迁移及模块/镜像构建入口，不包含文档或验收脚本；本轮验收入口另列在 harness-files.json。
+运行时代码清单在 [source-files.json](source-files.json)，其 SHA-256 指纹为 `bc18a80cddd8103ae06e93f7b6d4105fa4211ccdb5a6f32698a53e28a7b999b3`。[技术要求修复的原验收源码](../technology-requirements-20261031/README.md)保留不变；本次另外修复了候选索引发布的 CAS 竞态，运行时增量仅为 `internal/searchservice/rebuild.go` 与对应回归测试。指纹覆盖生产源码、测试、前端、迁移及模块/镜像构建入口，不包含文档或验收脚本；本轮验收入口另列在 harness-files.json。
 
 | 验收 | 结果与范围 |
 |---|---|
 | 完整 HTTP 业务流程 | 7 组检查通过；核对材料冻结、重复请求、过期确认、复盘笔记与下一次准备 |
-| 隔离集成与 race | 616 个顶层测试通过，24 个跳过，0 失败；使用独占 MySQL/Redis/etcd/OpenSearch，包含进程故障验收 |
+| 隔离集成与 race | 617 个顶层测试通过，24 个跳过，0 失败；使用独占 MySQL/Redis/etcd/OpenSearch，包含进程故障验收 |
+| Go 发布检查 | 全量普通 race 回归 25 个包通过，vet/build 通过 |
 | 前端行为回归 | 453 项通过，0 失败、0 跳过 |
 | Chromium + 本地模型桩 | 17 组浏览器检查通过，无页面错误；含刷新重连、取消、文本渲染、复盘联动及保存响应丢失后的去重 |
 | 性能验收脚本契约 | Python 16 项、Node 6 项通过；检查报告拒绝不完整样本/不等条件及查询响应权限约束 |
@@ -51,3 +52,11 @@ python3 docs/verification/release-20261031/verify.py --check-worktree .
 3. [模型执行控制](../../model-control.md)：公平许可、预算、执行账本、UNKNOWN、迟到结果隔离；[申请闭环](../../application-journey.md)展示这些能力如何服务实际流程。
 
 历史压测数字只对应各报告归档的源码与合成负载；本次没有重新进行 1,000/5,000/10,000 岗位压测。测试通过数不代表真实模型质量、生产容量、线上 SLA、用户节省时间或多节点高可用。浏览器模型桩测试没有验证云模型、vLLM 或 GPU 推理；故障测试中的租约过期由隔离库注入，不是自然等待时间测量。
+
+## 首次远程失败及修复
+
+[首次性能 CI](https://github.com/KanaDoodle/CampusTrace/actions/runs/41210993795)在重建启动阶段失败，完整归档保留于 evidence.tar.gz 内的 `ci-first-failure.zip`。候选版尚未完成四阶段对照，这次失败不能当作延迟回归或性能通过。重建请求和 Worker 的状态读取会同时准备同一个候选索引，后完成者的 CAS 写入返回 409，导致 CLI 报错；对外查询仍然保留原索引。
+
+新增确定性回归先复现了 4 个阶段均误报冲突，再验证修复：CAS 失败后只读取持久结果，要求操作 ID、来源代际、目标物理 UUID、候选索引名和模式一致，并只接受 BUILDING/CUTTING/COMMITTED/DONE。操作改变、来源或 UUID 改变、目标未发布、取消仍返回冲突；不覆盖已经写入的 dataset 或切换状态。归档保留 `rebuild-cas-before.txt` 与 `rebuild-cas-after.txt`，原性能阈值和同条件要求未修改。
+
+Search 修复后重新执行完整 Go race、vet、build 和隔离集成。前端、业务 API、演示脚本和浏览器脚本没有变化，沿用同一源码哈希的 453 项前端、7 组 HTTP 流程及 17 组浏览器结果；首次 616 项集成记录另留在 `initial-integration/`。

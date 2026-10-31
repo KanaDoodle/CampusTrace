@@ -30,11 +30,15 @@ def verify(directory, worktree=None):
         assert journey['status'] == 'PASS' and len(journey['checks']) == 7
         assert journey['external_model_calls'] == 0
         results = Counter()
+        cas_checks = 0
         for line in archive.extractfile('integration/go-test.jsonl'):
             event = json.loads(line)
             if event.get('Test') and '/' not in event['Test'] and event['Action'] in ('pass', 'skip', 'fail'):
                 results[event['Action']] += 1
-        assert dict(results) == {'pass': 616, 'skip': 24}
+            if event.get('Test', '').startswith('TestRebuildPreparationReconcilesOnlyMatchingPublishedCandidate/') and event['Action'] == 'pass':
+                cas_checks += 1
+        assert dict(results) == {'pass': 617, 'skip': 24}
+        assert cas_checks == 9
         assert summary['integration_top_level'] == dict(results)
         integration = load('integration/result.json')
         assert integration['status'] == 'PASS' and integration['race']
@@ -49,6 +53,11 @@ def verify(directory, worktree=None):
         boundary = archive.extractfile('dependency-boundary.log').read().decode()
         assert 'PASS: independent Search dependency boundary.' in boundary
         assert 'PASS: workspace disabled; published KanaRPC-Go v0.1.0; public facade boundary.' in boundary
+        before = archive.extractfile('rebuild-cas-before.txt').read().decode()
+        assert before.count('matching publication reported as failure') == 4
+        native = archive.extractfile('final-race.txt').read().decode().splitlines()
+        assert not any(line.startswith('FAIL') for line in native)
+        assert sum(line.startswith('ok ') for line in native) == 25
     if worktree:
         names = subprocess.check_output(['git', 'ls-files', '--cached', '--others', '--exclude-standard', '-z'], cwd=worktree).decode().split('\0')
         roots = ('cmd/', 'internal/', 'web/', 'migrations/')

@@ -2,18 +2,18 @@
   "status": "PASS",
   "date": "2026-10-31",
   "starting_commit": "f17b1ae8df67eaadbfe4ad93e2ad01c6f97b5460",
-  "runtime_fingerprint": "b5a3a6b2f6690c7be7c7e4026a0695900fc5d3f003c1e87a59b4b90ea7791c43",
+  "runtime_fingerprint": "bc18a80cddd8103ae06e93f7b6d4105fa4211ccdb5a6f32698a53e28a7b999b3",
   "journey_checks": 7,
   "integration_top_level": {
-    "pass": 616,
+    "pass": 617,
     "skip": 24
   },
   "integration_skipped": [
     "TestKafkaIndependentGroupsAndFailedBatchReplay",
-    "TestSGMLivePrivateIngest",
     "TestAdditionalCampusLiveReadOnly",
     "TestSGMCampusLiveReadOnly",
     "TestNextCampusLiveReadOnly",
+    "TestSGMLivePrivateIngest",
     "TestKuaishouLiveReadOnly",
     "TestBilibiliLiveReadOnly",
     "TestCtripCampusLiveReadOnly",
@@ -22,10 +22,10 @@
     "TestFinanceCampusLiveReadOnly",
     "TestPortalCampusLiveReadOnly",
     "TestXiaohongshuLiveReadOnly",
-    "TestRadarLiveSources",
     "TestTencentCampusLiveReadOnly",
     "TestBankCampusLiveReadOnly",
     "TestSAPCampusLiveReadOnly",
+    "TestRadarLiveSources",
     "TestMoreCampusLiveReadOnly",
     "TestExpandedCampusLiveReadOnly",
     "TestAlibabaLiveReadOnly",
@@ -47,5 +47,15 @@
     "Kafka and live-source tests are gated off in this local integration run",
     "No cloud-model/vLLM/GPU quality validation",
     "Historical performance numbers refer to archived runtime versions; no new 1k/5k/10k benchmark"
-  ]
+  ],
+  "base_runtime_fingerprint": "b5a3a6b2f6690c7be7c7e4026a0695900fc5d3f003c1e87a59b4b90ea7791c43",
+  "runtime_delta_from_base": [
+    "internal/searchservice/rebuild.go",
+    "internal/searchservice/rebuild_conflict_test.go"
+  ],
+  "native_race_passed_packages": 25,
+  "vet_and_build": "PASS",
+  "cas_regression_cases": 9,
+  "first_remote_failure": "https://github.com/KanaDoodle/CampusTrace/actions/runs/41210993795",
+  "first_published_commit": "f585601e41ce49330f5d28f9ef924c593f94ef02"
 }

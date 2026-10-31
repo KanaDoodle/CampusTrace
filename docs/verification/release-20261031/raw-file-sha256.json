@@ -3,12 +3,21 @@
   "browser/browser.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "browser/browser.stdout": "5b01bd0f451d69fb4c00e919db2b5860522a8291a0124a13740654f7c2b358b6",
   "browser/result.json": "3b6fa34ba43bb2fd521465a724585983c7834d4a934e84a2f1148a39c70ce7af",
+  "ci-first-failure.zip": "df508a74b6fd676bd7aeb37ff6e8d08436b828d2de698b2f5f7e040a819242c4",
   "dependency-boundary.log": "a6bbd30ff201e2d8249f205d4044aaaba8286783a771c45cabb4781443ef5297",
+  "final-build.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "final-race.txt": "b6e6e04e7c913f855c393543fb39d4057329bb99855ce3a2f645bb8a1fb775aa",
+  "final-vet.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "frontend.log": "a26783d679aab6eb4184433fcfc0a64e8b108b9b8eac9ca6db4b72d45c3fffaa",
-  "integration/go-test.jsonl": "b4de682c94ee127c681bc691c48060b6e87e0fc19fd735a22e9ea3e06b34beba",
+  "initial-integration/go-test.jsonl": "b4de682c94ee127c681bc691c48060b6e87e0fc19fd735a22e9ea3e06b34beba",
+  "initial-integration/go-test.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "initial-integration/result.json": "f85d6942ff78dfa026b175246f103bbb551e28d8e5caf840b2f0e359165d239d",
+  "integration/go-test.jsonl": "c2199ea0ddc6c3f06f06bc477385c475b31ed0e7ceb0d9f4795804349febcaa8",
   "integration/go-test.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "integration/result.json": "f85d6942ff78dfa026b175246f103bbb551e28d8e5caf840b2f0e359165d239d",
   "journey.json": "dc6d92c16cdc90799b4e3218b3b6a3f6ef2dfa55a33ec3a0a3049be7ee27b371",
   "journey.log": "024bedbdecd7966147df1897d25eb25a4a980604edf728d1fd1f2b1182153b1c",
-  "performance-contracts.log": "a7a77b5a33aeeb6e147f6c402f14a7c2481786b4deda18f8ef25ca3c9f66596f"
+  "performance-contracts.log": "a7a77b5a33aeeb6e147f6c402f14a7c2481786b4deda18f8ef25ca3c9f66596f",
+  "rebuild-cas-after.txt": "f0f99659b3241f3be22c8e634b5d3f506dd57d3c6d75407b119268a63ae96409",
+  "rebuild-cas-before.txt": "8923715c9cf848352fb4aef1777f34c20350112c9b78af09842508314fbae746"
 }
