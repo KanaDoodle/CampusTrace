@@ -38,7 +38,7 @@ def main():
     env = dict(os.environ, GOWORK='off', CAMPUS_INTEGRATION='1', CAMPUS_LIVE_SOURCES='0',
                CAMPUS_ADVERSARIAL='1' if args.adversarial else '0', CAMPUS_ADVERSARIAL_EVIDENCE=str(work / 'processes.jsonl'),
                LLM_URL='', LLM_API_KEY='', LLM_MODEL='', SEARCH_URL='', SEARCH_QUERY_TOKEN='', SEARCH_WRITE_TOKEN='',
-               NARRATION_BACKEND='api', INFERENCE_RPC_ADDRESS='', INFERENCE_MODEL='', INFERENCE_BACKEND_KIND='', JOB_EVENTS_MODE='direct', KAFKA_BROKERS='', OTEL_EXPORTER_OTLP_ENDPOINT='',
+               NARRATION_BACKEND='api', INFERENCE_RPC_ADDRESS='', INFERENCE_MODEL='', INFERENCE_BACKEND_KIND='', JOB_EVENTS_MODE='direct', TASK_QUEUE_MODE='kafka', KAFKA_TASK_NAMESPACE='', KAFKA_TASK_PREFIX='campustrace.tasks', KAFKA_BROKERS='', OTEL_EXPORTER_OTLP_ENDPOINT='',
                OTEL_EXPORTER_OTLP_TRACES_ENDPOINT='', OTEL_EXPORTER_OTLP_METRICS_ENDPOINT='', OPENSEARCH_TEST_URL='', PROFILE_ADDR='', PROFILE_TOKEN='')
     containers = []
     run_id = uuid.uuid4().hex[:12]
@@ -63,6 +63,10 @@ def main():
         raise RuntimeError('owned dependencies did not become ready')
 
     try:
+        kafka = 'ct-isolation-kafka-' + run_id
+        containers.append(kafka)
+        env['KAFKA_BROKERS'] = run(['sh', str(repo / 'scripts/testsupport/kafka.sh'), kafka])
+        env['KAFKA_TEST_BROKERS'] = env['KAFKA_BROKERS']
         mysql, mysql_port = create('mysql', 'mysql:8.4', 3306, ['--tmpfs', '/var/lib/mysql', '-e', 'MYSQL_ROOT_PASSWORD=' + password,
                                   '-e', 'MYSQL_DATABASE=ct_template', '-e', 'MYSQL_USER=campus', '-e', 'MYSQL_PASSWORD=local-campus-only'], [])
         redis, redis_port = create('redis', 'redis:7.4-alpine', 6379, [], ['redis-server', '--save', '', '--appendonly', 'no'])

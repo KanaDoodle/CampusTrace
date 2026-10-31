@@ -59,7 +59,11 @@ func main() {
 	r := redis.NewClient(&redis.Options{Addr: *redisAddr})
 	defer r.Close()
 	check(r.Ping(ctx).Err())
-	q := &pipeline.Queue{R: r, Prefix: "journey-demo:"}
+	q, e := pipeline.NewQueue(s.DB, r, "journey-demo:", 256, 32, 45*time.Second)
+	check(e)
+	defer q.Close()
+	check(q.Init(ctx))
+	check(q.Broker.EnsureTopics(ctx))
 	metrics := observability.New()
 	tools := &agent.Tools{Store: s, Queue: q, RAG: &rag.Service{Store: s}}
 	runtime := &agent.Runtime{Store: s, Tools: tools, Model: agent.DemoModel{}, R: r, Prefix: q.Prefix, MaxModels: 4, MaxTools: 8, Deadline: 35 * time.Second, ToolTimeout: 8 * time.Second}

@@ -84,9 +84,10 @@ func TestModelControlUnknownReviewIsVersionedAndRefundsOnce(t *testing.T) {
 	ctx, s, _, u, _ := setup(t)
 	_, _, _, other, _ := setup(t)
 	policy := modelPolicy()
+	policy.LeaseMS = 10000
 	must(t, s.EnsureModelPool(ctx, policy))
 	ticket := grantModel(t, ctx, s, policy, u)
-	_, e := s.BeginModelCall(ctx, ticket, d.Hash("first"), d.Hash("model"), "", 200*time.Millisecond, 50*time.Millisecond)
+	_, e := s.BeginModelCall(ctx, ticket, d.Hash("first"), d.Hash("model"), "", 10*time.Second, time.Second)
 	must(t, e)
 	must(t, s.FinishModelCall(ctx, ticket, "UNKNOWN", "TIMEOUT"))
 	if e = s.CheckModelCallReview(ctx, u, policy.ID, d.Hash("different input")); !errors.Is(e, p.ErrModelReview) {
@@ -128,7 +129,10 @@ func TestModelControlUnknownReviewIsVersionedAndRefundsOnce(t *testing.T) {
 	if stats.Active != 1 || stats.Quarantined != 1 {
 		t.Fatal("review prematurely freed uncertain execution", stats)
 	}
-	time.Sleep(300 * time.Millisecond)
+	// Advance the persisted deadline explicitly. SQL round trips must not race
+	// a 250 ms wall-clock quarantine when other process tests are running.
+	_, e = s.DB.ExecContext(ctx, "UPDATE model_resource_tickets SET hold_until=TIMESTAMPADD(SECOND,-1,UTC_TIMESTAMP(6)) WHERE id=?", ticket.ID)
+	must(t, e)
 	stats, e = s.ModelPoolStatus(ctx, policy.ID)
 	must(t, e)
 	if stats.Active != 0 {

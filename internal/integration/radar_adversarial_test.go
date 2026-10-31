@@ -11,7 +11,6 @@ import (
 	p "github.com/KanaDoodle/CampusTrace/internal/persistence"
 	"github.com/KanaDoodle/CampusTrace/internal/pipeline"
 	"github.com/KanaDoodle/CampusTrace/internal/source"
-	"github.com/redis/go-redis/v9"
 	"strings"
 	"sync"
 	"testing"
@@ -50,8 +49,10 @@ func TestRadarOutboxDuplicateAndFanoutRecovery(t *testing.T) {
 	// recovers the unsent row. Publishing once without marking sent simulates crash.
 	must(t, q.Publish(ctx, task))
 	must(t, w.Dispatch(ctx))
-	if n, err := q.R.XLen(ctx, q.Stream()).Result(); err != nil || n < 2 {
-		t.Fatal("outbox recovery", n, err)
+	var queued int
+	err := s.DB.QueryRowContext(ctx, "SELECT COUNT(*) FROM kafka_tasks WHERE task_id=?", task.ID).Scan(&queued)
+	if err != nil || queued != 1 {
+		t.Fatal("outbox recovery", queued, err)
 	}
 	must(t, w.Process(ctx, task))
 	must(t, w.Process(ctx, task))
@@ -339,33 +340,17 @@ func TestRadarAgentWatchProposalBeyondCatalogPageRemainsOwnerScoped(t *testing.T
 }
 
 func TestRadarRetryQueueAndRateLimit(t *testing.T) {
-	ctx, s, q, u, src := radarSetup(t)
+	ctx, s, _, u, src := radarSetup(t)
 	_, task := scheduledWatch(t, ctx, s, u, src)
-	must(t, q.Init(ctx))
-	must(t, q.Publish(ctx, task))
-	messages, err := q.R.XReadGroup(ctx, &redis.XReadGroupArgs{Group: q.Group(), Consumer: "radar-retry", Streams: []string{q.Stream(), ">"}, Count: 1}).Result()
-	must(t, err)
 	rateErr := &source.FetchError{Category: "RATE_LIMIT", Retryable: true, HTTPStatus: 429}
-	retry, err := q.Fail(ctx, messages[0].Messages[0].ID, task, rateErr, 4)
-	must(t, err)
-	if !retry {
-		t.Fatal("rate limit not retried")
+	out := pipeline.FailureOutcome(task, rateErr, 4)
+	if out.State != "RETRY" || out.Delay < time.Minute {
+		t.Fatal("retry ignored source pace", out)
 	}
-	entries, err := q.R.ZRangeWithScores(ctx, q.Prefix+"retry:WATCH_CHECK", 0, -1).Result()
-	must(t, err)
-	if len(entries) != 1 || entries[0].Score < float64(time.Now().Add(55*time.Second).UnixMilli()) {
-		t.Fatal("retry consumed budget inside rate window")
-	}
-	must(t, q.R.ZAdd(ctx, q.Prefix+"retry:WATCH_CHECK", redis.Z{Score: float64(time.Now().Add(-time.Second).UnixMilli()), Member: entries[0].Member}).Err())
-	n, err := q.Schedule(ctx)
-	must(t, err)
-	if n != 1 {
-		t.Fatal("watch retries not scheduled", n)
-	}
-	var next p.Task
-	must(t, json.Unmarshal([]byte(entries[0].Member.(string)), &next))
+	next, e := pipeline.Decode(out.Body)
+	must(t, e)
 	if next.ID != task.ID || next.ScheduleVersion != task.ScheduleVersion || next.Attempt != 2 {
-		t.Fatal("retry changed business identity")
+		t.Fatal("retry changed identity")
 	}
 }
 

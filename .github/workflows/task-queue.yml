@@ -1,0 +1,42 @@
+name: Kafka background task acceptance
+"on":
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/task-queue.yml
+      - internal/taskqueue/**
+      - internal/taskmigration/**
+      - internal/pipeline/**
+      - internal/bootstrap/**
+      - internal/config/**
+      - internal/persistence/**
+      - internal/integration/**
+      - cmd/tasks/**
+      - migrations/**
+      - docker-compose.yml
+      - compose.app.yml
+      - scripts/verify-integration-isolation.py
+      - scripts/testsupport/**
+permissions:
+  contents: read
+jobs:
+  tasks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: Owned MySQL, Redis, etcd and Kafka regression with race checks
+        run: python3 scripts/verify-integration-isolation.py --race --count 1 --adversarial --output bin/verification/kafka-tasks-ci
+      - name: Keep process and cleanup evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: kafka-background-tasks
+          path: bin/verification/kafka-tasks-ci/
+          if-no-files-found: ignore
+          retention-days: 7

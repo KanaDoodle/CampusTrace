@@ -1,37 +1,40 @@
 # 可靠任务调度
 
-后续已完成一轮[反例驱动验收](adversarial-acceptance.md)：包括真实子进程 SIGKILL、多 Worker 竞争、etcd/KanaRPC，以及七类已复现问题的必要修复。下方上一轮的测量与验证范围保留作历史记录，以后续验收报告为补充。
+岗位抓取、来源导入、结构化分析和状态评估通过 MySQL 事务 Outbox 与 Kafka 执行。用户授权的岗位深度匹配继续使用 API 内执行器，共享模型许可、调用账本和版本校验；模型密钥不进入消息队列。
 
-本轮深化的是两条实际执行路径：招聘抓取／结构化分析走持久化 Outbox 与 Redis；用户授权的岗位深度匹配走 API 内 executor。两者保留各自的恢复语义，没有把付费模型密钥写进任务队列，也没有新增服务或消息中间件。
+## 后台：Kafka 投递与持久任务状态
 
-## 后台：类型隔离与分布式轮转
+`TASK_QUEUE_MODE=kafka` 是唯一运行模式。五类任务 `ANALYZE`、`ASSESS`、`WATCH_CHECK`、`WATCH_FETCH`、`SOURCE_IMPORT` 分为用户与 `SYSTEM_` 通道，共十个 Kafka 主题和独立消费组。任务主题前缀默认为 `campustrace.tasks`，例如 `campustrace.tasks.analyze.v1`；岗位事件继续使用 `campustrace.jobs.v1`，两条链路互不提交对方的消费位点。
 
-`TASK_QUEUE_MODE=typed` 为默认值。`ANALYZE`、`ASSESS`、`WATCH_CHECK`、`WATCH_FETCH`、`SOURCE_IMPORT` 各有 user 与 `SYSTEM_` 通道，共十条独立 Stream、消费组及执行池。默认每 worker 进程 user ANALYZE、WATCH_FETCH 各 2 个执行槽，其余各 1 个，总计 12；每通道可配置 1–16，每进程总计不可超过 64。多个 worker 的执行并发相加，Redis resident 限额与轮转按同一 namespace 共享。池不会跨类型借用槽位，慢抓取或分析不能占用 ASSESS 的槽。
+每个 Worker 进程默认给用户分析、岗位抓取各两个执行槽，其余通道各一个，共十二个；每通道可配置 1–16 个，总计不超过 64。默认每主题三个分区，同一消费组内的有效消费者数量受分区数限制。多个实例共享 SQL 容量和调度游标。执行槽统一使用 `WORKER_<LANE>_CONCURRENCY`；旧的 `WORKER_CONCURRENCY` 不参与通道配置，启动时提示改用通道参数。
 
-归属从 SQL 业务记录取得：用户私有岗位的分析／评估属于岗位 owner；关注任务属于 watch user；来源导入属于 batch user。共享目录岗位与无用户归属任务进入独立系统通道。来源限速、分析 RPC semaphore、模型限速和 SQL 连接池仍是下游共享资源，因此池隔离不代表网络、CPU、数据库或提供商的物理隔离。
+1. 业务事务写入 `outbox`，`FairOutbox` 按用户与任务类型轮转转交。
+2. `kafka_tasks` 持久保存任务内容、投递修订号、状态、到期时间及执行租约。SQL 交接成功后标记源 Outbox 已发送；Kafka 暂停期间任务仍可持久接纳。
+3. 发布器按通道、用户轮转，将到期任务发到 Kafka；Broker 确认后更新为 `SENT`。网络调用在 SQL 事务之外执行，发送中断由有限发布租约恢复。
+4. 消费者核对任务身份、内容哈希、投递版本和数据库恢复代号，领取 SQL 执行租约，执行原业务处理。
+5. 业务结果提交后，持久保存 `DONE`、`RETRY` 或 `DEAD`，再提交 Kafka 消费位点。处理失败、状态提交失败或进程退出时保留未提交位点。
 
-SQL `outbox_tenants` 索引任务归属，`queue_dispatch_clock` 的行锁把多个 dispatcher 的转次串行化。每次最多访问 32 个 owner，按 `(owner, type)` 每轮取一个最早任务；一种满队列不会堵住该 owner 其他任务类型。Redis Lua 再按 owner 轮转，每轮把一个任务从 owner ready list 送到该类型 Stream。多个 worker 实例共享该轮转顺序；公平单位是一个任务，不是 token、CPU 时间或成本。已经执行的任务不被抢占，多个空闲槽可能处理同一 owner。不能承诺各用户相同的完成时间。公平性针对已接纳、可路由的任务；没有给新账号预留入队空位或提供跨实例的用户执行配额。
+重复消息通过任务修订号与租约隔离，业务写入另由 SQL 回执、generation 和输入版本校验保护。模型调用状态未知时进入人工核对，避免自动重复付费调用。租约到期后可以恢复任务；已发送但长期未消费的任务会重新发布，使恢复不依赖 Kafka 无限保留历史。
 
-队列中 outstanding ID 去重；ACK、失败转 retry/DLQ、poison 归档都先保留目标再释放容量。各 Stream 的失败标记分别命名，避免不同 Stream 的相同 message ID 互相覆盖。有效但类型不符的消息不会被该池 ACK，需运维检查错误路由。SQL 回执、generation 和输入 CAS 仍决定重复处理是否可写回；Redis 去重仅覆盖 outstanding 阶段。
+公平轮转作用于任务接纳与发布；Kafka 分区及已开始执行的任务会影响实际完成顺序。慢任务不会占用其他类型的执行槽。
 
-## 排队与容量
+## 重试、死信与容量
+
+临时错误按指数退避加随机抖动重试，遵守来源的 `Retry-After`，最长等待一小时。来源本地限速将原任务延后一分钟，不消耗网络重试次数。延迟时间保存在 MySQL，到期后重新投递 Kafka，不占用等待中的执行槽。
+
+永久错误、超过重试次数或超过排队期限的任务进入 SQL 死信。Kafka 死信主题只包含任务编号、版本、错误分类及内容摘要；畸形消息只保留安全诊断和哈希，不复制原始内容。运维工具从 SQL 读取任务并显式重放，重放递增投递修订号，旧消息不能激活新一轮任务。
 
 | 边界 | 默认值与行为 |
 | --- | --- |
-| 每类型／归属通道 resident | 256，含 ready 与 inflight；`QUEUE_CAPACITY` 1–4096 |
-| 每 owner 在该通道 resident | 32；`QUEUE_OWNER_CAPACITY` 不得超过通道容量 |
-| 每任务类型延迟重试 ZSET | 同 `QUEUE_CAPACITY`，用户与系统共用原 retry key；满时源仍在 PEL，占用原 resident 槽 |
-| DLQ | 新 typed 转入最多 10000，满时保留 PEL；既有超量数据保留 |
-| SQL unsent Outbox | 全局 100000、每 owner 20000；同事务串行准入，超出回滚并返回 `QUEUE_BUSY` / 503、Retry-After: 2 |
-| 新后台任务排队期限 | Outbox 创建起 10 分钟，包含 durable 等待及重试；执行前过期进入终态，不调用下游 |
-| 后台执行期限 | `TASK_TIMEOUT_SECONDS`，默认 15 秒；claim idle 必须更长，默认 45 秒 |
-| API 深度匹配准入 | 每进程最多 16 个任务；满时 `MATCH_QUEUE_FULL` / 503、Retry-After: 2 |
-| API 批次排队期限 | `MATCH_QUEUE_WAIT_SECONDS`，默认 30 秒 |
-| API 批次执行期限 | `MATCH_EXECUTION_SECONDS`，默认 175 秒 |
+| 每通道未完成任务 | 256；`QUEUE_CAPACITY` 范围 1–4096，含排队、投递、执行及延迟重试 |
+| 每用户在该通道未完成任务 | 32；`QUEUE_OWNER_CAPACITY` 不超过通道容量 |
+| SQL 未发送业务 Outbox | 全局 100000、每用户 20000，超出同事务拒绝并返回 `QUEUE_BUSY` |
+| 新后台任务排队期限 | Outbox 创建起十分钟，包含等待和重试；过期后不调用下游 |
+| 后台执行期限与租约 | `TASK_TIMEOUT_SECONDS=15`、`TASK_LEASE_SECONDS=45`；租约必须长于执行期限 |
+| 已完成任务传输记录 | `TASK_HISTORY_HOURS=24`；每次最多清理 1000 条 SQL `DONE` 记录 |
+| Kafka 传输历史 | 默认七天；清理独立于 SQL 任务与业务回执 |
 
-Redis 队列满时 Outbox 保持 unsent；retry 满时不 ACK 源；DLQ 满时也不丢弃源。调度器按有界窗口轮转扫描到期 retry，避免满 owner 的最早重试一直挡住后面的 owner。旧数据超出新限制时保留原数据，暂停新增转入，逐步排空。这里的容量不包括 SQL 历史、旧 Stream、poison、分析缓存或 Redis 分配器开销，不能据此声称整个实例内存有硬上限。对故障历史仍需保留／归档策略。
-
-SQL 准入当前用单独锁与计数查询保证一致性；这是适合本项目的简单方案，大批量导入会增加扫描与写入争用。100000 是拒绝上限，尚未证明在该积压下的延迟。空闲 typed worker 的轮询可能增加约一秒唤醒延迟，当前未引入额外唤醒协议。
+容量已满时源 Outbox 保持未发送；延迟重试继续占用原任务容量。死信、异常诊断和业务回执保留供排障，需按运维保留策略管理，不计入活跃任务配额。`/queues` 与 Prometheus 展示固定通道的未完成、执行中及排队数量，用户标识不作为指标标签。
 
 ## 岗位深度匹配：每批次公平许可
 
@@ -39,52 +42,44 @@ SQL 准入当前用单独锁与计数查询保证一致性；这是适合本项�
 
 等待超时不调用模型，未处理项目保持 QUEUED，任务进入 `WAITING_AUTH`，execution_state 为 `MATCH_QUEUE_TIMEOUT`。暂停仍在排队的任务会立即保存 PAUSED 并取消等待；拿到许可后还会复查状态，不能多发一批。执行超时／429／连接错误保留失败状态，不自动重试已授权的深度分析。页面显示等待截止、执行截止及人工恢复建议。`GET /api/matching/tasks/scheduler` 是登录后的本实例限额快照；单任务响应包含 `execution_state`、`queue_until`、`execution_until`。
 
-公平许可只在单 API 实例内生效。SQL 账号行锁、执行 token／60 秒 lease 与 15 秒续租继续跨实例防止同账号多轮有效执行；既有 Redis 账号调用租约覆盖旧同步接口。但多个 API 实例的总执行并发会相加，跨实例没有统一公平排队，旧同步 `/api/matching/analyze` 不进入新公平许可。需这一级保证时应统一部署入口或再把授权执行调度持久化；本轮不宣称已经实现。
+任务执行许可在单 API 内按账号轮转，SQL 账号行锁、执行 token／60 秒 lease 与 15 秒续租协调跨实例的同账号执行。多个 API 的任务执行槽分别计数；实际模型请求由[跨 API 模型执行控制](model-control.md)共享全局许可、公平队列与调用预算。旧同步 `/api/matching/analyze` 保留账号调用租约，并在实际调用模型时进入同一全局控制。
 
-## 调用结果未知与恢复
 
-后台分析在外部调用前写 SQL `analysis_invocations`，按 observation／处理版本唯一。若调用发出后超时、断开或进程崩溃，新的 worker 发现凭据但无已保存结果，会返回 `ANALYSIS_OUTCOME_UNKNOWN`，不再次调用。明确 HTTP 429／401／403 拒绝才释放凭据；RPC response 携带经过分类的拒绝状态，不依靠错误文字猜测可否重放。429 保持退避，已保存分析／缓存优先复用。
+## 启动与从 Redis 升级
 
-这是一道保守防重放边界，不是提供商 exactly-once。记录成功但尚未发出请求就崩溃也会要求核对；外部成功但本地结果丢失可能无法自动恢复。后台未知调用的普通 DLQ redrive 仍会被凭据挡住，不应靠改任务 ID 或清表重试；需先核对提供商执行结果并人工恢复可信结果。本轮没有新增绕过该凭据的付费重试入口。付费岗位深度匹配继续使用既有核对后恢复流程，明确重试仍可能产生费用。
+默认 Compose 包含 Kafka 与主题初始化任务。主机开发使用 `KAFKA_BROKERS=127.0.0.1:19092`，容器内使用 `kafka:9092`。主题前缀通过 `KAFKA_TASK_PREFIX` 配置；同一部署的 API、Worker 与运维工具必须一致。`KAFKA_TASK_NAMESPACE` 默认沿用 Redis prefix，只作为任务隔离标识；恢复数据库时保留原任务 namespace，同时可更换缓存与会话的 Redis prefix。
 
-## 升级及回退
-
-1. 保留数据库／Redis 的可恢复备份，停止旧 API、worker 和其他任务生产者。旧 worker 的严格 envelope decoder 不保证识别新增字段，本轮不支持旧／新 worker 混跑的滚动升级。
-2. 在同一数据库和 Redis prefix 部署新二进制，运行迁移（API 与 worker 启动均调用 `Store.Migrate`）。迁移 015 仅加元数据与调用凭据表；MatchRun 新状态字段放在原 JSON 中，旧记录无需改写。
-3. 设置所有服务 `TASK_QUEUE_MODE=typed`，使用原 Redis prefix 启动。不要新建 namespace 来假装旧任务已经迁移。
-4. dispatcher 每次补齐最多 100 条旧 unsent Outbox 的 owner 索引；旧 envelope 和排队期限不被臆造。后台桥接旧 `tasks/workers` 的未读消息及 XAUTOCLAIM pending，把新目标和旧 ACK 放在同一 Lua；容量满时旧消息仍 pending，桥接内存缓冲最多 32 条。原 retry key 原子转入 typed ready，原 attempt、generation、期限保留；损坏的旧 retry envelope 先保留安全摘要和原文哈希到 poison:retry 再移除，不阻塞有效任务；旧 DLQ 可经既有工具显式 redrive。
-5. 查看 Worker 内网 `/queues` 与 `/metrics/prometheus`，以及旧 Stream PEL、unread 和原 retry key 的减少情况。typed ACK 后立即 XDEL 传输消息；SQL 回执与事件不删。旧 Stream 继续按既有安全 history trim 清理。
-
-回退到 legacy 前必须停止全部 typed 生产者并排空 typed ready、Stream 和 PEL。legacy worker 初始化会检查 typed resident／Stream，有残留即拒绝启动；不得通过清空键绕过。新版本仍保留 legacy 模式供排空后使用；此操作不等于旧二进制可无条件回退。新模式的重试与 DLQ 使用原 key，因此无需复制或丢弃故障任务。
-
-## 复现与实测
+新环境初始化：
 
 ```sh
-# 不读取 .env；使用临时 MySQL 8.4、Redis 7.4，合成账号和 mock 模型；退出清理自己的容器
-GOCACHE=/tmp/campustrace-test-cache sh scripts/journey-local.sh scheduler-test
-# 原产品完整 HTTP 闭环（需空闲本地端口）
-JOURNEY_HTTP_PORT=23381 GOCACHE=/tmp/campustrace-test-cache sh scripts/journey-local.sh smoke
-# 无网络、无密钥、无模型账单；只比较实际 fair Pool 与原 run-wide FIFO 许可
-go run -race ./cmd/scheduler-bench -batch-users 8 -small-users 8 -quanta 20 -concurrency 2 -delay-ms 20 -repeats 3
+GOWORK=off go run ./cmd/tasks
 ```
 
-2026-10-30，本机 darwin/arm64，Go 1.27.1，race 开启。8 个批量账号各 20 个量子，8 个小请求各一个量子；小请求在批量提交 10ms 后到达，量子固定 20ms。每设计重复 3 次，下表是各次统计的中位数，非把所有样本混合后的分位数。[原始测量 JSON](../examples/scheduling/benchmark-20261030.json) 随仓库保留。计时 Pool 的等待上限为 64；本场景只有 16 个总任务，不触发产品的 16 个总准入限制，过载行为由单独测试验证。
+已有 Redis 任务的升级步骤：
 
-| 测量项 | 原整轮占槽 FIFO | 每量子公平许可 |
-| --- | ---: | ---: |
-| 小请求排队 P95 | 1654.6 ms | 130.4 ms |
-| 小请求完成 P95 | 1674.7 ms | 150.6 ms |
-| 全部量子排队 P99 | 1654.6 ms | 140.9 ms |
-| 吞吐 | 99.70 量子/s | 99.55 量子/s |
-| 测到的最大执行／等待 | 2 / 14 | 2 / 14 |
-| 测到的 goroutine 峰值 | 18 | 18 |
-| 采样 Go heap 最大值（三次取最大） | 260936 B | 310232 B |
+1. 备份 MySQL 与 Redis，停止旧 API、Worker 和其他任务生产者。升级阶段不混跑两套队列的生产者。
+2. 保留原数据库、Redis prefix 与任务 namespace，将 `TASK_QUEUE_MODE` 设置为 `kafka`，应用迁移后执行：
 
-公平性还由真实 MatchRun 测试验证：大账号 7 个岗位被分成 3、3、1，小账号在第一批模型受阻期间加入；模型实际执行顺序为大 3、小 1、大 3、大 1。慢后台 ANALYZE 未结束时，独立 ASSESS 已写完成回执。
+```sh
+GOWORK=off go run ./cmd/tasks -migrate-redis -writers-stopped
+GOWORK=off go run ./cmd/tasks
+```
 
-计时 benchmark 不含 HTTP、SQL、Redis、真实模型、网络及多实例开销；heap 是采样值，包含运行时且会随版本变化；16 个账号／168 个量子的分位数只证明这一小规模机制。不能据此给出生产 QPS、费用或推荐质量结论。后台 Redis/SQL 的迁移、一致性与容量测试另以真实容器执行，没有做同规模端到端性能压测。
+容器内可用 `docker compose -f docker-compose.yml -f compose.app.yml run --rm --no-deps worker /app/tasks -migrate-redis -writers-stopped`。先确保依赖已启动且使用本次构建的镜像。
 
-本轮验收日志在本机 `bin/verification/scheduler-20261030/`，原工作区恢复基线在 `bin/backups/scheduler-before-20261030/`（HEAD、status、tracked.patch、untracked.tar.gz）。备份包含此前已授权产品改造与用户未提交内容，不包含 .env；未 reset、提交或推送。
+3. 命令转交旧死信、延迟任务、按类型排队任务，以及旧 Stream 的 pending 和未读消息；保留任务编号、尝试次数、generation 和延迟时间。已确认的 Stream 历史不重新执行，畸形消息保存安全摘要。重复运行使用 SQL 交接标记返回，不重新激活已完成任务。
+4. 启动新 Worker，观察 `/queues` 和业务结果。旧 Redis 键保留用于备份核查，运行链路不再读取。检测到未迁移的旧任务键时，新 Worker 拒绝启动并给出迁移命令。
 
+迁移后的回退需要针对 MySQL 任务状态和 Kafka 位点制定计划，不能直接启动旧 Redis Worker。数据库恢复会旋转任务代号并将未完成任务重新置为待发送，保留 SQL 业务回执和付费调用凭据；对同一恢复副本重复准备时保留已经建立的任务代号与执行租约。
 
-最终验收：`go test -race ./...`、`go vet ./...`、`go build ./...`、前端 432 项和完整产品 HTTP 烟测通过；隔离 SQL/Redis 定向 race 共 71 个顶层测试通过，无失败或跳过。生产规模、跨 API 实例统一公平、真实 kill -9／failover 以及全量 etcd/RPC 回归未验证；早期误选的 etcd 注册测试因临时栈没有 etcd 而失败，最终脚本没有将其当作通过。具体 passed / failed / not run 记录在本机 `bin/verification/scheduler-20261030/acceptance.md`。
+## 验证
+
+本轮结果见 [Kafka 后台任务验收](verification/kafka-tasks-20261101/README.md)。
+
+`internal/taskqueue/kafka_test.go` 覆盖实际 MySQL/Kafka 下的并发容量、用户轮转、修订号、租约、延迟重试、死信重放、畸形消息、发送失败、消费失败重投和 SIGKILL 恢复。`internal/taskmigration` 验证旧任务交接与重复运行。业务回归继续覆盖分析去重、来源限速、任务取消、版本校验和权限。
+
+```sh
+python3 scripts/verify-integration-isolation.py --race --count 1
+```
+
+该脚本创建并清理独占的 MySQL、Redis、etcd 和 Kafka，不读取个人 `.env` 或已有数据卷。2026-10-30 的 Redis 队列反例与测量保留在[历史验收](adversarial-acceptance.md)，其数据不代表 Kafka 版本的性能。

@@ -6,14 +6,17 @@ case "$mode" in demo|smoke|test|scheduler-test) ;; *) echo 'Usage: scripts/journ
 cd "$(dirname "$0")/.."
 task_dir=$(mktemp -d /tmp/campustrace-journey.XXXXXX)
 mysql_name="campustrace-journey-mysql-$$"
+kafka_name="ct-task-kafka-$$"
 redis_name="campustrace-journey-redis-$$"
 app_pid=''
 cleanup() {
   if [ -n "$app_pid" ]; then kill "$app_pid" 2>/dev/null || true; wait "$app_pid" 2>/dev/null || true; fi
-  docker rm -f "$mysql_name" "$redis_name" >/dev/null 2>&1 || true
+  docker rm -f "$kafka_name" "$mysql_name" "$redis_name" >/dev/null 2>&1 || true
   rm -rf "$task_dir"
 }
 trap cleanup EXIT HUP INT TERM
+if [ -z "${KAFKA_TEST_BROKERS:-}" ]; then KAFKA_TEST_BROKERS=$(sh scripts/testsupport/kafka.sh "$kafka_name"); fi
+export KAFKA_TEST_BROKERS KAFKA_BROKERS="$KAFKA_TEST_BROKERS" TASK_QUEUE_MODE=kafka
 export GOWORK=off GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local
 if [ "$mode" = demo ] || [ "$mode" = smoke ]; then go build -o "$task_dir/journey-demo" ./cmd/journey-demo; fi
 docker run --rm -d --name "$mysql_name" --tmpfs /var/lib/mysql --publish 127.0.0.1::3306 \

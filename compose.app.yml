@@ -5,7 +5,7 @@ x-app: &app
   build:
     context: .
     args:
-      GO_IMAGE: ${CAMPUS_GO_IMAGE:-golang:1.25.9-bookworm}
+      GO_IMAGE: ${CAMPUS_GO_IMAGE:-golang:1.27.3-bookworm}
   restart: unless-stopped
   stop_grace_period: 30s
   environment: &environment
@@ -18,7 +18,12 @@ x-app: &app
     LLM_API_KEY: ${LLM_API_KEY:-}
     LLM_MODEL: ${LLM_MODEL:-}
     ANALYSIS_VERSION: ${ANALYSIS_VERSION:-claims-v2-semantics}
-    TASK_QUEUE_MODE: ${TASK_QUEUE_MODE:-typed}
+    TASK_QUEUE_MODE: ${TASK_QUEUE_MODE:-kafka}
+    KAFKA_BROKERS: kafka:9092
+    KAFKA_TASK_NAMESPACE: ${KAFKA_TASK_NAMESPACE:-${CAMPUS_REDIS_PREFIX:-ct:}}
+    KAFKA_TASK_PREFIX: ${KAFKA_TASK_PREFIX:-campustrace.tasks}
+    TASK_TIMEOUT_SECONDS: ${TASK_TIMEOUT_SECONDS:-15}
+    TASK_LEASE_SECONDS: ${TASK_LEASE_SECONDS:-45}
     QUEUE_CAPACITY: ${QUEUE_CAPACITY:-256}
     QUEUE_OWNER_CAPACITY: ${QUEUE_OWNER_CAPACITY:-32}
     MATCH_QUEUE_WAIT_SECONDS: ${MATCH_QUEUE_WAIT_SECONDS:-30}
@@ -100,6 +105,7 @@ services:
       <<: *health
       test: ["CMD", "/app/campustrace", "probe", "--url", "http://127.0.0.1:18081/healthz"]
     depends_on:
+      kafka-init: {condition: service_completed_successfully}
       api: {condition: service_healthy}
       analysis-1: {condition: service_healthy}
       analysis-2: {condition: service_healthy}

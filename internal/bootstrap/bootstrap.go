@@ -90,7 +90,13 @@ func Open(ctx context.Context) (*App, error) {
 		r.Close()
 		return nil, fmt.Errorf("invalid Redis namespace")
 	}
-	q := &pipeline.Queue{R: r, Prefix: prefix, Partitioned: c.QueueMode == "typed", Capacity: c.QueueCapacity, OwnerCapacity: c.QueueOwnerCapacity, ResolveOwner: s.TaskOwner}
+	q, err := pipeline.NewQueue(s.DB, r, prefix, c.QueueCapacity, c.QueueOwnerCapacity, c.TaskLease, metrics)
+	if err != nil {
+		s.DB.Close()
+		r.Close()
+		return nil, err
+	}
+	q.ResolveOwner = s.TaskOwner
 	rg := &rag.Service{Cache: &rag.QueryCache{}, Store: s, Sem: make(chan struct{}, c.EmbeddingConcurrency), Allow: func(ctx context.Context) (bool, error) { return q.Allow(ctx, "embedding:global", 120, time.Minute) }}
 	tools := &agent.Tools{Store: s, RAG: rg, Queue: q}
 	var model agent.Model = agent.DemoModel{}
@@ -108,6 +114,7 @@ func (a *App) Close() {
 	if client, ok := a.Store.Search.(*searchapi.Client); ok {
 		client.Close()
 	}
+	a.Queue.Close()
 	a.Store.DB.Close()
 	a.Queue.R.Close()
 }

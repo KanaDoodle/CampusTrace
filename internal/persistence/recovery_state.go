@@ -29,6 +29,17 @@ func (s *Store) PrepareRecovery(ctx context.Context) (map[string]int, error) {
 			return err
 		}
 
+		// Rotate transport identity before replaying unfinished tasks from a recovery
+		// copy. Retained Kafka records from the original database cannot execute here.
+		if counts["rotated_job_dataset"] == 1 {
+			if _, err := tx.ExecContext(ctx, "UPDATE task_queue_namespaces SET epoch=LOWER(REPLACE(UUID(),'-',''))"); err != nil {
+				return err
+			}
+			if _, err := tx.ExecContext(ctx, "UPDATE kafka_tasks SET state='READY',lease_token='',lease_until=NULL,due_at=UTC_TIMESTAMP(6) WHERE state NOT IN ('DONE','DEAD')"); err != nil {
+				return err
+			}
+		}
+
 		watches, err := Many[d.WatchTarget](ctx, tx, "SELECT body FROM watch_targets WHERE enabled=TRUE FOR UPDATE")
 		if err != nil {
 			return err

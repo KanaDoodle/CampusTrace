@@ -9,6 +9,7 @@ evidence="$PWD/bin/verification/observability-20261030"
 if [ "${CAMPUS_SMOKE_KAFKA:-0}" = 1 ];then export CAMPUS_SMOKE_SEARCH=1;fi
 if [ "${CAMPUS_SMOKE_SEARCH:-0}" = 1 ];then evidence="$PWD/bin/verification/search-20261030/stack";fi
 if [ "${CAMPUS_SMOKE_KAFKA:-0}" = 1 ];then evidence="$PWD/bin/verification/kafka-20261031/stack";fi
+evidence="${CAMPUS_OBSERVER_EVIDENCE:-$evidence}"
 search_image="$image-search"
 mkdir -p "$evidence"
 cleanup(){
@@ -60,9 +61,7 @@ json.dump(v,open(dest,'w'),indent=2)
 PY
 # One-shot topic initialization is intentionally not a long-running health target.
 services=$(python3 -c 'import json,sys;print(" ".join(n for n in json.load(open(sys.argv[1]))["services"] if n!="kafka-init"))' "$task_dir/compose.json")
-if [ "${CAMPUS_SMOKE_KAFKA:-0}" = 1 ];then
- docker compose --project-name "$project" --file "$task_dir/compose.json" run --rm kafka-init > "$evidence/topic-init.log" 2>&1
-fi
+docker compose --project-name "$project" --file "$task_dir/compose.json" run --rm kafka-init > "$evidence/topic-init.log" 2>&1
 if ! docker compose --project-name "$project" --file "$task_dir/compose.json" up -d --wait --wait-timeout 180 $services > "$evidence/startup.log" 2>&1;then
  docker compose --project-name "$project" --file "$task_dir/compose.json" logs --no-color > "$evidence/services.log" 2>&1
  cat "$evidence/startup.log" >&2

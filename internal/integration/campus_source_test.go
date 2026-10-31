@@ -2,6 +2,7 @@ package integration
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/KanaDoodle/CampusTrace/internal/auth"
@@ -10,7 +11,6 @@ import (
 	"github.com/KanaDoodle/CampusTrace/internal/persistence"
 	"github.com/KanaDoodle/CampusTrace/internal/source"
 	"github.com/KanaDoodle/CampusTrace/internal/transport"
-	"github.com/redis/go-redis/v9"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -83,23 +83,29 @@ func TestNationwideCampusCitiesArePreservedOnImport(t *testing.T) {
 	}
 }
 
+type paceDiscovery struct{ radarAdapter }
+
+func (paceDiscovery) Discover(context.Context, d.Source, d.WatchTarget) ([]source.PostingRef, error) {
+	return nil, &source.FetchError{Category: "RATE_LIMIT", Retryable: true}
+}
+
 func TestCampusSourceLocalPaceDoesNotSpendRetry(t *testing.T) {
 	ctx, store, queue, owner, sourceID := radarSetup(t)
 	_, task := scheduledWatch(t, ctx, store, owner, sourceID)
-	must(t, queue.Init(ctx))
+	w := worker(store, queue)
+	w.Source = &paceDiscovery{}
+	// The worker path is exercised through Kafka; the task keeps its retry budget.
 	must(t, queue.Publish(ctx, task))
-	messages, err := queue.R.XReadGroup(ctx, &redis.XReadGroupArgs{Group: queue.Group(), Consumer: "source-pace", Streams: []string{queue.Stream(), ">"}, Count: 1}).Result()
-	must(t, err)
-	must(t, queue.DeferRateLimited(ctx, messages[0].Messages[0].ID, task))
-	entries, err := queue.R.ZRangeWithScores(ctx, queue.Prefix+"retry:WATCH_CHECK", 0, -1).Result()
-	must(t, err)
-	if len(entries) != 1 || entries[0].Score < float64(time.Now().Add(50*time.Second).UnixMilli()) {
-		t.Fatalf("pace delay: %+v", entries)
-	}
+	run, cancel := context.WithTimeout(ctx, 8*time.Second)
+	defer cancel()
+	must(t, w.Run(run))
+	var body []byte
+	var seconds int
+	must(t, store.DB.QueryRowContext(ctx, "SELECT body,TIMESTAMPDIFF(SECOND,UTC_TIMESTAMP(6),due_at) FROM kafka_tasks WHERE task_id=? AND state='RETRY'", task.ID).Scan(&body, &seconds))
 	var deferred persistence.Task
-	must(t, json.Unmarshal([]byte(entries[0].Member.(string)), &deferred))
-	if deferred.Attempt != task.Attempt || deferred.ID != task.ID {
-		t.Fatalf("pace changed retry identity: %+v", deferred)
+	must(t, json.Unmarshal(body, &deferred))
+	if seconds < 45 || deferred.Attempt != task.Attempt || deferred.ID != task.ID {
+		t.Fatal("pace changed retry budget", seconds, deferred)
 	}
 }
 

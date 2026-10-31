@@ -61,3 +61,6 @@ var JobDatasetRecoverySQL string
 
 //go:embed 020_search_rebuild.sql
 var SearchRebuildSQL string
+
+//go:embed 021_kafka_tasks.sql
+var KafkaTasksSQL string

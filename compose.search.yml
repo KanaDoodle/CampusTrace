@@ -22,7 +22,7 @@ services:
       context: .
       dockerfile: Dockerfile.search
       args:
-        GO_IMAGE: ${CAMPUS_GO_IMAGE:-golang:1.25.9-bookworm}
+        GO_IMAGE: ${CAMPUS_GO_IMAGE:-golang:1.27.3-bookworm}
     restart: unless-stopped
     stop_grace_period: 10s
     read_only: true

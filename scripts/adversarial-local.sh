@@ -4,10 +4,13 @@ set -eu
 cd "$(dirname "$0")/.."
 task_dir=$(mktemp -d /tmp/campustrace-adversarial.XXXXXX)
 mysql_name="ct-adversarial-mysql-$$"
+kafka_name="ct-task-kafka-$$"
 redis_name="ct-adversarial-redis-$$"
 etcd_name="ct-adversarial-etcd-$$"
-cleanup(){ docker rm -f "$mysql_name" "$redis_name" "$etcd_name" >/dev/null 2>&1 || true; rm -rf "$task_dir"; }
+cleanup(){ docker rm -f "$kafka_name" "$mysql_name" "$redis_name" "$etcd_name" >/dev/null 2>&1 || true; rm -rf "$task_dir"; }
 trap cleanup EXIT HUP INT TERM
+if [ -z "${KAFKA_TEST_BROKERS:-}" ]; then KAFKA_TEST_BROKERS=$(sh scripts/testsupport/kafka.sh "$kafka_name"); fi
+export KAFKA_TEST_BROKERS KAFKA_BROKERS="$KAFKA_TEST_BROKERS" TASK_QUEUE_MODE=kafka
 export GOWORK=off GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local CAMPUS_INTEGRATION=1 CAMPUS_ADVERSARIAL=1 CAMPUS_LIVE_SOURCES=0
 mkdir -p bin/verification/adversarial-20261030
 export CAMPUS_ADVERSARIAL_EVIDENCE="${CAMPUS_ADVERSARIAL_EVIDENCE:-$PWD/bin/verification/adversarial-20261030/processes.jsonl}"

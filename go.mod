@@ -1,6 +1,6 @@
 module github.com/KanaDoodle/CampusTrace
 
-go 1.25.9
+go 1.27.3
 
 require (
 	github.com/KanaDoodle/KanaRPC-Go v0.1.0

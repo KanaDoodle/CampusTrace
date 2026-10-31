@@ -1,4 +1,4 @@
-ARG GO_IMAGE=golang:1.25.9-bookworm
+ARG GO_IMAGE=golang:1.27.3-bookworm
 FROM ${GO_IMAGE} AS build
 WORKDIR /src
 ENV GOWORK=off CGO_ENABLED=0
@@ -12,6 +12,8 @@ RUN go build -trimpath -o /out/api ./cmd/api && \
     go build -trimpath -o /out/worker ./cmd/worker && \
     go build -trimpath -o /out/notify ./cmd/notify && \
     go build -trimpath -o /out/events ./cmd/events && \
+    go build -trimpath -o /out/tasks ./cmd/tasks && \
+    go build -trimpath -o /out/dlq ./cmd/dlq && \
     go build -trimpath -o /out/analysis ./cmd/analysis && \
     go build -trimpath -o /out/campustrace ./cmd/campustrace
 

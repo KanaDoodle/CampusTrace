@@ -1,8 +1,8 @@
 # 架构与处理链路
 
-这里说明后台如何处理招聘观察、恢复失败任务，以及 Agent 能执行哪些动作。产品使用方式见 [README](../README.md)，匹配规则见 [岗位匹配与求职资料](matching.md)。
+CampusTrace 以 MySQL 保存业务事实，通过 Kafka 投递任务、MySQL 管理调度状态，以独立 Analysis 和 Search 服务完成分析与检索。本文说明处理链路、服务分工和恢复机制。产品使用方式见 [README](../README.md)，匹配规则见 [岗位匹配与求职资料](matching.md)。
 
-经审阅依据的说明任务默认由 API 进程直接调用服务器 `LLM_*` 配置的流式模型 API，保留 SQL 草稿、只读 SSE、取消及显式重试。推理 RPC/vLLM 与 Go 执行练习已移至[实验归档](../experiments/README.md)；原有 Analysis RPC 与 etcd 职责不变。见[模型后端选择](model-backends.md)。
+经审阅依据的说明任务默认由 API 进程直接调用服务器 `LLM_*` 配置的流式模型 API，保留 SQL 草稿、只读 SSE、取消及显式重试。Analysis RPC 与 etcd 提供分析调用与服务发现；独立实验的源码见[实验归档](../experiments/README.md)。见[模型后端选择](model-backends.md)。
 
 ## 原文、证据和判断为什么分开保存
 
@@ -16,7 +16,7 @@ Source → Observation → Evidence → Deterministic Rules → Assessment
 | Evidence | 来源 Observation、原文或规范化摘录、提取方法和置信度 | 候选 claims 必须经过严格解码、摘录绑定与保守信号验证，才能持久化 |
 | Assessment | 基于当前输入与确定性规则生成的判断 | 保留追加历史，区分确定结论、冲突、待核验与未知 |
 
-近期官方投递证据且没有关闭信号，才允许判断 `OPEN`；明确官方关闭或截止时间已过，可以判断 `CLOSED`。信息不足、相互矛盾或仅有第三方证据需要核验；官方观察失败或过期会产生 `UNKNOWN`。**HTTP 200 本身不是开放证据。**
+近期官方投递证据且没有关闭信号，才允许判断 `OPEN`；明确官方关闭或截止时间已过，可以判断 `CLOSED`。信息不足、相互矛盾或仅有第三方证据需要核验；官方观察失败或过期会产生 `UNKNOWN`。开放状态依据招聘正文中的投递信号核验。
 
 岗位状态、Eligibility、GoFit、偏好排名和投递状态相互独立。岗位关闭不会自动终止已经进行中的投递。
 
@@ -46,7 +46,7 @@ flowchart TD
   API --> Search
   Search --> OS[(独立 OpenSearch 派生索引)]
   DB --> Publisher[Outbox publisher]
-  Publisher --> Stream[(按类型与用户／系统归属隔离的 Redis 队列)]
+  Publisher --> Stream[(按类型与用户／系统归属隔离的 Kafka 主题)]
   Stream --> Worker[独立有界执行池]
   Worker --> RPC[KanaRPC client / independent semaphore]
   Etcd[(etcd discovery)] -.-> RPC
@@ -57,7 +57,7 @@ flowchart TD
   Claims --> DB
   DB --> Rules[Assessment task / deterministic rules]
   Rules --> DB
-  Worker --> Retry[Retry ZSET / DLQ]
+  Worker --> Retry[MySQL 重试时间 / 死信]
   Retry --> Stream
   Tools --> Agent[Bounded Grounded Agent]
   Agent --> Pending[PendingAction preview]
@@ -66,11 +66,11 @@ flowchart TD
   Tools --> RAG[MySQL chunks / BM25 + optional semantic vectors / RRF + rerank]
 ```
 
-MySQL 事务与唯一约束承担业务正确性；Redis 承担队列、重试、限流、缓存及短期 Agent 状态。Analysis 通过 KanaRPC 返回候选 claims；可选 Search 通过版本化 HTTP 提供岗位全文检索，只拥有派生索引。主后端保留权限、决策与 CRUD 职责。同步、水位、回退和独立部署见 [Search 服务](search-service.md)。
+MySQL 事务与唯一约束承担业务正确性；Kafka 承担消息投递，MySQL 任务日志管理重试与执行租约；Redis 承担限流、缓存及短期 Agent 状态。Analysis 通过 KanaRPC 返回候选 claims；可选 Search 通过版本化 HTTP 提供岗位全文检索，只拥有派生索引。主后端保留权限、决策与 CRUD 职责。同步、水位、回退和独立部署见 [Search 服务](search-service.md)。
 
-### 可选 Kafka 岗位事件
+### 岗位事件独立消费
 
-`compose.kafka.yml` 在已有 Core、Analysis、Search 架构上增加岗位事件分发。岗位写入和不可变事件 Outbox 同事务提交，Worker 发布到 Kafka；Search 与独立 Notify 进程使用不同消费组，业务效果持久化后才提交各自 offset。Search 索引确认与 Kafka 发布确认分开，未追平时 Core 继续基础回退；Notify 按当前权限和 SQL 回执去重。Redis 的任务执行、重试与公平调度保留。Notify 仍属于 Core 业务域并共享其数据库，默认 Compose 的 Kafka 是单节点演示配置。详细一致性、恢复和验证边界见[岗位变更事件](job-events.md)。
+`compose.kafka.yml` 在已有 Core、Analysis、Search 架构上增加岗位事件分发。岗位写入和不可变事件 Outbox 同事务提交，Worker 发布到 Kafka；Search 与独立 Notify 进程使用不同消费组，业务效果持久化后才提交各自 offset。Search 索引确认与 Kafka 发布确认分开，未追平时 Core 继续基础回退；Notify 按当前权限和 SQL 回执去重。后台任务也通过 Kafka 投递，使用独立主题和消费组；MySQL 管理任务重试、容量和公平发布。Notify 仍属于 Core 业务域并共享其数据库，默认 Compose 使用单节点 Kafka，适合本地运行与验收。详细一致性与恢复机制见[岗位变更事件](job-events.md)。
 
 ### 岗位来源、归并与变化记录
 
@@ -89,9 +89,9 @@ MySQL 事务与唯一约束承担业务正确性；Redis 承担队列、重试�
 WatchTarget (MySQL next_check_at)
   → SELECT due FOR UPDATE SKIP LOCKED
   → 同事务 schedule_version++ / next_check_at / Outbox(WATCH_CHECK)
-  → Redis Stream → Worker → Discover
+  → Kafka 任务主题 → Worker → Discover
   → 同事务 fan-out Outbox(WATCH_FETCH) + discovery receipt
-  → Redis Stream → bounded Fetch / existing source Lua rate limit
+  → Kafka 任务主题 → bounded Fetch / existing source Lua rate limit
   → 锁定并重验 Watch generation → existing Ingest + per-posting SQL receipt
   → Observation → KanaRPC Analysis → Evidence → Rules → Assessment
   → Radar read models / idempotent Notification Inbox
@@ -100,7 +100,7 @@ WatchTarget (MySQL next_check_at)
 抓取子任务默认进入独立 WATCH_FETCH 队列与执行池，每个岗位独立 timeout/retry；来源不增加服务或 RPC 边界。重复投递会收敛到同一 Observation；更改设置、暂停或删除后，旧 generation 不再写观察或调度状态。来源 429 至少等待一分钟再重试，5xx/timeout 使用已有 backoff，401/403/格式不兼容为本次任务的永久失败。访问失败、列表中消失或 HTTP 200 都不能直接决定 CLOSED/OPEN。
 
 
-容量与展示：每个用户最多 100 个 Watch，每个 Watch 最多 500 个已发现/历史 posting；响应解压后最多 1 MiB，岗位正文最多 60,000 bytes。Radar 动态摘要最多 10,000 个可见 Job、500 个未完成 Interview、10,000 个窗口内 change，超限明确返回 `RADAR_CAPACITY`；不提供无界扫描。摘要计数完整，岗位各展示前 5 条、变化/面试各前 10 条，并标明 `truncated`。变化 feed 和 Inbox 最近 100 条，尚未提供历史翻页。最近窗口为滚动 24h/7d，截止窗口为滚动 3/7/14 天。状态变化只读取窗口内的 Assessment，通过现有 `(job_id, assessed_at)` 索引寻找每条记录的直接前序（同一时刻按 ID 区分），保留窗口外前序状态，不再对全部历史 JSON 做窗口排序。新增与内容变化先按放宽的日期范围缩小候选，再按原时区转换后的时刻精确核对。
+容量与展示：每个用户最多 100 个 Watch，每个 Watch 最多 500 个已发现/历史 posting；响应解压后最多 1 MiB，岗位正文最多 60,000 bytes。Radar 动态摘要最多 10,000 个可见 Job、500 个未完成 Interview、10,000 个窗口内 change，超限明确返回 `RADAR_CAPACITY`；读取预算在接口层显式校验。摘要计数完整，岗位各展示前 5 条、变化/面试各前 10 条，并标明 `truncated`。变化 feed 和 Inbox 展示最近 100 条。最近窗口为滚动 24h/7d，截止窗口为滚动 3/7/14 天。状态变化只读取窗口内的 Assessment，通过现有 `(job_id, assessed_at)` 索引寻找每条记录的直接前序（同一时刻按 ID 区分），保留窗口外前序状态，不再对全部历史 JSON 做窗口排序。新增与内容变化先按放宽的日期范围缩小候选，再按原时区转换后的时刻精确核对。
 
 推荐要求当前 OPEN、ELIGIBLE/CONDITIONAL、尚未投递或仅 PLANNED、未忽略；按现有规则评分降序及 Job ID 排序，使用与原 evaluation CAS 相同的计算函数。新岗位分数 ≥70 才发优先提醒。截止提醒以“deadline 语义版本 + D7/D3/D1”去重，进入当前最紧窗口时发一次；同一截止值连续重抓不重复，修改再改回也形成新版本。状态变化引用现有 Assessment 历史，内容/截止变化引用 JobChange；Notification 不承担 Job truth。通知后台每分钟轮转处理 10 个用户，仅站内提醒。
 
@@ -111,17 +111,17 @@ WatchTarget (MySQL next_check_at)
 ## 消息失败与恢复
 
 ```text
-MySQL Outbox → Redis Stream → Worker → KanaRPC Analysis
+MySQL Outbox → Kafka 任务主题 → Worker → KanaRPC Analysis
                                       ↓
                              Evidence → Assessment
 ```
 
 整体采用 **at-least-once** 投递。Outbox 在崩溃后可能重复发布，业务结果通过数据库幂等收敛；SQL analysis result 与已完成 Assessment task key 是正确性边界。
 
-- 默认 typed 模式将 `WATCH_CHECK`、`WATCH_FETCH`、`SOURCE_IMPORT`、`ANALYZE` 和 `ASSESS` 拆成用户与系统通道，分别使用 Redis ready 轮转、Stream 和执行池。旧共用 Stream 保留作迁移入口。RPC、模型和 embedding 工作仍有原有独立并发／限速边界，不意味着默认使用外部 embedding 服务。详见[可靠任务调度](task-scheduling.md)。
-- PEL 通过 `XAUTOCLAIM` 恢复，idle time 大于任务 deadline。恢复在有界轮次间保留 stream/group cursor，每轮最多 32 次命令；每个串行 worker 只为一个空闲槽 claim 一条消息。后台执行没有持续延长 PEL idle 的租约，任务超过 claim idle 仍可能再次被领取；generation／回执限制写入，新增 SQL 调用凭据阻止未知分析自动重复调用。
-- 临时失败按 2s、4s、8s 等指数退避并加入 jitter。Lua 将 retry/DLQ 状态记录与 ACK 放在同一操作中；另一个脚本将到期 retry 原子转回 typed ready（legacy 模式转回原 Stream），目标满时保留原任务。永久 schema/auth/validation 错误直接进入 DLQ。终态分析失败写入 MySQL，并重新评估为未知。
-- 测试覆盖数据库已提交、ACK 前崩溃的场景。异常 envelope 被保存为净化后的 DLQ 记录；`poison` hash 保留有界诊断、digest、时间、consumer 与可恢复的关联 ID，不保留完整畸形原始 payload。隔离失败则继续留在 PEL。
+- Kafka 任务主题按五类任务与用户／系统归属隔离，消费组和执行池独立；默认共十二个执行槽。MySQL 保存未完成任务容量、用户轮转游标与到期时间，详见[可靠任务调度](task-scheduling.md)。
+- 消费者先领取 SQL 执行租约，再执行任务；处理完成或重试／死信状态持久化后提交位点。修订号、内容哈希与数据库恢复代号隔离旧消息，业务回执与 generation 限制重复写入。
+- 临时失败按指数退避加随机抖动重试，来源限速遵守独立等待时间。永久错误进入 SQL 死信，Kafka 死信主题仅记录安全元数据；异常消息隔离完成后才提交位点。
+- 真实 Kafka 验收覆盖业务提交后中断、消费失败重投、进程 SIGKILL、延迟重试及显式死信重放；付费调用账本继续隔离结果未知的分析。
 - 失败转移先检查 Redis key 类型/group，写 retry/DLQ 后写 v2 completion marker，最后 ACK。Lua 运行时错误不会回滚已发生的写入，因此使用稳定转移字节支持重跑，不信任旧的提前完成 marker。
 
 DLQ 由本地 operator CLI 查看和主动 redrive：
@@ -131,23 +131,23 @@ go run ./cmd/dlq
 go run ./cmd/dlq -redrive TASK_ID
 ```
 
-滑动窗口限流使用 Redis server time 和原子 ZSET/Lua，包含来源独立 key 及全局 LLM/embedding key。当前使用 standalone Redis，多 key Lua 不支持 Redis Cluster slot 分布。typed Stream 完成可靠交接即删除传输消息；旧 Stream 采用保守的已确认历史清理。完成任务与 Outbox 历史仍需人工保留策略，尚无自动归档。
+滑动窗口限流使用 Redis server time 和原子 ZSET/Lua，包含来源独立 key 及全局 LLM/embedding key。当前使用 standalone Redis，多 key Lua 不支持 Redis Cluster slot 分布。任务传输历史由 Kafka 保留策略管理；SQL 已完成任务按 `TASK_HISTORY_HOURS` 分批清理，未完成、死信及业务回执保留。
 
 ## Analysis 服务与 KanaRPC
 
 KanaRPC 是本项目维护者基于上游 KamaRPC-Go 历史持续实现与维护的**自研轻量 RPC / 服务治理框架**，属于学习与工程实践项目；来源与许可见 [KanaRPC 仓库](https://github.com/KanaDoodle/KanaRPC-Go) 和 [dependency audit](dependency-audit.md)。CampusTrace Analysis Service 是它的真实业务消费者。
 
-CampusTrace 是独立 module `github.com/KanaDoodle/CampusTrace`，固定依赖已发布的 `github.com/KanaDoodle/KanaRPC-Go v0.1.0`，仅导入公开的 `/rpc` facade。`go.mod` 无 replace，正常构建使用 `GOWORK=off`，无需 sibling checkout。Transport、codec、pool 与 breaker 实现类型留在 KanaRPC internal 内。v0.x facade 尚不承诺长期 API 稳定性。
+CampusTrace 是独立 module `github.com/KanaDoodle/CampusTrace`，固定依赖已发布的 `github.com/KanaDoodle/KanaRPC-Go v0.1.0`，仅导入公开的 `/rpc` facade。`go.mod` 无 replace，正常构建使用 `GOWORK=off`，无需 sibling checkout。Transport、codec、pool 与 breaker 实现类型留在 KanaRPC internal 内。依赖升级需核对 v0.x facade 的接口兼容性。
 
 两个 Analysis 实例注册到 etcd。已知 breaker-open 实例在负载均衡前被排除；admission race 下每个已发现地址最多尝试一次选择，远程业务方法不自动重放。本地取消不计入 breaker 失败，后端 deadline 仍计入。
 
 KeepAlive/lease 丢失会降低 readiness，并以有上限的指数退避和 jitter 创建新 lease、恢复注册。`/healthz`、`/readyz` 使用 `ANALYSIS_HEALTH_ADDR`，本地两实例默认为 `127.0.0.1:19191` / `19192`；测试包含真实 lease revoke 与关闭 KeepAlive channel。
 
-RPC wire protocol 没有提前远程取消信号；CampusTrace 传递显式 deadline 和 IDs，服务端工作到 deadline 或服务关闭时停止。这些实现边界不构成对成熟生产级 RPC 框架的性能或能力优势声明。
+RPC wire protocol 没有提前远程取消信号；CampusTrace 传递显式 deadline 和 IDs，服务端工作到 deadline 或服务关闭时停止。调用方取消由本地上下文处理，远端执行由显式 deadline 控制。
 
 请求与响应携带 claims 语义版本。新客户端只接受当前语义版本的响应，旧服务缺少版本或返回旧版本时不将其 claims 写进新缓存。新服务在调用 Extractor 前拒绝显式不匹配的版本；旧调用方省略请求字段仍可被接收，但响应始终标识实际实现。升级时需要协调 Analysis 与 Worker；不匹配按现有失败/未知结果处理，不以自动重放潜在付费调用来修复部署差异。
 
-可选本地联合开发使用 `make dev-workspace` 生成 ignored `go.work`。`make verify-boundary` 在关闭 workspace 后验证已发布依赖边界，不能替代远程 clean clone 验收。
+可选本地联合开发使用 `make dev-workspace` 生成 ignored `go.work`。`make verify-boundary` 验证公开依赖；CI 在干净检出环境执行构建和全栈启动验收。
 
 ## Agent、检索与 MCP
 
@@ -155,7 +155,7 @@ RPC wire protocol 没有提前远程取消信号；CampusTrace 传递显式 dead
 
 默认 `DemoModel` 是确定性的离线自然语言路由器；可在网页「模型设置」中选择外部模型，或由部署者通过 `LLM_URL`、`LLM_API_KEY`、`LLM_MODEL` 提供服务器默认的 OpenAI-compatible chat endpoint。普通测试使用 scripted models，不需要外部凭据。
 
-`make eval` 还会运行 [Agent 评测基线](agent-evaluation.md)：24 例运行时边界检查和 43 例合成中文求职问题，逐项报告工具选择、参数、依据与拒答、调用次数及延迟。离线评测无需密钥或用户数据；可明确传入外部模型配置，在同一批合成问题上单独评测，不能把离线通过率当作真实模型准确率。
+`make eval` 还会运行 [Agent 评测基线](agent-evaluation.md)：24 例运行时边界检查和 43 例合成中文求职问题，逐项报告工具选择、参数、依据与拒答、调用次数及延迟。离线评测使用合成问题验证工具路由与执行行为；传入外部模型配置后，可对同一问题集执行模型评测。指标定义见对应评测文档。
 
 「更多工具 → 求职问答」现在显示由成功工具观察确定性生成的简短回答，原始结构化记录折叠保留供核对。岗位雷达选择同一公司 2–8 个岗位后，可点「问 Agent」带入岗位编号。`get_match_result`、`compare_company_jobs` 复用岗位雷达相同的当前资料、岗位文字、模型身份与本轮额外姓名遮盖，只读取已有的深度匹配并返回有界脱敏摘要；待分析或已过期的结果不会显示旧分数或充当推荐。按公司全量比较最多读取既有的 200 个岗位，Agent 回传其中最多 8 个摘要并标明总数与截断；已有的同分并列、待更新和资料不足规则保持不变。`get_match_tasks` 只查询最近任务及失败阶段，不继续或重试付费分析。外部模型的本次求职问答仍会产生其自身的 API 调用；上述读取不会额外启动岗位深度分析。独立 stdio MCP 也提供匹配、公司比较、分析进度、待办查询，共九个只读工具。
 
@@ -177,7 +177,7 @@ RPC wire protocol 没有提前远程取消信号；CampusTrace 传递显式 dead
 
 默认 BM25 在本地检索当前账号的材料，中文 bigram 保留基础词法支持。用户可单独配置外部 Embedding 服务，预览确认材料后分批建立语义索引；两路按 RRF 合并，再可选对最多 20 个候选片段重排序，默认 Top5。旧 128 维 lexical-hash 字段保留兼容，不再参与新关键词排名。
 
-材料和模型版本隔离的向量仍存在 MySQL，没有新增 ANN 或独立向量数据库。每账号最多 10,000 段；索引输入与保存均有身份核对、账号租约和原子提交，删除会清理对应向量。模型失败明确显示回退，付费检索不自动重试。密钥留在浏览器、只随本次请求临时传递。完整用法、容量、评测与边界见 [学习资料检索](knowledge-retrieval.md)。
+材料和模型版本隔离的向量仍存在 MySQL，没有新增 ANN 或独立向量数据库。每账号最多 10,000 段；索引输入与保存均有身份核对、账号租约和原子提交，删除会清理对应向量。模型失败明确显示回退，付费检索不自动重试。密钥留在浏览器、只随本次请求临时传递。完整用法、配置、容量和评测见 [学习资料检索](knowledge-retrieval.md)。
 
 ### SSE 与 MCP
 
@@ -234,7 +234,7 @@ make loadgen               # 100 个 synthetic Observation，经实际 Worker/Ka
 
 前端测试需 Node.js。普通测试未设置 `CAMPUS_INTEGRATION=1` 时会明确跳过 integration；最终验收也要启用真实依赖测试。`MYSQL_TEST_DSN` 可指定独立测试库，测试会保留 synthetic 数据；Make target 创建测试库需要本地 operator 权限，测试本身使用非 root 的 `campus` 账户。
 
-Scripted eval 不代表真实模型准确率，synthetic loadgen 不代表线上吞吐指标。远程可复现性需在开发 workspace 外真实 clone，使用 `GOWORK=off`、全新 `GOPATH` / `GOMODCACHE`，运行 download/test/race/vet/build、前端测试以及 Quick Start / Demo；单纯本地测量不能替代此流程。
+验证分为工具行为回归、指定负载性能测试和模型效果评测。CI 使用 `GOWORK=off` 在干净检出环境运行构建、测试、race、vet、前端及完整启动流程；各项结果按工作负载、源码版本和运行环境记录。
 
 ## 当前限制
 
@@ -245,5 +245,5 @@ Scripted eval 不代表真实模型准确率，synthetic loadgen 不代表线上
 - **RPC**：KanaRPC 为教育性 v0.x 框架，API 稳定性及提前远程取消存在上述限制。
 - **Agent 与检索**：自由生成事实回答被刻意限制。可选 live provider 未完成效果评估；可选语义 Embedding 与重排序已接入协议，但未用真实账号材料和真实模型评估检索质量。弱点提取依赖经过验证的显式输入，非 LLM extractor。RAG 容量、重复导入和文档更新/删除限制见上文。
 - **会话与认证**：SSE 无 replay/reconnect；MCP 认证仅在启动时进行；浏览器 Redis 会话支持注销撤销，JWT 尚无撤销服务；没有邮箱验证或密码重置。Redis 故障可影响会话、短期状态与 trace 保存。
-- **队列与运维**：没有自动队列/历史归档或 Redis Cluster 支持；DLQ 仅通过 operator CLI 管理。进程内计数重启重置；队列和共享池另提供实时聚合指标。API 与 Worker 保留 `/metrics` JSON 和 `/metrics/prometheus`，任务阶段事件保存在 MySQL；可选 OpenTelemetry / Prometheus / Grafana / Tempo 连接本地服务追踪并提供面板与本地告警，不包含外部告警投递或生产高可用，见[监控与排障](operations.md#可选的完整观测栈)。
+- **队列与运维**：Kafka 与 SQL 任务传输历史分别设置保留策略；Redis 使用 standalone 部署；DLQ 仅通过 operator CLI 管理。进程内计数重启重置；队列和共享池另提供实时聚合指标。API 与 Worker 保留 `/metrics` JSON 和 `/metrics/prometheus`，任务阶段事件保存在 MySQL；可选 OpenTelemetry / Prometheus / Grafana / Tempo 连接本地服务追踪并提供面板与本地告警，不包含外部告警投递或生产高可用，见[监控与排障](operations.md#可选的完整观测栈)。
 - **UI**：中文优先，使用结构化资料与复盘表单；岗位雷达最多 10,000 条、每页 50 条；独立普通搜索最多 100 条。没有使用前端框架。

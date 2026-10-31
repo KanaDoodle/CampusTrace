@@ -2,7 +2,6 @@ package pipeline
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"github.com/KanaDoodle/CampusTrace/internal/analysis"
@@ -10,7 +9,7 @@ import (
 	"github.com/KanaDoodle/CampusTrace/internal/observability"
 	p "github.com/KanaDoodle/CampusTrace/internal/persistence"
 	"github.com/KanaDoodle/CampusTrace/internal/source"
-	"github.com/redis/go-redis/v9"
+	"github.com/KanaDoodle/CampusTrace/internal/taskqueue"
 
 	"log/slog"
 	"sync"
@@ -23,18 +22,18 @@ type Analyzer interface {
 	Analyze(context.Context, d.Observation, string) ([]d.Claim, error)
 }
 type Worker struct {
-	Source                   source.DiscoveryAdapter
-	radarCursor              string
-	Version                  string
-	ParserVersion            string
-	Store                    *p.Store
-	Queue                    *Queue
-	Analyzer                 Analyzer
-	Concurrency, MaxAttempts int
-	LaneConcurrency          map[string]int
-	Timeout, ClaimIdle       time.Duration
-	TaskHistory              time.Duration
-	Metrics                  *observability.Metrics
+	Source          source.DiscoveryAdapter
+	radarCursor     string
+	Version         string
+	ParserVersion   string
+	Store           *p.Store
+	Queue           *Queue
+	Analyzer        Analyzer
+	MaxAttempts     int
+	LaneConcurrency map[string]int
+	Timeout, Lease  time.Duration
+	TaskHistory     time.Duration
+	Metrics         *observability.Metrics
 }
 
 func (w *Worker) Dispatch(ctx context.Context) error {
@@ -42,63 +41,33 @@ func (w *Worker) Dispatch(ctx context.Context) error {
 	return err
 }
 func (w *Worker) dispatch(ctx context.Context) (int, error) {
-	if w.Queue.Partitioned {
-		if _, e := w.Store.BackfillOutboxTenants(ctx); e != nil {
-			return 0, e
-		}
-		return w.Store.FairOutbox(ctx, func(ctx context.Context, t p.Task) (bool, error) {
-			if t.Type == "ANALYZE" {
-				o, e := w.Store.Observation(ctx, t.EntityID)
-				if e != nil && !errors.Is(e, p.ErrNotFound) {
-					return false, e
-				}
-				// An orphan legacy envelope still reaches the normal terminal/DLQ
-				// path. It must not roll back healthy owners' dispatch transactions.
-				if e == nil {
-					t, e = w.Store.BindAnalysis(ctx, t, w.processingVersion(o))
-					if e != nil {
-						return false, e
-					}
-				}
-			}
-			e := w.Queue.Publish(ctx, t)
-			if errors.Is(e, ErrQueueFull) {
-				if w.Metrics != nil {
-					w.Metrics.Add("queue_admission_deferred_total", 1)
-				}
-				return false, nil
-			}
-			return e == nil, e
-		})
+	if _, e := w.Store.BackfillOutboxTenants(ctx); e != nil {
+		return 0, e
 	}
-	count := 0
-	err := w.Store.Tx(ctx, func(tx *sql.Tx) error {
-		tasks, err := p.Many[p.Task](ctx, tx, "SELECT body FROM outbox WHERE sent=FALSE ORDER BY created_at LIMIT 50 FOR UPDATE SKIP LOCKED")
-		if err != nil {
-			return err
-		}
-		for _, t := range tasks {
-			if t.Type == "ANALYZE" {
-				o, e := w.Store.Observation(ctx, t.EntityID)
-				if e != nil {
-					return e
-				}
+	return w.Store.FairOutbox(ctx, func(ctx context.Context, t p.Task) (bool, error) {
+		if t.Type == "ANALYZE" {
+			o, e := w.Store.Observation(ctx, t.EntityID)
+			if e != nil && !errors.Is(e, p.ErrNotFound) {
+				return false, e
+			}
+			// An orphan legacy envelope still reaches the normal terminal/DLQ
+			// path. It must not roll back healthy owners' dispatch transactions.
+			if e == nil {
 				t, e = w.Store.BindAnalysis(ctx, t, w.processingVersion(o))
 				if e != nil {
-					return e
+					return false, e
 				}
 			}
-			if err = w.Queue.Publish(ctx, t); err != nil {
-				return err
-			}
-			if _, err = tx.ExecContext(ctx, "UPDATE outbox SET sent=TRUE WHERE id=?", t.ID); err != nil {
-				return err
-			}
-			count++
 		}
-		return nil
+		e := w.Queue.Publish(ctx, t)
+		if errors.Is(e, ErrQueueFull) {
+			if w.Metrics != nil {
+				w.Metrics.Add("queue_admission_deferred_total", 1)
+			}
+			return false, nil
+		}
+		return e == nil, e
 	})
-	return count, err
 }
 func (w *Worker) Process(ctx context.Context, t p.Task) (err error) {
 	if err := ValidateTask(t); err != nil {
@@ -201,63 +170,38 @@ func (w *Worker) Process(ctx context.Context, t p.Task) (err error) {
 	}
 	return w.Store.PersistAnalysis(ctx, o.ID, t.ProcessingVersion, claims)
 }
-func (w *Worker) handle(root context.Context, m redis.XMessage, consumers ...string) {
-	t, err := Decode(m)
-	if err != nil {
-		consumer := "unknown"
-		if len(consumers) > 0 {
-			consumer = consumers[0]
-		}
-		ctx, cancel := context.WithTimeout(root, w.Timeout)
-		defer cancel()
-		if e := w.Queue.Quarantine(ctx, m, t, err, consumer); e != nil {
-			slog.Error("poison quarantine failed", "message_id", m.ID)
-		} else {
-			w.Metrics.Add("poison_count", 1)
-		}
-		return
+func (w *Worker) handle(root, ctx context.Context, m taskqueue.Message) (taskqueue.Outcome, error) {
+	t, e := Decode(m.Body)
+	if e != nil {
+		return taskqueue.Outcome{}, e
 	}
-	ctx, cancel := context.WithTimeout(root, w.Timeout)
-	defer cancel()
-	if !w.Queue.belongs(t) {
-		w.Metrics.Add("queue_wrong_lane_total", 1)
-		return
-	} // Never ACK another lane's work.
-	if err == nil {
-		if !t.QueueUntil.IsZero() && time.Now().After(t.QueueUntil) {
-			err = ErrQueueExpired
-		} else {
-			w.Metrics.Observe("queue_wait_seconds_"+w.Queue.Lane, time.Since(t.CreatedAt).Seconds())
-			err = w.Process(ctx, t)
-		}
+	var err error
+	if !t.QueueUntil.IsZero() && time.Now().After(t.QueueUntil) {
+		err = ErrQueueExpired
+	} else {
+		w.Metrics.Observe("queue_wait_seconds_"+m.Lane, max(0, time.Since(t.CreatedAt).Seconds()))
+		err = w.Process(ctx, t)
 	}
 	if root.Err() != nil {
-		return
+		return taskqueue.Outcome{}, root.Err()
 	}
+	if errors.Is(err, context.Canceled) {
+		return taskqueue.Outcome{}, err
+	}
+	// Settlement uses a fresh bounded context when the task deadline expires, but
+	// the transport itself refuses settlement when its root process is canceled.
+	persist, stop := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer stop()
 	if err == nil {
-		if e := w.Queue.Ack(ctx, m.ID); e != nil {
-			slog.Error("task ack failed", "task_id", t.ID)
-		} else {
-			w.Metrics.Add("tasks_processed", 1)
-			slog.InfoContext(ctx, "task completed", "task_id", t.ID, "observation_id", t.EntityID, "request_id", t.CorrelationID)
-		}
-		return
+		return taskqueue.Outcome{State: "DONE"}, nil
 	}
 	var sourceFailure *source.FetchError
 	if (t.Type == "WATCH_CHECK" || t.Type == "WATCH_FETCH" || t.Type == "SOURCE_IMPORT") && errors.As(err, &sourceFailure) && sourceFailure.Category == "RATE_LIMIT" {
-		if e := w.Queue.DeferRateLimited(root, m.ID, t); e != nil {
-			slog.Error("source pace deferral failed", "task_id", t.ID)
-		} else {
-			w.Metrics.Add("retry_count", 1)
-		}
-		return
+		return taskqueue.Outcome{State: "RETRY", Body: json.RawMessage(d.JSON(t)), Delay: time.Minute, Category: "SOURCE_PACING"}, nil
 	}
 	w.Metrics.Add("task_failures", 1)
-	if t.ID == "" {
-		t = p.NewTask("ANALYZE", "invalid-envelope")
-		err = errors.New("schema: invalid envelope")
-	}
-	if t.Type == "ANALYZE" && !errors.Is(err, p.ErrProcessingUnavailable) && (!Transient(err) || t.Attempt >= w.MaxAttempts) {
+	out := FailureOutcome(t, err, w.MaxAttempts)
+	if t.Type == "ANALYZE" && !errors.Is(err, p.ErrProcessingUnavailable) && out.State == "DEAD" {
 		code := "ANALYSIS_FAILED"
 		if errors.Is(err, ErrQueueExpired) {
 			code = "QUEUE_EXPIRED"
@@ -265,42 +209,35 @@ func (w *Worker) handle(root context.Context, m redis.XMessage, consumers ...str
 		if errors.Is(err, ErrAnalysisUncertain) {
 			code = "ANALYSIS_OUTCOME_UNKNOWN"
 		}
-		if e := w.Store.AnalysisTaskFailed(root, t, code); e != nil {
-			slog.Warn("could not persist terminal analysis failure", "task_id", t.ID)
-			return
+		if e = w.Store.AnalysisTaskFailed(persist, t, code); e != nil {
+			return taskqueue.Outcome{}, e
 		}
 	}
-	if (t.Type == "WATCH_CHECK" || t.Type == "WATCH_FETCH") && (!Transient(err) || t.Attempt >= w.MaxAttempts) {
-		if e := w.terminalWatch(root, t); e != nil {
-			return
+	if (t.Type == "WATCH_CHECK" || t.Type == "WATCH_FETCH") && out.State == "DEAD" {
+		if e = w.terminalWatch(persist, t); e != nil {
+			return taskqueue.Outcome{}, e
 		}
-		if e := w.Store.SourceImportWatchFailed(root, t, sourceImportFailure(err)); e != nil {
-			return
-		}
-	}
-	if t.Type == "SOURCE_IMPORT" && (!Transient(err) || t.Attempt >= w.MaxAttempts) {
-		if e := w.Store.FailSourceImport(root, t, sourceImportFailure(err)); e != nil {
-			return
+		if e = w.Store.SourceImportWatchFailed(persist, t, sourceImportFailure(err)); e != nil {
+			return taskqueue.Outcome{}, e
 		}
 	}
-	retry, e := w.Queue.Fail(root, m.ID, t, err, w.MaxAttempts)
-	if e != nil {
-		slog.Error("task failure persistence failed", "task_id", t.ID)
-	} else if retry {
-		w.Metrics.Add("retry_count", 1)
-	} else {
-		w.Metrics.Add("dlq_count", 1)
-	}
-	slog.WarnContext(observability.Extract(root, t.TraceParent), "task failed", "task_id", t.ID, "observation_id", t.EntityID, "request_id", t.CorrelationID, "retry", retry, "category", func() string {
-		if Transient(err) {
-			return "TRANSIENT"
+	if t.Type == "SOURCE_IMPORT" && out.State == "DEAD" {
+		if e = w.Store.FailSourceImport(persist, t, sourceImportFailure(err)); e != nil {
+			return taskqueue.Outcome{}, e
 		}
-		return "PERMANENT"
-	}())
+	}
+
+	slog.WarnContext(observability.Extract(ctx, t.TraceParent), "task failed", "task_id", t.ID, "category", out.Category, "retry", out.State == "RETRY")
+	return out, nil
 }
-func (w *Worker) Run(ctx context.Context) error {
-	if w.Concurrency < 1 || w.Timeout <= 0 || w.ClaimIdle <= w.Timeout || w.MaxAttempts < 1 || w.MaxAttempts > MaxTaskAttempt {
-		return errors.New("workers/timeout positive, attempts in 1..100, and claim idle must exceed task timeout")
+func (w *Worker) Run(ctx context.Context) (err error) {
+	defer func() {
+		if ctx.Err() != nil {
+			err = nil
+		}
+	}()
+	if w.Timeout <= 0 || w.Lease <= w.Timeout || w.MaxAttempts < 1 || w.MaxAttempts > MaxTaskAttempt {
+		return errors.New("task timeout positive, attempts in 1..100, and execution lease must exceed task timeout")
 	}
 	retention := w.TaskHistory
 	if retention == 0 {
@@ -308,6 +245,9 @@ func (w *Worker) Run(ctx context.Context) error {
 	}
 	if retention < time.Hour || retention > 365*24*time.Hour {
 		return errors.New("task history retention must be between one hour and one year")
+	}
+	if err := w.Queue.Broker.SetLease(w.Lease); err != nil {
+		return err
 	}
 	if err := w.Queue.Init(ctx); err != nil {
 		return err
@@ -319,78 +259,34 @@ func (w *Worker) Run(ctx context.Context) error {
 	if w.Queue.ResolveOwner == nil {
 		w.Queue.ResolveOwner = w.Store.TaskOwner
 	}
-	total := w.Concurrency
-	if w.Queue.Partitioned {
-		total = 0
-		for _, lane := range QueueLanes() {
-			n := w.LaneConcurrency[lane]
-			if n == 0 {
-				n = 1
-			}
-			if n < 1 || n > 16 {
-				return errors.New("lane concurrency must be in 1..16")
-			}
-			total += n
+	total := 0
+	for _, lane := range QueueLanes() {
+		n := w.LaneConcurrency[lane]
+		if n == 0 {
+			n = 1
 		}
-		if total > 64 {
-			return errors.New("total worker concurrency exceeds 64")
+		if n < 1 || n > 16 {
+			return errors.New("lane concurrency must be in 1..16")
 		}
+		total += n
 	}
-	workers := []*Worker{}
-	if w.Queue.Partitioned {
-		for _, lane := range QueueLanes() {
-			n := w.LaneConcurrency[lane]
-			if n == 0 {
-				n = 1
-			}
-			child := *w
-			child.Queue = w.Queue.ForLane(lane)
-			for i := 0; i < n; i++ {
-				workers = append(workers, &child)
-			}
-		}
-	} else {
-		for i := 0; i < w.Concurrency; i++ {
-			workers = append(workers, w)
-		}
+	if total > 64 {
+		return errors.New("total worker concurrency exceeds 64")
 	}
-	for _, executor := range workers {
-		executor := executor
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			consumer := d.ID()
-			for ctx.Err() == nil {
-				msgs, err := executor.Queue.Recover(ctx, consumer, w.ClaimIdle)
-				if err == nil {
-					for _, m := range msgs {
-						executor.handle(ctx, m, consumer)
-					}
-				}
-				if executor.Queue.Lane != "" {
-					if _, e := executor.Queue.Pump(ctx); e != nil && ctx.Err() == nil {
-						slog.Warn("ready queue pump failed", "lane", executor.Queue.Lane)
-					}
-				}
-				streams, err := executor.Queue.R.XReadGroup(ctx, &redis.XReadGroupArgs{Group: executor.Queue.Group(), Consumer: consumer, Streams: []string{executor.Queue.Stream(), ">"}, Count: 1, Block: time.Second}).Result()
-				if err == nil {
-					for _, stream := range streams {
-						for _, m := range stream.Messages {
-							executor.handle(ctx, m, consumer)
-						}
-					}
-				} else if err != redis.Nil && ctx.Err() == nil {
-					select {
-					case <-ctx.Done():
-					case <-time.After(200 * time.Millisecond):
-					}
-				}
-			}
-		}()
-	}
-	if w.Queue.Partitioned {
-		wg.Add(1)
-		go func() { defer wg.Done(); w.bridgeLegacy(ctx) }()
+	for _, lane := range QueueLanes() {
+		n := w.LaneConcurrency[lane]
+		if n == 0 {
+			n = 1
+		}
+		for i := 0; i < n; i++ {
+			wg.Add(1)
+			go func(lane string) {
+				defer wg.Done()
+				_ = w.Queue.Broker.Consume(ctx, lane, w.Timeout, func(task context.Context, m taskqueue.Message) (taskqueue.Outcome, error) {
+					return w.handle(ctx, task, m)
+				})
+			}(lane)
+		}
 	}
 	freshness := time.NewTimer(0)
 	defer freshness.Stop()

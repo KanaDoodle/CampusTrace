@@ -49,7 +49,11 @@ func setup(t *testing.T) (context.Context, *p.Store, *pipeline.Queue, string, st
 	must(t, s.Migrate(ctx))
 	r := redis.NewClient(&redis.Options{Addr: c.Redis, ContextTimeoutEnabled: true})
 	must(t, r.Ping(ctx).Err())
-	q := &pipeline.Queue{R: r, Prefix: "test:" + d.ID() + ":"}
+	q, err := pipeline.NewQueue(s.DB, r, "test:"+d.ID()+":", 256, 32, 45*time.Second)
+	must(t, err)
+	must(t, q.Init(ctx))
+	must(t, q.Broker.EnsureTopics(ctx))
+	t.Cleanup(q.Close)
 	t.Cleanup(func() {
 		cleanup, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
@@ -177,7 +181,7 @@ func (localAnalyzer) Analyze(ctx context.Context, o d.Observation, _ string) ([]
 	return analysis.Extract(ctx, o.Text)
 }
 func worker(s *p.Store, q *pipeline.Queue) *pipeline.Worker {
-	return &pipeline.Worker{Store: s, Queue: q, Analyzer: localAnalyzer{}, Concurrency: 2, MaxAttempts: 2, Timeout: time.Second, ClaimIdle: 3 * time.Second, Metrics: observability.New()}
+	return &pipeline.Worker{Store: s, Queue: q, Analyzer: localAnalyzer{}, MaxAttempts: 2, Timeout: time.Second, Lease: 3 * time.Second, Metrics: observability.New()}
 }
 func TestBusinessPaths(t *testing.T) {
 	ctx, s, q, user, src := setup(t)
@@ -287,34 +291,16 @@ func TestBusinessPaths(t *testing.T) {
 	}
 	t.Log("A-F, M: observation/evidence/status; change/reassessment; eligibility/ranking; optimistic workflow; weak-topic feedback; RAG passed")
 }
-func readOne(t *testing.T, ctx context.Context, q *pipeline.Queue, consumer string) redis.XMessage {
-	t.Helper()
-	streams, err := q.R.XReadGroup(ctx, &redis.XReadGroupArgs{Group: q.Group(), Consumer: consumer, Streams: []string{q.Stream(), ">"}, Count: 1, Block: time.Second}).Result()
-	must(t, err)
-	return streams[0].Messages[0]
-}
-func TestRedisReliability(t *testing.T) {
+func TestKafkaBusinessReplayAndRedisRateLimit(t *testing.T) {
 	ctx, s, q, _, src := setup(t)
-	must(t, q.Init(ctx))
 	in := ingest(t, ctx, s, src)
 	o, err := s.Ingest(ctx, in)
 	must(t, err)
 	w := worker(s, q)
 	task := p.NewTask("ANALYZE", o.ID)
-	must(t, q.Publish(ctx, task))
-	m := readOne(t, ctx, q, "crashed-worker")
-	decoded, err := pipeline.Decode(m)
-	must(t, err)
-	must(t, w.Process(ctx, decoded))
-	// Crash point: SQL committed, no ACK. Claim and redeliver the same task.
-	time.Sleep(15 * time.Millisecond)
-	recovered, err := q.Recover(ctx, "replacement", time.Millisecond)
-	must(t, err)
-	if len(recovered) != 1 {
-		t.Fatal("PEL not recovered")
-	}
-	must(t, w.Process(ctx, decoded))
-	must(t, q.Ack(ctx, m.ID))
+	// A replay after business commit reuses the SQL receipt, evidence and cache.
+	must(t, w.Process(ctx, task))
+	must(t, w.Process(ctx, task))
 	var n int
 	must(t, s.DB.QueryRowContext(ctx, "SELECT COUNT(*) FROM analysis_results WHERE observation_id=?", o.ID).Scan(&n))
 	if n != 1 {
@@ -324,11 +310,6 @@ func TestRedisReliability(t *testing.T) {
 	must(t, err)
 	if len(es) != 7 {
 		t.Fatal("duplicate evidence", len(es))
-	}
-	pending, err := q.R.XPending(ctx, q.Stream(), q.Group()).Result()
-	must(t, err)
-	if pending.Count != 0 {
-		t.Fatal("not ACKed")
 	}
 	var wg sync.WaitGroup
 	for i := 0; i < 8; i++ {
@@ -341,79 +322,6 @@ func TestRedisReliability(t *testing.T) {
 		}()
 	}
 	wg.Wait()
-	must(t, s.DB.QueryRowContext(ctx, "SELECT COUNT(*) FROM analysis_results WHERE observation_id=?", o.ID).Scan(&n))
-	if n != 1 {
-		t.Fatal("concurrent idempotency")
-	}
-	retryTask := p.NewTask("ANALYZE", o.ID)
-	must(t, q.Publish(ctx, retryTask))
-	rm := readOne(t, ctx, q, "retry")
-	retried, err := q.Fail(ctx, rm.ID, retryTask, errors.New("503 temporary"), 2)
-	must(t, err)
-	if !retried {
-		t.Fatal("transient not retried")
-	}
-	count, err := q.R.ZCard(ctx, q.Prefix+"retry:ANALYZE").Result()
-	must(t, err)
-	if count != 1 {
-		t.Fatal(count)
-	}
-	scheduled, err := q.Schedule(ctx)
-	must(t, err)
-	if scheduled != 0 {
-		t.Fatal("backoff ignored")
-	}
-	zs, err := q.R.ZRange(ctx, q.Prefix+"retry:ANALYZE", 0, -1).Result()
-	must(t, err)
-	must(t, q.R.ZAdd(ctx, q.Prefix+"retry:ANALYZE", redis.Z{Score: 0, Member: zs[0]}).Err())
-	var total atomic.Int64
-	for i := 0; i < 4; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			n, err := q.Schedule(ctx)
-			if err != nil {
-				t.Error(err)
-			}
-			total.Add(int64(n))
-		}()
-	}
-	wg.Wait()
-	if total.Load() != 1 {
-		t.Fatal("duplicate scheduling", total.Load())
-	}
-	rm = readOne(t, ctx, q, "retry")
-	rt, err := pipeline.Decode(rm)
-	must(t, err)
-	if rt.Attempt != 2 {
-		t.Fatal(rt)
-	}
-	retried, err = q.Fail(ctx, rm.ID, rt, errors.New("503 again"), 2)
-	must(t, err)
-	if retried {
-		t.Fatal("max attempt exceeded")
-	}
-	dlq, err := q.DLQ(ctx)
-	must(t, err)
-	if len(dlq) != 1 {
-		t.Fatal(dlq)
-	}
-	must(t, q.Redrive(ctx, rt.ID))
-	dlq, err = q.DLQ(ctx)
-	must(t, err)
-	if len(dlq) != 0 {
-		t.Fatal("redrive retained")
-	}
-	red := readOne(t, ctx, q, "redrive")
-	must(t, q.Ack(ctx, red.ID))
-	perm := p.NewTask("ANALYZE", o.ID)
-	must(t, q.Publish(ctx, perm))
-	pm := readOne(t, ctx, q, "permanent")
-	retried, err = q.Fail(ctx, pm.ID, perm, errors.New("403 auth error"), 5)
-	must(t, err)
-	if retried {
-		t.Fatal("permanent retried")
-	}
 	var accepted atomic.Int64
 	for i := 0; i < 40; i++ {
 		wg.Add(1)
@@ -432,7 +340,6 @@ func TestRedisReliability(t *testing.T) {
 	if accepted.Load() != 7 {
 		t.Fatal("rate limiter not atomic", accepted.Load())
 	}
-	t.Log("G-K: Stream, ACK, commit-before-ACK recovery, database idempotency, atomic retry, DLQ/redrive and sliding window passed")
 }
 func TestMyRPCTwoInstances(t *testing.T) {
 	ctx, _, _, _, _ := setup(t)

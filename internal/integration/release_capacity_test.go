@@ -8,9 +8,7 @@ import (
 	"github.com/KanaDoodle/CampusTrace/internal/agent"
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
 	p "github.com/KanaDoodle/CampusTrace/internal/persistence"
-	"github.com/KanaDoodle/CampusTrace/internal/pipeline"
 	"github.com/KanaDoodle/CampusTrace/internal/rag"
-	"github.com/redis/go-redis/v9"
 	"strings"
 	"testing"
 	"time"
@@ -82,66 +80,6 @@ func TestReleaseAgentDuplicatesAndBudgets(t *testing.T) {
 	if len(keys) != 1 {
 		t.Error("duplicate pending actions created")
 	}
-}
-func TestReleasePELScanAndClaimWait(t *testing.T) {
-	ctx, _, q, _, _ := setup(t)
-	must(t, q.Init(ctx))
-	for i := 0; i < 200; i++ {
-		must(t, q.Publish(ctx, p.NewTask("ANALYZE", d.ID())))
-	}
-	xs, e := q.R.XReadGroup(ctx, &redis.XReadGroupArgs{Group: q.Group(), Consumer: "old", Streams: []string{q.Stream(), ">"}, Count: 200}).Result()
-	must(t, e)
-	all := xs[0].Messages
-	tail := []string{}
-	for _, m := range all[190:] {
-		tail = append(tail, m.ID)
-	}
-	must(t, q.R.Do(ctx, append([]any{"XCLAIM", q.Stream(), q.Group(), "old", 0}, append(stringsToAny(tail), "IDLE", 2000)...)...).Err())
-	claimedTail := map[string]bool{}
-	for i := 0; i < 100 && len(claimedTail) < 10; i++ {
-		got, e := q.Recover(ctx, "new", time.Second)
-		must(t, e)
-		if len(got) > 1 {
-			t.Fatal("claimed more than one execution slot")
-		}
-		for _, m := range got {
-			claimedTail[m.ID] = true
-			must(t, q.Ack(ctx, m.ID))
-		}
-	}
-	if len(claimedTail) != 10 {
-		t.Fatalf("tail scan got %d of 10", len(claimedTail))
-	}
-	// All 16 messages are claimed at once but their execution slots are serial.
-	small := &pipeline.Queue{R: q.R, Prefix: q.Prefix + "wait:"}
-	must(t, small.Init(ctx))
-	for i := 0; i < 16; i++ {
-		must(t, small.Publish(ctx, p.NewTask("ANALYZE", d.ID())))
-	}
-	z, e := q.R.XReadGroup(ctx, &redis.XReadGroupArgs{Group: small.Group(), Consumer: "a", Streams: []string{small.Stream(), ">"}, Count: 16}).Result()
-	must(t, e)
-	ids := []string{}
-	for _, m := range z[0].Messages {
-		ids = append(ids, m.ID)
-	}
-	must(t, q.R.Do(ctx, append([]any{"XCLAIM", small.Stream(), small.Group(), "a", 0}, append(stringsToAny(ids), "IDLE", 2000)...)...).Err())
-	claimed, e := small.Recover(ctx, "b", 100*time.Millisecond)
-	must(t, e)
-	if len(claimed) != 1 {
-		t.Fatalf("serial worker claimed %d, want one", len(claimed))
-	}
-	pending, e := q.R.XPendingExt(ctx, &redis.XPendingExtArgs{Stream: small.Stream(), Group: small.Group(), Start: "-", End: "+", Count: 20, Consumer: "b"}).Result()
-	must(t, e)
-	if len(pending) != 1 {
-		t.Fatal("waiting batch assigned to busy worker", len(pending))
-	}
-}
-func stringsToAny(xs []string) []any {
-	out := []any{}
-	for _, s := range xs {
-		out = append(out, s)
-	}
-	return out
 }
 func TestReleaseRAGBoundaryAndIndex(t *testing.T) {
 	ctx, s, _, u, _ := setup(t)

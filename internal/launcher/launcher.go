@@ -23,7 +23,7 @@ import (
 )
 
 var appServices = []string{"api", "worker", "analysis-1", "analysis-2"}
-var allServices = []string{"mysql", "redis", "etcd", "api", "worker", "analysis-1", "analysis-2"}
+var allServices = []string{"mysql", "redis", "etcd", "kafka", "api", "worker", "analysis-1", "analysis-2"}
 
 type Container struct {
 	Name    string
@@ -496,7 +496,7 @@ const help = `CampusTrace — 统一启动入口
   restart [--build]        重启应用；--build 先构建更新再停旧服务
   status                  查看所有组件状态
   resources               查看本项目各组件的 CPU 与内存占用
-  logs [组件] [--follow]   查看日志；组件为 api/worker/analysis-1/analysis-2/mysql/redis/etcd
+  logs [组件] [--follow]   查看日志；组件为 api/worker/analysis-1/analysis-2/mysql/redis/etcd/kafka
   doctor                  检查 Docker、配置与服务状态
   backup [--file 路径] [--verify] 备份数据库；可同时验证恢复
   verify-backup --file 路径 将备份恢复到隔离库，验证后删除隔离库

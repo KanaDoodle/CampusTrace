@@ -48,7 +48,7 @@ loadgen:
 dev-workspace:
 	@test ! -e go.work || { echo 'go.work already exists; inspect it before changing the dependency'; exit 1; }
 	go work init .
-	go work edit -go=1.25.9 -replace=github.com/KanaDoodle/KanaRPC-Go=../KanaRPC-Go
+	go work edit -go=1.27.3 -replace=github.com/KanaDoodle/KanaRPC-Go=../KanaRPC-Go
 verify-boundary:
 	./scripts/verify-release-boundary.sh
 
@@ -121,3 +121,13 @@ search-rebuild-abort:
 	$(SEARCH_COMPOSE) exec -T search /app/search abort
 search-rollback:
 	$(SEARCH_COMPOSE) exec -T search /app/search rollback
+
+.PHONY: task-queue-test task-topics
+task-queue-test:
+	python3 scripts/verify-integration-isolation.py --count 1 --race --run 'Test(Journal|KafkaTask|TaskMigration|KafkaBusiness|CampusSourceLocalPace|RepairPoisonWorker)'
+task-topics:
+	GOWORK=off go run ./cmd/tasks
+
+.PHONY: browser-vendor-test
+browser-vendor-test:
+	node scripts/verify-resume-vendors.cjs

@@ -11,7 +11,9 @@ logs=${RADAR_VERIFY_LOGS:-/tmp/campustrace-verify-$stamp}
 mkdir -p "$logs"
 mysql_admin() { docker compose exec -T mysql mysql -uroot -plocal-root-only "$@"; }
 mysql_admin -e "CREATE DATABASE $radar_db; CREATE DATABASE $legacy_db; CREATE DATABASE $upgrade_db; GRANT ALL ON $radar_db.* TO 'campus'@'%'; GRANT ALL ON $legacy_db.* TO 'campus'@'%'; GRANT ALL ON $upgrade_db.* TO 'campus'@'%';" >"$logs/database.log" 2>&1
-export CAMPUS_INTEGRATION=1
+export CAMPUS_INTEGRATION=1 TASK_QUEUE_MODE=kafka
+export KAFKA_BROKERS="${KAFKA_BROKERS:-127.0.0.1:19092}"
+export KAFKA_TEST_BROKERS="$KAFKA_BROKERS"
 export MYSQL_TEST_ADMIN_DSN="root:local-root-only@tcp(127.0.0.1:13306)/mysql?parseTime=true&loc=UTC"
 export MYSQL_TEST_DSN="campus:local-campus-only@tcp(127.0.0.1:13306)/$radar_db?parseTime=true&loc=UTC"
 export MYSQL_MIGRATION_TEST_DSN="campus:local-campus-only@tcp(127.0.0.1:13306)/$legacy_db?parseTime=true&loc=UTC"

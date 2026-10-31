@@ -39,6 +39,7 @@ __pycache__/
 !/docs/matching.md
 !/docs/application-journey.md
 !/docs/task-scheduling.md
+!/docs/stack-maintenance.md
 !/docs/adversarial-acceptance.md
 !/docs/model-control.md
 !/docs/search-service.md
@@ -58,6 +59,8 @@ __pycache__/
 !/docs/verification/technology-requirements-20261031/
 !/docs/verification/release-20261031/
 !/docs/verification/job-events-20261031/
+!/docs/verification/kafka-tasks-20261101/
+!/docs/verification/stack-audit-20261101/
 !/docs/verification/depth-20261031/
 !/docs/images/
 /docs/images/*

@@ -95,7 +95,6 @@ func TestAdversarialOrphanLegacyOutboxCannotBlockHealthyOwner(t *testing.T) {
 		return p.Outbox(ctx, tx, valid)
 	}))
 	t.Cleanup(func() { s.DB.ExecContext(context.Background(), "DELETE FROM outbox WHERE id=?", orphan.ID) })
-	q.Partitioned = true
 	q.ResolveOwner = s.TaskOwner
 	must(t, q.Init(ctx))
 	w := worker(s, q)
@@ -110,9 +109,20 @@ func TestAdversarialOrphanLegacyOutboxCannotBlockHealthyOwner(t *testing.T) {
 		t.Fatal("healthy task never dispatched")
 	}
 	child := startAdversarial(t, adversarialConfig{Role: "worker", Prefix: q.Prefix, Mode: "NORMAL"})
-	adversarialWait(t, ctx, q.R, q.Prefix+"dlq")
-	raw, e := q.R.HGet(ctx, q.Prefix+"dlq", orphan.ID).Result()
-	must(t, e)
+	var raw string
+	end := time.Now().Add(15 * time.Second)
+	for time.Now().Before(end) {
+		entries, e := q.DLQ(ctx)
+		must(t, e)
+		raw = entries[orphan.ID]
+		if raw != "" {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if raw == "" {
+		t.Fatal("orphan did not enter durable dead letter")
+	}
 	var failure pipeline.Failure
 	must(t, json.Unmarshal([]byte(raw), &failure))
 	if failure.Task.ID != orphan.ID {
@@ -155,7 +165,6 @@ func TestAdversarialFullOutboxDoesNotDeadlockDerivedAssessment(t *testing.T) {
 	if pending.Valid || !due.Valid {
 		t.Fatal("deferred assessment is not durably due", pending, due)
 	}
-	q.Partitioned = true
 	q.ResolveOwner = s.TaskOwner
 	must(t, q.Init(ctx))
 	w := worker(s, q)

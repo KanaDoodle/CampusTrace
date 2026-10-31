@@ -1,4 +1,4 @@
-ARG GO_IMAGE=golang:1.25.9-bookworm
+ARG GO_IMAGE=golang:1.27.3-bookworm
 FROM ${GO_IMAGE} AS build
 WORKDIR /src
 ENV GOWORK=off CGO_ENABLED=0

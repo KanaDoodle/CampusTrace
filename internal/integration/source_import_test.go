@@ -351,7 +351,6 @@ func TestSourceImportWorkerPersistsTerminalFailure(t *testing.T) {
 	must(t, err)
 	w := worker(s, q)
 	w.Source = &bulkImportAdapter{failResolve: true}
-	w.Concurrency = 1
 	run, cancel := context.WithCancel(ctx)
 	done := make(chan error, 1)
 	go func() { done <- w.Run(run) }()

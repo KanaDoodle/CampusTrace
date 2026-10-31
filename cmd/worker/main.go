@@ -120,7 +120,7 @@ func main() {
 		}
 	}()
 	defer metricsServer.Close()
-	w := pipeline.Worker{Version: config.Env("ANALYSIS_VERSION", d.AnalysisVersion), Store: app.Store, Queue: app.Queue, Analyzer: rpc, Concurrency: app.Config.Workers, MaxAttempts: app.Config.MaxAttempts, Timeout: app.Config.TaskTimeout, ClaimIdle: app.Config.ClaimIdle, TaskHistory: time.Duration(historyHours) * time.Hour, Metrics: app.Metrics}
+	w := pipeline.Worker{Version: config.Env("ANALYSIS_VERSION", d.AnalysisVersion), Store: app.Store, Queue: app.Queue, Analyzer: rpc, MaxAttempts: app.Config.MaxAttempts, Timeout: app.Config.TaskTimeout, Lease: app.Config.TaskLease, TaskHistory: time.Duration(historyHours) * time.Hour, Metrics: app.Metrics}
 	w.LaneConcurrency = map[string]int{}
 	for _, lane := range pipeline.QueueLanes() {
 		fallback := 1

@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net"
 	"os"
 	"regexp"
 	"strings"
@@ -42,12 +41,10 @@ func NewConfig(brokers, topic, dlq, group string) (Config, error) {
 	if !valid.MatchString(topic) || !valid.MatchString(dlq) || topic == dlq || group != "" && !valid.MatchString(group) {
 		return c, fmt.Errorf("invalid Kafka configuration")
 	}
-	for _, address := range c.Brokers {
-		host, port, e := net.SplitHostPort(address)
-		if e != nil || host == "" || port == "" {
-			return c, fmt.Errorf("invalid Kafka broker address")
-		}
+	if err := ValidateBrokers(c.Brokers); err != nil {
+		return c, err
 	}
+
 	return c, nil
 }
 

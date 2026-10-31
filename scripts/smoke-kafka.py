@@ -43,12 +43,13 @@ def notified(job):
  return applied==latest and any(row['entity_id']==job for row in inbox())
 def query(marker,mode):
  result,_=request('api','/api/jobs/search',{'text':marker});assert result['mode']==mode, result;return result['job_ids']
-def ingest(marker):
+def ingest(marker, wait_analysis=True):
  observation,headers=request('api','/api/ingest',{'company':'Synthetic Kafka','title':'岗位事件验收','job_type':'FULL_TIME','locations':['上海'],'external_id':uuid.uuid4().hex,'fetch_status':'SUCCESS','text':'Golang Redis '+marker})
  def analyzed():
   detail,_=request('api','/api/jobs/'+observation['job_id']);return any(row['id']==observation['id'] and row['extraction_status']=='COMPLETE' for row in detail['observations'])
- eventually('Redis/KanaRPC analysis completion',analyzed)
- eventually('existing Redis assessment completion',lambda:scalar("SELECT COUNT(*) FROM jobs WHERE id='"+observation['job_id']+"' AND JSON_UNQUOTE(JSON_EXTRACT(body,'$.current_status'))='NEEDS_VERIFICATION'")==1)
+ if wait_analysis:
+  eventually('Kafka/KanaRPC analysis completion',analyzed)
+  eventually('Kafka assessment completion',lambda:scalar("SELECT COUNT(*) FROM jobs WHERE id='"+observation['job_id']+"' AND JSON_UNQUOTE(JSON_EXTRACT(body,'$.current_status'))='NEEDS_VERIFICATION'")==1)
  return observation['job_id'],headers['X-Trace-ID']
 def group_lag(group):
  raw=subprocess.check_output(compose+['exec','-T','kafka','/opt/kafka/bin/kafka-consumer-groups.sh','--bootstrap-server','kafka:9092','--describe','--group',group],text=True,stderr=subprocess.DEVNULL)
@@ -89,11 +90,13 @@ eventually('notification consumer resumes',lambda:notified(third))
 notification_count=len(inbox())
 subprocess.run(compose+['pause','kafka'],check=True,stdout=subprocess.DEVNULL)
 try:
- fourth,_=ingest('kafkafourth')
+ fourth,_=ingest('kafkafourth',wait_analysis=False)
+ eventually('task handoff is durable while broker paused',lambda:scalar("SELECT COUNT(*) FROM kafka_tasks WHERE JSON_UNQUOTE(JSON_EXTRACT(CAST(body AS CHAR CHARACTER SET utf8mb4),'$.entity_id')) IN (SELECT id FROM observations WHERE job_id='"+fourth+"') AND state IN ('READY','SENDING')")>0)
  assert query('kafkafourth','basic')==[fourth]
  assert scalar('SELECT COUNT(*) FROM job_event_outbox WHERE published_at IS NULL')>0
  assert len(inbox())==notification_count
 finally:subprocess.run(compose+['unpause','kafka'],check=True,stdout=subprocess.DEVNULL)
+eventually('background analysis resumes after broker recovery',lambda:scalar("SELECT COUNT(*) FROM observations WHERE job_id='"+fourth+"' AND JSON_UNQUOTE(JSON_EXTRACT(body,'$.extraction_status'))='COMPLETE'")==1)
 eventually('broker recovery and durable event drain',lambda:query('kafkafourth','fulltext')==[fourth] and notified(fourth) and caught_up())
 notification_count=len(inbox())
 subprocess.run(compose+['exec','-T','worker','/app/events','replay','--from-version','0','--limit','10000'],check=True,stdout=subprocess.DEVNULL)
@@ -124,5 +127,5 @@ def trace_ready():
  return {'trace_id':trace,'spans':len(spans),'services':sorted({service for service,_ in spans})}
 trace_result=eventually('Kafka producer/consumer trace',trace_ready)
 dashboard,_=request('grafana','/api/dashboards/uid/campustrace-kafka');assert len(dashboard['dashboard']['panels'])==9
-results={'independent_search_and_notify_groups':True,'broker_ack_not_index_ack':True,'search_restart_catchup':True,'notify_restart_catchup':True,'broker_outage_core_crud_and_redis_analysis_continued':True,'durable_publish_recovered':True,'sql_receipts_deduplicate_replay':True,'poison_quarantine_without_raw_payload':True,'distinct_job_notifications':notification_count,'kafka_dashboard_panels':9,'trace':trace_result,'external_model_calls':0,'limits':'Single-host synthetic acceptance; single Kafka broker, no cluster HA or production throughput claim.'}
+results={'independent_search_and_notify_groups':True,'broker_ack_not_index_ack':True,'search_restart_catchup':True,'notify_restart_catchup':True,'broker_outage_core_crud_and_durable_task_handoff':True,'durable_publish_recovered':True,'sql_receipts_deduplicate_replay':True,'poison_quarantine_without_raw_payload':True,'distinct_job_notifications':notification_count,'kafka_dashboard_panels':9,'trace':trace_result,'external_model_calls':0,'limits':'Single-host synthetic acceptance; single Kafka broker, no cluster HA or production throughput claim.'}
 (evidence/'kafka-acceptance.json').write_text(json.dumps(results,indent=2));print(json.dumps(results,ensure_ascii=False))

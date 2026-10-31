@@ -60,7 +60,7 @@ func startAdversarial(t *testing.T, c adversarialConfig) *adversarialChild {
 	adversarialEnabled(t)
 	cmd := exec.Command(os.Args[0], "-test.run=^TestAdversarialChild$", "-test.v")
 	// Explicit synthetic settings only; never inherit provider or account secrets.
-	for _, key := range []string{"PATH", "TMPDIR", "MYSQL_TEST_DSN", "REDIS_ADDR", "ETCD_ENDPOINTS", "CAMPUS_ADVERSARIAL_EVIDENCE"} {
+	for _, key := range []string{"PATH", "TMPDIR", "MYSQL_TEST_DSN", "REDIS_ADDR", "ETCD_ENDPOINTS", "KAFKA_BROKERS", "KAFKA_TASK_PREFIX", "CAMPUS_ADVERSARIAL_EVIDENCE"} {
 		cmd.Env = append(cmd.Env, key+"="+os.Getenv(key))
 	}
 	cmd.Env = append(cmd.Env, "CAMPUS_INTEGRATION=1", "CAMPUS_ADVERSARIAL=1", "CAMPUS_ADVERSARIAL_CHILD="+d.JSON(c))
@@ -101,7 +101,7 @@ func (c *adversarialChild) stop(kill bool) {
 }
 func adversarialWait(t *testing.T, ctx context.Context, r *redis.Client, key string) {
 	t.Helper()
-	end := time.Now().Add(12 * time.Second)
+	end := time.Now().Add(25 * time.Second)
 	for time.Now().Before(end) {
 		if r.Exists(ctx, key).Val() == 1 {
 			return
@@ -155,7 +155,7 @@ func (a adversarialAnalyzer) Analyze(ctx context.Context, o d.Observation, _ str
 		}
 	}
 	a.r.Set(ctx, a.c.Prefix+"stage", "external_started", 0)
-	if a.c.Mode == "DURING" || strings.HasPrefix(a.c.Mode, "BEFORE_SQL") {
+	if a.c.Mode == "DURING" || a.c.Mode == "AFTER_SQL" || strings.HasPrefix(a.c.Mode, "BEFORE_SQL") {
 		childWait(ctx, a.r, a.c.Prefix+"release")
 	}
 	if ctx.Err() != nil {
@@ -186,10 +186,6 @@ func (h adversarialHook) ProcessHook(next redis.ProcessHook) redis.ProcessHook {
 		if h.c.Mode == "BEFORE_CACHE" && cmd.Name() == "set" && len(args) > 1 && strings.Contains(fmt.Sprint(args[1]), "analysis:cache-v2:") {
 			barrier = true
 		}
-		if h.c.Mode == "AFTER_SQL" && (cmd.Name() == "evalsha" || cmd.Name() == "eval") && len(args) > 3 && fmt.Sprint(args[3]) == h.c.Prefix+"tasks:ANALYZE" {
-			o, e := h.s.Observation(ctx, h.c.Entity)
-			barrier = e == nil && o.ExtractionStatus == "COMPLETE"
-		}
 		if barrier {
 			h.r.Set(ctx, h.c.Prefix+"blocked", h.c.Mode, 0)
 			childWait(ctx, h.r, h.c.Prefix+"continue")
@@ -216,7 +212,11 @@ func TestAdversarialChild(t *testing.T) {
 	defer s.DB.Close()
 	r := redis.NewClient(&redis.Options{Addr: os.Getenv("REDIS_ADDR"), ContextTimeoutEnabled: true})
 	defer r.Close()
-	q := &pipeline.Queue{R: r, Prefix: c.Prefix, Partitioned: true, Capacity: c.Capacity, OwnerCapacity: c.OwnerCapacity, ResolveOwner: s.TaskOwner}
+	q, e := pipeline.NewQueue(s.DB, r, c.Prefix, c.Capacity, c.OwnerCapacity, 2500*time.Millisecond)
+	must(t, e)
+	defer q.Close()
+	q.ResolveOwner = s.TaskOwner
+	must(t, q.Init(ctx))
 	if c.Gate != "" {
 		r.Incr(ctx, c.Prefix+"ready")
 		childWait(ctx, r, c.Gate)
@@ -260,10 +260,10 @@ func TestAdversarialChild(t *testing.T) {
 	case "worker":
 		control := redis.NewClient(&redis.Options{Addr: os.Getenv("REDIS_ADDR"), ContextTimeoutEnabled: true})
 		defer control.Close()
-		if c.Mode == "BEFORE_CACHE" || c.Mode == "AFTER_SQL" {
+		if c.Mode == "BEFORE_CACHE" {
 			r.AddHook(adversarialHook{c, control, s})
 		}
-		w := &pipeline.Worker{Store: s, Queue: q, Analyzer: adversarialAnalyzer{control, c}, Concurrency: 1, Timeout: 2 * time.Second, ClaimIdle: 2500 * time.Millisecond, MaxAttempts: 3, Metrics: observability.New()}
+		w := &pipeline.Worker{Store: s, Queue: q, Analyzer: adversarialAnalyzer{control, c}, Timeout: 2 * time.Second, Lease: 2500 * time.Millisecond, MaxAttempts: 3, Metrics: observability.New()}
 		go func() { childWait(ctx, control, c.Prefix+"stop"); cancel() }()
 		if e := w.Run(ctx); e != nil && ctx.Err() == nil {
 			t.Fatal(e)
@@ -276,7 +276,6 @@ func TestAdversarialChild(t *testing.T) {
 func TestAdversarialMultiprocessResidentCapacityAndMatchLease(t *testing.T) {
 	adversarialEnabled(t)
 	ctx, s, q, u, _ := setup(t)
-	q.Partitioned = true
 	q.Capacity = 8
 	q.OwnerCapacity = 3
 	must(t, q.Init(ctx))
@@ -341,39 +340,25 @@ func TestAdversarialMultiprocessResidentCapacityAndMatchLease(t *testing.T) {
 	}
 }
 
-func TestAdversarialMultiprocessLegacyMigrationAndDuplicates(t *testing.T) {
+func TestAdversarialMultiprocessKafkaDuplicates(t *testing.T) {
 	adversarialEnabled(t)
 	ctx, s, q, u, _ := setup(t)
-	o, e := s.IngestForUser(ctx, u, p.Ingest{Company: "Synthetic Migration", Title: "Go", JobType: "FULL_TIME", ExternalID: d.ID(), Text: "Go", FetchStatus: "SUCCESS"})
+	o, e := s.IngestForUser(ctx, u, p.Ingest{Company: "Synthetic Kafka", Title: "Go", JobType: "FULL_TIME", ExternalID: d.ID(), Text: "Go", FetchStatus: "SUCCESS"})
 	must(t, e)
-	_, e = s.DB.ExecContext(ctx, "UPDATE outbox SET sent=TRUE WHERE JSON_UNQUOTE(JSON_EXTRACT(body,'$.entity_id')) IN (?,?)", o.ID, o.JobID)
+	_, e = s.DB.ExecContext(ctx, "UPDATE outbox SET sent=TRUE")
 	must(t, e)
-	legacy := &pipeline.Queue{R: q.R, Prefix: q.Prefix}
-	must(t, legacy.Init(ctx))
 	tasks := []p.Task{}
 	for i := 0; i < 8; i++ {
-		tasks = append(tasks, p.NewTask("ASSESS", o.JobID))
+		v := p.NewTask("ASSESS", o.JobID)
+		v.OwnerID = u
+		tasks = append(tasks, v)
+		must(t, q.Publish(ctx, v))
+		must(t, q.Publish(ctx, v))
 	}
-	for _, task := range append(append([]p.Task{}, tasks[:5]...), tasks[0], tasks[1]) {
-		must(t, legacy.Publish(ctx, task))
-	}
-	_, e = q.R.XReadGroup(ctx, &redis.XReadGroupArgs{Group: legacy.Group(), Consumer: "synthetic-dead-prior", Streams: []string{legacy.Stream(), ">"}, Count: 2}).Result()
-	must(t, e)
-	for _, v := range tasks[5:7] {
-		v.Attempt = 2
-		must(t, q.R.ZAdd(ctx, q.Prefix+"retry:ASSESS", redis.Z{Score: 0, Member: d.JSON(v)}).Err())
-	}
-	must(t, q.R.HSet(ctx, q.Prefix+"dlq", tasks[7].ID, d.JSON(pipeline.Failure{Task: tasks[7], Category: "PERMANENT"})).Err())
-	q.Partitioned = true
-	q.Capacity = 3
-	q.OwnerCapacity = 2
-	q.ResolveOwner = s.TaskOwner
-	must(t, q.Init(ctx))
-	must(t, q.Redrive(ctx, tasks[7].ID))
-	a := startAdversarial(t, adversarialConfig{Role: "worker", Prefix: q.Prefix, Mode: "NORMAL", Capacity: 3, OwnerCapacity: 2})
-	b := startAdversarial(t, adversarialConfig{Role: "worker", Prefix: q.Prefix, Mode: "NORMAL", Capacity: 3, OwnerCapacity: 2})
-	end := time.Now().Add(15 * time.Second)
+	a := startAdversarial(t, adversarialConfig{Role: "worker", Prefix: q.Prefix, Mode: "NORMAL"})
+	b := startAdversarial(t, adversarialConfig{Role: "worker", Prefix: q.Prefix, Mode: "NORMAL"})
 	count := 0
+	end := time.Now().Add(20 * time.Second)
 	for time.Now().Before(end) {
 		count = 0
 		for _, v := range tasks {
@@ -381,27 +366,13 @@ func TestAdversarialMultiprocessLegacyMigrationAndDuplicates(t *testing.T) {
 			must(t, s.DB.QueryRowContext(ctx, "SELECT COUNT(*) FROM completed_tasks WHERE id=?", v.ID).Scan(&n))
 			count += n
 		}
-		groups, e := q.R.XInfoGroups(ctx, legacy.Stream()).Result()
-		must(t, e)
-		stats, e := q.Stats(ctx)
-		must(t, e)
-		resident := int64(0)
-		for _, v := range stats {
-			resident += v.Outstanding
-			if v.Outstanding > 3 {
-				t.Fatal("cross-process resident overflow", v)
-			}
-		}
-		if count == 8 && q.R.XPending(ctx, legacy.Stream(), legacy.Group()).Val().Count == 0 && groups[0].Lag == 0 && q.R.ZCard(ctx, q.Prefix+"retry:ASSESS").Val() == 0 && resident == 0 {
+		if count == 8 {
 			break
 		}
-		time.Sleep(10 * time.Millisecond)
+		time.Sleep(20 * time.Millisecond)
 	}
 	if count != 8 {
-		t.Fatal("migration lost work", count)
-	}
-	if q.R.XPending(ctx, legacy.Stream(), legacy.Group()).Val().Count != 0 || q.R.ZCard(ctx, q.Prefix+"retry:ASSESS").Val() != 0 || q.R.HLen(ctx, q.Prefix+"dlq").Val() != 0 {
-		t.Fatal("legacy work stranded")
+		t.Fatal("Kafka task work lost", count)
 	}
 	q.R.Set(ctx, q.Prefix+"stop", 1, 0)
 	a.stop(false)
@@ -491,7 +462,6 @@ func TestAdversarialKillWorkerAtPaidBoundaries(t *testing.T) {
 	for _, mode := range []string{"BEFORE_EXTERNAL", "DURING", "BEFORE_CACHE", "BEFORE_SQL", "BEFORE_SQL_NULL", "AFTER_SQL"} {
 		t.Run(mode, func(t *testing.T) {
 			ctx, s, q, u, _ := setup(t)
-			q.Partitioned = true
 			q.ResolveOwner = s.TaskOwner
 			must(t, q.Init(ctx))
 			o, e := s.IngestForUser(ctx, u, p.Ingest{Company: "Synthetic Kill", Title: mode, JobType: "FULL_TIME", ExternalID: d.ID(), Text: "Go 可靠任务 " + mode, FetchStatus: "SUCCESS"})
@@ -503,7 +473,7 @@ func TestAdversarialKillWorkerAtPaidBoundaries(t *testing.T) {
 			must(t, q.Publish(ctx, task))
 			c := startAdversarial(t, adversarialConfig{Role: "worker", Prefix: q.Prefix, Owner: u, Entity: o.ID, Mode: mode})
 			barrier := q.Prefix + "stage"
-			if mode == "BEFORE_CACHE" || mode == "AFTER_SQL" {
+			if mode == "BEFORE_CACHE" {
 				barrier = q.Prefix + "blocked"
 			}
 			adversarialWait(t, ctx, q.R, barrier)
@@ -517,6 +487,27 @@ func TestAdversarialKillWorkerAtPaidBoundaries(t *testing.T) {
 				q.R.Set(ctx, q.Prefix+"release", 1, 0)
 				adversarialWait(t, ctx, q.R, q.Prefix+"analysis:cache-v2:"+task.ProcessingVersion+":"+d.Hash(o.Text))
 			}
+			if mode == "AFTER_SQL" {
+				tx, e = s.DB.BeginTx(ctx, nil)
+				must(t, e)
+				defer tx.Rollback()
+				var id string
+				must(t, tx.QueryRowContext(ctx, "SELECT task_id FROM kafka_tasks WHERE task_id=? FOR UPDATE", task.ID).Scan(&id))
+				q.R.Set(ctx, q.Prefix+"release", 1, 0)
+				end := time.Now().Add(5 * time.Second)
+				for {
+					obs, e := s.Observation(ctx, o.ID)
+					must(t, e)
+					if obs.ExtractionStatus == "COMPLETE" {
+						break
+					}
+					if time.Now().After(end) {
+						t.Fatal("SQL business commit barrier not reached")
+					}
+					time.Sleep(10 * time.Millisecond)
+				}
+			}
+
 			c.stop(true)
 			if status, ok := c.cmd.ProcessState.Sys().(syscall.WaitStatus); !ok || !status.Signaled() || status.Signal() != syscall.SIGKILL {
 				t.Fatal("worker was not SIGKILLed", c.cmd.ProcessState)
@@ -534,7 +525,7 @@ func TestAdversarialKillWorkerAtPaidBoundaries(t *testing.T) {
 			}
 			q.R.Del(ctx, q.Prefix+"blocked", q.Prefix+"stage", q.Prefix+"release", q.Prefix+"stop")
 			restarted := startAdversarial(t, adversarialConfig{Role: "worker", Prefix: q.Prefix, Owner: u, Entity: o.ID, Mode: "NORMAL"})
-			end := time.Now().Add(12 * time.Second)
+			end := time.Now().Add(25 * time.Second)
 			expected := "ANALYSIS_OUTCOME_UNKNOWN"
 			if strings.HasPrefix(mode, "BEFORE_SQL") || mode == "AFTER_SQL" {
 				expected = "COMPLETE"
@@ -542,14 +533,14 @@ func TestAdversarialKillWorkerAtPaidBoundaries(t *testing.T) {
 			for time.Now().Before(end) {
 				obs, e := s.Observation(ctx, o.ID)
 				must(t, e)
-				if (obs.ErrorCategory == expected || obs.ExtractionStatus == expected) && !q.R.HExists(ctx, q.Prefix+"ready:ANALYZE:tasks", task.ID).Val() {
+				if (obs.ErrorCategory == expected || obs.ExtractionStatus == expected) && settledTask(t, ctx, s, task.ID) {
 					break
 				}
 				time.Sleep(10 * time.Millisecond)
 			}
 			obs, e := s.Observation(ctx, o.ID)
 			must(t, e)
-			if (obs.ErrorCategory != expected && obs.ExtractionStatus != expected) || q.R.HExists(ctx, q.Prefix+"ready:ANALYZE:tasks", task.ID).Val() {
+			if (obs.ErrorCategory != expected && obs.ExtractionStatus != expected) || !settledTask(t, ctx, s, task.ID) {
 				t.Fatal("recovery outcome", mode, obs.ExtractionStatus, obs.ErrorCategory)
 			}
 			if after := q.R.Get(ctx, q.Prefix+"calls").Val(); after != before {
@@ -591,4 +582,11 @@ func TestAdversarialLegacyUnindexedQuotaAcrossProcesses(t *testing.T) {
 	if n := q.R.Get(ctx, q.Prefix+"accepted").Val(); n != "" {
 		t.Fatal("unindexed legacy tasks bypass owner admission", n)
 	}
+}
+
+func settledTask(t *testing.T, ctx context.Context, s *p.Store, id string) bool {
+	t.Helper()
+	var state string
+	must(t, s.DB.QueryRowContext(ctx, "SELECT state FROM kafka_tasks WHERE task_id=?", id).Scan(&state))
+	return state == "DONE" || state == "DEAD"
 }

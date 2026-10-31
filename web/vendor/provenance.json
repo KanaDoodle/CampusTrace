@@ -1,0 +1,25 @@
+{
+  "packages": {
+    "jszip": {
+      "name": "jszip",
+      "version": "3.10.2",
+      "tarball": "https://registry.npmjs.org/jszip/-/jszip-3.10.2.tgz",
+      "integrity": "sha512-3l+rb15IOWtUhU0H5MFqES/T6Kh7abYwjosBey/vD6hDt8zoEffkSC5Ws5SGtgVw3gBx2NEbhTeSW1+kWkpyTQ==",
+      "license": "(MIT OR GPL-3.0-or-later)"
+    },
+    "pdfjs-dist": {
+      "name": "pdfjs-dist",
+      "version": "6.4.299",
+      "tarball": "https://registry.npmjs.org/pdfjs-dist/-/pdfjs-dist-6.4.299.tgz",
+      "integrity": "sha512-AVl138zALtfaAPvADulE0PZThbYzCBS79nL4pOSL/6Sm/4AH5A21BD9VHt97OlCuzJuCpmeZtAtkinisF4Vb1g==",
+      "license": "Apache-2.0"
+    }
+  },
+  "files": {
+    "jszip.min.js": "7f839b2d4688b845c105ebf5d2f9803075f91ea0fe72bdaac176c3a04dd3d2c1",
+    "pdf.min.mjs": "57456c8e0c81e46be31174b499ef77f2b9f5ee46d04412ba627320a36755d4c2",
+    "pdf.worker.min.mjs": "9536359f1b8367850d485731ca1d5e45c159a7b7a0912325e539937aa21ceb18",
+    "JSZIP-LICENSE.md": "566c953c6090b1218ca6217dd7359d45dde46581968586dc607d59a78af6a9c4",
+    "PDFJS-LICENSE.txt": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594"
+  }
+}

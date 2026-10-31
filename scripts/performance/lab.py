@@ -28,6 +28,7 @@ LIMITS = {
     'api': (1, '512m'), 'worker': (1, '512m'),
     'analysis-1': (.5, '256m'), 'analysis-2': (.5, '256m'),
     'search': (1, '256m'), 'mysql': (1, '512m'),
+    'kafka': (1, '1024m'), 'kafka-init': (.5, '512m'),
     'redis': (.5, '128m'), 'etcd': (.5, '256m'),
     'opensearch': (1, '1536m'),
 }

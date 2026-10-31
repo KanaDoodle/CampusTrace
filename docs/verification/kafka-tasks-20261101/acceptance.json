@@ -1,0 +1,304 @@
+{
+  "date": "2026-11-01",
+  "status": "PASS",
+  "scope": "local isolated SQL/Kafka/OpenSearch acceptance, synthetic sources and model providers",
+  "full_race_checkpoint": {
+    "result": {
+      "status": "PASS",
+      "go_exit": 0,
+      "race": true,
+      "owned_opensearch": false,
+      "count": 1,
+      "shuffle": "60431",
+      "remaining_fixture_schemas": 0,
+      "remaining_fixture_accounts": 0,
+      "template_guard_preserved": true,
+      "backend": "local-test-fixtures-no-model",
+      "real_vllm": "NOT_VALIDATED"
+    },
+    "top_level_tests_by_package": {
+      "agent": {
+        "pass": 29
+      },
+      "analysis": {
+        "pass": 25
+      },
+      "config": {
+        "pass": 2
+      },
+      "domain": {
+        "pass": 15
+      },
+      "eventbus": {
+        "pass": 1
+      },
+      "inferencebridge": {
+        "pass": 7
+      },
+      "integration": {
+        "pass": 202,
+        "skip": 17
+      },
+      "jobevent": {
+        "pass": 1
+      },
+      "launcher": {
+        "pass": 16
+      },
+      "matcheval": {
+        "pass": 6
+      },
+      "matching": {
+        "pass": 86
+      },
+      "mcpclient": {
+        "pass": 2
+      },
+      "modelconfig": {
+        "pass": 3
+      },
+      "observability": {
+        "pass": 5
+      },
+      "persistence": {
+        "pass": 16
+      },
+      "pipeline": {
+        "pass": 5
+      },
+      "rag": {
+        "pass": 8
+      },
+      "recruitmentmail": {
+        "pass": 5
+      },
+      "resume": {
+        "pass": 21
+      },
+      "rules": {
+        "pass": 15
+      },
+      "scheduling": {
+        "pass": 2
+      },
+      "searchapi": {
+        "pass": 18
+      },
+      "searchservice": {
+        "pass": 2,
+        "skip": 1
+      },
+      "source": {
+        "pass": 85,
+        "skip": 17
+      },
+      "taskmigration": {
+        "pass": 1
+      },
+      "taskqueue": {
+        "pass": 8
+      },
+      "transport": {
+        "pass": 17
+      },
+      "web": {
+        "pass": 2
+      }
+    }
+  },
+  "task_repeat_race": {
+    "result": {
+      "status": "PASS",
+      "go_exit": 0,
+      "race": true,
+      "owned_opensearch": false,
+      "count": 2,
+      "shuffle": "60431",
+      "remaining_fixture_schemas": 0,
+      "remaining_fixture_accounts": 0,
+      "template_guard_preserved": true,
+      "backend": "local-test-fixtures-no-model",
+      "real_vllm": "NOT_VALIDATED"
+    },
+    "top_level_tests_by_package": {
+      "integration": {
+        "pass": 6
+      },
+      "taskmigration": {
+        "pass": 2
+      },
+      "taskqueue": {
+        "pass": 16
+      }
+    }
+  },
+  "post_restore_idempotence_fix": {
+    "result": {
+      "status": "PASS",
+      "go_exit": 0,
+      "race": true,
+      "owned_opensearch": true,
+      "count": 1,
+      "shuffle": "60431",
+      "remaining_fixture_schemas": 0,
+      "remaining_fixture_accounts": 0,
+      "template_guard_preserved": true,
+      "backend": "local-test-fixtures-no-model",
+      "real_vllm": "NOT_VALIDATED"
+    },
+    "top_level_tests_by_package": {
+      "integration": {
+        "pass": 3
+      },
+      "launcher": {
+        "pass": 1
+      },
+      "searchservice": {
+        "pass": 1
+      },
+      "taskqueue": {
+        "pass": 1
+      }
+    },
+    "native_full_race": "PASS"
+  },
+  "frontend": {
+    "passed": 453,
+    "failed": 0
+  },
+  "performance_contracts": {
+    "python_passed": 16,
+    "javascript_passed": 6,
+    "new_k6_performance_measurement": false
+  },
+  "http_journey": {
+    "status": "PASS",
+    "kind": "isolated-synthetic-http-journey",
+    "checks": [
+      "owned JD import and authoritative search",
+      "atomic company plan and replay",
+      "reviewed submission snapshots remain fixed after profile changes",
+      "ambiguity, duplicate import, stale confirmation and idempotent confirmation",
+      "EML import, explicit new time, reschedule, provenance and frozen preparation",
+      "interview review becomes one learning note with server-bound provenance",
+      "new preparation retrieves the review note while preserving frozen application materials"
+    ],
+    "external_model_calls": 0,
+    "source_mode": "synthetic-seeded-comparison-and-local-keyword-retrieval"
+  },
+  "observability": {
+    "kind": "local-disposable-controlled-acceptance",
+    "external_model_calls": 0,
+    "first_trace": {
+      "trace_id": "92b48a8a375c6101235426ce860fad27",
+      "spans": 126,
+      "services": [
+        "campustrace-analysis",
+        "campustrace-api",
+        "campustrace-notify",
+        "campustrace-search",
+        "campustrace-worker"
+      ]
+    },
+    "recovered_trace": {
+      "trace_id": "36a08e200f963762787e40c342803b92",
+      "spans": 98,
+      "services": [
+        "campustrace-analysis",
+        "campustrace-api",
+        "campustrace-notify",
+        "campustrace-search",
+        "campustrace-worker"
+      ]
+    },
+    "prometheus_targets": [
+      "campustrace-api",
+      "campustrace-search",
+      "campustrace-notify",
+      "campustrace-worker"
+    ],
+    "dashboard_panels": 14,
+    "alert_rules": 4,
+    "queue_lanes": 10,
+    "observer_outage_business_completed": true,
+    "api_ingest_seconds": {
+      "first": 0.01764075004030019,
+      "observer_down": 0.2537165420362726,
+      "recovered": 0.0225200419081375
+    },
+    "limits": "Single-host synthetic inputs. This is not a production latency, HA, privacy proof or model-quality benchmark."
+  },
+  "job_events": {
+    "independent_search_and_notify_groups": true,
+    "broker_ack_not_index_ack": true,
+    "search_restart_catchup": true,
+    "notify_restart_catchup": true,
+    "broker_outage_core_crud_and_durable_task_handoff": true,
+    "durable_publish_recovered": true,
+    "sql_receipts_deduplicate_replay": true,
+    "poison_quarantine_without_raw_payload": true,
+    "distinct_job_notifications": 6,
+    "kafka_dashboard_panels": 9,
+    "trace": {
+      "trace_id": "631164ae679b665b3bc94277b4553261",
+      "spans": 124,
+      "services": [
+        "campustrace-analysis",
+        "campustrace-api",
+        "campustrace-notify",
+        "campustrace-search",
+        "campustrace-worker"
+      ]
+    },
+    "external_model_calls": 0,
+    "limits": "Single-host synthetic acceptance; single Kafka broker, no cluster HA or production throughput claim."
+  },
+  "search": {
+    "separate_search_image": true,
+    "independent_search_replacement": true,
+    "core_and_analysis_kept_running": true,
+    "outage_fallback_and_write": true,
+    "recovered_outbox": true,
+    "rebuild_replay": true,
+    "online_rebuild": true,
+    "online_rebuild_reads": 5,
+    "online_rebuild_basic": 0,
+    "index_outage_and_loss_recovered": true,
+    "database_network_isolated": true,
+    "search_dashboard_panels": 9,
+    "resilience_dashboard_panels": 6,
+    "rebuild_dashboard_panels": 8,
+    "query_trace": {
+      "trace_id": "ca8913ec3f67fc2e10748353334bc1f7",
+      "spans": 10,
+      "services": [
+        "campustrace-api",
+        "campustrace-search"
+      ]
+    }
+  },
+  "checks": {
+    "build": true,
+    "vet": true,
+    "published_kanarpc_dependency": true,
+    "independent_search_dependencies": true,
+    "compose_config": true,
+    "preserved_preexisting_copy_source_files": 32,
+    "existing_business_services_unchanged": true
+  },
+  "delivery": {
+    "committed": false,
+    "pushed": false,
+    "live_business_data_migrated": false
+  },
+  "test_isolation": {
+    "remaining_test_schemas": 0,
+    "remaining_test_accounts": 0,
+    "template_preserved": true
+  },
+  "boundaries": [
+    "single-node Kafka; no cluster availability or production throughput measurement",
+    "conditional public-website checks are not counted as passes",
+    "GitHub Actions workflow added; remote CI execution is not claimed"
+  ]
+}

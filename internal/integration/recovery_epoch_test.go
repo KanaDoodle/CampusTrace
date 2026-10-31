@@ -32,7 +32,7 @@ import (
 func recoveryDump(t *testing.T, ctx context.Context, dsn string) []byte {
 	t.Helper()
 	container := os.Getenv("MYSQL_TEST_CONTAINER")
-	if !strings.HasPrefix(container, "ct-adversarial-mysql-") {
+	if !strings.HasPrefix(container, "ct-adversarial-mysql-") && !strings.HasPrefix(container, "ct-isolation-mysql-") {
 		t.Fatal("recovery requires the disposable Kafka harness")
 	}
 	cfg, e := mysql.ParseDSN(dsn)
@@ -71,7 +71,7 @@ func dataset(t *testing.T, ctx context.Context, s *p.Store) string {
 }
 func recoveryDerived(name string) bool {
 	switch name {
-	case "search_rebuild_state", "search_rebuild_deltas", "search_documents", "search_outbox", "search_revision_state", "search_sync_state", "job_dataset_recovery":
+	case "task_queue_namespaces", "kafka_tasks", "search_rebuild_state", "search_rebuild_deltas", "search_documents", "search_outbox", "search_revision_state", "search_sync_state", "job_dataset_recovery":
 		return true
 	}
 	return false

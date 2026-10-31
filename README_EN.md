@@ -1,6 +1,6 @@
 # CampusTrace
 
-**A personal graduate job-search tool built in Go: track recruiting changes, compare roles, preserve applications, and turn interview reviews into preparation.**
+**A Go-based campus recruitment workspace for tracking roles, comparing opportunities, managing applications, and preparing from interview reviews.**
 
 [中文](README.md) | **English** · [Architecture](docs/architecture.md) · [Engineering evidence](docs/engineering-evidence.md) · [Release acceptance](docs/verification/release-20261031/README.md)
 
@@ -10,13 +10,14 @@ Sources / manual imports → Search and role selection → Application plans and
 Next interview preparation ← Local study notes ← Interview records and reviews
 ```
 
-Original text, extracted evidence and assessments remain separate. Whether a job is open, whether a candidate meets identified requirements, and overall relevance are different judgments. Model analysis reads complete reviewed materials; users inspect outbound text before starting it.
+CampusTrace preserves source text and analysis evidence, and presents recruiting status, eligibility and role relevance separately. Analysis combines complete job descriptions with reviewed candidate materials to support role selection, application planning and traceable interview preparation.
 
-## Three backend problems
+## Key engineering designs
 
 | Problem | Implementation | Evidence |
 |---|---|---|
-| A saved job must reach Search and notifications independently, including duplicate delivery | Transactional MySQL outbox, Kafka consumer groups, projection versions and durable notification receipts; Redis keeps task scheduling | [Job events](docs/job-events.md): lost acknowledgements, independent outages, replay and tombstones |
+| A saved job must reach Search and notifications independently, including duplicate delivery | Transactional MySQL outbox, Kafka consumer groups, projection versions and durable notification receipts; background tasks also use Kafka with SQL retry schedules and leases | [Job events](docs/job-events.md): lost acknowledgements, independent outages, replay and tombstones |
+| Background tasks need isolated execution and recoverable retries | Kafka task lanes, SQL journal, due times, execution leases and revision fences; offsets follow durable business outcomes | [Task scheduling](docs/task-scheduling.md): process kills, SQL settlement failure and backlog migration |
 | Search failure must preserve authorization and bound database load | Foreground and remote admission limits, one bounded background recovery probe, budgeted SQL fallback; Core revalidates ACL, versions, hashes and generations | [Failure isolation](docs/search-resilience.md), [Trace / EXPLAIN / pprof diagnosis](docs/verification/search-diagnosis-20261031/README.md) |
 | Multiple APIs share paid-model capacity; a crashed process cannot prove whether a request executed | Fair permits, atomic call budgets, invocation ledger, UNKNOWN reconciliation and late-result fencing | [Model execution control](docs/model-control.md): contention, process kills and recovery |
 
@@ -24,18 +25,18 @@ Applications freeze the materials used for that submission. Reviewed interview n
 
 ## Architecture
 
-- **Core API / Worker:** Go, MySQL and Redis. Owns authoritative records, authorization, task scheduling and the application workflow.
+- **Core API / Worker:** Go, MySQL, Kafka and Redis. Owns authoritative records, authorization, task scheduling and the application workflow.
 - **Analysis:** separate Go processes, discovered through etcd and called through the public [KanaRPC-Go](https://github.com/KanaDoodle/KanaRPC-Go) facade. The module pins a published release; no sibling checkout is required. See [dependency provenance](docs/dependency-audit.md).
 - **Optional Search:** independent HTTP service owning only the derived OpenSearch index. Core retains permission and content checks.
-- **Optional Kafka / Notify:** independent Search and notification consumer groups. Notify remains in the Core business domain and shares its SQL database.
+- **Optional job-event consumers / Notify:** independent Search and notification consumer groups. Notify remains in the Core business domain and shares its SQL database.
 - **Observability and regression:** OpenTelemetry, Prometheus/Grafana/Tempo, pprof, k6, race/fuzz checks and GitHub Actions.
-- **AI application backend:** persistent tasks, controlled tools, resumable reviewed workflows and MCP; local BM25 with optional Embedding/RRF/Reranker. Real model quality requires separate evaluation.
+- **AI application backend:** persistent tasks, controlled tools, resumable reviewed workflows and MCP; local BM25 with optional Embedding/RRF/Reranker. Model and retrieval results have dedicated evaluation workflows.
 
-The [Chinese README](README.md#架构与技术栈) includes the service diagram. Default deployment starts Core, MySQL, Redis, etcd and two Analysis instances. Search, Kafka and the full observation stack are opt-in.
+The [Chinese README](README.md#架构与技术栈) includes the service diagram. Default deployment starts Core, MySQL, Kafka, Redis, etcd and two Analysis instances. Search, independent job-event consumers and the full observation stack are opt-in.
 
 ## Start
 
-Requirements: **Go 1.25.9+, Git and Docker with Compose**. The first build downloads modules and images.
+Requirements: **Go 1.27.3+, Git and Docker with Compose**. The first build downloads modules and images.
 
 ```sh
 git clone https://github.com/KanaDoodle/CampusTrace.git
@@ -43,7 +44,7 @@ cd CampusTrace
 ./campustrace start --open
 ```
 
-Open [127.0.0.1:8080](http://127.0.0.1:8080/) and register an account. The UI is in Chinese. Start with profile, source/manual import, job radar, applications, and interviews/reviews. Startup does not seed sample jobs.
+Open [127.0.0.1:8080](http://127.0.0.1:8080/) and register an account. The UI is in Chinese. Start with profile, source/manual import, job radar, applications, and interviews/reviews. Start with your own materials and roles, or explore the demonstration below.
 
 ```sh
 ./campustrace status
@@ -57,7 +58,7 @@ Open [127.0.0.1:8080](http://127.0.0.1:8080/) and register an account. The UI is
 
 The CLI uses the fixed Compose project `campustrace`. Local settings live in the ignored `.env`. Use a separate JWT secret of at least 32 bytes outside local use. See [backup and recovery](docs/recovery.md).
 
-## Synthetic demonstration
+## Explore the workflow
 
 ```sh
 sh scripts/journey-local.sh demo
@@ -65,7 +66,7 @@ sh scripts/journey-local.sh demo
 python3 scripts/smoke-journey.py
 ```
 
-Demo: `http://127.0.0.1:23380`, account `demo@campustrace.invalid`, password `Synthetic2026!`. It owns disposable SQL/Redis dependencies, uses fictional data and a pre-seeded comparison, and makes no external model/source calls. Exiting removes only its temporary dependencies.
+Demo: `http://127.0.0.1:23380`, account `demo@campustrace.invalid`, password `Synthetic2026!`. It owns disposable SQL/Redis/Kafka dependencies, uses fictional data and a pre-seeded comparison, and makes no external model/source calls. Exiting removes only its temporary dependencies.
 
 Alternatively, `sh scripts/journey-local.sh smoke` runs acceptance and exits. Set `JOURNEY_HTTP_PORT` for a different port. The HTTP scenario covers import/search, atomic application planning, frozen submissions, notice confirmation/rescheduling, review-to-note import, and retrieval for later preparation.
 
@@ -89,7 +90,7 @@ make performance-test
 - [Technical requirements](docs/verification/technology-requirements-20261031/README.md): historical excerpts, synthetic controls, RPC semantics and cache/generation fencing.
 - [Workflow linkage](docs/verification/linkage-20261031/README.md) and [simplification](docs/verification/redundancy-fixes-20261031/README.md).
 
-Performance belongs to each report's archived source and local synthetic conditions, not a production SLA or maximum throughput. Some p95/p99 measurements remain worse or variable; all results are retained. Rule controls and offline Agent tests are not model-accuracy measurements.
+Each report records its workload, environment, source revision, complete quantiles and raw results. Performance regression, rule parsing and model quality use separate evaluation criteria; see [performance acceptance](docs/performance.md) and [Agent evaluation](docs/agent-evaluation.md).
 
 ## Further reading
 
@@ -97,6 +98,10 @@ Performance belongs to each report's archived source and local synthetic conditi
 
 Optional stacks: `make search-stack`, `make kafka-stack`, `make observability`. Disposable acceptance: `make resilience-test`, `make kafka-test`, `make performance`.
 
-CampusTrace does not submit applications automatically. Notifications are mainly in-app. Scanned resumes have no OCR support; complex requirements need review. Production traffic, independent human-gold model quality and multi-node high availability have not been demonstrated. Keep personal resumes, API keys and database backups out of the public repository.
+## Usage and data handling
+
+- Manage plans, frozen application materials and in-app reminders in CampusTrace; submit applications through recruiting websites.
+- Read PDF, DOCX and TXT resumes locally in the browser. Convert scanned documents to text first. Resume extraction, job analysis and semantic indexing provide outbound previews before confirmed model calls.
+- Keep resumes, API keys and database backups outside the public repository. See [operations](docs/operations.md) and [backup and recovery](docs/recovery.md) for deployment and data management.
 
 License: [AGPL-3.0](LICENSE).

@@ -44,12 +44,11 @@ func (a *schedulerAnalyzer) Analyze(ctx context.Context, o d.Observation, _ stri
 }
 func TestSchedulerWorkerLaneIsolationAndDurableUnknownFence(t *testing.T) {
 	ctx, s, q, u, _ := setup(t)
-	q.Partitioned = true
 	q.ResolveOwner = s.TaskOwner
 	o, e := s.IngestForUser(ctx, u, p.Ingest{Company: "Synthetic Scheduler", Title: "后端", JobType: "FULL_TIME", ExternalID: d.ID(), Text: "熟悉 Go。", FetchStatus: "SUCCESS"})
 	must(t, e)
 	model := &schedulerAnalyzer{onlyObservation: o.ID, entered: make(chan struct{}), release: make(chan struct{})}
-	w := &pipeline.Worker{Store: s, Queue: q, Analyzer: model, Concurrency: 1, Timeout: 2 * time.Second, ClaimIdle: 3 * time.Second, MaxAttempts: 3, Metrics: observability.New()}
+	w := &pipeline.Worker{Store: s, Queue: q, Analyzer: model, Timeout: 2 * time.Second, Lease: 3 * time.Second, MaxAttempts: 3, Metrics: observability.New()}
 	workCtx, cancel := context.WithCancel(ctx)
 	done := make(chan error, 1)
 	go func() { done <- w.Run(workCtx) }()
@@ -138,7 +137,6 @@ func TestSchedulerOutboxFairRoutingBackfillAndSaturatedType(t *testing.T) {
 		t.Fatal("one saturated type blocked other types or owners", seen, n)
 	}
 	// A full resident lane must leave its outbox source unsent and recoverable.
-	q.Partitioned = true
 	q.Capacity = 1
 	q.OwnerCapacity = 1
 	q.ResolveOwner = s.TaskOwner
@@ -207,7 +205,6 @@ type schedulerModel struct {
 
 func TestSchedulerWorkerRestartReclaimsPendingWithoutRepeatingUnknownCall(t *testing.T) {
 	ctx, s, q, u, _ := setup(t)
-	q.Partitioned = true
 	q.ResolveOwner = s.TaskOwner
 	o, e := s.IngestForUser(ctx, u, p.Ingest{Company: "Synthetic Restart", Title: "后端", JobType: "FULL_TIME", ExternalID: d.ID(), Text: "Go 任务恢复", FetchStatus: "SUCCESS"})
 	must(t, e)
@@ -216,7 +213,7 @@ func TestSchedulerWorkerRestartReclaimsPendingWithoutRepeatingUnknownCall(t *tes
 		w := worker(s, q)
 		w.Analyzer = a
 		w.Timeout = 500 * time.Millisecond
-		w.ClaimIdle = time.Second
+		w.Lease = time.Second
 		runCtx, cancel := context.WithCancel(ctx)
 		done := make(chan error, 1)
 		go func() { done <- w.Run(runCtx) }()

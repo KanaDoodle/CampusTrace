@@ -1,8 +1,10 @@
 # 监控与分析任务排障
 
+组件版本与升级验收见[技术栈维护](stack-maintenance.md)。
+
 原有 `/metrics` JSON 保持兼容。新增 API `http://127.0.0.1:8080/metrics/prometheus` 和 Worker `http://127.0.0.1:18081/metrics/prometheus`，提供 Prometheus text exposition；Worker 在 Compose 内监听配置地址，可通过容器内部端口抓取，不需要把该端口发布到公网。
 
-默认 typed 队列的运行参数、旧 Stream/Pending/Retry 迁移和回退条件见[可靠任务调度](task-scheduling.md)。Worker `/queues` 返回各固定通道的 outstanding、inflight、ready 及容量；账号不作为指标标签。新 typed Stream 在完成可靠交接后立即删除消息，以下 `TASK_HISTORY_HOURS` 仅控制旧 Stream 的保守清理。
+Kafka 任务运行参数、旧 Redis 任务迁移及恢复机制见[可靠任务调度](task-scheduling.md)。Worker `/queues` 返回各固定通道的未完成、执行中、排队与容量指标；`TASK_HISTORY_HOURS` 控制 SQL 已完成任务的保留时间。
 
 ## 指标
 
@@ -88,11 +90,11 @@ Outbox 与任务消息只携带固定长度 W3C `traceparent`；匹配任务保�
 
 HTTP 返回 `X-Trace-ID`，带上下文的结构化日志追加 `trace_id` / `span_id`。Grafana 的“打开任务追踪”链接进入 Tempo；也可以在 Explore 选择 CampusTrace Tempo，按响应中的 Trace ID 查询。任务等待可从 producer / consumer 间隙观察；`task_age_seconds` 是从任务首次创建到本次执行的年龄，包含历史等待和重试，不能解释成每次尝试的纯排队耗时。
 
-默认采样率为 0.1，不保证每个 Trace ID 都已采集；定位可复现问题时临时设置 `OTEL_TRACES_SAMPLER_ARG=1`。独立启动二进制可指定 `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://127.0.0.1:4318/v1/traces`，端口由操作者自行映射；默认 Compose 不发布该接收端口。未配置 endpoint 则不导出，`OTEL_TRACES_EXPORTER=none` 可关闭已配置二进制的导出。Go SDK 固定为兼容项目 Go 1.25.9 的 1.44.0。
+默认以 0.1 的采样率导出 Trace；定位可复现问题时临时设置 `OTEL_TRACES_SAMPLER_ARG=1`。独立启动二进制可指定 `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://127.0.0.1:4318/v1/traces`，端口由操作者自行映射；默认 Compose 不发布该接收端口。未配置 endpoint 则不导出，`OTEL_TRACES_EXPORTER=none` 可关闭已配置二进制的导出。Go SDK 使用 1.44.0，构建工具链统一为 Go 1.27.3。
 
 追踪只保留固定操作名、路由模板、任务编号、尝试次数、HTTP 状态、固定错误分类、模型调用状态，以及提供商确实返回的 Token 数。不会采集 SQL 语句与参数、请求查询字符串、JD、简历、模型输入输出、密钥、提供商 URL 或 baggage/tracestate；外部模型请求不注入追踪头。数据库跨度覆盖通用读操作、事务和 BeginTx，尚未逐条覆盖所有直接 Exec / QueryRow，也不能单靠 db.begin 区分连接建立、连接池等待与事务启动。
 
-### 面板、告警和故障边界
+### 面板、告警与故障处理
 
 现有 Prometheus text 输出继续提供 HTTP、Go 运行时、数据库池与阶段直方图；新增按固定 lane 标签的 ready / inflight / outstanding / capacity，以及模型共享池等待、占用、隔离、未知与每日调用计数。账号、岗位、请求编号和模型地址不作为指标标签。共享池指标是全局状态，多 API 抓取时应取 max，不应累加。模型排队 P95 仅来自成功获准调用；无样本的图表会显示无数据。
 
@@ -108,11 +110,11 @@ OTLP 使用有界后台批处理（最多 2048 个待导出跨度、每批 256�
 make observability-test
 ```
 
-脚本不读取 `.env`，清空模型配置，创建自己的镜像、Compose 项目、网络、临时业务库和观测数据卷，退出只清理本次资源。验收包含真实容器间 HTTP → Outbox → Redis → Worker → etcd/KanaRPC → Analysis 的跨度父子关系、追踪敏感标记检查、两个 Prometheus 抓取目标、十条队列通道、14 个 Grafana 面板、四条规则，以及停止/恢复 Tempo 后业务处理和后续采集。日志与追踪 JSON 保存在 `bin/verification/observability-20261030/`。另外运行 Go 竞态检查、现有前端测试、模型控制多进程验收和旧后台反例回归。
+脚本不读取 `.env`，清空模型配置，创建自己的镜像、Compose 项目、网络、临时业务库和观测数据卷，退出只清理本次资源。验收包含真实容器间 HTTP → Outbox → Kafka → Worker → etcd/KanaRPC → Analysis 的跨度父子关系、追踪敏感标记检查、两个 Prometheus 抓取目标、十条队列通道、14 个 Grafana 面板、四条规则，以及停止/恢复 Tempo 后业务处理和后续采集。日志与追踪 JSON 保存在 `bin/verification/observability-20261030/`。另外运行 Go 竞态检查、现有前端测试、模型控制多进程验收和旧后台反例回归。
 
 2026-10-30 最终验收：Go 全包 race、vet、build、Go 1.25.9 Docker 构建、已发布 KanaRPC 依赖边界及 432 项前端测试通过。独立 SQL / Redis / etcd 全量集成有 175 个顶层测试通过、无失败；4 个按条件跳过的是子进程辅助入口、需要另一空数据库的历史迁移修复和两个真实来源检查，未将它们算作通过。十个模型控制专项测试包含在集成结果中。完整观测烟测在停机前、恢复后各读取到 34 个跨度，覆盖三个实际应用进程；采集器停止期间业务解析继续完成。汇总为本机 `acceptance.json`。全量回归还修复了 Agent 以目录前 100 条代替来源权限查询的问题，并让恢复测试的屏障与计数只绑定自己的观察，避免误认共享 Outbox 中其他合成任务。初次失败记录也保留在同目录。
 
-这是单机、合成输入和本地受控验收；不构成生产吞吐、真实模型质量、完整隐私安全或高可用证明。实现参考 [OpenTelemetry Go](https://opentelemetry.io/docs/languages/go/instrumentation/)、[OTLP 导出](https://opentelemetry.io/docs/languages/go/exporters/)、[Prometheus 配置](https://prometheus.io/docs/prometheus/latest/configuration/configuration/)。
+验收使用单机合成输入，记录应用采集、故障隔离和恢复行为；性能与模型效果采用各自的评测流程。实现参考 [OpenTelemetry Go](https://opentelemetry.io/docs/languages/go/instrumentation/)、[OTLP 导出](https://opentelemetry.io/docs/languages/go/exporters/)、[Prometheus 配置](https://prometheus.io/docs/prometheus/latest/configuration/configuration/)。
 
 ## 运行与资源占用
 
@@ -120,7 +122,7 @@ make observability-test
 
 默认 Compose 适合个人使用：MySQL 保留 128 MiB InnoDB 缓存与 Performance Schema，但缩小诊断历史、表缓存、日志缓冲和临时表内存预算，最多 64 个连接。Go 连接池仍最多 16 个连接，空闲连接超过一分钟回收。这里是组件预算调整，不是整个 MySQL 进程的硬内存上限；多用户、高并发部署需按负载重新评估。
 
-Worker 有工作时以 200 ms 间隔发送 Outbox、调度到期重试；连续空闲时逐步延长到 3 秒，出错时也退避到 3 秒。因此空闲后的新任务最多多等待约 3 秒进入调度，不含排队与执行时间。消费端仍使用 Redis 阻塞读取，领取、幂等和故障恢复规则保持原样。招聘源导入的 `SOURCE_IMPORT` 也纳入延迟重试调度。
+Worker 有工作时以 200 ms 间隔发送 Outbox、调度到期重试；连续空闲时逐步延长到 3 秒，出错时也退避到 3 秒。因此空闲后的新任务最多多等待约 3 秒进入调度，不含排队与执行时间。消费端使用 Kafka 消费组与手动位点提交，执行租约及结果状态保存在 MySQL。招聘源导入的 `SOURCE_IMPORT` 也纳入延迟重试调度。
 
 ### 岗位状态按变化与到期更新
 
@@ -132,14 +134,12 @@ Worker 平时每分钟只查询到期索引，每批最多 100 个；批次满�
 
 升级首次启动会为旧岗位分批补齐更新计划；后续重启保留既有计划。规则版本变化时重新安排相关岗位，新增计划随岗位删除级联清理。这里仅更新本地状态与评估，不改变招聘源的定期抓取设置。
 
-已处理消息默认保留最近 24 小时，可用 `.env` 的 `TASK_HISTORY_HOURS=24` 调整，允许 1–8760 小时。Worker 用 Redis 服务器时间判断年龄，在同一原子脚本中检查所有消费组的已读取位置和最早未确认消息，再按更保守的边界回收旧消息。首次启动与有积压时每秒最多检查 10,000 条，平时每分钟检查；按整节点近似裁剪，因此可能多保留部分已确认消息。没有消费组、存在旧的未读／未确认消息时，会保留相应历史。
-
-这项机制只回收任务 Stream 中可安全裁剪的传输历史，不触及 SQL Outbox、幂等回执、岗位、个人资料、深度分析结果、投递记录、延迟重试或死信。旧的未确认消息可能阻止后面的历史裁剪，此时应先排查任务，不能直接清空队列。裁剪次数可通过上述 Worker 指标查看。
+已完成任务日志默认保留 24 小时，可通过 `TASK_HISTORY_HOURS` 配置 1–8760 小时。Worker 每次清理最多 1000 条过期的 SQL `DONE` 记录；未完成、重试和死信记录保留。Kafka 主题独立保留七天传输历史，长期未消费的有效任务可由 SQL 日志重新发布。业务回执和求职数据不随任务传输历史删除。
 
 健康检查平时每 30 秒一次，启动阶段仍每 3 秒检查，避免常驻组件频繁拉起探针；故障发现可能比原来的 3 秒间隔晚一些。暂时不用时运行 `./campustrace stop --all`，下次 `./campustrace start` 即可继续，保留数据卷。
 
-实现依据：[Redis XTRIM 的 MINID 与有界近似裁剪](https://redis.io/docs/latest/commands/xtrim/)、[MySQL 8.4 Performance Schema 配置](https://dev.mysql.com/doc/refman/8.4/en/performance-schema-system-variables.html)、[Compose 健康检查](https://docs.docker.com/reference/compose-file/services/#healthcheck)。Redis 7.4 没有新版本的 `ACKED` 裁剪选项，所以消费组边界由原子脚本显式保护。
+实现依据：[MySQL 8.4 Performance Schema 配置](https://dev.mysql.com/doc/refman/8.4/en/performance-schema-system-variables.html)、[Compose 健康检查](https://docs.docker.com/reference/compose-file/services/#healthcheck)。
 
-## 可选 Kafka 部署
+## 岗位事件独立消费
 
-岗位变更可通过 `make kafka-stack` 启动 Kafka、Search 独立消费组和 Notify 进程。切换时 API/Worker 配置必须一致，先停止旧 writer 并备份；Redis 调度保留。CLI 普通启动不管理这个可选栈，切换、回放、观测及验收命令见[岗位事件运行说明](job-events.md)。
+岗位变更可通过 `make kafka-stack` 启动 Kafka、Search 独立消费组和 Notify 进程。默认栈已包含任务使用的 Kafka；启用岗位事件消费者时 API/Worker 配置必须一致，先停止旧 writer 并备份。CLI 普通启动不管理这个可选栈，切换、回放、观测及验收命令见[岗位事件运行说明](job-events.md)。

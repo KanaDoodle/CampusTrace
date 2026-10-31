@@ -27,12 +27,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
-          go-version: '1.25.9'
+          go-version-file: go.mod
       - name: Download public pinned modules
         run: GOWORK=off go mod download
       - name: Real process kills, concurrent writes, alias reply loss and rollback
