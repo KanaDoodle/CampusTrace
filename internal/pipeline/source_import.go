@@ -41,6 +41,9 @@ func (w *Worker) processSourceImport(ctx context.Context, t p.Task) error {
 	return w.Store.QueueSourceImport(ctx, t, v.Adapter, v.ProjectCode, v.Name)
 }
 func sourceImportFailure(err error) string {
+	if errors.Is(err, ErrQueueExpired) {
+		return "QUEUE_EXPIRED"
+	}
 	if errors.Is(err, context.DeadlineExceeded) {
 		return "SOURCE_IMPORT_NETWORK"
 	}

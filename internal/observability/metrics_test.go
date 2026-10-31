@@ -34,4 +34,9 @@ func TestConcurrentHistogramsAndLegacyJSON(t *testing.T) {
 			t.Fatal("missing", want, r.Body.String())
 		}
 	}
+	r = httptest.NewRecorder()
+	m.Prometheus(r, httptest.NewRequest("GET", "/metrics/prometheus", nil), sql.DBStats{}, Gauge{Name: "queue_ready", Labels: map[string]string{"lane": "ANALYZE"}, Value: 2}, Gauge{Name: "queue_ready", Labels: map[string]string{"lane": "ASSESS"}, Value: 0})
+	if strings.Count(r.Body.String(), "# TYPE campustrace_queue_ready gauge") != 1 || !strings.Contains(r.Body.String(), `campustrace_queue_ready{lane="ANALYZE"} 2`) {
+		t.Fatal(r.Body.String())
+	}
 }

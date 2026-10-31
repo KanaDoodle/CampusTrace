@@ -1,7 +1,6 @@
 package matching
 
 import (
-	"context"
 	"strings"
 	"testing"
 	"time"
@@ -60,7 +59,7 @@ func TestGraduationWindowsDoNotTurnYearOverlapIntoEligibility(t *testing.T) {
 func TestSavedResultsRepairLocalQualificationsWithoutChangingAbilityOrHistory(t *testing.T) {
 	source := "2027届应届毕业生，本科及以上学历，计算机相关专业\n毕业范围开始日期：2026-09-01 00:00:00\n毕业范围结束日期：2027-08-01 00:00:00\n掌握 Go"
 	p := d.Profile{Educations: []d.Education{{ID: "m", Degree: "MASTER", Majors: []string{"软件工程"}, GraduationYear: 2027, Status: "ENROLLED"}, {ID: "b", Degree: "BACHELOR", Majors: []string{"工商管理"}, GraduationYear: 2023, Status: "GRADUATED"}}, PrimaryEducationID: "m"}
-	c, err := CandidateFrom(p, nil, "")
+	c, err := CandidateWithProjects(p, nil, nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -116,46 +115,7 @@ func TestQualificationRepairsRespectPreferencesAndUnsupportedConditions(t *testi
 	}
 }
 
-func TestExtractionSeparatesFoundationAndSoftTraitsButPreservesLanguageChoices(t *testing.T) {
-	text := "热爱技术，熟练掌握 Go\n熟悉操作系统、网络(TCP/IP)、数据结构与常见算法等基础原理\n了解TCP/IP、UDP、FTP、HTTP、HTTPS的基本原理及应用场景\n熟练掌握Go/Java/C++至少一门语言\n对 AI 技术保持好奇心，主动学习并掌握新的AI知识和功能"
-	items := []Requirement{}
-	for _, line := range strings.Split(text, "\n") {
-		items = append(items, Requirement{Category: "REQUIRED", Text: line, Excerpt: line, Aspect: "TECHNICAL", Confidence: 1})
-	}
-	model := &fakeModel{output: map[string]any{"jobs": []any{map[string]any{"job_id": "j", "requirements": items}}}}
-	got, err := Extract(context.Background(), model, []JobText{{ID: "j", Text: text}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(got["j"].Items) != 13 {
-		t.Fatal(got["j"].Items)
-	}
-	soft, language := 0, 0
-	matches := []Match{}
-	for _, q := range got["j"].Items {
-		if q.Aspect == "SOFT" {
-			soft++
-		}
-		if q.Excerpt == items[3].Excerpt {
-			language++
-		}
-		matches = append(matches, Match{RequirementID: q.ID, Result: "NO_EVIDENCE"})
-	}
-	if soft != 2 || language != 1 {
-		t.Fatal(soft, language)
-	}
-	sections := ScoreBreakdown(got["j"].Items, matches)
-	if sections[0].Total != 11 || sections[3].Total != 2 {
-		t.Fatal(sections)
-	}
-	// All-noun alternatives remain one requirement, not multiple hard gaps.
-	choices := Requirement{ID: "choice", Category: "REQUIRED", Text: "熟悉操作系统、网络、算法中任一方向", Excerpt: "熟悉操作系统、网络、算法中任一方向"}
-	if len(splitTestableRequirements([]Requirement{choices})) != 1 {
-		t.Fatal("split alternatives")
-	}
-}
-
-func TestSoftScoreGuardAndCachedSplitCapacity(t *testing.T) {
+func TestSoftScoreGuard(t *testing.T) {
 	engineering := Requirement{Category: "REQUIRED", Text: "具备清晰的逻辑思维和工程化排查思路，能借助日志、监控、trace等手段深入问题本质"}
 	if softOnly(engineering) {
 		t.Fatal("specific diagnostic methods became a soft-only requirement")
@@ -168,17 +128,5 @@ func TestSoftScoreGuardAndCachedSplitCapacity(t *testing.T) {
 				t.Fatal(trait, status, score, coverage)
 			}
 		}
-	}
-	text := "熟悉操作系统、网络、数据结构与算法"
-	reqs := []Requirement{{ID: "base", Category: "REQUIRED", Text: text, Excerpt: text, Confidence: 1}}
-	got, err := PrepareCachedRequirements(reqs, text)
-	if err != nil || len(got) != 4 || got[0].ID == got[1].ID || reqs[0].Text != text {
-		t.Fatal(got, err)
-	}
-	for i := 0; i < MaxRequirements; i++ {
-		reqs = append(reqs, Requirement{ID: strings.Repeat("x", i+1), Category: "REQUIRED", Text: "熟悉 Go", Excerpt: "Go", Confidence: 1})
-	}
-	if _, err := PrepareCachedRequirements(reqs, text+" Go"); err != ErrCapacity {
-		t.Fatal("silently trimmed split requirements", err)
 	}
 }

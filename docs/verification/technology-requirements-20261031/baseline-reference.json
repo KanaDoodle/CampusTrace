@@ -1,0 +1,5 @@
+{
+  "archive": "../search-recovery-20261031/source-snapshots.tar.gz",
+  "archive_sha256": "bc57f3b31de3d8a093e47c06cacaaf2c0af157dbe74385a740253bf40cd546fe",
+  "role": "candidate"
+}

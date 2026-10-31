@@ -7,7 +7,6 @@ import (
 	"errors"
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
 	p "github.com/KanaDoodle/CampusTrace/internal/persistence"
-	"hash/fnv"
 	"math"
 	"strings"
 	"time"
@@ -18,13 +17,16 @@ const SearchCapacity = 10000
 
 var ErrCapacity = errors.New("CORPUS_CAPACITY: searchable capacity of 10000 chunks exceeded")
 
+// Retained as the chunk-format tag for existing data. New chunks omit the
+// obsolete hash vector; real semantic vectors live in knowledge_vectors.
 const EmbeddingVersion = "lexical-hash-128-v1"
 
 type Document struct {
-	ID        string    `json:"id"`
-	Title     string    `json:"title"`
-	Text      string    `json:"text"`
-	CreatedAt time.Time `json:"created_at"`
+	ID        string          `json:"id"`
+	Title     string          `json:"title"`
+	Text      string          `json:"text"`
+	CreatedAt time.Time       `json:"created_at"`
+	Origin    *DocumentOrigin `json:"origin,omitempty"`
 }
 type Chunk struct {
 	ID               string    `json:"id"`
@@ -58,15 +60,6 @@ func Tokens(text string) []string {
 	}
 	return out
 }
-func Embed(text string) []float64 {
-	v := make([]float64, 128)
-	for _, token := range Tokens(text) {
-		h := fnv.New32a()
-		h.Write([]byte(token))
-		v[h.Sum32()%128]++
-	}
-	return v
-}
 func Cosine(a, b []float64) float64 {
 	if len(a) != len(b) {
 		return 0
@@ -82,28 +75,6 @@ func Cosine(a, b []float64) float64 {
 	}
 	return dot / math.Sqrt(an*bn)
 }
-func Score(query string, c Chunk) Hit {
-	q := map[string]bool{}
-	for _, w := range Tokens(query) {
-		q[w] = true
-	}
-	words := map[string]bool{}
-	for _, w := range Tokens(c.Title + " " + c.Text) {
-		words[w] = true
-	}
-	n := 0
-	for w := range q {
-		if words[w] {
-			n++
-		}
-	}
-	keyword := 0.0
-	if len(q) > 0 {
-		keyword = float64(n) / float64(len(q))
-	}
-	cos := Cosine(Embed(query), c.Vector)
-	return Hit{Chunk: c, Score: 0.55*keyword + 0.45*cos, Cosine: cos, Keyword: keyword}
-}
 
 type Service struct {
 	Store    *p.Store
@@ -115,17 +86,22 @@ type Service struct {
 }
 
 func (s *Service) Ingest(ctx context.Context, user string, doc Document) (Document, error) {
-	out, _, err := s.ingest(ctx, user, doc, false)
+	// Compatibility API keeps its full Document result while sharing import
+	// deduplication, ownership and corpus revision behavior.
+	out, _, err := s.ImportDocument(ctx, user, doc)
 	return out, err
 }
 
 // ImportDocument reuses an exact title/body match under the user's corpus lock.
 // A lost response can therefore be retried without adding another document.
 func (s *Service) ImportDocument(ctx context.Context, user string, doc Document) (Document, bool, error) {
-	return s.ingest(ctx, user, doc, true)
+	if doc.Origin != nil {
+		return Document{}, false, p.ErrValidation
+	}
+	return s.ingest(ctx, user, doc, nil)
 }
 
-func (s *Service) ingest(ctx context.Context, user string, doc Document, unique bool) (Document, bool, error) {
+func (s *Service) ingest(ctx context.Context, user string, doc Document, source *reviewReference) (Document, bool, error) {
 	if strings.TrimSpace(doc.Title) == "" || len(doc.Title) > 200 || strings.TrimSpace(doc.Text) == "" || len(doc.Text) > 60000 {
 		return doc, false, errors.New("invalid document")
 	}
@@ -144,45 +120,51 @@ func (s *Service) ingest(ctx context.Context, user string, doc Document, unique 
 	}
 	doc.ID = d.ID()
 	doc.CreatedAt = time.Now().UTC()
+	parts := splitText(doc.Text)
 	reused := false
 	err := s.Store.Tx(ctx, func(tx *sql.Tx) error {
 		var owner string
 		if err := tx.QueryRowContext(ctx, "SELECT id FROM users WHERE id=? FOR UPDATE", user).Scan(&owner); err != nil {
 			return err
 		}
-		if unique {
-			var body []byte
-			err := tx.QueryRowContext(ctx, "SELECT body FROM documents WHERE user_id=? AND BINARY JSON_UNQUOTE(JSON_EXTRACT(body,'$.title'))=BINARY ? AND BINARY JSON_UNQUOTE(JSON_EXTRACT(body,'$.text'))=BINARY ? LIMIT 1", user, doc.Title, doc.Text).Scan(&body)
-			if err == nil {
-				if err := json.Unmarshal(body, &doc); err != nil {
-					return err
-				}
-				reused = true
-				return nil
-			}
-			if !errors.Is(err, sql.ErrNoRows) {
+		originKey := ""
+		if source != nil {
+			interview, review, err := reviewSource(ctx, tx, user, source.InterviewID)
+			if err != nil {
 				return err
 			}
+			origin := reviewOrigin(user, interview, review)
+			if origin.SourceKey != source.Key {
+				return p.ErrStaleInput
+			}
+			doc.Origin = &origin
+			originKey = origin.SourceKey
+		}
+		var body []byte
+		err := tx.QueryRowContext(ctx, "SELECT body FROM documents WHERE user_id=? AND BINARY JSON_UNQUOTE(JSON_EXTRACT(body,'$.title'))=BINARY ? AND BINARY JSON_UNQUOTE(JSON_EXTRACT(body,'$.text'))=BINARY ? AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(body,'$.origin.source_key')),'')=? LIMIT 1", user, doc.Title, doc.Text, originKey).Scan(&body)
+		if err == nil {
+			if err := json.Unmarshal(body, &doc); err != nil {
+				return err
+			}
+			reused = true
+			return nil
+		}
+		if !errors.Is(err, sql.ErrNoRows) {
+			return err
 		}
 		var count int
 		if err := tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM chunks WHERE user_id=?", user).Scan(&count); err != nil {
 			return err
 		}
-		if count+(len([]rune(doc.Text))+699)/700 > SearchCapacity {
+		if count+len(parts) > SearchCapacity {
 			return ErrCapacity
 		}
-		_, err := tx.ExecContext(ctx, "INSERT INTO documents(id,user_id,body) VALUES(?,?,?)", doc.ID, user, d.JSON(doc))
+		_, err = tx.ExecContext(ctx, "INSERT INTO documents(id,user_id,body) VALUES(?,?,?)", doc.ID, user, d.JSON(doc))
 		if err != nil {
 			return err
 		}
-		runes := []rune(doc.Text)
-		for start, index := 0, 0; start < len(runes); start, index = start+700, index+1 {
-			end := start + 900
-			if end > len(runes) {
-				end = len(runes)
-			}
-			text := string(runes[start:end])
-			c := Chunk{ID: d.ID(), DocumentID: doc.ID, Title: doc.Title, Text: text, Vector: Embed(doc.Title + " " + text), EmbeddingVersion: EmbeddingVersion, Index: index}
+		for index, text := range parts {
+			c := Chunk{ID: d.ID(), DocumentID: doc.ID, Title: doc.Title, Text: text, EmbeddingVersion: EmbeddingVersion, Index: index}
 			_, err = tx.ExecContext(ctx, "INSERT INTO chunks(id,user_id,document_id,body) VALUES(?,?,?,?)", c.ID, user, doc.ID, d.JSON(c))
 			if err != nil {
 				return err

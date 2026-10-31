@@ -1,0 +1,250 @@
+{
+  "kind": "assistant-reviewed-historical-excerpts-and-synthetic-controls",
+  "profiles": {
+    "go": [
+      "Go"
+    ],
+    "cpp": [
+      "C++"
+    ],
+    "go_cpp": [
+      "Go",
+      "cpp"
+    ],
+    "rust": [
+      "Rust"
+    ],
+    "java": [
+      "Java"
+    ],
+    "golang": [
+      "Golang"
+    ]
+  },
+  "cases": [
+    {
+      "id": "s06-historical-fragment",
+      "text": "任职要求：\n1、计算机相关专业，本科或以上学历；\n2、C++基础扎实，有较强的逻辑思维能力，能够独立解决问题；",
+      "expected": {
+        "go": "FAIL",
+        "cpp": "PASS",
+        "go_cpp": "PASS",
+        "rust": "FAIL",
+        "java": "FAIL",
+        "golang": "FAIL"
+      },
+      "source": {
+        "kind": "assistant-reviewed-historical-excerpt",
+        "url": "https://www.nowcoder.com/jobs/detail/461226",
+        "snapshot_file_sha256": "08defc60fdfab4e6a8f853a4a194da7ae8fa5a6f84d3295cfd02f1fc80b0721d",
+        "excerpt_sha256": "e2379cc1002cb3dcf2b9e5e96747892a293deb5152f11251dacd148e656fcf61"
+      }
+    },
+    {
+      "id": "s07-historical-fragment",
+      "text": "任职要求\n1、泛CS相关专业，本科及以上学历；2027届毕业\n2、熟悉C/C++编程语言及其思想；",
+      "expected": {
+        "go": "FAIL",
+        "cpp": "PASS",
+        "go_cpp": "PASS",
+        "rust": "FAIL",
+        "java": "FAIL",
+        "golang": "FAIL"
+      },
+      "source": {
+        "kind": "assistant-reviewed-historical-excerpt",
+        "url": "https://www.nowcoder.com/jobs/detail/456771",
+        "snapshot_file_sha256": "2bb8f9501c0dc5cb4e3934a9a7e2607000566a3e5f60c9a7a7385916f5a0de15",
+        "excerpt_sha256": "92cb32c5d942f3140affd5e1ee8e369e59adcdf7b0e9dfc7cecc97d0fe0c3bb9"
+      }
+    },
+    {
+      "id": "s09-historical-fragment",
+      "text": "任职要求\n1. 应届毕业生计算机相关专业，本科及以上学历\n2. 熟悉Client-server网络架构\n3. 熟悉网络底层TCP/UDP协议及通用Online Game Service开发\n4. 熟悉C/C++编程以及Visual Studio开发环境",
+      "expected": {
+        "go": "UNKNOWN",
+        "cpp": "UNKNOWN",
+        "go_cpp": "UNKNOWN",
+        "rust": "UNKNOWN",
+        "java": "UNKNOWN",
+        "golang": "UNKNOWN"
+      },
+      "source": {
+        "kind": "assistant-reviewed-historical-excerpt",
+        "url": "https://www.nowcoder.com/jobs/detail/457533?urlSource=sitemap",
+        "snapshot_file_sha256": "c426f3791473ac0e44fb206207b89fa914915a08d3a25142b433cc6d92cf68a9",
+        "excerpt_sha256": "c608f1c528ac03db4937cfe24800d3f55694b149e2af8546e264f74f15cf9647"
+      },
+      "reference_note": "Same sentence also requires a Visual Studio environment; language-only parsing does not fully resolve this requirement."
+    },
+    {
+      "id": "s10-historical-fragment",
+      "text": "岗位要求\n\n我们希望您符合以下任意两条或以上的描述：\n- 计算机及相关专业，扎实的计算机基础知识，深入理解数据结构、算法、操作系统等知识；\n- 了解C/C++编程语言，至少精通一门编程语言并了解其思想、原理；",
+      "expected": {
+        "go": "UNKNOWN",
+        "cpp": "UNKNOWN",
+        "go_cpp": "UNKNOWN",
+        "rust": "UNKNOWN",
+        "java": "UNKNOWN",
+        "golang": "UNKNOWN"
+      },
+      "source": {
+        "kind": "assistant-reviewed-historical-excerpt",
+        "url": "https://www.nowcoder.com/jobs/detail/407195",
+        "snapshot_file_sha256": "f06e5cafd4801122b72011addc1a732f76f6195447e01fc1e821ce8b8fe4f0bf",
+        "excerpt_sha256": "62a0fb2b26677f1790fd21b61c713834135ed136fe303df9ceca13a838adaefb"
+      }
+    },
+    {
+      "id": "exact-language-choice",
+      "text": "必须掌握Go或Rust任一种语言",
+      "expected": {
+        "go": "PASS",
+        "cpp": "FAIL",
+        "go_cpp": "PASS",
+        "rust": "PASS",
+        "java": "FAIL",
+        "golang": "PASS"
+      },
+      "source": {
+        "kind": "synthetic-control"
+      }
+    },
+    {
+      "id": "required-conjunction",
+      "text": "必须掌握Go和C++",
+      "expected": {
+        "go": "FAIL",
+        "cpp": "FAIL",
+        "go_cpp": "PASS",
+        "rust": "FAIL",
+        "java": "FAIL",
+        "golang": "FAIL"
+      },
+      "source": {
+        "kind": "synthetic-control"
+      }
+    },
+    {
+      "id": "preferred-is-not-required",
+      "text": "任职要求：熟悉Go；C++经验优先",
+      "expected": {
+        "go": "PASS",
+        "cpp": "FAIL",
+        "go_cpp": "PASS",
+        "rust": "FAIL",
+        "java": "FAIL",
+        "golang": "PASS"
+      },
+      "source": {
+        "kind": "synthetic-control"
+      }
+    },
+    {
+      "id": "negated-requirement",
+      "text": "无需Go经验",
+      "expected": {
+        "go": "NOT_APPLICABLE",
+        "cpp": "NOT_APPLICABLE",
+        "go_cpp": "NOT_APPLICABLE",
+        "rust": "NOT_APPLICABLE",
+        "java": "NOT_APPLICABLE",
+        "golang": "NOT_APPLICABLE"
+      },
+      "source": {
+        "kind": "synthetic-control"
+      }
+    },
+    {
+      "id": "open-language-examples",
+      "text": "任职要求：熟悉Java、C++等至少一门语言",
+      "expected": {
+        "go": "NOT_APPLICABLE",
+        "cpp": "NOT_APPLICABLE",
+        "go_cpp": "NOT_APPLICABLE",
+        "rust": "NOT_APPLICABLE",
+        "java": "NOT_APPLICABLE",
+        "golang": "NOT_APPLICABLE"
+      },
+      "source": {
+        "kind": "synthetic-control"
+      }
+    },
+    {
+      "id": "malformed-expression",
+      "text": "tech: REQUIRED:go|",
+      "expected": {
+        "go": "UNKNOWN",
+        "cpp": "UNKNOWN",
+        "go_cpp": "UNKNOWN",
+        "rust": "UNKNOWN",
+        "java": "UNKNOWN",
+        "golang": "UNKNOWN"
+      },
+      "source": {
+        "kind": "synthetic-control"
+      }
+    },
+    {
+      "id": "mixed-and-or",
+      "text": "必须熟悉Go或Rust并掌握C++",
+      "expected": {
+        "go": "UNKNOWN",
+        "cpp": "UNKNOWN",
+        "go_cpp": "UNKNOWN",
+        "rust": "UNKNOWN",
+        "java": "UNKNOWN",
+        "golang": "UNKNOWN"
+      },
+      "source": {
+        "kind": "synthetic-control"
+      }
+    },
+    {
+      "id": "unknown-language-option",
+      "text": "必须掌握Go或Zig任一种语言",
+      "expected": {
+        "go": "UNKNOWN",
+        "cpp": "UNKNOWN",
+        "go_cpp": "UNKNOWN",
+        "rust": "UNKNOWN",
+        "java": "UNKNOWN",
+        "golang": "UNKNOWN"
+      },
+      "source": {
+        "kind": "synthetic-control"
+      }
+    },
+    {
+      "id": "literal-cpp",
+      "text": "tech: REQUIRED:c++",
+      "expected": {
+        "go": "FAIL",
+        "cpp": "PASS",
+        "go_cpp": "PASS",
+        "rust": "FAIL",
+        "java": "FAIL",
+        "golang": "FAIL"
+      },
+      "source": {
+        "kind": "synthetic-control"
+      }
+    },
+    {
+      "id": "go-required-c-family-choice",
+      "text": "tech: REQUIRED:go+c|c++",
+      "expected": {
+        "go": "FAIL",
+        "cpp": "FAIL",
+        "go_cpp": "PASS",
+        "rust": "FAIL",
+        "java": "FAIL",
+        "golang": "FAIL"
+      },
+      "source": {
+        "kind": "synthetic-control"
+      },
+      "expected_go_fit": "EXPLICIT_GO"
+    }
+  ]
+}

@@ -7,9 +7,11 @@ import (
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
 	"github.com/KanaDoodle/CampusTrace/internal/matching"
 	"github.com/KanaDoodle/CampusTrace/internal/modelconfig"
+	"github.com/KanaDoodle/CampusTrace/internal/modelcontrol"
 	"github.com/KanaDoodle/CampusTrace/internal/observability"
 	p "github.com/KanaDoodle/CampusTrace/internal/persistence"
 	"github.com/KanaDoodle/CampusTrace/internal/resume"
+	"github.com/KanaDoodle/CampusTrace/internal/scheduling"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -31,14 +33,19 @@ type matchTaskRequest struct {
 	Retry         bool                `json:"retry"`
 }
 type MatchTaskRunner struct {
-	api       *API
-	root      context.Context
-	cancel    context.CancelFunc
-	mu        sync.Mutex
-	active    map[string]context.CancelFunc
-	wg        sync.WaitGroup
-	slots     chan struct{}
-	admission chan struct{}
+	api                           *API
+	root                          context.Context
+	cancel                        context.CancelFunc
+	mu                            sync.Mutex
+	active                        map[string]matchExecution
+	wg                            sync.WaitGroup
+	fair                          *scheduling.Pool
+	WaitTimeout, ExecutionTimeout time.Duration
+	admission                     chan struct{}
+}
+type matchExecution struct {
+	cancel context.CancelFunc
+	token  string
 }
 
 // Credentials and the optional masking name live only in these execution
@@ -48,14 +55,21 @@ func (a *API) StartMatchTasks(ctx context.Context, concurrency int) *MatchTaskRu
 		concurrency = 2
 	}
 	root, cancel := context.WithCancel(ctx)
-	runner := &MatchTaskRunner{api: a, root: root, cancel: cancel, active: map[string]context.CancelFunc{}, slots: make(chan struct{}, concurrency), admission: make(chan struct{}, 16)}
+	runner := &MatchTaskRunner{api: a, root: root, cancel: cancel, active: map[string]matchExecution{}, fair: scheduling.New(concurrency, 16, 1), WaitTimeout: 30 * time.Second, ExecutionTimeout: 175 * time.Second, admission: make(chan struct{}, 16)}
 	a.MatchTasks = runner
 	return runner
 }
 func (r *MatchTaskRunner) Close() { r.cancel(); r.wg.Wait() }
+func (r *MatchTaskRunner) forgetExecution(id, token string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.active[id].token == token {
+		delete(r.active, id)
+	}
+}
 func (r *MatchTaskRunner) cancelRun(id string) {
 	r.mu.Lock()
-	cancel := r.active[id]
+	cancel := r.active[id].cancel
 	r.mu.Unlock()
 	if cancel != nil {
 		cancel()
@@ -91,6 +105,15 @@ func (a *API) taskModel(in matchTaskRequest) (resume.Completer, string, error) {
 	return model, identity, nil
 }
 func (a *API) matchingTaskRoutes(on func(string, http.HandlerFunc)) {
+	a.modelCallRoutes(on)
+	on("GET /api/matching/tasks/scheduler", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		if a.MatchTasks == nil {
+			codedError(w, 503, "MATCH_RUN_UNAVAILABLE")
+			return
+		}
+		write(w, map[string]any{"scope": "api_instance", "admission_limit": cap(a.MatchTasks.admission), "admitted": len(a.MatchTasks.admission), "permits": a.MatchTasks.fair.Stats(), "wait_seconds": a.MatchTasks.WaitTimeout.Seconds(), "execution_seconds": a.MatchTasks.ExecutionTimeout.Seconds()}, nil)
+	})
 	on("GET /api/matching/tasks", func(w http.ResponseWriter, r *http.Request) {
 		runs, err := a.Store.MatchRuns(r.Context(), user(r))
 		if err == nil {
@@ -124,13 +147,15 @@ func (a *API) matchingTaskRoutes(on func(string, http.HandlerFunc)) {
 	for _, route := range []string{"POST /api/matching/tasks", "POST /api/matching/tasks/{id}/resume"} {
 		on(route, func(w http.ResponseWriter, r *http.Request) {
 			if a.MatchTasks == nil || !a.MatchTasks.available() {
-				codedError(w, 503, "MATCH_RUN_UNAVAILABLE")
+				w.Header().Set("Retry-After", "2")
+				codedError(w, 503, "MATCH_QUEUE_FULL")
 				return
 			}
 			select {
 			case a.MatchTasks.admission <- struct{}{}:
 			default:
-				codedError(w, 503, "MATCH_RUN_UNAVAILABLE")
+				w.Header().Set("Retry-After", "2")
+				codedError(w, 503, "MATCH_QUEUE_FULL")
 				return
 			}
 			transferred := false
@@ -250,7 +275,7 @@ func (a *API) matchingTaskRoutes(on func(string, http.HandlerFunc)) {
 			return
 		}
 		v, err := a.Store.ControlMatchRun(r.Context(), user(r), r.PathValue("id"), in.Version, in.Action)
-		if err == nil && in.Action == "CANCEL" && a.MatchTasks != nil {
+		if err == nil && (in.Action == "CANCEL" || (in.Action == "PAUSE" && v.State == "PAUSED")) && a.MatchTasks != nil {
 			a.MatchTasks.cancelRun(v.ID)
 		}
 		write(w, v, err)
@@ -258,17 +283,20 @@ func (a *API) matchingTaskRoutes(on func(string, http.HandlerFunc)) {
 }
 func (r *MatchTaskRunner) launch(user string, run p.MatchRun, g p.MatchRunGuard, in matchTaskRequest, model resume.Completer) {
 	ctx, cancel := context.WithCancel(r.root)
+	ctx = observability.Extract(ctx, run.TraceParent)
 	ctx = p.WithMatchRunGuard(ctx, g)
 	ctx = observability.With(ctx, observability.Fields{RequestID: run.RequestID, RunID: run.ID})
 	r.mu.Lock()
-	r.active[run.ID] = cancel
+	r.active[run.ID] = matchExecution{cancel: cancel, token: g.Token}
 	r.wg.Add(1)
 	r.mu.Unlock()
 	go func() {
+		ctx, span := observability.Start(ctx, "matching.run")
+		defer span.End()
 		defer func() { <-r.admission }()
 		defer r.wg.Done()
 		defer cancel()
-		defer func() { r.mu.Lock(); delete(r.active, run.ID); r.mu.Unlock() }()
+		defer r.forgetExecution(run.ID, g.Token)
 		heartbeatDone := make(chan struct{})
 		go func() {
 			defer close(heartbeatDone)
@@ -304,16 +332,6 @@ func (r *MatchTaskRunner) launch(user string, run p.MatchRun, g p.MatchRunGuard,
 				return nil
 			})
 		}()
-		queuedAt := time.Now()
-		select {
-		case r.slots <- struct{}{}:
-			defer func() { <-r.slots }()
-		case <-ctx.Done():
-			return
-		}
-		if r.api.Metrics != nil {
-			r.api.Metrics.Observe("matching_queue_seconds", time.Since(queuedAt).Seconds())
-		}
 		r.process(ctx, user, run, g, in, model)
 	}()
 }
@@ -357,106 +375,218 @@ func (r *MatchTaskRunner) process(ctx context.Context, user string, run p.MatchR
 			})
 			return
 		}
-		snapshot, err := r.api.Store.MatchSnapshot(ctx, user, run.Model, in.MaskName, ids)
-		if err != nil {
-			r.fail(ctx, user, g, ids, err, "PREPARE", 0)
+		queuedAt := time.Now()
+		waitUntil := queuedAt.Add(r.WaitTimeout)
+		if err = r.api.Store.UpdateMatchRun(ctx, user, g, func(v *p.MatchRun) error {
+			v.ExecutionState = "QUEUED"
+			v.QueueUntil = &waitUntil
+			v.ExecutionUntil = nil
+			return nil
+		}); err != nil {
 			return
 		}
-		// Pack within the existing 3-job/24KB budget, preserving batching benefits.
-		bytes := 0
-		packed := []string{}
-		byID := map[string]p.MatchJob{}
-		for _, j := range snapshot.Jobs {
-			byID[j.Job.ID] = j
+		waitCtx, stopWait := context.WithDeadline(ctx, waitUntil)
+		release := func() {}
+		var waitErr error
+		if r.api.ModelControl == nil {
+			release, waitErr = r.fair.Acquire(waitCtx, user)
 		}
+		stopWait()
+		if waitErr != nil {
+			if ctx.Err() != nil {
+				return
+			}
+			code := "MATCH_QUEUE_TIMEOUT"
+			if errors.Is(waitErr, scheduling.ErrFull) {
+				code = "MATCH_QUEUE_FULL"
+			}
+			r.queueStopped(ctx, user, g, ids, code)
+			return
+		}
+		if r.api.Metrics != nil && r.api.ModelControl == nil {
+			r.api.Metrics.Observe("matching_queue_seconds", time.Since(queuedAt).Seconds())
+		}
+		// The permit belongs to a single paid-analysis quantum, not the whole run.
+		stop := func() bool { defer release(); return r.processQuantum(ctx, user, run, g, in, model, ids) }()
+		if stop {
+			return
+		}
+	}
+}
+func (r *MatchTaskRunner) processQuantum(ctx context.Context, user string, run p.MatchRun, g p.MatchRunGuard, in matchTaskRequest, model resume.Completer, ids []string) bool {
+	quantumLimit := r.ExecutionTimeout
+	if r.api.ModelControl != nil {
+		quantumLimit += r.api.ModelControl.Options.Wait
+	}
+	until := time.Now().Add(quantumLimit)
+	if e := r.api.Store.UpdateMatchRun(ctx, user, g, func(v *p.MatchRun) error {
+		if v.State == "PAUSING" {
+			v.State = "PAUSED"
+			return nil
+		}
+		if v.State != "RUNNING" {
+			return p.ErrMatchRunLease
+		}
+		v.ExecutionState = "EXECUTING"
+		v.ExecutionUntil = &until
+		v.QueueUntil = nil
+		return nil
+	}); e != nil {
+		return true
+	}
+	executionCtx, stopExecution := context.WithDeadline(ctx, until)
+	current, e := r.api.Store.MatchRun(ctx, user, run.ID)
+	if e == nil && current.State == "PAUSING" {
+		// PAUSE may win after EXECUTING was committed but before any call.
+		// Finish that pause here instead of the interruption cleanup path.
+		_ = r.api.Store.UpdateMatchRun(ctx, user, g, func(v *p.MatchRun) error {
+			if v.State == "PAUSING" {
+				v.State = "PAUSED"
+			}
+			return nil
+		})
+		stopExecution()
+		return true
+	}
+	if e != nil || current.State != "RUNNING" {
+		stopExecution()
+		return true
+	}
+	defer stopExecution()
+	ctx = executionCtx
+	snapshot, err := r.api.Store.MatchSnapshot(ctx, user, run.Model, in.MaskName, ids)
+	if err != nil {
+		r.fail(ctx, user, g, ids, err, "PREPARE", 0)
+		return true
+	}
+	// Pack within the existing 3-job/24KB budget, preserving batching benefits.
+	bytes := 0
+	packed := []string{}
+	byID := map[string]p.MatchJob{}
+	for _, j := range snapshot.Jobs {
+		byID[j.Job.ID] = j
+	}
+	for _, id := range ids {
+		j := byID[id]
+		if in.Kind != "COMPANY" && len(packed) > 0 && bytes+j.TextBytes > matching.MaxBatchText {
+			break
+		}
+		packed = append(packed, id)
+		bytes += j.TextBytes
+	}
+	ids = packed
+	err = r.api.Store.UpdateMatchRun(ctx, user, g, func(v *p.MatchRun) error {
+		wanted := map[string]bool{}
 		for _, id := range ids {
-			j := byID[id]
-			if in.Kind != "COMPANY" && len(packed) > 0 && bytes+j.TextBytes > matching.MaxBatchText {
-				break
-			}
-			packed = append(packed, id)
-			bytes += j.TextBytes
+			wanted[id] = true
 		}
-		ids = packed
-		err = r.api.Store.UpdateMatchRun(ctx, user, g, func(v *p.MatchRun) error {
-			wanted := map[string]bool{}
-			for _, id := range ids {
-				wanted[id] = true
+		for i := range v.Items {
+			if wanted[v.Items[i].JobID] {
+				if v.Items[i].InputKey != byID[v.Items[i].JobID].InputKey || snapshot.CandidateHash != v.CandidateHash {
+					return p.ErrStaleInput
+				}
+				v.Items[i].State = "RUNNING"
+				v.Items[i].Stage = "PREPARE"
 			}
+		}
+		return nil
+	})
+	if err != nil {
+		r.fail(ctx, user, g, ids, err, "PREPARE", 0)
+		return true
+	}
+	phase := "PREPARE"
+	phaseStart := time.Now()
+	hook := func(next, job string, reviews int) error {
+		if job == "" {
+			if r.api.Metrics != nil {
+				r.api.Metrics.Observe("matching_"+strings.ToLower(phase)+"_seconds", time.Since(phaseStart).Seconds())
+			}
+			_ = r.api.Store.AddMatchRunEvent(ctx, user, g, p.MatchRunEvent{RequestID: run.RequestID, Stage: phase, JobIDs: ids, DurationMS: time.Since(phaseStart).Milliseconds()})
+			phase = next
+			phaseStart = time.Now()
+		}
+		return r.api.Store.UpdateMatchRun(ctx, user, g, func(v *p.MatchRun) error {
 			for i := range v.Items {
-				if wanted[v.Items[i].JobID] {
-					if v.Items[i].InputKey != byID[v.Items[i].JobID].InputKey || snapshot.CandidateHash != v.CandidateHash {
-						return p.ErrStaleInput
+				for _, id := range ids {
+					if v.Items[i].JobID == id && v.Items[i].State == "RUNNING" {
+						v.Items[i].Stage = next
+						if job == id {
+							v.Items[i].State = "SUCCEEDED"
+							v.Items[i].Reviews = reviews
+						}
 					}
-					v.Items[i].State = "RUNNING"
-					v.Items[i].Stage = "PREPARE"
 				}
 			}
 			return nil
 		})
-		if err != nil {
-			r.fail(ctx, user, g, ids, err, "PREPARE", 0)
-			return
+	}
+	batchCtx, done := context.WithDeadline(ctx, until)
+	out, err := r.executeLeasedBatch(batchCtx, user, matchBatchInput{JobIDs: ids, CandidateHash: run.CandidateHash, MaskName: in.MaskName, Company: in.Company, ScopeKey: in.ScopeKey}, model, run.Model, hook)
+	done()
+	if r.api.Metrics != nil {
+		r.api.Metrics.Observe("matching_"+strings.ToLower(phase)+"_seconds", time.Since(phaseStart).Seconds())
+	}
+	_ = r.api.Store.AddMatchRunEvent(ctx, user, g, p.MatchRunEvent{RequestID: run.RequestID, Stage: phase, JobIDs: ids, DurationMS: time.Since(phaseStart).Milliseconds()})
+	if err != nil {
+		var stage *MatchStageError
+		if errors.As(err, &stage) {
+			phase = stage.Stage
+			err = stage.Err
 		}
-		phase := "PREPARE"
-		phaseStart := time.Now()
-		hook := func(next, job string, reviews int) error {
-			if job == "" {
-				if r.api.Metrics != nil {
-					r.api.Metrics.Observe("matching_"+strings.ToLower(phase)+"_seconds", time.Since(phaseStart).Seconds())
-				}
-				_ = r.api.Store.AddMatchRunEvent(ctx, user, g, p.MatchRunEvent{RequestID: run.RequestID, Stage: phase, JobIDs: ids, DurationMS: time.Since(phaseStart).Milliseconds()})
-				phase = next
-				phaseStart = time.Now()
-			}
-			return r.api.Store.UpdateMatchRun(ctx, user, g, func(v *p.MatchRun) error {
+		// Persist after an execution deadline with an independent bounded
+		// context; never automatically replay a potentially charged call.
+		cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		defer cancel()
+		if out.Calls == 0 && (errors.Is(err, p.ErrModelQueueFull) || errors.Is(err, modelcontrol.ErrWaitDeadline)) {
+			_ = r.api.Store.UpdateMatchRun(cleanup, user, g, func(v *p.MatchRun) error {
 				for i := range v.Items {
 					for _, id := range ids {
 						if v.Items[i].JobID == id && v.Items[i].State == "RUNNING" {
-							v.Items[i].Stage = next
-							if job == id {
-								v.Items[i].State = "SUCCEEDED"
-								v.Items[i].Reviews = reviews
-							}
+							v.Items[i].State = "QUEUED"
+							v.Items[i].Stage = "QUEUE"
 						}
 					}
 				}
 				return nil
 			})
-		}
-		batchCtx, done := context.WithTimeout(ctx, 175*time.Second)
-		out, err := r.executeLeasedBatch(batchCtx, user, matchBatchInput{JobIDs: ids, CandidateHash: run.CandidateHash, MaskName: in.MaskName, Company: in.Company, ScopeKey: in.ScopeKey}, model, run.Model, hook)
-		done()
-		if r.api.Metrics != nil {
-			r.api.Metrics.Observe("matching_"+strings.ToLower(phase)+"_seconds", time.Since(phaseStart).Seconds())
-		}
-		_ = r.api.Store.AddMatchRunEvent(ctx, user, g, p.MatchRunEvent{RequestID: run.RequestID, Stage: phase, JobIDs: ids, DurationMS: time.Since(phaseStart).Milliseconds()})
-		if err != nil {
-			var stage *MatchStageError
-			if errors.As(err, &stage) {
-				phase = stage.Stage
-				err = stage.Err
+			code := "MATCH_QUEUE_TIMEOUT"
+			if errors.Is(err, p.ErrModelQueueFull) {
+				code = "MATCH_QUEUE_FULL"
 			}
-			if r.fail(ctx, user, g, ids, err, phase, out.Calls) {
-				return
-			}
-			continue
+			r.queueStopped(cleanup, user, g, ids, code)
+			return true
 		}
-		err = r.api.Store.UpdateMatchRun(ctx, user, g, func(v *p.MatchRun) error {
-			v.Calls += out.Calls
-			v.RequirementsReused += out.RequirementsReused
-			for i := range v.Items {
-				for _, id := range out.Reused {
-					if v.Items[i].JobID == id {
-						v.Items[i].State = "REUSED"
-					}
+		return r.fail(cleanup, user, g, ids, err, phase, out.Calls)
+	}
+	err = r.api.Store.UpdateMatchRun(ctx, user, g, func(v *p.MatchRun) error {
+		v.Calls += out.Calls
+		v.RequirementsReused += out.RequirementsReused
+		for i := range v.Items {
+			for _, id := range out.Reused {
+				if v.Items[i].JobID == id {
+					v.Items[i].State = "REUSED"
 				}
 			}
-			return nil
-		})
-		if err != nil {
-			return
 		}
+		return nil
+	})
+	if err != nil {
+		return true
+	}
+	return false
+}
+func (r *MatchTaskRunner) queueStopped(ctx context.Context, user string, g p.MatchRunGuard, ids []string, code string) {
+	_ = r.api.Store.AddMatchRunEvent(ctx, user, g, p.MatchRunEvent{Stage: "QUEUE", JobIDs: ids, Code: code})
+	_ = r.api.Store.UpdateMatchRun(ctx, user, g, func(v *p.MatchRun) error {
+		v.State = "WAITING_AUTH"
+		v.ExecutionState = code
+		v.QueueUntil = nil
+		v.ExecutionUntil = nil
+		return nil
+	})
+	if r.api.Metrics != nil {
+		r.api.Metrics.Add(strings.ToLower(code)+"_total", 1)
 	}
 }
 func (r *MatchTaskRunner) fail(ctx context.Context, user string, g p.MatchRunGuard, ids []string, err error, stage string, calls int) bool {
@@ -464,7 +594,7 @@ func (r *MatchTaskRunner) fail(ctx context.Context, user string, g p.MatchRunGua
 	if job, ok := diagnostic["job_index"].(int); ok && job > 0 && job <= len(ids) {
 		diagnostic["source_job_id"] = ids[job-1]
 	}
-	stop := errors.Is(err, p.ErrStaleInput) || errors.Is(err, p.ErrMatchQuota) || errors.Is(err, p.ErrMatchRunLease) || errors.Is(err, context.Canceled) || errors.Is(err, p.ErrMatchRunBusy) || errors.Is(err, p.ErrBackendUnavailable) || code == "MODEL_PROVIDER_FAILED" || code == "MODEL_RESPONSE_INVALID" || code == "MODEL_AUTH_FAILED" || code == "MODEL_BALANCE_LOW" || code == "MODEL_PROVIDER_BUSY" || code == "MODEL_CONNECTION_FAILED" || code == "MODEL_TIMEOUT"
+	stop := strings.HasPrefix(code, "MODEL_GLOBAL_") || code == "MODEL_REVIEW_REQUIRED" || code == "MODEL_EXECUTION_LOST" || errors.Is(err, p.ErrStaleInput) || errors.Is(err, p.ErrMatchQuota) || errors.Is(err, p.ErrMatchRunLease) || errors.Is(err, context.Canceled) || errors.Is(err, p.ErrMatchRunBusy) || errors.Is(err, p.ErrBackendUnavailable) || code == "MODEL_PROVIDER_FAILED" || code == "MODEL_RESPONSE_INVALID" || code == "MODEL_AUTH_FAILED" || code == "MODEL_BALANCE_LOW" || code == "MODEL_PROVIDER_BUSY" || code == "MODEL_CONNECTION_FAILED" || code == "MODEL_TIMEOUT"
 	_ = r.api.Store.AddMatchRunEvent(ctx, user, g, p.MatchRunEvent{RequestID: observability.From(ctx).RequestID, Stage: stage, JobIDs: ids, Code: code})
 	persistErr := r.api.Store.UpdateMatchRun(ctx, user, g, func(v *p.MatchRun) error {
 		v.Calls += calls
@@ -491,6 +621,16 @@ func (r *MatchTaskRunner) fail(ctx context.Context, user string, g p.MatchRunGua
 func matchTaskFailure(err error, stage string) (string, map[string]any) {
 	code := resumeDraftFailure(err)
 	switch {
+	case errors.Is(err, p.ErrModelQueueFull):
+		code = "MODEL_GLOBAL_QUEUE_FULL"
+	case errors.Is(err, p.ErrModelBudget):
+		code = "MODEL_GLOBAL_BUDGET"
+	case errors.Is(err, p.ErrModelReview):
+		code = "MODEL_REVIEW_REQUIRED"
+	case errors.Is(err, p.ErrModelLease):
+		code = "MODEL_EXECUTION_LOST"
+	case errors.Is(err, modelcontrol.ErrWaitDeadline):
+		code = "MATCH_QUEUE_TIMEOUT"
 	case errors.Is(err, p.ErrMatchRunBusy):
 		code = "MATCH_BUSY"
 	case errors.Is(err, p.ErrStaleInput):

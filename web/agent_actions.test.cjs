@@ -7,6 +7,8 @@ test('next steps open only known read-only destinations, never actions or paid a
  assert.deepEqual(A.destination({kind:'review_topic',topic:'Redis'}),{page:'agent',query:{skill:{id:'review-plan',value:'Redis'}}});
  assert.deepEqual(A.destination({kind:'knowledge_source',document_id:doc}),{page:'knowledge',query:{documentID:doc}});
  assert.deepEqual(A.destination({kind:'matching_tasks',run_id:job}),{page:'matching',query:{taskID:job}});
+ assert.deepEqual(A.destination({kind:'application_preparation',application_id:job}),{page:'agent',query:{skill:{id:'application-prep',value:job}}});
+ assert.equal(A.destination({kind:'application_preparation',application_id:'../other'}),null);
 });
 test('action text is escaped and invalid hints do not shift button targets',()=>{
  const rows=[{kind:'url',label:'bad',reason:'bad'},{kind:'job',job_id:job,label:'<script>job</script>',reason:'<img onerror=x>'}];
@@ -20,4 +22,7 @@ test('restarting an invalidated task copies its scope but never its old replay k
  assert.deepEqual(A.restartInput(v),{id:'interview-prep',value:job});
  assert.equal(A.restartInput({...v,input:null}),null);assert.equal(A.restartInput({...v,state:'RUNNING'}),null);
  assert.equal(A.restartInput({...v,input:{...v.input,skill_id:'company-choice'}}),null);
+ const app={state:'STALE',skill_id:'application-prep',input:{skill_id:'application-prep',application_id:doc,request_key:'old-key'}};
+ assert.deepEqual(A.restartInput(app),{id:'application-prep',value:doc});
+ assert.equal(A.restartInput({...app,input:{...app.input,application_id:'invalid'}}),null);
 });

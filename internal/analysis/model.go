@@ -6,10 +6,13 @@ import (
 	"encoding/json"
 	"fmt"
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
+	"github.com/KanaDoodle/CampusTrace/internal/observability"
 	"io"
 	"net/http"
 	"net/url"
 	"time"
+
+	"go.opentelemetry.io/otel/attribute"
 )
 
 type HTTPError struct{ Status int }
@@ -61,7 +64,15 @@ func (c *ChatClient) complete(ctx context.Context, messages any, tools any, json
 	return v, err
 }
 
-func (c *ChatClient) completeUsage(ctx context.Context, messages any, tools any, jsonOutput bool) (json.RawMessage, Usage, error) {
+func (c *ChatClient) completeUsage(ctx context.Context, messages any, tools any, jsonOutput bool) (result json.RawMessage, usage Usage, err error) {
+	ctx, span := observability.Client(ctx, "model.request")
+	defer func() {
+		span.SetAttributes(attribute.Bool("model.usage.known", usage.Known))
+		if usage.Known {
+			span.SetAttributes(attribute.Int("model.input_tokens", usage.PromptTokens), attribute.Int("model.output_tokens", usage.CompletionTokens))
+		}
+		observability.End(span, err)
+	}()
 	select {
 	case c.Sem <- struct{}{}:
 		defer func() { <-c.Sem }()
@@ -77,34 +88,8 @@ func (c *ChatClient) completeUsage(ctx context.Context, messages any, tools any,
 			return nil, Usage{}, &HTTPError{429}
 		}
 	}
-	body := map[string]any{"model": c.Model, "messages": messages, "temperature": 0}
-	endpoint, _ := url.Parse(c.URL)
-	if c.OutputTokenLimit > 0 {
-		if endpoint != nil && endpoint.Hostname() == "api.openai.com" {
-			body["max_completion_tokens"] = c.OutputTokenLimit
-		} else {
-			body["max_tokens"] = c.OutputTokenLimit
-		}
-	}
-	if endpoint != nil && endpoint.Hostname() == "api.deepseek.com" {
-		// DeepSeek enables high-effort thinking by default. This workflow needs
-		// the final structured answer and does not retain reasoning across tools.
-		body["thinking"] = map[string]string{"type": "disabled"}
-		if jsonOutput {
-			body["response_format"] = map[string]string{"type": "json_object"}
-		}
-	}
-	if endpoint != nil && endpoint.Hostname() == "api.openai.com" && (c.Model == "gpt-6-luna" || c.Model == "gpt-6-sol") {
-		// GPT-6 Chat Completions tool calls use none reasoning effort.
-		body["reasoning_effort"] = "none"
-		delete(body, "temperature")
-	}
-	if jsonOutput && endpoint != nil && endpoint.Hostname() == "api.openai.com" {
-		body["response_format"] = map[string]string{"type": "json_object"}
-	}
-	if tools != nil {
-		body["tools"] = tools
-	}
+	body := c.requestBody(messages, tools, jsonOutput)
+
 	req, err := http.NewRequestWithContext(ctx, "POST", c.URL, bytes.NewBufferString(d.JSON(body)))
 	if err != nil {
 		return nil, Usage{}, err
@@ -146,6 +131,39 @@ func (c *ChatClient) completeUsage(ctx context.Context, messages any, tools any,
 		u = Usage{*v.Usage.PromptTokens, *v.Usage.CompletionTokens, true}
 	}
 	return v.Choices[0].Message, u, nil
+}
+
+// requestBody keeps streaming and ordinary calls on the same provider settings.
+func (c *ChatClient) requestBody(messages any, tools any, jsonOutput bool) map[string]any {
+	body := map[string]any{"model": c.Model, "messages": messages, "temperature": 0}
+	endpoint, _ := url.Parse(c.URL)
+	if c.OutputTokenLimit > 0 {
+		if endpoint != nil && endpoint.Hostname() == "api.openai.com" {
+			body["max_completion_tokens"] = c.OutputTokenLimit
+		} else {
+			body["max_tokens"] = c.OutputTokenLimit
+		}
+	}
+	if endpoint != nil && endpoint.Hostname() == "api.deepseek.com" {
+		// DeepSeek enables high-effort thinking by default. This workflow needs
+		// the final structured answer and does not retain reasoning across tools.
+		body["thinking"] = map[string]string{"type": "disabled"}
+		if jsonOutput {
+			body["response_format"] = map[string]string{"type": "json_object"}
+		}
+	}
+	if endpoint != nil && endpoint.Hostname() == "api.openai.com" && (c.Model == "gpt-6-luna" || c.Model == "gpt-6-sol") {
+		// GPT-6 Chat Completions tool calls use none reasoning effort.
+		body["reasoning_effort"] = "none"
+		delete(body, "temperature")
+	}
+	if jsonOutput && endpoint != nil && endpoint.Hostname() == "api.openai.com" {
+		body["response_format"] = map[string]string{"type": "json_object"}
+	}
+	if tools != nil {
+		body["tools"] = tools
+	}
+	return body
 }
 
 type LLMExtractor struct{ Client *ChatClient }

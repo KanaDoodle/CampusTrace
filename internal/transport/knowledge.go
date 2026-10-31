@@ -70,6 +70,29 @@ func knowledgeWrite(w http.ResponseWriter, v any, e error) {
 	write(w, v, e)
 }
 func (a *API) knowledgeRoutes(on func(string, http.HandlerFunc)) {
+	on("GET /api/interviews/{id}/learning-draft", func(w http.ResponseWriter, r *http.Request) {
+		out, err := a.Tools.RAG.ReviewMaterialDraft(r.Context(), user(r), r.PathValue("id"))
+		knowledgeWrite(w, out, err)
+	})
+	on("POST /api/interviews/{id}/learning-material", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		var input struct {
+			SourceKey string `json:"source_key"`
+			Title     string `json:"title"`
+			Text      string `json:"text"`
+		}
+		raw, err := io.ReadAll(io.LimitReader(r.Body, 400001))
+		if err != nil || d.StrictLimit(raw, &input, 400000) != nil {
+			knowledgeWrite(w, nil, p.ErrValidation)
+			return
+		}
+		doc, reused, err := a.Tools.RAG.ImportReviewMaterial(r.Context(), user(r), r.PathValue("id"), input.SourceKey, input.Title, input.Text)
+		if errors.Is(err, p.ErrStaleInput) {
+			codedError(w, http.StatusConflict, "REVIEW_MATERIAL_CHANGED")
+			return
+		}
+		knowledgeWrite(w, map[string]any{"id": doc.ID, "title": doc.Title, "reused": reused}, err)
+	})
 	on("GET /api/knowledge/state", func(w http.ResponseWriter, r *http.Request) {
 		version, e := a.Store.KnowledgeIdentity(r.Context(), user(r))
 		knowledgeWrite(w, map[string]string{"version": version}, e)

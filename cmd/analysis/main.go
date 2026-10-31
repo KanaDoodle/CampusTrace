@@ -5,6 +5,7 @@ import (
 	"github.com/KanaDoodle/CampusTrace/internal/analysis"
 	"github.com/KanaDoodle/CampusTrace/internal/bootstrap"
 	"github.com/KanaDoodle/CampusTrace/internal/config"
+	"github.com/KanaDoodle/CampusTrace/internal/observability"
 	"github.com/KanaDoodle/CampusTrace/internal/pipeline"
 	"github.com/redis/go-redis/v9"
 	"log/slog"
@@ -15,6 +16,16 @@ import (
 func main() {
 	ctx, cancel := bootstrap.Root()
 	defer cancel()
+	shutdown, err := observability.Setup(ctx, "campustrace-analysis")
+	if err != nil {
+		slog.Error("tracing configuration failed")
+		return
+	}
+	defer func() {
+		flush, stop := context.WithTimeout(context.Background(), 3*time.Second)
+		defer stop()
+		_ = shutdown(flush)
+	}()
 	c := config.Load()
 	var extractor analysis.Extractor = analysis.RuleExtractor{}
 	if c.LLMURL != "" {

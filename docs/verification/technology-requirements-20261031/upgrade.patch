@@ -1,0 +1,1283 @@
+--- a/internal/analysis/extract.go
++++ b/internal/analysis/extract.go
+@@ -32,7 +32,7 @@
+ 		line = strings.TrimSpace(line)
+ 		kv := strings.SplitN(line, ":", 2)
+ 		if len(kv) == 2 {
+-			if typ := labels[strings.ToLower(kv[0])]; typ != "" {
++			if typ := labels[strings.ToLower(strings.TrimSpace(kv[0]))]; typ != "" {
+ 				if typ != "APPLY_ACTION" || !d.NegativeApplication(line) {
+ 					add(typ, strings.TrimSpace(kv[1]), line)
+ 				}
+@@ -56,13 +56,13 @@
+ 		if d.PositiveApplication(line) && !strings.HasPrefix(strings.TrimSpace(low), "apply:") {
+ 			add("APPLY_ACTION", "PRESENT", line)
+ 		}
+-		if !strings.HasPrefix(low, "tech:") && (regexp.MustCompile(`(?i)\b(go|golang)\b`).MatchString(line)) {
+-			v := "go"
+-			if strings.Contains(line, "任一种") || strings.Contains(low, " or ") {
+-				v = "go|java|c++"
+-			}
+-			add("TECH_STACK", v, line)
+-		}
++	}
++	technologies, err := extractTechnologies(text)
++	if err != nil {
++		return nil, err
++	}
++	for _, claim := range technologies {
++		add(claim.Type, claim.Value, claim.Excerpt)
+ 	}
+ 	for _, c := range out {
+ 		if err := c.Validate(text); err != nil {
+--- a/internal/analysis/rpc.go
++++ b/internal/analysis/rpc.go
+@@ -16,21 +16,25 @@
+ 
+ const ServiceName = "CampusTraceAnalysis"
+ 
++var ErrSemanticVersion = errors.New("schema: incompatible analysis semantics")
++
+ type Request struct {
+-	TraceParent   string    `json:"traceparent,omitempty"`
+-	TaskID        string    `json:"task_id"`
+-	JobID         string    `json:"job_id"`
+-	ObservationID string    `json:"observation_id"`
+-	Text          string    `json:"text"`
+-	Deadline      time.Time `json:"deadline"`
+-	CorrelationID string    `json:"correlation_id"`
++	AnalysisVersion string    `json:"analysis_version,omitempty"`
++	TraceParent     string    `json:"traceparent,omitempty"`
++	TaskID          string    `json:"task_id"`
++	JobID           string    `json:"job_id"`
++	ObservationID   string    `json:"observation_id"`
++	Text            string    `json:"text"`
++	Deadline        time.Time `json:"deadline"`
++	CorrelationID   string    `json:"correlation_id"`
+ }
+ type Response struct {
+-	Claims         []d.Claim `json:"claims"`
+-	Instance       string    `json:"instance"`
+-	Error          string    `json:"error,omitempty"`
+-	Category       string    `json:"category,omitempty"`
+-	RejectedStatus int       `json:"rejected_status,omitempty"`
++	AnalysisVersion string    `json:"analysis_version"`
++	Claims          []d.Claim `json:"claims"`
++	Instance        string    `json:"instance"`
++	Error           string    `json:"error,omitempty"`
++	Category        string    `json:"category,omitempty"`
++	RejectedStatus  int       `json:"rejected_status,omitempty"`
+ }
+ type Extractor interface {
+ 	Claims(context.Context, string) ([]d.Claim, error)
+@@ -67,6 +71,11 @@
+ 	ctx = observability.With(ctx, observability.Fields{RequestID: req.CorrelationID, TaskID: req.TaskID, JobID: req.JobID})
+ 	span.SetAttributes(attribute.String("rpc.system", "kanarpc"), attribute.String("rpc.method", "AnalyzeObservation"), attribute.String("task.id", req.TaskID))
+ 	resp.Instance = s.Instance
++	resp.AnalysisVersion = d.AnalysisVersion
++	if req.AnalysisVersion != "" && req.AnalysisVersion != d.AnalysisVersion {
++		resp.Error, resp.Category = "analysis version mismatch", "SCHEMA"
++		return nil
++	}
+ 	if s.Delay > 0 {
+ 		timer := time.NewTimer(s.Delay)
+ 		defer timer.Stop()
+@@ -142,6 +151,7 @@
+ 		return out, ctx.Err()
+ 	}
+ 	req.Deadline, _ = ctx.Deadline()
++	req.AnalysisVersion = d.AnalysisVersion
+ 	req.TraceParent = observability.TraceParent(ctx)
+ 	err = c.client.Invoke(ctx, c.service, "AnalyzeObservation", &req, &out)
+ 	if err != nil {
+@@ -156,12 +166,21 @@
+ 		}
+ 		return out, errors.New("schema: analysis rejected")
+ 	}
+-	for _, v := range out.Claims {
+-		if err = v.Validate(req.Text); err != nil {
+-			return out, err
+-		}
+-	}
+-	return out, nil
++	return out, validateResponse(req, out)
++}
++
++func validateResponse(req Request, out Response) error {
++	// Missing versions include pre-upgrade servers. Do not stamp their claims
++	// with the caller's newer cache/receipt namespace during a rolling deploy.
++	if out.AnalysisVersion != d.AnalysisVersion {
++		return ErrSemanticVersion
++	}
++	for _, claim := range out.Claims {
++		if err := claim.Validate(req.Text); err != nil {
++			return err
++		}
++	}
++	return nil
+ }
+ func (c *RPCClient) Close() { c.client.Close(); c.reg.Close() }
+ 
+--- /dev/null
++++ b/internal/analysis/technology.go
+@@ -0,0 +1,226 @@
++package analysis
++
++import (
++	"errors"
++	"regexp"
++	"sort"
++	"strings"
++
++	d "github.com/KanaDoodle/CampusTrace/internal/domain"
++)
++
++var languageMention = regexp.MustCompile(`(?i)golang(?:\s*1\.\d+(?:\.\d+)?)?|go(?:\s*1\.\d+(?:\.\d+)?)?|javascript|typescript|java|python|rust|kotlin|swift|php|ruby|scala|lua|c\+\+(?:98|03|11|14|17|20|23|26)?|csharp|c#|cpp|c`)
++var technologyHeading = regexp.MustCompile(`(?i)^(?:#{1,6}\s*|【)?(任职要求|任职资格|岗位要求|职位要求|必备条件|要求|加分项|优先条件|工作职责|岗位职责|职责|minimum qualifications|preferred qualifications|qualifications|requirements|responsibilities)(?:】)?\s*(?:[:：]\s*(.*))?$`)
++var technologyPreferred = regexp.MustCompile(`(?i)优先|加分|\bpreferred\b|\boptional\b|nice[- ]to[- ]have|a plus|\bbonus\b`)
++var technologyNegated = regexp.MustCompile(`(?i)不要求|无需|不必|不需要|不作要求|不做要求|语言不限|不限语言|not required|not necessary|no .{0,40}(?:required|necessary)`)
++var technologyRequired = regexp.MustCompile(`(?i)必须|必需|必备|须具备|需掌握|需要(?:熟悉|掌握|精通|具备)|要求\s*[:：]?\s*(?:熟悉|掌握|精通|具备|会)|\bmust\b|\brequired\b|\brequires?\b`)
++var technologyProficiency = regexp.MustCompile(`(?i)熟悉|掌握|精通|熟练|具备|了解|基础扎实|基础知识|proficien|knowledge|familiar|experience|fluenc|\bskills?\b`)
++var technologyLearning = regexp.MustCompile(`(?i)入职后|培养|学习|willing to learn|will learn|\btraining\b|\bmentored\b`)
++var technologyExamples = regexp.MustCompile(`(?i)例如|比如|诸如|不限于|不局限于|如|等|such as|e\.g\.|including|not limited to`)
++var technologyContrast = regexp.MustCompile(`(?i)\bbut\b|但是|但`)
++var technologyOneOf = regexp.MustCompile(`(?i)任一|任意一种|任一种|任选|其中一种|至少一门|至少一种|one of|any of|either|at least one`)
++var technologyOr = regexp.MustCompile(`(?i)或者?|\bor\b`)
++var technologyAnd = regexp.MustCompile(`(?i)和|且|以及|并|\band\b|[&+]`)
++var technologyConditionGroup = regexp.MustCompile(`(?i)(?:任意|至少|任选)[一二两三四五六七八九十0-9]+(?:条|项)|(?:以下|下列).*(?:之一|任意一)|(?:any|at least) (?:one|two|three|[123]) of (?:the following|these)`)
++var technologyPreferenceHeading = regexp.MustCompile(`(?i)(?:以下|下列).*(?:优先|尤佳|加分|不是必须)`)
++var technologyLeftAtom = regexp.MustCompile(`(?i)(c\+\+(?:98|03|11|14|17|20|23|26)?|[a-z][a-z0-9_#.-]*)\s*(?:编程语言|语言)?\s*(?:或者?|和|以及|及|与|\bor\b|\band\b|[/|&+、,，])`)
++var technologyRightAtom = regexp.MustCompile(`(?i)(?:或者?|和|以及|及|与|\bor\b|\band\b|[/|&+、,，])\s*(c\+\+(?:98|03|11|14|17|20|23|26)?|[a-z][a-z0-9_#.-]*)`)
++
++type languageToken struct {
++	start, end int
++	name       string
++}
++type textSpan struct{ start, end int }
++
++func asciiWord(b byte) bool {
++	return b >= 'a' && b <= 'z' || b >= 'A' && b <= 'Z' || b >= '0' && b <= '9' || b == '_' || b == '#'
++}
++func languages(text string) []languageToken {
++	var found []languageToken
++	for _, span := range languageMention.FindAllStringIndex(text, -1) {
++		if span[0] > 0 && asciiWord(text[span[0]-1]) || span[1] < len(text) && asciiWord(text[span[1]]) {
++			continue
++		}
++		found = append(found, languageToken{span[0], span[1], d.TechnologyName(text[span[0]:span[1]])})
++	}
++	return found
++}
++
++func splitTechnologyClauses(text string) []textSpan {
++	var clauses []textSpan
++	start := 0
++	appendClause := func(end int) {
++		clause := text[start:end]
++		// Commas often separate language lists. Split them only when a new
++		// requirement/preference/negation/proficiency phrase changes scope.
++		parts := strings.FieldsFunc(clause, func(r rune) bool { return r == ',' || r == '，' })
++		mixed := false
++		for i := 1; i < len(parts); i++ {
++			part := parts[i]
++			mixed = mixed || technologyPreferred.MatchString(part) || technologyNegated.MatchString(part) || technologyRequired.MatchString(part) || technologyProficiency.MatchString(part)
++		}
++		if !mixed {
++			clauses = append(clauses, textSpan{start, end})
++			return
++		}
++		cursor := start
++		for at, r := range clause {
++			if r == ',' || r == '，' {
++				clauses = append(clauses, textSpan{cursor, start + at})
++				cursor = start + at + len(string(r))
++			}
++		}
++		clauses = append(clauses, textSpan{cursor, end})
++	}
++	var cuts []textSpan
++	for at, r := range text {
++		if strings.ContainsRune(";；。!?！？", r) {
++			cuts = append(cuts, textSpan{at, at + len(string(r))})
++		}
++	}
++	for _, span := range technologyContrast.FindAllStringIndex(text, -1) {
++		if strings.HasPrefix(text[span[0]:], "但不限于") || strings.HasPrefix(text[span[0]:], "但不局限于") || strings.HasSuffix(text[:span[0]], "不") {
++			continue
++		}
++		cuts = append(cuts, textSpan{span[0], span[1]})
++	}
++	sort.Slice(cuts, func(i, j int) bool { return cuts[i].start < cuts[j].start })
++	for _, cut := range cuts {
++		if cut.start >= start {
++			appendClause(cut.start)
++			start = cut.end
++		}
++	}
++	if start < len(text) {
++		appendClause(len(text))
++	}
++	return clauses
++}
++
++func languageExpression(text string, tokens []languageToken) (string, bool) {
++	wordOr, explicitAnd := false, false
++	for i := 1; i < len(tokens); i++ {
++		between := text[tokens[i-1].end:tokens[i].start]
++		wordOr = wordOr || technologyOr.MatchString(between)
++		explicitAnd = explicitAnd || technologyAnd.MatchString(between)
++	}
++	allAlternatives := technologyOneOf.MatchString(text) || wordOr && !explicitAnd
++	var expression strings.Builder
++	for i, token := range tokens {
++		if i > 0 {
++			between := text[tokens[i-1].end:token.start]
++			if allAlternatives || strings.ContainsAny(between, "/|") || technologyOr.MatchString(between) {
++				expression.WriteByte('|')
++			} else {
++				expression.WriteByte('+')
++			}
++		}
++		expression.WriteString(token.name)
++	}
++	unknown := false
++	if len(tokens) > 1 || technologyOneOf.MatchString(text) || technologyOr.MatchString(text) {
++		known := map[string]bool{}
++		for _, token := range tokens {
++			known[token.name] = true
++		}
++		for _, pattern := range []*regexp.Regexp{technologyLeftAtom, technologyRightAtom} {
++			for _, atom := range pattern.FindAllStringSubmatchIndex(text, -1) {
++				covered := false
++				for _, token := range tokens {
++					covered = covered || atom[2] >= token.start && atom[3] <= token.end
++				}
++				if covered {
++					continue
++				}
++				name := d.TechnologyName(text[atom[2]:atom[3]])
++				if !known[name] && !strings.Contains("|and|or|either|one|of|any|at|least|experience|knowledge|familiar|proficient|languages|language|programming|required|must|a|an|the|in|with|for|", "|"+name+"|") {
++					unknown = true
++				}
++			}
++		}
++	}
++	return expression.String(), unknown || wordOr && explicitAnd && !technologyOneOf.MatchString(text)
++}
++
++func onlyLanguageList(text string) bool {
++	remainder := languageMention.ReplaceAllString(text, "")
++	for _, word := range []string{"编程语言", "开发语言", "语言"} {
++		remainder = strings.ReplaceAll(remainder, word, "")
++	}
++	return strings.Trim(remainder, " \t0123456789-*.、，,/|&+()（）:") == ""
++}
++
++func extractTechnologies(text string) ([]d.Claim, error) {
++	var claims []d.Claim
++	section, sectionStart, offset := "", 0, 0
++	for _, piece := range strings.SplitAfter(text, "\n") {
++		raw := strings.TrimSuffix(piece, "\n")
++		line := strings.TrimSpace(raw)
++		lineStart := offset + strings.Index(raw, line)
++		offset += len(piece)
++		if line == "" {
++			continue
++		}
++		if colon := strings.IndexByte(line, ':'); colon >= 0 && strings.EqualFold(strings.TrimSpace(line[:colon]), "tech") {
++			continue // Explicit normalized labels retain their existing format.
++		}
++		body, bodyStart := line, lineStart
++		if indexes := technologyHeading.FindStringSubmatchIndex(line); indexes != nil {
++			title := strings.ToLower(line[indexes[2]:indexes[3]])
++			section, sectionStart = "required", lineStart
++			if technologyPreferred.MatchString(title) || title == "加分项" || title == "优先条件" {
++				section = "preferred"
++			} else if strings.Contains(title, "职责") || title == "responsibilities" {
++				section = "duties"
++			}
++			if indexes[4] < 0 {
++				continue
++			}
++			body, bodyStart = line[indexes[4]:indexes[5]], lineStart+indexes[4]
++		}
++		if section == "required" || section == "conditional" {
++			if technologyConditionGroup.MatchString(body) {
++				section = "conditional"
++			}
++			if len(languages(body)) == 0 && technologyPreferenceHeading.MatchString(body) {
++				section, sectionStart = "preferred", lineStart
++			}
++		}
++		for _, span := range splitTechnologyClauses(body) {
++			clause := body[span.start:span.end]
++			tokens := languages(clause)
++			if len(tokens) == 0 || technologyNegated.MatchString(clause) {
++				continue
++			}
++			if len(clause) > 2000 {
++				return nil, errors.New("schema: technology clause exceeds excerpt budget")
++			}
++			value, ambiguous := languageExpression(clause, tokens)
++			explicit := technologyRequired.MatchString(clause)
++			hard := explicit || (section == "required" || section == "conditional") && (technologyProficiency.MatchString(clause) || onlyLanguageList(clause))
++			hard = hard && section != "duties" && section != "preferred" && !technologyPreferred.MatchString(clause) && !technologyExamples.MatchString(clause) && !technologyLearning.MatchString(clause)
++			excerpt := clause
++			if hard && !explicit {
++				// Include the actual heading and intervening text, never splice a
++				// heading onto a noncontiguous excerpt to justify a hard condition.
++				if end := bodyStart + span.end; end-sectionStart <= 2000 {
++					excerpt = text[sectionStart:end]
++				} else {
++					return nil, errors.New("schema: technology heading exceeds excerpt budget")
++				}
++			}
++			if hard {
++				prefix := "REQUIRED:"
++				if ambiguous || section == "conditional" {
++					prefix = "UNCERTAIN:"
++				}
++				value = prefix + value
++			}
++			if len(value) > 1000 {
++				return nil, errors.New("schema: technology expression exceeds value budget")
++			}
++			claims = append(claims, d.Claim{Type: "TECH_STACK", Value: value, Excerpt: excerpt, Method: "RULE", Confidence: 1})
++		}
++	}
++	return claims, nil
++}
+--- /dev/null
++++ b/internal/analysis/technology_replay_test.go
+@@ -0,0 +1,110 @@
++package analysis_test
++
++import (
++	"context"
++	"crypto/sha256"
++	"encoding/hex"
++	"encoding/json"
++	"os"
++	"sort"
++	"testing"
++	"time"
++
++	"github.com/KanaDoodle/CampusTrace/internal/analysis"
++	d "github.com/KanaDoodle/CampusTrace/internal/domain"
++	"github.com/KanaDoodle/CampusTrace/internal/rules"
++)
++
++// The same public-API harness can run against the frozen old implementation.
++// These are grammar/qualification controls, not a model-accuracy benchmark.
++func TestTechnologyHistoricalAndSyntheticReplay(t *testing.T) {
++	var dataset struct {
++		Kind     string              `json:"kind"`
++		Profiles map[string][]string `json:"profiles"`
++		Cases    []struct {
++			ID, Text      string
++			Expected      map[string]string     `json:"expected"`
++			ExpectedGoFit string                `json:"expected_go_fit"`
++			Source        struct{ Kind string } `json:"source"`
++		} `json:"cases"`
++	}
++	raw, err := os.ReadFile("testdata/technology_cases.json")
++	if err != nil {
++		t.Fatal(err)
++	}
++	if err = json.Unmarshal(raw, &dataset); err != nil {
++		t.Fatal(err)
++	}
++	if len(dataset.Cases) != 14 || len(dataset.Profiles) != 6 {
++		t.Fatal("unexpected fixture scope")
++	}
++	hash := sha256.Sum256(raw)
++	report := struct {
++		Kind, DatasetSHA256, AnalysisVersion, RuleVersion string
++		ProviderCalls, Checks, Passed                     int
++		Rows                                              []map[string]any
++	}{Kind: dataset.Kind, DatasetSHA256: hex.EncodeToString(hash[:]), AnalysisVersion: d.AnalysisVersion, RuleVersion: d.RuleVersion, Rows: []map[string]any{}}
++	for _, item := range dataset.Cases {
++		claims, err := analysis.Extract(context.Background(), item.Text)
++		if err != nil {
++			t.Fatal(item.ID, err)
++		}
++		evidence := []d.Evidence{}
++		tech := []d.Claim{}
++		for i, claim := range claims {
++			if err = claim.Validate(item.Text); err != nil {
++				t.Fatal(item.ID, err)
++			}
++			evidence = append(evidence, d.Evidence{ID: item.ID + string(rune('a'+i)), Claim: claim})
++			if claim.Type == "TECH_STACK" {
++				tech = append(tech, claim)
++			}
++		}
++		row := map[string]any{"id": item.ID, "source_kind": item.Source.Kind, "technologies": tech, "go_fit": rules.GoFit(evidence)}
++		results := map[string]string{}
++		var profiles []string
++		for profile := range item.Expected {
++			profiles = append(profiles, profile)
++		}
++		sort.Strings(profiles)
++		for _, name := range profiles {
++			assessment := rules.Eligibility(d.Job{}, d.Profile{Skills: dataset.Profiles[name]}, evidence, time.Unix(0, 0))
++			for _, result := range assessment.Results {
++				if result.Rule != "TECH_STACK" {
++					continue
++				}
++				results[name] = result.Result
++				report.Checks++
++				if result.Result == item.Expected[name] {
++					report.Passed++
++				} else {
++					t.Errorf("%s/%s: got %s, want %s", item.ID, name, result.Result, item.Expected[name])
++				}
++			}
++		}
++		if item.ExpectedGoFit != "" {
++			report.Checks++
++			if rules.GoFit(evidence) == item.ExpectedGoFit {
++				report.Passed++
++			} else {
++				t.Errorf("%s: got GoFit %s, want %s", item.ID, rules.GoFit(evidence), item.ExpectedGoFit)
++			}
++		}
++		row["technology_rule_results"] = results
++		report.Rows = append(report.Rows, row)
++	}
++	if output := os.Getenv("CAMPUS_TECH_REPLAY_OUTPUT"); output != "" {
++		file, err := os.OpenFile(output, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
++		if err != nil {
++			t.Fatal(err)
++		}
++		encoder := json.NewEncoder(file)
++		encoder.SetIndent("", "  ")
++		err = encoder.Encode(report)
++		closed := file.Close()
++		if err != nil || closed != nil {
++			t.Fatal(err, closed)
++		}
++	}
++	t.Logf("%d/%d controls passed; provider calls=%d; kind=%s", report.Passed, report.Checks, report.ProviderCalls, dataset.Kind)
++}
+--- /dev/null
++++ b/internal/analysis/technology_test.go
+@@ -0,0 +1,106 @@
++package analysis
++
++import (
++	"context"
++	"reflect"
++	"sort"
++	"strings"
++	"testing"
++
++	d "github.com/KanaDoodle/CampusTrace/internal/domain"
++)
++
++func TestTechnologyExtractionUsesOnlySourceLanguages(t *testing.T) {
++	for _, tc := range []struct {
++		name, text string
++		want       []string
++	}{
++		{"cpp", "熟悉C++开发", []string{"c++"}},
++		{"c_family", "熟悉C/C++开发", []string{"c|c++"}},
++		{"exact_choice", "掌握Go或Rust任一种语言", []string{"go|rust"}},
++		{"required_choice", "必须掌握Go或Rust任一种语言", []string{"REQUIRED:go|rust"}},
++		{"conjunction", "必须掌握Go和C++", []string{"REQUIRED:go+c++"}},
++		{"preference_scope", "掌握Go，C++经验优先", []string{"go", "c++"}},
++		{"section_and_bonus", "任职要求：熟悉Go；C++经验优先", []string{"REQUIRED:go", "c++"}},
++		{"responsibilities", "工作职责：使用Go编写服务", []string{"go"}},
++		{"not_required", "无需Go经验", nil},
++		{"open_examples", "任职要求：熟悉Java、C++等至少一门语言", []string{"java|c++"}},
++		{"term_boundaries", "Django governance Caching javascriptish", nil},
++		{"label_compatibility", "  tech: REQUIRED:go|java", []string{"REQUIRED:go|java"}},
++		{"multiline_context", "任职要求\n熟悉Go\n加分项\n掌握Rust\n工作职责\n熟悉Java", []string{"REQUIRED:go", "rust", "java"}},
++		{"family_in_conjunction", "必须熟悉Go和C/C++", []string{"REQUIRED:go+c|c++"}},
++		{"mixed_logic", "必须熟悉Go或Rust并掌握C++", []string{"UNCERTAIN:go|rust+c++"}},
++		{"negation_scope", "Must know Go but C++ is not required", []string{"REQUIRED:go"}},
++		{"open_example_scope", "任职要求：熟悉至少一门语言，包括但不限于Java、C++", []string{"java|c++"}},
++		{"future_learning", "Must be willing to learn Go", []string{"go"}},
++		{"empty_clauses", ";；，,。\n熟悉C#；；", []string{"c#"}},
++		{"unknown_alternative", "必须熟悉Go或Zig任一种语言", []string{"UNCERTAIN:go"}},
++		{"unknown_first_alternative", "必须熟悉Zig或Go任一种语言", []string{"UNCERTAIN:go"}},
++		{"group_of_conditions", "任职要求\n符合以下任意两条：\n了解C/C++\n具备以下条件尤佳，但不是必须：\n熟悉Go", []string{"UNCERTAIN:c|c++", "go"}},
++		{"foundation_requirement", "任职要求\nC++基础扎实", []string{"REQUIRED:c++"}},
++	} {
++		t.Run(tc.name, func(t *testing.T) {
++			claims, err := Extract(context.Background(), tc.text)
++			if err != nil {
++				t.Fatal(err)
++			}
++			var got []string
++			for _, claim := range claims {
++				if err := claim.Validate(tc.text); err != nil {
++					t.Fatal("source binding failed", err)
++				}
++				if claim.Type == "TECH_STACK" {
++					got = append(got, claim.Value)
++				}
++			}
++			sort.Strings(got)
++			want := append([]string(nil), tc.want...)
++			sort.Strings(want)
++			if !reflect.DeepEqual(got, want) {
++				t.Fatalf("got %v, want %v", got, want)
++			}
++		})
++	}
++}
++
++func TestTechnologyExtractionRejectsOversizedRequirementInsteadOfTruncating(t *testing.T) {
++	if _, err := Extract(context.Background(), "必须掌握Go"+strings.Repeat("需求", 400)); err == nil {
++		t.Fatal("oversized requirement silently truncated")
++	}
++}
++
++func FuzzTechnologyExtractionKeepsSourceBinding(f *testing.F) {
++	for _, text := range []string{"必须熟悉Go和C++", "Go或Rust任一种", ";；，,。", "\xffC++\n任职要求：熟悉C/C++", "Must know Go but C++ is not required"} {
++		f.Add(text)
++	}
++	f.Fuzz(func(t *testing.T, text string) {
++		if len(text) > 4096 {
++			t.Skip()
++		}
++		claims, err := extractTechnologies(text)
++		if err != nil {
++			return
++		}
++		for _, claim := range claims {
++			if err := claim.Validate(text); err != nil {
++				t.Fatal("unbound or invalid claim", err)
++			}
++			value := strings.TrimPrefix(strings.TrimPrefix(claim.Value, "REQUIRED:"), "UNCERTAIN:")
++			groups, valid := d.TechnologyExpression(value)
++			if !valid {
++				t.Fatal("extractor produced invalid expression", value)
++			}
++			present := map[string]bool{}
++			for _, token := range languages(claim.Excerpt) {
++				present[token.name] = true
++			}
++			for _, group := range groups {
++				for _, name := range group {
++					if !present[name] {
++						t.Fatal("invented a language absent from the excerpt", name, claim.Excerpt)
++					}
++				}
++			}
++		}
++	})
++}
+--- /dev/null
++++ b/internal/analysis/testdata/technology_cases.json
+@@ -0,0 +1,250 @@
++{
++  "kind": "assistant-reviewed-historical-excerpts-and-synthetic-controls",
++  "profiles": {
++    "go": [
++      "Go"
++    ],
++    "cpp": [
++      "C++"
++    ],
++    "go_cpp": [
++      "Go",
++      "cpp"
++    ],
++    "rust": [
++      "Rust"
++    ],
++    "java": [
++      "Java"
++    ],
++    "golang": [
++      "Golang"
++    ]
++  },
++  "cases": [
++    {
++      "id": "s06-historical-fragment",
++      "text": "任职要求：\n1、计算机相关专业，本科或以上学历；\n2、C++基础扎实，有较强的逻辑思维能力，能够独立解决问题；",
++      "expected": {
++        "go": "FAIL",
++        "cpp": "PASS",
++        "go_cpp": "PASS",
++        "rust": "FAIL",
++        "java": "FAIL",
++        "golang": "FAIL"
++      },
++      "source": {
++        "kind": "assistant-reviewed-historical-excerpt",
++        "url": "https://www.nowcoder.com/jobs/detail/461226",
++        "snapshot_file_sha256": "08defc60fdfab4e6a8f853a4a194da7ae8fa5a6f84d3295cfd02f1fc80b0721d",
++        "excerpt_sha256": "e2379cc1002cb3dcf2b9e5e96747892a293deb5152f11251dacd148e656fcf61"
++      }
++    },
++    {
++      "id": "s07-historical-fragment",
++      "text": "任职要求\n1、泛CS相关专业，本科及以上学历；2027届毕业\n2、熟悉C/C++编程语言及其思想；",
++      "expected": {
++        "go": "FAIL",
++        "cpp": "PASS",
++        "go_cpp": "PASS",
++        "rust": "FAIL",
++        "java": "FAIL",
++        "golang": "FAIL"
++      },
++      "source": {
++        "kind": "assistant-reviewed-historical-excerpt",
++        "url": "https://www.nowcoder.com/jobs/detail/456771",
++        "snapshot_file_sha256": "2bb8f9501c0dc5cb4e3934a9a7e2607000566a3e5f60c9a7a7385916f5a0de15",
++        "excerpt_sha256": "92cb32c5d942f3140affd5e1ee8e369e59adcdf7b0e9dfc7cecc97d0fe0c3bb9"
++      }
++    },
++    {
++      "id": "s09-historical-fragment",
++      "text": "任职要求\n1. 应届毕业生计算机相关专业，本科及以上学历\n2. 熟悉Client-server网络架构\n3. 熟悉网络底层TCP/UDP协议及通用Online Game Service开发\n4. 熟悉C/C++编程以及Visual Studio开发环境",
++      "expected": {
++        "go": "UNKNOWN",
++        "cpp": "UNKNOWN",
++        "go_cpp": "UNKNOWN",
++        "rust": "UNKNOWN",
++        "java": "UNKNOWN",
++        "golang": "UNKNOWN"
++      },
++      "source": {
++        "kind": "assistant-reviewed-historical-excerpt",
++        "url": "https://www.nowcoder.com/jobs/detail/457533?urlSource=sitemap",
++        "snapshot_file_sha256": "c426f3791473ac0e44fb206207b89fa914915a08d3a25142b433cc6d92cf68a9",
++        "excerpt_sha256": "c608f1c528ac03db4937cfe24800d3f55694b149e2af8546e264f74f15cf9647"
++      },
++      "reference_note": "Same sentence also requires a Visual Studio environment; language-only parsing does not fully resolve this requirement."
++    },
++    {
++      "id": "s10-historical-fragment",
++      "text": "岗位要求\n\n我们希望您符合以下任意两条或以上的描述：\n- 计算机及相关专业，扎实的计算机基础知识，深入理解数据结构、算法、操作系统等知识；\n- 了解C/C++编程语言，至少精通一门编程语言并了解其思想、原理；",
++      "expected": {
++        "go": "UNKNOWN",
++        "cpp": "UNKNOWN",
++        "go_cpp": "UNKNOWN",
++        "rust": "UNKNOWN",
++        "java": "UNKNOWN",
++        "golang": "UNKNOWN"
++      },
++      "source": {
++        "kind": "assistant-reviewed-historical-excerpt",
++        "url": "https://www.nowcoder.com/jobs/detail/407195",
++        "snapshot_file_sha256": "f06e5cafd4801122b72011addc1a732f76f6195447e01fc1e821ce8b8fe4f0bf",
++        "excerpt_sha256": "62a0fb2b26677f1790fd21b61c713834135ed136fe303df9ceca13a838adaefb"
++      }
++    },
++    {
++      "id": "exact-language-choice",
++      "text": "必须掌握Go或Rust任一种语言",
++      "expected": {
++        "go": "PASS",
++        "cpp": "FAIL",
++        "go_cpp": "PASS",
++        "rust": "PASS",
++        "java": "FAIL",
++        "golang": "PASS"
++      },
++      "source": {
++        "kind": "synthetic-control"
++      }
++    },
++    {
++      "id": "required-conjunction",
++      "text": "必须掌握Go和C++",
++      "expected": {
++        "go": "FAIL",
++        "cpp": "FAIL",
++        "go_cpp": "PASS",
++        "rust": "FAIL",
++        "java": "FAIL",
++        "golang": "FAIL"
++      },
++      "source": {
++        "kind": "synthetic-control"
++      }
++    },
++    {
++      "id": "preferred-is-not-required",
++      "text": "任职要求：熟悉Go；C++经验优先",
++      "expected": {
++        "go": "PASS",
++        "cpp": "FAIL",
++        "go_cpp": "PASS",
++        "rust": "FAIL",
++        "java": "FAIL",
++        "golang": "PASS"
++      },
++      "source": {
++        "kind": "synthetic-control"
++      }
++    },
++    {
++      "id": "negated-requirement",
++      "text": "无需Go经验",
++      "expected": {
++        "go": "NOT_APPLICABLE",
++        "cpp": "NOT_APPLICABLE",
++        "go_cpp": "NOT_APPLICABLE",
++        "rust": "NOT_APPLICABLE",
++        "java": "NOT_APPLICABLE",
++        "golang": "NOT_APPLICABLE"
++      },
++      "source": {
++        "kind": "synthetic-control"
++      }
++    },
++    {
++      "id": "open-language-examples",
++      "text": "任职要求：熟悉Java、C++等至少一门语言",
++      "expected": {
++        "go": "NOT_APPLICABLE",
++        "cpp": "NOT_APPLICABLE",
++        "go_cpp": "NOT_APPLICABLE",
++        "rust": "NOT_APPLICABLE",
++        "java": "NOT_APPLICABLE",
++        "golang": "NOT_APPLICABLE"
++      },
++      "source": {
++        "kind": "synthetic-control"
++      }
++    },
++    {
++      "id": "malformed-expression",
++      "text": "tech: REQUIRED:go|",
++      "expected": {
++        "go": "UNKNOWN",
++        "cpp": "UNKNOWN",
++        "go_cpp": "UNKNOWN",
++        "rust": "UNKNOWN",
++        "java": "UNKNOWN",
++        "golang": "UNKNOWN"
++      },
++      "source": {
++        "kind": "synthetic-control"
++      }
++    },
++    {
++      "id": "mixed-and-or",
++      "text": "必须熟悉Go或Rust并掌握C++",
++      "expected": {
++        "go": "UNKNOWN",
++        "cpp": "UNKNOWN",
++        "go_cpp": "UNKNOWN",
++        "rust": "UNKNOWN",
++        "java": "UNKNOWN",
++        "golang": "UNKNOWN"
++      },
++      "source": {
++        "kind": "synthetic-control"
++      }
++    },
++    {
++      "id": "unknown-language-option",
++      "text": "必须掌握Go或Zig任一种语言",
++      "expected": {
++        "go": "UNKNOWN",
++        "cpp": "UNKNOWN",
++        "go_cpp": "UNKNOWN",
++        "rust": "UNKNOWN",
++        "java": "UNKNOWN",
++        "golang": "UNKNOWN"
++      },
++      "source": {
++        "kind": "synthetic-control"
++      }
++    },
++    {
++      "id": "literal-cpp",
++      "text": "tech: REQUIRED:c++",
++      "expected": {
++        "go": "FAIL",
++        "cpp": "PASS",
++        "go_cpp": "PASS",
++        "rust": "FAIL",
++        "java": "FAIL",
++        "golang": "FAIL"
++      },
++      "source": {
++        "kind": "synthetic-control"
++      }
++    },
++    {
++      "id": "go-required-c-family-choice",
++      "text": "tech: REQUIRED:go+c|c++",
++      "expected": {
++        "go": "FAIL",
++        "cpp": "FAIL",
++        "go_cpp": "PASS",
++        "rust": "FAIL",
++        "java": "FAIL",
++        "golang": "FAIL"
++      },
++      "source": {
++        "kind": "synthetic-control"
++      },
++      "expected_go_fit": "EXPLICIT_GO"
++    }
++  ]
++}
+--- /dev/null
++++ b/internal/analysis/version_test.go
+@@ -0,0 +1,59 @@
++package analysis
++
++import (
++	"context"
++	"encoding/json"
++	"errors"
++	"sync/atomic"
++	"testing"
++
++	d "github.com/KanaDoodle/CampusTrace/internal/domain"
++)
++
++type versionExtractor struct{ calls atomic.Int32 }
++
++func (e *versionExtractor) Claims(ctx context.Context, text string) ([]d.Claim, error) {
++	e.calls.Add(1)
++	return Extract(ctx, text)
++}
++
++func TestAnalysisSemanticVersionCheckedBeforeExtractor(t *testing.T) {
++	extractor := &versionExtractor{}
++	service := &Service{Root: context.Background(), Instance: "version-fixture", Extractor: extractor}
++	var response Response
++	err := service.AnalyzeObservation(&Request{Text: "tech: go", AnalysisVersion: "claims-v3-semantics"}, &response)
++	if err != nil || response.Error == "" || response.AnalysisVersion != d.AnalysisVersion || extractor.calls.Load() != 0 {
++		t.Fatal("incompatible request invoked extractor", response, err)
++	}
++	response = Response{}
++	err = service.AnalyzeObservation(&Request{Text: "tech: go", AnalysisVersion: d.AnalysisVersion}, &response)
++	if err != nil || response.Error != "" || response.AnalysisVersion != d.AnalysisVersion || extractor.calls.Load() != 1 {
++		t.Fatal("matching version rejected", response, err)
++	}
++	// Legacy callers may omit the new field; the server still identifies the
++	// actual implementation. New callers always send and validate the version.
++	response = Response{}
++	err = service.AnalyzeObservation(&Request{Text: "tech: go"}, &response)
++	if err != nil || response.Error != "" || response.AnalysisVersion != d.AnalysisVersion || extractor.calls.Load() != 2 {
++		t.Fatal("legacy request compatibility lost", response, err)
++	}
++}
++
++func TestAnalysisResponseRejectsUnversionedOrOlderServers(t *testing.T) {
++	request := Request{Text: "tech: go", AnalysisVersion: d.AnalysisVersion}
++	var old Response
++	if err := json.Unmarshal([]byte(`{"claims":[{"type":"TECH_STACK","value":"go","excerpt":"tech: go","extraction_method":"RULE","confidence":1}],"instance":"legacy"}`), &old); err != nil {
++		t.Fatal(err)
++	}
++	if !errors.Is(validateResponse(request, old), ErrSemanticVersion) {
++		t.Fatal("unversioned response could contaminate current cache")
++	}
++	old.AnalysisVersion = "claims-v3-semantics"
++	if !errors.Is(validateResponse(request, old), ErrSemanticVersion) {
++		t.Fatal("older server accepted")
++	}
++	old.AnalysisVersion = d.AnalysisVersion
++	if err := validateResponse(request, old); err != nil {
++		t.Fatal(err)
++	}
++}
+--- a/internal/domain/model.go
++++ b/internal/domain/model.go
+@@ -16,9 +16,9 @@
+ 	"unicode/utf8"
+ )
+ 
+-const AnalysisVersion = "claims-v3-semantics"
++const AnalysisVersion = "claims-v4-tech-requirements"
+ const ParserVersion = "generic-v2-lines"
+-const RuleVersion = "rules-v6-city-addresses"
++const RuleVersion = "rules-v7-tech-expressions"
+ const SourceParserVersion = "public-http-v2-complete"
+ 
+ // Nationwide graduate roles can list more than 30 distinct cities.
+--- /dev/null
++++ b/internal/domain/technology.go
+@@ -0,0 +1,84 @@
++package domain
++
++import (
++	"regexp"
++	"strings"
++	"unicode"
++)
++
++var goTechnology = regexp.MustCompile(`^(go|golang)(?:\s*1\.\d+(?:\.\d+)?)?$`)
++var cppTechnology = regexp.MustCompile(`^c\+\+(?:98|03|11|14|17|20|23|26)?$`)
++
++// TechnologyName normalizes language aliases, not skill levels or proficiency.
++func TechnologyName(value string) string {
++	v := strings.ToLower(strings.Join(strings.Fields(value), " "))
++	if goTechnology.MatchString(v) {
++		return "go"
++	}
++	if cppTechnology.MatchString(v) || v == "cpp" {
++		return "c++"
++	}
++	switch v {
++	case "csharp", "c sharp":
++		return "c#"
++	case "js":
++		return "javascript"
++	case "ts":
++		return "typescript"
++	}
++	return v
++}
++
++// TechnologyExpression returns AND groups containing OR alternatives. In this
++// existing wire format '+' separates groups, except the two literal '+' in C++.
++// Empty operands and unsupported syntax stay unknown instead of passing/failing
++// eligibility accidentally. This is not a general natural-language parser.
++func TechnologyExpression(value string) ([][]string, bool) {
++	if value == "" || len(value) > 1000 {
++		return nil, false
++	}
++	var groups [][]string
++	var group []string
++	var token strings.Builder
++	push := func() bool {
++		name := TechnologyName(token.String())
++		token.Reset()
++		if name == "" || strings.Contains(name, " or ") || strings.Contains(name, " and ") {
++			return false
++		}
++		if name != "c++" {
++			for _, r := range name {
++				if !unicode.IsLetter(r) && !unicode.IsDigit(r) && !strings.ContainsRune(" _-.#", r) {
++					return false
++				}
++			}
++		}
++		group = append(group, name)
++		return true
++	}
++	for i := 0; i < len(value); i++ {
++		switch value[i] {
++		case '+':
++			if strings.EqualFold(strings.TrimSpace(token.String()), "c") && i+1 < len(value) && value[i+1] == '+' {
++				token.WriteString("++")
++				i++
++				continue
++			}
++			if !push() {
++				return nil, false
++			}
++			groups = append(groups, group)
++			group = nil
++		case '|':
++			if !push() {
++				return nil, false
++			}
++		default:
++			token.WriteByte(value[i])
++		}
++	}
++	if !push() {
++		return nil, false
++	}
++	return append(groups, group), true
++}
+--- /dev/null
++++ b/internal/domain/technology_test.go
+@@ -0,0 +1,53 @@
++package domain
++
++import (
++	"reflect"
++	"strings"
++	"testing"
++)
++
++func TestTechnologyExpressionGrammar(t *testing.T) {
++	for _, tc := range []struct {
++		value string
++		want  [][]string
++	}{
++		{"C++", [][]string{{"c++"}}},
++		{"Golang+c|CPP", [][]string{{"go"}, {"c", "c++"}}},
++		{"c+++Go", [][]string{{"c++"}, {"go"}}},
++		{"C++20|Rust+JavaScript", [][]string{{"c++", "rust"}, {"javascript"}}},
++		{"c#+node.js", [][]string{{"c#"}, {"node.js"}}},
++	} {
++		got, valid := TechnologyExpression(tc.value)
++		if !valid || !reflect.DeepEqual(got, tc.want) {
++			t.Fatalf("%q: got %v/%v, want %v", tc.value, got, valid, tc.want)
++		}
++	}
++	for _, value := range []string{"", "go|", "|go", "go++java", "c+", "go||java", "(go|java)+c++", "go or rust"} {
++		if _, valid := TechnologyExpression(value); valid {
++			t.Fatal("unsupported/empty operand accepted", value)
++		}
++	}
++}
++
++func FuzzTechnologyExpressionCanonicalRoundTrip(f *testing.F) {
++	for _, value := range []string{"c++", "go+c|c++", "go++java", "c+++go", "golang|C++20"} {
++		f.Add(value)
++	}
++	f.Fuzz(func(t *testing.T, value string) {
++		groups, valid := TechnologyExpression(value)
++		if !valid {
++			return
++		}
++		var joined []string
++		for _, group := range groups {
++			if len(group) == 0 {
++				t.Fatal("empty conjunction")
++			}
++			joined = append(joined, strings.Join(group, "|"))
++		}
++		again, valid := TechnologyExpression(strings.Join(joined, "+"))
++		if !valid || !reflect.DeepEqual(groups, again) {
++			t.Fatal("canonical expression changed meaning", value, groups, again)
++		}
++	})
++}
+--- /dev/null
++++ b/internal/integration/technology_requirements_test.go
+@@ -0,0 +1,104 @@
++package integration
++
++import (
++	"testing"
++	"time"
++
++	d "github.com/KanaDoodle/CampusTrace/internal/domain"
++	p "github.com/KanaDoodle/CampusTrace/internal/persistence"
++	"github.com/KanaDoodle/CampusTrace/internal/rules"
++)
++
++func TestTechnologyAnalysisDoesNotReuseLegacyClaimsOrReactivateOldGeneration(t *testing.T) {
++	ctx, s, q, owner, source := kafkaSetup(t)
++	input := ingest(t, ctx, s, source)
++	input.Text = "graduation: 2027\ndegree: BACHELOR\njob_type: FULL_TIME\napply: PRESENT\n必须掌握Go或Rust任一种语言"
++	observation, err := s.Ingest(ctx, input)
++	must(t, err)
++	// Exact pre-upgrade namespace; using ProcessingVersion with an old config
++	// name now deliberately produces a NEW semantic namespace instead.
++	legacyVersion := "processing-v3-" + d.Hash(d.JSON([]string{"claims-v3-semantics", d.ParserVersion, d.SourceParserVersion, observation.ParserVersion}))[:48]
++	legacy, err := s.BindAnalysis(ctx, p.NewTask("ANALYZE", observation.ID), legacyVersion)
++	must(t, err)
++	bad := []d.Claim{{Type: "TECH_STACK", Value: "go|java|c++", Excerpt: "必须掌握Go或Rust任一种语言", Method: "RULE", Confidence: 1}}
++	must(t, s.PersistAnalysis(ctx, observation.ID, legacyVersion, bad))
++	legacyKey := q.Prefix + "analysis:cache-v2:" + legacyVersion + ":" + d.Hash(input.Text)
++	must(t, q.R.Set(ctx, legacyKey, d.JSON(bad), time.Hour).Err())
++	worker := worker(s, q)
++	worker.Version = "claims-v1" // Existing deployment default must still upgrade.
++	counter := &countAnalysis{}
++	worker.Analyzer = counter
++	task := p.NewTask("ANALYZE", observation.ID)
++	must(t, worker.Process(ctx, task))
++	current, err := s.Observation(ctx, observation.ID)
++	must(t, err)
++	want := d.ProcessingVersion("claims-v1", d.ParserVersion, observation.ParserVersion)
++	if want == legacyVersion || current.AnalysisVersion != want || current.ActiveAnalysisGeneration <= legacy.Generation || counter.calls.Load() != 1 {
++		t.Fatal("legacy receipt/cache suppressed new extraction", current, counter.calls.Load())
++	}
++	must(t, worker.Process(ctx, task))
++	if counter.calls.Load() != 1 {
++		t.Fatal("idempotent receipt reran extraction")
++	}
++	// Replayed late legacy results remain history; they cannot become active.
++	must(t, s.PersistAnalysis(ctx, observation.ID, legacyVersion, bad))
++	current, err = s.Observation(ctx, observation.ID)
++	must(t, err)
++	evidence, err := s.Evidence(ctx, observation.JobID)
++	must(t, err)
++	_, active := rules.Current([]d.Observation{current}, evidence)
++	found := false
++	for _, item := range active {
++		if item.AnalysisVersion != want || item.Value == "go|java|c++" {
++			t.Fatal("legacy claims became current", item)
++		}
++		found = found || item.Type == "TECH_STACK" && item.Value == "REQUIRED:go|rust"
++	}
++	if !found || len(evidence) <= len(active) {
++		t.Fatal("new claim missing or history removed", evidence, active)
++	}
++	must(t, s.SaveProfile(ctx, owner, d.Profile{Degree: "BACHELOR", GraduationYear: 2027, PreferredTypes: []string{"FULL_TIME"}, Skills: []string{"Rust"}}))
++	evaluation, err := s.ComputeEvaluation(ctx, owner, observation.JobID)
++	must(t, err)
++	if evaluation.Eligibility.Status != "ELIGIBLE" {
++		t.Fatal("persisted Rust alternative was not consumed", evaluation.Eligibility)
++	}
++}
++
++func TestTechnologyPersistedEvidenceFeedsCurrentQualification(t *testing.T) {
++	ctx, s, q, _, source := kafkaSetup(t)
++	for _, tc := range []struct {
++		text   string
++		skills []string
++		want   string
++	}{
++		{"必须掌握Go和C++", []string{"Go", "cpp"}, "PASS"},
++		{"必须掌握Go和C++", []string{"Go"}, "FAIL"},
++		{"必须掌握Go或Rust任一种语言", []string{"Java"}, "FAIL"},
++		{"任职要求：熟悉Go；C++经验优先", []string{"Golang"}, "PASS"},
++		{"任职要求\n符合以下任意两条：\n熟悉C/C++", []string{"Go"}, "UNKNOWN"},
++	} {
++		t.Run(tc.text+"/"+d.JSON(tc.skills), func(t *testing.T) {
++			input := ingest(t, ctx, s, source)
++			input.Text = tc.text
++			observation, err := s.Ingest(ctx, input)
++			must(t, err)
++			must(t, worker(s, q).Process(ctx, p.NewTask("ANALYZE", observation.ID)))
++			current, err := s.Observation(ctx, observation.ID)
++			must(t, err)
++			evidence, err := s.Evidence(ctx, observation.JobID)
++			must(t, err)
++			_, active := rules.Current([]d.Observation{current}, evidence)
++			assessment := rules.Eligibility(d.Job{}, d.Profile{Skills: tc.skills}, active, time.Now())
++			for _, result := range assessment.Results {
++				if result.Rule == "TECH_STACK" {
++					if result.Result != tc.want || len(result.EvidenceIDs) == 0 {
++						t.Fatal("persisted qualification differs", result, tc.want)
++					}
++					return
++				}
++			}
++			t.Fatal("missing persisted technology rule")
++		})
++	}
++}
+--- a/internal/rules/rules.go
++++ b/internal/rules/rules.go
+@@ -181,7 +181,7 @@
+ 		if typ == "TECH_STACK" {
+ 			hard := []d.Evidence{}
+ 			for _, v := range ev {
+-				if strings.HasPrefix(v.Value, "REQUIRED:") {
++				if strings.HasPrefix(v.Value, "REQUIRED:") || strings.HasPrefix(v.Value, "UNCERTAIN:") {
+ 					hard = append(hard, v)
+ 				}
+ 			}
+@@ -291,14 +291,25 @@
+ 			}
+ 		case "TECH_STACK":
+ 			value := strings.TrimPrefix(e.Value, "REQUIRED:")
+-			if !strings.HasPrefix(e.Value, "REQUIRED:") {
++			groups, valid := d.TechnologyExpression(value)
++			if strings.HasPrefix(e.Value, "UNCERTAIN:") {
++				unknown()
++			} else if !strings.HasPrefix(e.Value, "REQUIRED:") {
+ 				r.Result = "NOT_APPLICABLE"
+ 				r.Explanation = "Technology signal is not an explicit hard constraint"
+-			} else if len(p.Skills) == 0 {
++			} else if !valid || len(p.Skills) == 0 {
+ 				unknown()
+ 			} else {
+-				for _, part := range strings.Split(value, "+") {
+-					if !alternatives(part, p.Skills) {
++				skills := map[string]bool{}
++				for _, skill := range p.Skills {
++					skills[d.TechnologyName(skill)] = true
++				}
++				for _, group := range groups {
++					matched := false
++					for _, name := range group {
++						matched = matched || skills[name]
++					}
++					if !matched {
+ 						fail()
+ 					}
+ 				}
+@@ -317,21 +328,34 @@
+ }
+ func GoFit(es []d.Evidence) string {
+ 	goSeen, other, flex := false, false, false
++	uncertain := false
+ 	count := 0
+ 	for _, e := range byType(es, "TECH_STACK") {
+ 		count++
+-		v := strings.ToLower(e.Value)
+-		has := strings.Contains(v, "golang") || contains(strings.FieldsFunc(v, func(r rune) bool { return r == ':' || r == '|' || r == '+' || r == ' ' }), "go")
++		if strings.HasPrefix(e.Value, "UNCERTAIN:") {
++			uncertain = true
++			continue
++		}
++		groups, valid := d.TechnologyExpression(strings.TrimPrefix(e.Value, "REQUIRED:"))
++		has, choice := false, false
++		if valid {
++			for _, group := range groups {
++				if contains(group, "go") {
++					has = true
++					choice = choice || len(group) > 1
++				}
++			}
++		}
+ 		if has {
+ 			goSeen = true
+-			if strings.Contains(v, "|") {
++			if choice {
+ 				flex = true
+ 			}
+ 		} else if strings.HasPrefix(e.Value, "REQUIRED:") {
+ 			other = true
+ 		}
+ 	}
+-	if goSeen && other {
++	if uncertain || goSeen && other {
+ 		return "CONFLICTING"
+ 	}
+ 	if flex {
+--- /dev/null
++++ b/internal/rules/technology_test.go
+@@ -0,0 +1,50 @@
++package rules
++
++import (
++	"testing"
++	"time"
++
++	d "github.com/KanaDoodle/CampusTrace/internal/domain"
++)
++
++func TestTechnologyRequirementsPreserveLiteralPlusAndAliases(t *testing.T) {
++	for _, tc := range []struct {
++		requirement string
++		skills      []string
++		want        string
++	}{
++		{"REQUIRED:c++", []string{"C++"}, "PASS"},
++		{"REQUIRED:c++", []string{"cpp"}, "PASS"},
++		{"REQUIRED:go", []string{"Golang"}, "PASS"},
++		{"REQUIRED:go+c|c++", []string{"Go", "C++"}, "PASS"},
++		{"REQUIRED:go+c|c++", []string{"Go", "C"}, "PASS"},
++		{"REQUIRED:go+c|c++", []string{"Go"}, "FAIL"},
++		{"REQUIRED:c+++go", []string{"Go", "C++"}, "PASS"},
++		{"REQUIRED:c++|rust", []string{"Rust"}, "PASS"},
++		{"REQUIRED:go++java", []string{"Go", "Java"}, "UNKNOWN"},
++		{"REQUIRED:go|", []string{"Go"}, "UNKNOWN"},
++		{"UNCERTAIN:go|rust+c++", []string{"Go", "Rust", "C++"}, "UNKNOWN"},
++		{"c++", []string{"Go"}, "NOT_APPLICABLE"},
++	} {
++		t.Run(tc.requirement+"/"+d.JSON(tc.skills), func(t *testing.T) {
++			es := []d.Evidence{{ID: "tech", Claim: d.Claim{Type: "TECH_STACK", Value: tc.requirement, Confidence: 1}}}
++			assessment := Eligibility(d.Job{}, d.Profile{Skills: tc.skills}, es, time.Now())
++			for _, result := range assessment.Results {
++				if result.Rule == "TECH_STACK" {
++					if result.Result != tc.want {
++						t.Fatalf("got %s, want %s: %+v", result.Result, tc.want, result)
++					}
++					return
++				}
++			}
++			t.Fatal("no technology rule result")
++		})
++	}
++}
++
++func TestGoFitDistinguishesGoChoiceFromOtherLanguageChoice(t *testing.T) {
++	es := []d.Evidence{{Claim: d.Claim{Type: "TECH_STACK", Value: "REQUIRED:go+c|c++", Confidence: 1}}}
++	if got := GoFit(es); got != "EXPLICIT_GO" {
++		t.Fatal("a separate C/C++ choice must not make Go optional", got)
++	}
++}

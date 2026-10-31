@@ -18,6 +18,17 @@ x-app: &app
     LLM_API_KEY: ${LLM_API_KEY:-}
     LLM_MODEL: ${LLM_MODEL:-}
     ANALYSIS_VERSION: ${ANALYSIS_VERSION:-claims-v2-semantics}
+    TASK_QUEUE_MODE: ${TASK_QUEUE_MODE:-typed}
+    QUEUE_CAPACITY: ${QUEUE_CAPACITY:-256}
+    QUEUE_OWNER_CAPACITY: ${QUEUE_OWNER_CAPACITY:-32}
+    MATCH_QUEUE_WAIT_SECONDS: ${MATCH_QUEUE_WAIT_SECONDS:-30}
+    MATCH_EXECUTION_SECONDS: ${MATCH_EXECUTION_SECONDS:-175}
+    MATCH_GLOBAL_CAPACITY: ${MATCH_GLOBAL_CAPACITY:-2}
+    MATCH_GLOBAL_QUEUE: ${MATCH_GLOBAL_QUEUE:-64}
+    MATCH_GLOBAL_OWNER_QUEUE: ${MATCH_GLOBAL_OWNER_QUEUE:-1}
+    MATCH_GLOBAL_DAILY_CALLS: ${MATCH_GLOBAL_DAILY_CALLS:-400}
+    OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:-}
+    OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-0.1}
   healthcheck: &health
     test: ["CMD", "/app/campustrace", "probe", "--url", "http://127.0.0.1:8080/readyz"]
     interval: 30s
@@ -33,8 +44,7 @@ services:
     environment:
       <<: *environment
       HTTP_ADDR: 0.0.0.0:8080
-      PRACTICE_RUNNER_URL: http://sandbox-runner:18082
-      PRACTICE_SECRET: ${PRACTICE_SECRET:-local-campus-practice-secret-change-me-2027}
+      NARRATION_BACKEND: ${NARRATION_BACKEND:-api}
     ports: ["127.0.0.1:${CAMPUS_HTTP_PORT:-8080}:8080"]
     depends_on:
       mysql: {condition: service_healthy}
@@ -76,6 +86,16 @@ services:
       <<: *environment
       WORKER_METRICS_ADDR: 0.0.0.0:18081
       TASK_HISTORY_HOURS: ${TASK_HISTORY_HOURS:-24}
+      WORKER_ANALYZE_CONCURRENCY: ${WORKER_ANALYZE_CONCURRENCY:-2}
+      WORKER_ASSESS_CONCURRENCY: ${WORKER_ASSESS_CONCURRENCY:-1}
+      WORKER_WATCH_FETCH_CONCURRENCY: ${WORKER_WATCH_FETCH_CONCURRENCY:-2}
+      WORKER_WATCH_CHECK_CONCURRENCY: ${WORKER_WATCH_CHECK_CONCURRENCY:-1}
+      WORKER_SOURCE_IMPORT_CONCURRENCY: ${WORKER_SOURCE_IMPORT_CONCURRENCY:-1}
+      WORKER_SYSTEM_ANALYZE_CONCURRENCY: ${WORKER_SYSTEM_ANALYZE_CONCURRENCY:-1}
+      WORKER_SYSTEM_ASSESS_CONCURRENCY: ${WORKER_SYSTEM_ASSESS_CONCURRENCY:-1}
+      WORKER_SYSTEM_WATCH_CHECK_CONCURRENCY: ${WORKER_SYSTEM_WATCH_CHECK_CONCURRENCY:-1}
+      WORKER_SYSTEM_WATCH_FETCH_CONCURRENCY: ${WORKER_SYSTEM_WATCH_FETCH_CONCURRENCY:-1}
+      WORKER_SYSTEM_SOURCE_IMPORT_CONCURRENCY: ${WORKER_SYSTEM_SOURCE_IMPORT_CONCURRENCY:-1}
     healthcheck:
       <<: *health
       test: ["CMD", "/app/campustrace", "probe", "--url", "http://127.0.0.1:18081/healthz"]
@@ -83,25 +103,3 @@ services:
       api: {condition: service_healthy}
       analysis-1: {condition: service_healthy}
       analysis-2: {condition: service_healthy}
-
-  sandbox-runner:
-    image: campustrace-app:local
-    profiles: [practice]
-    command: ["/app/sandbox-runner"]
-    restart: unless-stopped
-    user: "0:0"
-    read_only: true
-    cap_drop: [ALL]
-    security_opt: ["no-new-privileges:true"]
-    volumes: ["/var/run/docker.sock:/var/run/docker.sock"]
-    environment:
-      PRACTICE_SECRET: ${PRACTICE_SECRET:-local-campus-practice-secret-change-me-2027}
-      PRACTICE_IMAGE: ${PRACTICE_IMAGE:-golang:1.25.9-bookworm}
-      PRACTICE_OWNER: campustrace-local
-    healthcheck:
-      test: ["CMD", "/app/campustrace", "probe", "--url", "http://127.0.0.1:18082/healthz"]
-      interval: 30s
-      start_interval: 3s
-      start_period: 10s
-      timeout: 3s
-      retries: 6

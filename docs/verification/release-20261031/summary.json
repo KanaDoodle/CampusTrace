@@ -1,0 +1,61 @@
+{
+  "status": "PASS",
+  "date": "2026-10-31",
+  "starting_commit": "f17b1ae8df67eaadbfe4ad93e2ad01c6f97b5460",
+  "runtime_fingerprint": "bc18a80cddd8103ae06e93f7b6d4105fa4211ccdb5a6f32698a53e28a7b999b3",
+  "journey_checks": 7,
+  "integration_top_level": {
+    "pass": 617,
+    "skip": 24
+  },
+  "integration_skipped": [
+    "TestKafkaIndependentGroupsAndFailedBatchReplay",
+    "TestAdditionalCampusLiveReadOnly",
+    "TestSGMCampusLiveReadOnly",
+    "TestNextCampusLiveReadOnly",
+    "TestSGMLivePrivateIngest",
+    "TestKuaishouLiveReadOnly",
+    "TestBilibiliLiveReadOnly",
+    "TestCtripCampusLiveReadOnly",
+    "TestSectorCampusLiveReadOnly",
+    "TestGraduateLiveReadOnly",
+    "TestFinanceCampusLiveReadOnly",
+    "TestPortalCampusLiveReadOnly",
+    "TestXiaohongshuLiveReadOnly",
+    "TestTencentCampusLiveReadOnly",
+    "TestBankCampusLiveReadOnly",
+    "TestSAPCampusLiveReadOnly",
+    "TestRadarLiveSources",
+    "TestMoreCampusLiveReadOnly",
+    "TestExpandedCampusLiveReadOnly",
+    "TestAlibabaLiveReadOnly",
+    "TestKafkaSearchAndNotificationsIndependentRecovery",
+    "TestAdversarialChild",
+    "TestSearchOnlineProcessHelper",
+    "TestKafkaRecoveryEpochIgnoresRetainedFutureEvents"
+  ],
+  "frontend_pass": 453,
+  "browser_checks": 17,
+  "performance_contracts": {
+    "python_pass": 16,
+    "node_pass": 6
+  },
+  "published_dependency": "KanaRPC-Go v0.1.0; GOWORK=off",
+  "external_model_calls_in_journey_and_browser": 0,
+  "limits": [
+    "Synthetic isolated fixtures; not production traffic or capacity",
+    "Kafka and live-source tests are gated off in this local integration run",
+    "No cloud-model/vLLM/GPU quality validation",
+    "Historical performance numbers refer to archived runtime versions; no new 1k/5k/10k benchmark"
+  ],
+  "base_runtime_fingerprint": "b5a3a6b2f6690c7be7c7e4026a0695900fc5d3f003c1e87a59b4b90ea7791c43",
+  "runtime_delta_from_base": [
+    "internal/searchservice/rebuild.go",
+    "internal/searchservice/rebuild_conflict_test.go"
+  ],
+  "native_race_passed_packages": 25,
+  "vet_and_build": "PASS",
+  "cas_regression_cases": 9,
+  "first_remote_failure": "https://github.com/KanaDoodle/CampusTrace/actions/runs/41210993795",
+  "first_published_commit": "f585601e41ce49330f5d28f9ef924c593f94ef02"
+}

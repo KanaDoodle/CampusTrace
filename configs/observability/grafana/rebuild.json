@@ -1,0 +1,247 @@
+{
+  "uid": "campustrace-search-rebuild",
+  "title": "CampusTrace Search Online Rebuild",
+  "schemaVersion": 39,
+  "version": 1,
+  "tags": [
+    "CampusTrace"
+  ],
+  "timezone": "Asia/Shanghai",
+  "refresh": "15s",
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "editable": false,
+  "panels": [
+    {
+      "id": 1,
+      "title": "Rebuild phase (0 idle / 1 copy / 2 verify / 3 catch up / 4 done / 5 aborted)",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "campustrace-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "max(campustrace_search_rebuild_phase)",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 2,
+      "title": "Copied documents",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "campustrace-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "max(campustrace_search_rebuild_copied)",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 3,
+      "title": "Pending rebuild deltas",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "campustrace-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "max(campustrace_search_rebuild_pending)",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "title": "Rebuild errors / second",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "campustrace-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(campustrace_search_rebuild_errors_total[5m]))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "title": "Completed cutovers",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "campustrace-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "sum(campustrace_search_rebuild_cutovers_total)",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "title": "Cutover barrier P95",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "campustrace-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95,sum by(le)(rate(campustrace_search_rebuild_barrier_seconds_bucket[5m])))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "title": "Foreground pending documents",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "campustrace-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "max(campustrace_search_pending)",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 8,
+      "title": "Fulltext / basic queries per second",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "campustrace-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(campustrace_search_fulltext_total[5m]))",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(campustrace_search_basic_total[5m]))",
+          "refId": "B",
+          "legendFormat": "basic"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {}
+    }
+  ]
+}

@@ -1,0 +1,83 @@
+{
+  "date": "2026-10-31",
+  "baseline": "e375960",
+  "scope": "Search query failure isolation and preserved Core consistency; no external model calls",
+  "checks": {
+    "build": {
+      "passed": true,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "default-tests": {
+      "passed": true,
+      "log_sha256": "3b409b09987298d4a37ba61b811e9f60646e8a95b2b3b47d85b3467baadae29e"
+    },
+    "target-race": {
+      "passed": true,
+      "log_sha256": "49e2855ab7e15d41e832acfae949cab6b22121bb8870f0d0d613113915ba4818"
+    },
+    "race": {
+      "passed": true,
+      "log_sha256": "0bc39911f028a058f149a7c8b1a529801b265b2a7682cb37b98cf8508cc5368f"
+    },
+    "vet": {
+      "passed": true,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frontend": {
+      "passed": true,
+      "log_sha256": "c74ca83c379dd22ca5ae2f40c467fe8684229b669489fe2b3ef7ebb8516eaa27"
+    },
+    "performance-contracts": {
+      "passed": true,
+      "log_sha256": "24fce2e806316d02d0bce7695bda23be0f522cfff1266c77e686d00885e10046"
+    },
+    "boundary": {
+      "passed": true,
+      "log_sha256": "942f004280546d219d058a016f234e96cda1f1816bc670dafe4df0a475702437"
+    },
+    "all-search-regression": {
+      "passed": true,
+      "log_sha256": "b531cc751527d133bf88f072649d4310b34281a4db168332925594ba8e07462d"
+    },
+    "kafka-regression": {
+      "passed": true,
+      "log_sha256": "941bf1aa3fcd1c107fa2544550fce3536e61fc528385effa1af7971bbc331abb"
+    },
+    "stack-regression": {
+      "passed": true,
+      "log_sha256": "c6671eea8c9a9927e37ac3c298be8ccce4a1433979ba9e628cb98188a1cad7a2"
+    }
+  },
+  "real_search_integration_cases": [
+    "TestSearchReadCircuitPreservesACLAndProjectionRecovery",
+    "TestSearchFallbackStormKeepsWritesAndReturnsExplicitOverload",
+    "TestSearchFallbackDeadlineCancelsBlockedSQL",
+    "TestSearchProjectionIsolationRecovery",
+    "TestSearchAcknowledgementAndTombstone",
+    "TestSearchInitialBackfillAcrossPages",
+    "TestSearchHTTPAuthoritativeIdentity"
+  ],
+  "real_kafka_top_level_passed": 4,
+  "frontend_passed": 437,
+  "synthetic_storm": {
+    "catalog": 2001,
+    "http_requests": 100,
+    "successful_reads": 2,
+    "explicit_503": 98,
+    "peak_fallback": 2,
+    "simultaneous_ingest_committed": true
+  },
+  "remote_ci_execution_claimed": false,
+  "limits": [
+    "Single-host synthetic evidence, no production throughput or HA claim",
+    "Admission and circuit state are process-local, not a global cluster quota",
+    "Cancellation does not prove immediate downstream termination",
+    "Final query policy validation additionally rejects query timeout plus reserve greater than total budget; default runtime budgets are unchanged from the full container run"
+  ],
+  "search_ui_manual_retry_test_passed": true,
+  "frontend_note": "The frozen server performance run used 436 unchanged frontend tests; final explicit search retry adds one test, bringing the final total to 437. This UI-only change does not change the measured search API path.",
+  "initial_validation_notes": [
+    "A temporary source backup inside bin was initially scanned as Go packages during merged-workspace build; moved to an underscore-prefixed archive directory and build/vet passed.",
+    "Initial manual-retry button markup had a syntax error; corrected before copying to the shared workspace; node syntax check, 437 frontend tests and embedded asset build passed."
+  ]
+}

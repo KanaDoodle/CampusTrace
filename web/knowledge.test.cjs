@@ -2,6 +2,11 @@ const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const saved=new Map();global.localStorage={getItem:k=>saved.get(k)||null,setItem:(k,v)=>saved.set(k,v)};
 const K=require('./knowledge.js');
+test('review-derived notes expose bounded local provenance links and reject arbitrary origins',()=>{
+ const {esc}=require('./ui.js'),origin={kind:'interview_review',application_id:'a'.repeat(32),interview_id:'b'.repeat(32),source_key:'secret-key-not-rendered'};
+ const html=K.originMarkup(origin,esc);assert.match(html,/核对原始复盘|按本次留档再准备/);assert.doesNotMatch(html,/secret-key/);
+ assert.equal(K.originMarkup({...origin,interview_id:'javascript:alert(1)'},esc),'');assert.equal(K.originMarkup({...origin,kind:'remote',url:'https://evil.invalid'},esc),'');
+});
 test('retrieval keys and activation remain account scoped and save never invokes a provider',()=>{
  saved.clear();K.lock();assert.deepEqual(K.requestOptions(),{embedding:undefined,rerank:undefined,mask_name:''});K.bindUser('alice');
  K.save({embedding:{...K.defaults.embedding,api_key:'alice-secret'},enabled:true});

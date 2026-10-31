@@ -12,7 +12,7 @@ import (
 func coveredSoftFixture() (ChatJob, string, d.Profile, Candidate) {
 	text := "负责直播系统架构设计、研发与维护，与产品、设计、测试团队紧密协作，高效推进业务迭代与需求落地"
 	p := d.Profile{Languages: []string{"Go"}}
-	c, _ := CandidateFrom(p, nil, "")
+	c, _ := CandidateWithProjects(p, nil, nil, "")
 	c.Facts = append(c.Facts, Fact{ID: "rpc", Kind: "IMPLEMENTED", Text: "实现 Go RPC 请求复用与持久任务恢复"})
 	in := ChatJob{Requirements: []Requirement{
 		{ID: "soft", Category: "RESPONSIBILITY", Aspect: "SOFT", Text: "协作", Excerpt: text, Confidence: 1},
@@ -43,7 +43,7 @@ func TestChatEngineeringDiagnosisKeepsItsContextAndPartialEvidence(t *testing.T)
 		t.Run(method, func(t *testing.T) {
 			text := "具备清晰的逻辑思维和" + method + "，能借助日志、监控、trace等手段深入问题本质，而非停留在表面修补"
 			p := d.Profile{}
-			c, _ := CandidateFrom(p, nil, "")
+			c, _ := CandidateWithProjects(p, nil, nil, "")
 			proof := Fact{ID: "race", Kind: "IMPLEMENTED", Text: "使用 Race Detector 验证并发请求路径"}
 			c.Facts = append(c.Facts, proof)
 			in := ChatJob{Requirements: []Requirement{
@@ -140,7 +140,7 @@ func TestChatSectionRestorationIsBoundToUnambiguousExactSource(t *testing.T) {
 func TestChatLanguageUmbrellaRemovalRetainsPreciseOwnMatch(t *testing.T) {
 	quote := "熟练掌握 Go、Java、C++ 中至少一种语言"
 	p := d.Profile{Languages: []string{"Go"}}
-	c, _ := CandidateFrom(p, nil, "")
+	c, _ := CandidateWithProjects(p, nil, nil, "")
 	in := ChatJob{Requirements: []Requirement{
 		{ID: "generic", Category: "RESPONSIBILITY", Text: "掌握至少一种/一门岗位列举的主流编程语言", Excerpt: quote, Confidence: 1},
 		{ID: "precise", Category: "RESPONSIBILITY", Text: quote, Excerpt: quote, Confidence: 1},
@@ -168,7 +168,7 @@ func TestChatLanguageUmbrellaRemovalRetainsPreciseOwnMatch(t *testing.T) {
 func TestRestoredAcademicGateNeverBecomesTechnicalScore(t *testing.T) {
 	text := "2027届本科及以上学历"
 	p := d.Profile{Degree: "MASTER", GraduationYear: 2027}
-	c, _ := CandidateFrom(p, nil, "")
+	c, _ := CandidateWithProjects(p, nil, nil, "")
 	in := ChatJob{Requirements: []Requirement{{ID: "academic", Category: "RESPONSIBILITY", Text: text, Excerpt: text, Confidence: 1}}, Matches: []Match{{RequirementID: "academic", Result: "NO_EVIDENCE", Explanation: "原模型未核对资格", Evidence: []Citation{}}}}
 	got, err := ImportChatJob(in, "工作要求:\n"+text, d.Job{}, p, c, time.Now())
 	if err != nil || got.Requirements[0].Category != "QUALIFICATION" || got.Score != nil || got.Breakdown[0].Total != 0 || got.Qualifications.Status == "ELIGIBLE" {

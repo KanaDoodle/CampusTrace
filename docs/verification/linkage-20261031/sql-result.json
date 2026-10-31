@@ -1,0 +1,12 @@
+{
+  "status": "PASS",
+  "go_exit": 0,
+  "race": true,
+  "count": 1,
+  "shuffle": "60431",
+  "remaining_fixture_schemas": 0,
+  "remaining_fixture_accounts": 0,
+  "template_guard_preserved": true,
+  "backend": "local-test-fixtures-no-model",
+  "real_vllm": "NOT_VALIDATED"
+}

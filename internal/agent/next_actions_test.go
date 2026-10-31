@@ -7,6 +7,15 @@ import (
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
 )
 
+func TestRecruitingChangesLinkToOwnedApplicationDossierOnly(t *testing.T) {
+	id := strings.Repeat("c", 32)
+	facts := []any{map[string]any{"tool": "get_agent_todos", "data": map[string]any{"items": []any{map[string]any{"related_applications": []d.ApplicationLink{{ID: id, State: "APPLIED"}}}, map[string]any{"related_applications": []d.ApplicationLink{{ID: "bad-id"}}}}}}}
+	actions := NextActions(facts)
+	if len(actions) != 1 || actions[0].Kind != "dossier" || actions[0].ApplicationID != id || actions[0].Source != "get_agent_todos" {
+		t.Fatal(actions)
+	}
+}
+
 func TestNextActionsUseOnlySuccessfulApplicationFacts(t *testing.T) {
 	id := strings.Repeat("a", 32)
 	facts := []any{

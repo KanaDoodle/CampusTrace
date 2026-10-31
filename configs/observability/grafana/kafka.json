@@ -1,0 +1,216 @@
+{
+  "uid": "campustrace-kafka",
+  "title": "CampusTrace · 岗位事件",
+  "schemaVersion": 39,
+  "version": 1,
+  "tags": [
+    "CampusTrace"
+  ],
+  "timezone": "Asia/Shanghai",
+  "refresh": "15s",
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "editable": false,
+  "panels": [
+    {
+      "id": 1,
+      "title": "待发布岗位事件",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "campustrace-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "campustrace_job_event_outbox_pending",
+          "legendFormat": "{{job}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "最早待发布事件年龄（秒）",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "campustrace-prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 0,
+        "w": 8,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "campustrace_job_event_publish_age_seconds",
+          "legendFormat": "{{job}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "已发布事件 / 秒",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "campustrace-prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 0,
+        "w": 8,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(campustrace_job_events_published_total[5m])",
+          "legendFormat": "{{job}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "发布错误 / 秒",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "campustrace-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 7,
+        "w": 8,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(campustrace_job_event_publish_errors_total[5m])",
+          "legendFormat": "{{job}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Search 消费 / 秒",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "campustrace-prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 7,
+        "w": 8,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(campustrace_event_consumer_records_total{job=\"campustrace-search\"}[5m])",
+          "legendFormat": "{{job}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "通知消费 / 秒",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "campustrace-prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 7,
+        "w": 8,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(campustrace_event_consumer_records_total{job=\"campustrace-notify\"}[5m])",
+          "legendFormat": "{{job}}"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "消费重试 / 秒",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "campustrace-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 14,
+        "w": 8,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(campustrace_event_consumer_errors_total[5m])",
+          "legendFormat": "{{job}}"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "隔离无效事件 / 秒",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "campustrace-prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 14,
+        "w": 8,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(campustrace_event_dlq_total[5m])",
+          "legendFormat": "{{job}}"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "通知进程存活",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "campustrace-prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 14,
+        "w": 8,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "up{job=\"campustrace-notify\"}",
+          "legendFormat": "{{job}}"
+        }
+      ]
+    }
+  ]
+}

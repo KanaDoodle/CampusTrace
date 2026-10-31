@@ -1,0 +1,20 @@
+{
+  "separate_search_image": true,
+  "independent_search_replacement": true,
+  "core_and_analysis_kept_running": true,
+  "outage_fallback_and_write": true,
+  "recovered_outbox": true,
+  "rebuild_replay": true,
+  "index_outage_and_loss_recovered": true,
+  "database_network_isolated": true,
+  "search_dashboard_panels": 9,
+  "resilience_dashboard_panels": 6,
+  "query_trace": {
+    "trace_id": "caeddd9fad3eac62a2cb25cf612600f8",
+    "spans": 6,
+    "services": [
+      "campustrace-api",
+      "campustrace-search"
+    ]
+  }
+}

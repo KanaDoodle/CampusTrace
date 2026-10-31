@@ -32,7 +32,7 @@ func Extract(ctx context.Context, text string) ([]d.Claim, error) {
 		line = strings.TrimSpace(line)
 		kv := strings.SplitN(line, ":", 2)
 		if len(kv) == 2 {
-			if typ := labels[strings.ToLower(kv[0])]; typ != "" {
+			if typ := labels[strings.ToLower(strings.TrimSpace(kv[0]))]; typ != "" {
 				if typ != "APPLY_ACTION" || !d.NegativeApplication(line) {
 					add(typ, strings.TrimSpace(kv[1]), line)
 				}
@@ -56,13 +56,13 @@ func Extract(ctx context.Context, text string) ([]d.Claim, error) {
 		if d.PositiveApplication(line) && !strings.HasPrefix(strings.TrimSpace(low), "apply:") {
 			add("APPLY_ACTION", "PRESENT", line)
 		}
-		if !strings.HasPrefix(low, "tech:") && (regexp.MustCompile(`(?i)\b(go|golang)\b`).MatchString(line)) {
-			v := "go"
-			if strings.Contains(line, "任一种") || strings.Contains(low, " or ") {
-				v = "go|java|c++"
-			}
-			add("TECH_STACK", v, line)
-		}
+	}
+	technologies, err := extractTechnologies(text)
+	if err != nil {
+		return nil, err
+	}
+	for _, claim := range technologies {
+		add(claim.Type, claim.Value, claim.Excerpt)
 	}
 	for _, c := range out {
 		if err := c.Validate(text); err != nil {

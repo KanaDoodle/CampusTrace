@@ -26,6 +26,7 @@ var appServices = []string{"api", "worker", "analysis-1", "analysis-2"}
 var allServices = []string{"mysql", "redis", "etcd", "api", "worker", "analysis-1", "analysis-2"}
 
 type Container struct {
+	Name    string
 	Service string
 	State   string
 	Health  string
@@ -322,11 +323,6 @@ func (m *manager) start(ctx context.Context, rebuild, open bool, timeout int) (r
 	if err = ready(rows); err != nil {
 		return err
 	}
-	if rebuild && previous["sandbox-runner"] {
-		if e := m.run(ctx, m.compose("--profile", "practice", "up", "--detach", "--no-deps", "--wait", "--wait-timeout", "45", "sandbox-runner")...); e != nil {
-			return errors.New("应用已启动，但 Go 练习组件更新失败；请查看 practice status 与 logs sandbox-runner")
-		}
-	}
 	address := "http://127.0.0.1:" + port
 	fmt.Fprintln(m.out, "CampusTrace 已启动：", address)
 	fmt.Fprintln(m.out, "关闭终端后服务继续运行。首次使用请在网页注册账号；已有账号和数据继续沿用。")
@@ -364,7 +360,12 @@ func (m *manager) stop(ctx context.Context, all bool) error {
 	if rows, e := m.states(ctx); e == nil {
 		for _, row := range rows {
 			if row.Service == "sandbox-runner" {
-				services = append(services, "sandbox-runner")
+				if !strings.HasPrefix(row.Name, "campustrace-") {
+					return errors.New("无法确认旧练习容器身份，请按归档说明停止该组件")
+				}
+				if e := m.run(ctx, "docker", "stop", row.Name); e != nil {
+					return e
+				}
 				break
 			}
 		}
@@ -497,7 +498,6 @@ const help = `CampusTrace — 统一启动入口
   resources               查看本项目各组件的 CPU 与内存占用
   logs [组件] [--follow]   查看日志；组件为 api/worker/analysis-1/analysis-2/mysql/redis/etcd
   doctor                  检查 Docker、配置与服务状态
-  practice start|stop|status  启用、停止或查看 Go 练习组件（可选）
   backup [--file 路径] [--verify] 备份数据库；可同时验证恢复
   verify-backup --file 路径 将备份恢复到隔离库，验证后删除隔离库
   restore --file 路径      验证并保留新数据库副本，不覆盖当前数据
@@ -614,7 +614,7 @@ func Run(ctx context.Context, args []string, out, errOut io.Writer) error {
 	}
 	switch name {
 	case "practice":
-		return m.practice(ctx, extra)
+		return errors.New("Go 练习已归档；主产品只保留 /api/practice/runs 历史读取，参见 experiments/README.md")
 	case "restore", "verify-backup":
 		if err = m.check(ctx); err != nil {
 			return err
@@ -631,14 +631,6 @@ func Run(ctx context.Context, args []string, out, errOut io.Writer) error {
 	case "stop":
 		return m.stop(ctx, all)
 	case "restart":
-		optionalPractice := false
-		before, e := m.states(ctx)
-		if e != nil {
-			return e
-		}
-		for _, v := range before {
-			optionalPractice = optionalPractice || (v.Service == "sandbox-runner" && v.State == "running")
-		}
 		if err = m.check(ctx); err != nil {
 			return err
 		}
@@ -655,9 +647,6 @@ func Run(ctx context.Context, args []string, out, errOut io.Writer) error {
 		}
 		if err = m.start(ctx, false, open, timeout); err != nil {
 			return err
-		}
-		if optionalPractice {
-			return m.run(ctx, m.compose("--profile", "practice", "up", "--detach", "--no-deps", "--wait", "--wait-timeout", "45", "sandbox-runner")...)
 		}
 		return nil
 	case "status":

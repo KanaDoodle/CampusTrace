@@ -10,7 +10,7 @@ import (
 
 func TestComparisonDependenciesKeepReviewSeparateAndInvalidateAllEvidence(t *testing.T) {
 	p := d.Profile{Revision: 1, GraduationYear: 2027, Degree: "MASTER", Languages: []string{"Go"}, PreferredCities: []string{"上海"}}
-	c, err := CandidateFrom(p, nil, "")
+	c, err := CandidateWithProjects(p, nil, nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -25,20 +25,20 @@ func TestComparisonDependenciesKeepReviewSeparateAndInvalidateAllEvidence(t *tes
 	p.Degree = "PHD"
 	p.PreferredCities = []string{"北京"}
 	p.TargetRoles = []string{"基础架构"}
-	changed, _ := CandidateFrom(p, nil, "")
+	changed, _ := CandidateWithProjects(p, nil, nil, "")
 	if c.Hash() == changed.Hash() || ComparisonCandidateHash(changed, scope) != before {
 		t.Fatal("local edits changed paid identity or failed to change review identity")
 	}
 	for _, edit := range []func(*d.Profile){func(p *d.Profile) { p.Skills = []string{"Redis"} }, func(p *d.Profile) { p.Languages = []string{"Java"} }, func(p *d.Profile) { p.Majors = []string{"计算机"} }, func(p *d.Profile) { p.ExperienceMonths = 12 }} {
 		next := p
 		edit(&next)
-		altered, _ := CandidateFrom(next, nil, "")
+		altered, _ := CandidateWithProjects(next, nil, nil, "")
 		if ComparisonCandidateHash(altered, scope) == before {
 			t.Fatal("new non-cited evidence did not invalidate whole comparison")
 		}
 	}
 	for _, kind := range []string{"IMPLEMENTED", "LIMITATION"} {
-		altered, _ := CandidateFrom(p, []d.ProjectFact{{ID: "new", Kind: kind, Verified: true, Claim: "实现 Go 服务"}}, "")
+		altered, _ := CandidateWithProjects(p, []d.ProjectFact{{ID: "new", Kind: kind, Verified: true, Claim: "实现 Go 服务"}}, nil, "")
 		if ComparisonCandidateHash(altered, scope) == before {
 			t.Fatal("new fact or limitation did not invalidate", kind)
 		}
@@ -62,7 +62,7 @@ func TestComparisonDependenciesKeepReviewSeparateAndInvalidateAllEvidence(t *tes
 
 func TestLocalRefreshUpdatesConditionsPreservesAnalysisAndRejectsBadProof(t *testing.T) {
 	p := d.Profile{GraduationYear: 2027, Degree: "MASTER", Languages: []string{"Go"}, PreferredCities: []string{"上海"}}
-	c, _ := CandidateFrom(p, nil, "")
+	c, _ := CandidateWithProjects(p, nil, nil, "")
 	reqs := []Requirement{
 		{ID: "go", Category: "REQUIRED", Confidence: 1},
 		{ID: "year", Category: "QUALIFICATION", ClaimType: "GRADUATION_REQUIREMENT", Value: "2027", Confidence: 1},
@@ -85,7 +85,7 @@ func TestLocalRefreshUpdatesConditionsPreservesAnalysisAndRejectsBadProof(t *tes
 	p.GraduationYear = 2028
 	p.Degree = "ASSOCIATE"
 	p.PreferredCities = []string{"北京"}
-	c, _ = CandidateFrom(p, nil, "")
+	c, _ = CandidateWithProjects(p, nil, nil, "")
 	got, err := RefreshResult(r, d.Job{}, p, c, "new", c.Hash(), at.Add(time.Hour))
 	if err != nil {
 		t.Fatal(err)
@@ -104,7 +104,7 @@ func TestLocalRefreshUpdatesConditionsPreservesAnalysisAndRejectsBadProof(t *tes
 
 func TestLocalQualificationUnknownConflictingAndBoundaryCases(t *testing.T) {
 	p := d.Profile{GraduationFrom: 2026, GraduationTo: 2027, Degree: "MASTER", PreferredCities: []string{"上海"}}
-	c, _ := CandidateFrom(p, nil, "")
+	c, _ := CandidateWithProjects(p, nil, nil, "")
 	for _, tt := range []struct {
 		reqs   []Requirement
 		result string

@@ -5,14 +5,18 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"github.com/KanaDoodle/CampusTrace/internal/analysis"
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
 	"github.com/KanaDoodle/CampusTrace/internal/observability"
 	p "github.com/KanaDoodle/CampusTrace/internal/persistence"
 	"github.com/KanaDoodle/CampusTrace/internal/source"
 	"github.com/redis/go-redis/v9"
+
 	"log/slog"
 	"sync"
 	"time"
+
+	"go.opentelemetry.io/otel/attribute"
 )
 
 type Analyzer interface {
@@ -27,6 +31,7 @@ type Worker struct {
 	Queue                    *Queue
 	Analyzer                 Analyzer
 	Concurrency, MaxAttempts int
+	LaneConcurrency          map[string]int
 	Timeout, ClaimIdle       time.Duration
 	TaskHistory              time.Duration
 	Metrics                  *observability.Metrics
@@ -37,6 +42,35 @@ func (w *Worker) Dispatch(ctx context.Context) error {
 	return err
 }
 func (w *Worker) dispatch(ctx context.Context) (int, error) {
+	if w.Queue.Partitioned {
+		if _, e := w.Store.BackfillOutboxTenants(ctx); e != nil {
+			return 0, e
+		}
+		return w.Store.FairOutbox(ctx, func(ctx context.Context, t p.Task) (bool, error) {
+			if t.Type == "ANALYZE" {
+				o, e := w.Store.Observation(ctx, t.EntityID)
+				if e != nil && !errors.Is(e, p.ErrNotFound) {
+					return false, e
+				}
+				// An orphan legacy envelope still reaches the normal terminal/DLQ
+				// path. It must not roll back healthy owners' dispatch transactions.
+				if e == nil {
+					t, e = w.Store.BindAnalysis(ctx, t, w.processingVersion(o))
+					if e != nil {
+						return false, e
+					}
+				}
+			}
+			e := w.Queue.Publish(ctx, t)
+			if errors.Is(e, ErrQueueFull) {
+				if w.Metrics != nil {
+					w.Metrics.Add("queue_admission_deferred_total", 1)
+				}
+				return false, nil
+			}
+			return e == nil, e
+		})
+	}
 	count := 0
 	err := w.Store.Tx(ctx, func(tx *sql.Tx) error {
 		tasks, err := p.Many[p.Task](ctx, tx, "SELECT body FROM outbox WHERE sent=FALSE ORDER BY created_at LIMIT 50 FOR UPDATE SKIP LOCKED")
@@ -66,9 +100,26 @@ func (w *Worker) dispatch(ctx context.Context) (int, error) {
 	})
 	return count, err
 }
-func (w *Worker) Process(ctx context.Context, t p.Task) error {
+func (w *Worker) Process(ctx context.Context, t p.Task) (err error) {
 	if err := ValidateTask(t); err != nil {
 		return err
+	}
+	ctx, span := observability.Consumer(ctx, "task.process", t.TraceParent)
+	defer func() { observability.End(span, err) }()
+	span.SetAttributes(attribute.String("task.type", t.Type), attribute.String("task.id", t.ID), attribute.Int("task.attempt", t.Attempt))
+	fields := observability.From(ctx)
+	fields.RequestID = t.CorrelationID
+	fields.TaskID = t.ID
+	ctx = observability.With(ctx, fields)
+	if w.Metrics != nil {
+		w.Metrics.Observe("task_age_seconds", max(0, time.Since(t.CreatedAt).Seconds()))
+		started := time.Now()
+		defer func() {
+			w.Metrics.Since("task_process", started)
+			if err != nil {
+				w.Metrics.Add("task_errors_total", 1)
+			}
+		}()
 	}
 	if t.Type == "WATCH_CHECK" || t.Type == "WATCH_FETCH" {
 		return w.processWatch(ctx, t)
@@ -101,18 +152,27 @@ func (w *Worker) Process(ctx context.Context, t p.Task) error {
 	if o.FetchStatus == "SUCCESS" {
 		key := w.Queue.Prefix + "analysis:cache-v2:" + t.ProcessingVersion + ":" + d.Hash(o.Text)
 		cached, e := w.Queue.R.Get(ctx, key).Bytes()
+		cacheValid := e == nil
 		if e == nil {
 			if e = json.Unmarshal(cached, &claims); e != nil {
-				claims = nil
+				cacheValid = false
 			}
 			for _, c := range claims {
 				if c.Validate(o.Text) != nil {
-					claims = nil
+					cacheValid = false
 					break
 				}
 			}
 		}
-		if claims == nil || e != nil {
+		// JSON null is a valid saved empty result, distinct from a cache miss.
+		if !cacheValid {
+			began, e := w.Store.BeginAnalysisInvocation(ctx, t)
+			if e != nil {
+				return e
+			}
+			if !began {
+				return ErrAnalysisUncertain
+			}
 			start := time.Now()
 			ctx = observability.With(ctx, observability.Fields{RequestID: t.CorrelationID, TaskID: t.ID, JobID: o.JobID})
 			claims, err = w.Analyzer.Analyze(ctx, o, t.CorrelationID)
@@ -120,10 +180,22 @@ func (w *Worker) Process(ctx context.Context, t p.Task) error {
 			w.Metrics.Since("rpc_latency", start)
 			if err != nil {
 				w.Metrics.Add("rpc_errors", 1)
+				// Only an explicit rejection permits a later automatic attempt.
+				var rejected *analysis.HTTPError
+				if errors.As(err, &rejected) && (rejected.Status == 429 || rejected.Status == 401 || rejected.Status == 403) {
+					cleanup, stop := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+					e := w.Store.RejectAnalysisInvocation(cleanup, t)
+					stop()
+					if e != nil {
+						return ErrAnalysisUncertain
+					}
+				} else {
+					return ErrAnalysisUncertain
+				}
 				return err
 			}
 			if err = w.Queue.R.Set(ctx, key, d.JSON(claims), 24*time.Hour).Err(); err != nil {
-				return err
+				return ErrAnalysisUncertain
 			}
 		}
 	}
@@ -147,8 +219,17 @@ func (w *Worker) handle(root context.Context, m redis.XMessage, consumers ...str
 	}
 	ctx, cancel := context.WithTimeout(root, w.Timeout)
 	defer cancel()
+	if !w.Queue.belongs(t) {
+		w.Metrics.Add("queue_wrong_lane_total", 1)
+		return
+	} // Never ACK another lane's work.
 	if err == nil {
-		err = w.Process(ctx, t)
+		if !t.QueueUntil.IsZero() && time.Now().After(t.QueueUntil) {
+			err = ErrQueueExpired
+		} else {
+			w.Metrics.Observe("queue_wait_seconds_"+w.Queue.Lane, time.Since(t.CreatedAt).Seconds())
+			err = w.Process(ctx, t)
+		}
 	}
 	if root.Err() != nil {
 		return
@@ -177,7 +258,14 @@ func (w *Worker) handle(root context.Context, m redis.XMessage, consumers ...str
 		err = errors.New("schema: invalid envelope")
 	}
 	if t.Type == "ANALYZE" && !errors.Is(err, p.ErrProcessingUnavailable) && (!Transient(err) || t.Attempt >= w.MaxAttempts) {
-		if e := w.Store.AnalysisTaskFailed(root, t, "ANALYSIS_FAILED"); e != nil {
+		code := "ANALYSIS_FAILED"
+		if errors.Is(err, ErrQueueExpired) {
+			code = "QUEUE_EXPIRED"
+		}
+		if errors.Is(err, ErrAnalysisUncertain) {
+			code = "ANALYSIS_OUTCOME_UNKNOWN"
+		}
+		if e := w.Store.AnalysisTaskFailed(root, t, code); e != nil {
 			slog.Warn("could not persist terminal analysis failure", "task_id", t.ID)
 			return
 		}
@@ -203,7 +291,7 @@ func (w *Worker) handle(root context.Context, m redis.XMessage, consumers ...str
 	} else {
 		w.Metrics.Add("dlq_count", 1)
 	}
-	slog.Warn("task failed", "task_id", t.ID, "observation_id", t.EntityID, "request_id", t.CorrelationID, "retry", retry, "category", func() string {
+	slog.WarnContext(observability.Extract(root, t.TraceParent), "task failed", "task_id", t.ID, "observation_id", t.EntityID, "request_id", t.CorrelationID, "retry", retry, "category", func() string {
 		if Transient(err) {
 			return "TRANSIENT"
 		}
@@ -228,23 +316,67 @@ func (w *Worker) Run(ctx context.Context) error {
 		return err
 	}
 	var wg sync.WaitGroup
-	for i := 0; i < w.Concurrency; i++ {
+	if w.Queue.ResolveOwner == nil {
+		w.Queue.ResolveOwner = w.Store.TaskOwner
+	}
+	total := w.Concurrency
+	if w.Queue.Partitioned {
+		total = 0
+		for _, lane := range QueueLanes() {
+			n := w.LaneConcurrency[lane]
+			if n == 0 {
+				n = 1
+			}
+			if n < 1 || n > 16 {
+				return errors.New("lane concurrency must be in 1..16")
+			}
+			total += n
+		}
+		if total > 64 {
+			return errors.New("total worker concurrency exceeds 64")
+		}
+	}
+	workers := []*Worker{}
+	if w.Queue.Partitioned {
+		for _, lane := range QueueLanes() {
+			n := w.LaneConcurrency[lane]
+			if n == 0 {
+				n = 1
+			}
+			child := *w
+			child.Queue = w.Queue.ForLane(lane)
+			for i := 0; i < n; i++ {
+				workers = append(workers, &child)
+			}
+		}
+	} else {
+		for i := 0; i < w.Concurrency; i++ {
+			workers = append(workers, w)
+		}
+	}
+	for _, executor := range workers {
+		executor := executor
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			consumer := d.ID()
 			for ctx.Err() == nil {
-				msgs, err := w.Queue.Recover(ctx, consumer, w.ClaimIdle)
+				msgs, err := executor.Queue.Recover(ctx, consumer, w.ClaimIdle)
 				if err == nil {
 					for _, m := range msgs {
-						w.handle(ctx, m, consumer)
+						executor.handle(ctx, m, consumer)
 					}
 				}
-				streams, err := w.Queue.R.XReadGroup(ctx, &redis.XReadGroupArgs{Group: w.Queue.Group(), Consumer: consumer, Streams: []string{w.Queue.Stream(), ">"}, Count: 1, Block: time.Second}).Result()
+				if executor.Queue.Lane != "" {
+					if _, e := executor.Queue.Pump(ctx); e != nil && ctx.Err() == nil {
+						slog.Warn("ready queue pump failed", "lane", executor.Queue.Lane)
+					}
+				}
+				streams, err := executor.Queue.R.XReadGroup(ctx, &redis.XReadGroupArgs{Group: executor.Queue.Group(), Consumer: consumer, Streams: []string{executor.Queue.Stream(), ">"}, Count: 1, Block: time.Second}).Result()
 				if err == nil {
 					for _, stream := range streams {
 						for _, m := range stream.Messages {
-							w.handle(ctx, m, consumer)
+							executor.handle(ctx, m, consumer)
 						}
 					}
 				} else if err != redis.Nil && ctx.Err() == nil {
@@ -255,6 +387,10 @@ func (w *Worker) Run(ctx context.Context) error {
 				}
 			}
 		}()
+	}
+	if w.Queue.Partitioned {
+		wg.Add(1)
+		go func() { defer wg.Done(); w.bridgeLegacy(ctx) }()
 	}
 	freshness := time.NewTimer(0)
 	defer freshness.Stop()
@@ -328,8 +464,6 @@ func (w *Worker) Run(ctx context.Context) error {
 		}
 	}
 }
-
-func (w *Worker) version() string { return d.EffectiveAnalysisVersion(w.Version) }
 
 func (w *Worker) processingVersion(o d.Observation) string {
 	parser := w.ParserVersion

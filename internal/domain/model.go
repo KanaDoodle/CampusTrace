@@ -16,9 +16,9 @@ import (
 	"unicode/utf8"
 )
 
-const AnalysisVersion = "claims-v3-semantics"
+const AnalysisVersion = "claims-v4-tech-requirements"
 const ParserVersion = "generic-v2-lines"
-const RuleVersion = "rules-v6-city-addresses"
+const RuleVersion = "rules-v7-tech-expressions"
 const SourceParserVersion = "public-http-v2-complete"
 
 // Nationwide graduate roles can list more than 30 distinct cities.
@@ -290,18 +290,19 @@ type Ranking struct {
 	AssessedAt       time.Time          `json:"assessed_at"`
 }
 type Application struct {
-	ID            string     `json:"id"`
-	UserID        string     `json:"user_id"`
-	JobID         string     `json:"job_id"`
-	State         string     `json:"current_state"`
-	Version       int        `json:"version"`
-	AppliedAt     *time.Time `json:"applied_at,omitempty"`
-	ResumeVersion string     `json:"resume_version"`
-	Note          string     `json:"note,omitempty"`
-	FollowUpAt    *time.Time `json:"follow_up_at,omitempty"`
-	NextAction    string     `json:"next_action,omitempty"`
-	CreatedAt     time.Time  `json:"created_at"`
-	UpdatedAt     time.Time  `json:"updated_at"`
+	ID                string     `json:"id"`
+	UserID            string     `json:"user_id"`
+	JobID             string     `json:"job_id"`
+	State             string     `json:"current_state"`
+	Version           int        `json:"version"`
+	AppliedAt         *time.Time `json:"applied_at,omitempty"`
+	ResumeVersion     string     `json:"resume_version"`
+	ExternalReference string     `json:"external_reference,omitempty"`
+	Note              string     `json:"note,omitempty"`
+	FollowUpAt        *time.Time `json:"follow_up_at,omitempty"`
+	NextAction        string     `json:"next_action,omitempty"`
+	CreatedAt         time.Time  `json:"created_at"`
+	UpdatedAt         time.Time  `json:"updated_at"`
 }
 type ApplicationEvent struct {
 	ID            string    `json:"id"`

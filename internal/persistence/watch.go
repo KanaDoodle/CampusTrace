@@ -42,6 +42,12 @@ func (s *Store) SourcesForUser(ctx context.Context, user string) ([]d.Source, er
 	}
 	return Many[d.Source](ctx, s.DB, "SELECT body FROM sources WHERE JSON_UNQUOTE(JSON_EXTRACT(body,'$.visibility'))='GLOBAL' OR JSON_UNQUOTE(JSON_EXTRACT(body,'$.owner_id'))=? ORDER BY id LIMIT 100", user)
 }
+
+// A bounded catalog page is not an authorization lookup. Resolve the selected
+// registered source directly and retain the same ownership/discovery checks.
+func (s *Store) WatchableSourceForUser(ctx context.Context, user, id string) (d.Source, error) {
+	return watchSource(ctx, s.DB, user, id)
+}
 func watchSource(ctx context.Context, q Queryer, user, id string) (d.Source, error) {
 	src, err := One[d.Source](ctx, q, "SELECT body FROM sources WHERE id=?", id)
 	if err != nil {

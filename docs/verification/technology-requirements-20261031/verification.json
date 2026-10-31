@@ -1,0 +1,14 @@
+{
+  "status": "PASS",
+  "baseline_checks": 21,
+  "candidate_checks": 85,
+  "total_checks": 85,
+  "cases": 14,
+  "raw_files": 27,
+  "source_reconstruction": "PASS",
+  "runtime_changed_files": 13,
+  "race_passed_packages": 25,
+  "integration_and_related_passed_top_level": 32,
+  "initial_reference_review_preserved": true,
+  "worktree_matches_candidate": true
+}

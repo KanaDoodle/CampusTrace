@@ -47,3 +47,7 @@
 @media(max-width:1150px){.agent-layout{grid-template-columns:minmax(0,1fr) 280px;gap:18px}.agent-panel{padding:20px}.agent-skills .agent-section-head{display:block}.agent-skills .agent-section-head .meta{display:block;margin-top:5px}}
 @media(max-width:950px){.agent-layout{grid-template-columns:minmax(0,1fr)}.agent-side{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 18px;align-items:start}.agent-feed{grid-column:1/-1}}
 @media(max-width:600px){.agent-side{display:block}.agent-panel{padding:20px 16px}.agent-section-head h2{font-size:17px}.agent-page-intro{font-size:12px;margin-bottom:18px}.agent-task-picker{gap:0 8px}.agent-task-picker button{padding:12px 8px}.agent-task-picker span{font-size:11px}.agent-task-submit{display:block}.agent-task-submit .btn{margin-top:14px}.agent-question-footer .btn{font-size:12px;padding-inline:12px}.agent-execution-head{gap:8px}.agent-result{padding:20px 16px}}
+
+#agent-narration-review{width:min(900px,94vw)}
+.narration-preview{max-height:42vh;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}
+#agent-narration-panel [data-narration-text]{max-height:50vh;overflow:auto;overflow-wrap:anywhere}

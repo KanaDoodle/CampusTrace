@@ -1,0 +1,34 @@
+{
+  "date": "2026-10-31",
+  "parent_commit": "f330881a2ed0fb101ab9352835c54a741c7848cf",
+  "environment": "single-host synthetic disposable Docker; no external models",
+  "checks": {
+    "public_build": "passed",
+    "vet": "passed",
+    "go_race_all_without_integration_env": "passed",
+    "frontend": "437/437",
+    "search_real_integration": "7/7",
+    "kafka_recovery_real_integration": "6/6 including 3 recovery cases",
+    "kafka_broker_consumer_replay": "passed",
+    "cli_real_recovery": "passed:77 tables / 75 references",
+    "full_stack": "passed",
+    "release_dependency_boundary": "passed",
+    "shell_syntax": "passed",
+    "merged_workspace_public_build": "passed",
+    "merged_workspace_go_race_all_without_integration_env": "passed",
+    "merged_workspace_frontend": "445/445 (includes existing Agent changes, kept outside this commit)",
+    "merged_workspace_kafka_real_integration": "passed after retrying legitimate Search generation conflict",
+    "merged_workspace_cli_real_recovery": "passed"
+  },
+  "retained_failed_runs": [
+    "kafka-inflight-too-early.log (incorrect pause point / expectation; no notification was sent)",
+    "stack-first-failed.log and stack-first-failed/ (Grafana background datasource update)",
+    "root-kafka-startup-conflict.log (acceptance initially rejected a retryable Search generation conflict)"
+  ],
+  "limits": [
+    "not production HA/RTO/RPO evidence",
+    "no real model quality claim",
+    "no real user effectiveness evidence",
+    "Kafka/OpenSearch history is logically isolated, not physically erased"
+  ]
+}

@@ -40,3 +40,24 @@ var KnowledgeRetrievalSQL string
 
 //go:embed 013_assessment_schedule.sql
 var AssessmentScheduleSQL string
+
+//go:embed 014_application_journey.sql
+var ApplicationJourneySQL string
+
+//go:embed 015_task_scheduling.sql
+var TaskSchedulingSQL string
+
+//go:embed 016_model_control.sql
+var ModelControlSQL string
+
+//go:embed 017_search.sql
+var SearchSQL string
+
+//go:embed 018_job_events.sql
+var JobEventsSQL string
+
+//go:embed 019_job_dataset_recovery.sql
+var JobDatasetRecoverySQL string
+
+//go:embed 020_search_rebuild.sql
+var SearchRebuildSQL string

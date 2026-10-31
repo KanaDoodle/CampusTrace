@@ -9,6 +9,7 @@ import (
 	"github.com/KanaDoodle/CampusTrace/internal/observability"
 	"github.com/KanaDoodle/CampusTrace/internal/resume"
 	"github.com/KanaDoodle/CampusTrace/internal/rules"
+	"github.com/KanaDoodle/CampusTrace/internal/searchapi"
 	"github.com/KanaDoodle/CampusTrace/migrations"
 	"github.com/go-sql-driver/mysql"
 	"strings"
@@ -21,6 +22,9 @@ var ErrBackendUnavailable = errors.New("backend unavailable")
 var ErrValidation = errors.New("business validation")
 
 type Store struct {
+	searchReads      searchReads
+	JobEvents        bool
+	Search           searchapi.Transport
 	Metrics          *observability.Metrics
 	DB               *sql.DB
 	Weights          rules.Weights
@@ -73,7 +77,7 @@ func (s *Store) Migrate(ctx context.Context) error {
 	if err := s.migrateBackend(ctx); err != nil {
 		return err
 	}
-	for _, stmt := range strings.Split(migrations.LocalReliabilitySQL+";"+migrations.SourceImportSQL+";"+migrations.HolisticSQL+";"+migrations.AgentWorkspaceSQL+";"+migrations.AgentHarnessSQL+";"+migrations.KnowledgeRetrievalSQL+";"+migrations.AssessmentScheduleSQL, ";") {
+	for _, stmt := range strings.Split(migrations.LocalReliabilitySQL+";"+migrations.SourceImportSQL+";"+migrations.HolisticSQL+";"+migrations.AgentWorkspaceSQL+";"+migrations.AgentHarnessSQL+";"+migrations.KnowledgeRetrievalSQL+";"+migrations.AssessmentScheduleSQL+";"+migrations.ApplicationJourneySQL+";"+migrations.TaskSchedulingSQL+";"+migrations.ModelControlSQL+";"+migrations.SearchSQL+";"+migrations.JobEventsSQL+";"+migrations.JobDatasetRecoverySQL+";"+migrations.SearchRebuildSQL, ";") {
 		if strings.TrimSpace(stmt) != "" {
 			if _, err := s.DB.ExecContext(ctx, stmt); err != nil {
 				return err
@@ -88,17 +92,26 @@ type Queryer interface {
 	QueryRowContext(context.Context, string, ...any) *sql.Row
 }
 
-func One[T any](ctx context.Context, q Queryer, query string, args ...any) (T, error) {
-	var v T
+func One[T any](ctx context.Context, q Queryer, query string, args ...any) (v T, err error) {
+	ctx, span := observability.Client(ctx, "db.read_one")
+	defer func() {
+		if errors.Is(err, sql.ErrNoRows) {
+			span.End()
+		} else {
+			observability.End(span, err)
+		}
+	}()
 	var b []byte
-	err := q.QueryRowContext(ctx, query, args...).Scan(&b)
+	err = q.QueryRowContext(ctx, query, args...).Scan(&b)
 	if err == nil {
 		err = json.Unmarshal(b, &v)
 	}
 	return v, err
 }
-func Many[T any](ctx context.Context, q Queryer, query string, args ...any) ([]T, error) {
-	out := []T{}
+func Many[T any](ctx context.Context, q Queryer, query string, args ...any) (out []T, err error) {
+	ctx, span := observability.Client(ctx, "db.read_many")
+	defer func() { observability.End(span, err) }()
+	out = []T{}
 	rows, err := q.QueryContext(ctx, query, args...)
 	if err != nil {
 		return out, err
@@ -117,8 +130,12 @@ func Many[T any](ctx context.Context, q Queryer, query string, args ...any) ([]T
 	}
 	return out, rows.Err()
 }
-func (s *Store) Tx(ctx context.Context, fn func(*sql.Tx) error) error {
-	tx, err := s.DB.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
+func (s *Store) Tx(ctx context.Context, fn func(*sql.Tx) error) (err error) {
+	ctx, span := observability.Client(ctx, "db.transaction")
+	defer func() { observability.End(span, err) }()
+	beginCtx, begin := observability.Start(ctx, "db.begin")
+	tx, err := s.DB.BeginTx(beginCtx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
+	observability.End(begin, err)
 	if err != nil {
 		return err
 	}

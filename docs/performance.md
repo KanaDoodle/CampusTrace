@@ -132,3 +132,122 @@ profile 只在合成数据准备完成后启动；CPU 在场景结束后停止�
 隔离数据库与 race 检查覆盖连续变化合并、多个调度器争抢、超时补偿、旧任务不能清除新任务、重启保留计划，以及没有新抓取时在截止后由 OPEN 转为 CLOSED。修改学历后读取资格结果立即更新的场景也通过。全套集成检查、Go vet 与前端测试通过，没有使用真实外部模型。
 
 这次验证证明空闲时停止重复生成任务、时间变化仍能得到处理；80 秒观察不能代替全天运行或压力测试，没有据此宣称 CPU、内存或吞吐量改善的具体比例。原始快照、空闲观察与验证日志保存在本机忽略目录 `bin/verification/incremental-assessment-20261010/`。
+
+## Search 的 k6 端到端性能回归（2026-10-31）
+
+这一层测量真实 HTTP → Core → Search → OpenSearch，以及故障时 Core 基础查询的表现。既有 Store/SQL benchmark 与 pprof 继续用于局部定位；它们与本节的端到端结果使用各自的测量口径。
+
+### 运行
+
+需要 Python 3.12+、Docker 和 Compose；脚本自动准备固定版本 `grafana/k6:1.8.2`。普通运行不需要本机安装 k6。使用当前运行时代码的冻结副本，已有数据和运行中的其他项目不参与测试：
+
+```sh
+make performance-test
+make performance PERF_ARGS='--jobs 1000 --seconds 20 --rate 10 --output bin/perf/reference'
+make performance PERF_ARGS='--jobs 1000 --seconds 20 --rate 10 --baseline bin/perf/reference/report.json --output bin/perf/candidate'
+```
+
+要比较两个代码版本，两个运行都使用同一套当前压测脚本、相同数据分布和容器资源限制；先运行参考提交，再运行候选提交：
+
+```sh
+./scripts/performance-local.sh --revision b4a871f18fde0206af91bc512067bc283db4fc83 \
+  --jobs 200 --seconds 15 --rate 10 --output bin/perf/reference
+./scripts/performance-local.sh --revision HEAD \
+  --jobs 200 --seconds 15 --rate 10 --baseline bin/perf/reference/report.json \
+  --output bin/perf/candidate
+```
+
+没有基线时结果是 `baseline_recorded`，只代表功能、负载生成和恢复检查通过。传入基线才执行相对性能比较。已有输出目录中的证据不会被覆盖；修改场景参数后使用新的输出目录。
+
+### 四个独立场景
+
+| 场景 | 操作与检查 |
+| --- | --- |
+| fulltext | 索引追平、后台队列排空后，按固定到达率查询；要求全部使用全文搜索 |
+| fallback | 停止本轮自己的 Search 容器，要求查询成功且全部标记基础查询；结束后恢复并确认全文搜索可用 |
+| rebuild | 查询运行两秒后重建索引；必须实际观察到基础回退，随后等待索引追平 |
+| mixed | 固定查询到达率与独立写入到达率同时运行，反复更新同一个 canonical Job；结束后验证最新观察中的唯一标记已被索引 |
+
+数据通过真实注册、认证与岗位录入 API 准备，包含两个账号，第二个账号拥有约四分之一岗位。查询检查返回账号、公司、岗位编号对应关系、去重、数量和查询模式；预置关键词只出现在 JD 中。另有一个固定岗位专门用于并发更新，因此实际岗位数为 `--jobs + 1`。源文本为固定合成模板，不读取浏览器资料或 `.env`。
+
+读请求采用 `constant-arrival-rate` 开放到达模型，默认 10 次/秒，不用服务变慢后自动减少发起量来美化耗时。默认预分配 32 个读虚拟用户，可由 `--max-vus` 调整；负载生成器也有 1 CPU / 512 MiB 限制。写入默认 1 次/秒。丢弃迭代、HTTP 错误、返回不完整、账号错误、错误模式、写入不一致、恢复失败均导致非零退出；已完成迭代与 HTTP 请求总数还需和业务计数一致。准备和预热不计入 k6 请求分位数。
+
+为使这组测试聚焦搜索，准备阶段先暂停本轮 Worker，录入合成岗位后，仅在本轮专用库中移除这些初始数据触发的 ANALYZE/ASSESS 任务并清空其到期评估计划，随后恢复 Worker。搜索事务 Outbox 全部保留，初始 Observation 不伪装为已分析；报告记录排除的任务数量。混合写入阶段不执行该处理，更新正常经过现有后台链路。本测试不测量批量抓取／结构化分析的吞吐量。
+
+脚本记录两种时延口径：全部查询的 `query_ms`，以及按实际返回模式分开的 `query_fulltext_ms` / `query_basic_ms`。它们均采用 k6 的 HTTP 发送、等待、接收时长，不包含连接等待、DNS/建连、完整页面渲染，也不测量模型推理。重建与混合写入场景的模式比例可能变化，故仅将其作为故障期间表现描述，不用混合后的 P95 做跨版本性能门槛。
+
+### 回归策略与证据
+
+参考与候选必须具备相同工作负载、脚本哈希、主机标识哈希、Docker CPU/内存环境、k6 镜像内容与容器资源限制。任一不一致即拒绝比较，不能显示通过。每个稳定场景双方至少各有 100 个请求样本；缺少场景、指标或恢复证据同样失败。
+
+稳定 fulltext 与 fallback 的 P95、P99 采用初始工程门槛：
+
+```text
+候选耗时 <= 参考耗时 × 1.5 + 25 ms
+```
+
+这是为有限样本和本地/CI 噪声设置的宽松回归策略，不是生产 SLO，也不声称统计显著性。`--ratio` 和 `--allowance-ms` 可显式调整，生效策略写入报告。要收紧门槛，应先重复运行同一负载并观察波动。到达率本身是测试输入，完成请求/秒不是系统最大吞吐量；失败和超时仍计入样本，不只统计成功请求。
+
+每个输出目录保存：`report.json`、各场景原始 k6 summary 与日志、前后 Core/Worker/Search 的 Prometheus 文本、容器资源瞬时快照、构建/启动/服务日志。资源快照不等于峰值；查询分位数来自 k6 样本。API 数据库连接等待与连接数、基础/全文查询计数、待同步数可用于辅助定位；若需 CPU/分配热点，沿用前文合成 benchmark 的 profile 命令，再核对与端到端瓶颈是否一致。
+
+### 隔离与 CI
+
+每次创建唯一 Compose 项目、镜像、网络和 `campustrace_perf_*` 数据库。MySQL、Redis、etcd 与 OpenSearch 数据都属于这次临时栈；结束只清理本轮资源。模型提供商配置与推理桥接配置显式清空，外部 trace 导出关闭。API、Worker 和 Search 只为控制/采集临时发布随机的本机端口；k6 从本轮容器网络访问 API。Search 额外连接本轮的控制网络用于主机采集，业务发布配置不变。临时认证令牌只留在受限的准备目录，清理时删除，不进入报告或仓库。
+
+新增 `.github/workflows/performance.yml`：相关 Search/压测变更的 PR 或手动触发时，先在同一个 runner 运行参考提交，再运行候选提交并校验门槛。默认参考提交为 Search 首次交付的 `b4a871f`，手动运行可以明确选择其他已包含 Search 的提交；参考版本缺少 Search 时直接失败。CI 使用 200 个岗位、每场景 15 秒、10 次查询/秒，保留失败证据。代码中的 `report.py` 也可独立复核两份报告；负向用例覆盖延迟退化、丢弃迭代、缺失场景、样本不足、跨环境以及未完成更新，确保门槛不是仅生成图表。
+
+本节产物用于单机合成 HTTP 回归，未建立生产容量、跨主机高可用或真实检索质量结论。相同主机仍可能有温度、缓存和其他进程的干扰，应结合重复测量评估变化。
+
+### 本轮本机结果
+
+2026-10-31，aarch64 Docker、10 个可用逻辑 CPU；API 与 Search 各限制 1 CPU，MySQL 1 CPU，OpenSearch 1 CPU / 512 MiB JVM 堆。1,000 个初始岗位加 1 个更新岗位、两个账号、固定 JD 模板 1,032 UTF-8 字节；每个场景 15 秒、查询到达率 10 次/秒，混合场景另有 1 次写入/秒。表中为工作区运行时代码冻结副本的本机样本：
+
+| 场景 | 查询数 | P95 / P99（ms） | 基础 / 全文查询数 |
+| --- | ---: | ---: | ---: |
+| fulltext | 151 | 14.92 / 15.71 | 0 / 151 |
+| fallback | 151 | 1503.88 / 1506.53 | 151 / 0 |
+| rebuild | 151 | 12.55 / 18.63 | 86 / 65 |
+| mixed | 151 | 11.67 / 13.03 | 85 / 66 |
+
+四个场景均无 HTTP 错误和丢弃迭代，账号与响应检查通过；混合场景 15 次更新后，最后一条观察的唯一标记可通过全文索引找到。参考提交 b4a871f 与工作区版本在同一主机、相同负载下的稳定场景比较通过初始门槛。初次运行曾因控制端口重启后变化和生成器预分配不足失败，另一次准备期未能排空初始分析任务；失败证据保留，没有将这些尝试计作通过。
+
+Search 停机时的约 1.5 秒时延与现有远程查询预算同量级，不能把基础查询自身的耗时与整个回退请求混淆。重建和混合场景中大量请求走更便宜的基础路径，其混合 P95 不应解释成全文搜索更快。两次运行的差异不作为优化收益声明；本轮新增的是可复现的测量与回归入口。证据位于忽略提交的 bin/verification/performance-20261031/。
+
+## Search 故障等待改进（2026-10-31）
+
+在原 k6 回归入口上，以 `e375960` 为基准进行同机冻结副本对照。查询侧新增预算、熔断和有界回退；指定 1,000 岗位、10 次/秒合成场景的停机回退 P95 约 1.25 秒 → 7 毫秒，P99 约 1.26 秒 → 205 毫秒。正常查询通过原回归门槛，未据此宣称全文性能提升或生产容量。完整工作负载、四场景数据、原始 report 与限制见[Search 故障隔离](search-resilience.md#同机前后对照)。
+
+
+## 在线重建的验收口径
+
+新版 Search 重建保留活动索引。性能报告按实际操作返回的元数据区分 `replace` 和 `online`：旧替换场景仍要求看到基础回退；在线场景要求所有静态读保持全文模式，并确认注入任务达到 `DONE`、活动代次改变。两种模式的重建延迟不合并成同一种性能指标。全文/停机回退的稳定阶段仍沿用相同环境、工作负载和样本量的比较门槛。
+
+新旧提交对照应使用同一版实验脚本分别运行 `--revision <旧提交>` 和当前源码。脚本会记录真实重建模式与完成状态，回填可能在读负载结束后才完成。流程和边界见[在线重建](search-service.md)。
+
+### 岗位搜索性能诊断
+
+`diagnose.py` 与原来的四阶段 CI 回归互补：覆盖精确的 1,000 / 5,000 / 10,000 岗位规模、正常全文检索与 Search 停机后的 Core 回退。每类负载包含 50% 常见词、25% 单岗位命中、25% 无结果查询，两名账号交替查询。空结果、指定岗位、账号隔离分别校验，错误请求与 dropped iterations 保留在分母中。
+
+先冻结优化前代码，运行诊断，再根据证据修改并冻结候选代码：
+
+```sh
+python3 scripts/performance/freeze.py --output bin/search-diagnosis/baseline
+# 完成诊断与修改后再执行这一行
+python3 scripts/performance/freeze.py --output bin/search-diagnosis/candidate
+go build -o bin/perf-trace ./scripts/performance/tracecapture
+python3 scripts/performance/diagnose.py \
+  --source bin/search-diagnosis/baseline --candidate bin/search-diagnosis/candidate \
+  --jobs 10000 --seconds 30 --rate 8 --diagnostics \
+  --output bin/search-diagnosis/paired-10000
+python3 scripts/performance/diagnosis_report.py bin/search-diagnosis/paired-10000
+```
+
+分别把 `--jobs` 改为 `1000`、`5000`，使用新的输出目录；实验必须串行。省略 `--candidate` 可以先采集基线。前后代码在同一份已收敛的数据库和索引上按 A/B/B/A 运行，API、Search 各 1 CPU，负载生成器 1 CPU；MySQL 统一为 1 CPU / 1.5 GiB（tmpfs 数据文件也占其容器内存）。初始抽取任务不属于搜索负载，已在专属合成库中排除；索引追平后暂停 Worker，前后均保持相同条件。
+
+CPU profile、累计分配差分、堆快照及 100% 采样的 OTLP Trace 在单独的诊断阶段采集；正式计时禁用 Trace 导出且不采集 pprof。Trace 接收器只保存 span 关系、服务、固定操作名、时间与状态。EXPLAIN / EXPLAIN ANALYZE 从被冻结的实际回退 SQL 提取。每轮保存 k6 原始汇总、资源采样、应用指标、源码/负载/数据指纹，失败输出目录不会覆盖。`diagnosis_report.py` 不把失败请求剔除，也不把两轮 p95 合并冒充总体分位数。
+
+API / Search 的诊断监听器默认关闭。临时排查时设置 `PROFILE_ADDR` 与独立的 32 字节以上 `PROFILE_TOKEN`，使用 `Authorization: Bearer ...` 读取独立端口的 `/debug/pprof/profile?seconds=10`、`heap`、`allocs`、`goroutine`。业务路由不暴露这些入口；CPU / 差分采集最长 30 秒。Profile 可能含应用数据，应只在私有诊断网络保存与访问。实验自动发布到随机回环端口并使用合成令牌。
+
+本次三档诊断、逐轮结果和源码/原始证据归档见 [2026-10-31 岗位搜索性能诊断](verification/search-diagnosis-20261031/README.md)。
+
+后续针对周期性恢复探测等待的修改独立验收，保留上述历史数据，见 [Search 后台恢复探测](verification/search-recovery-20261031/README.md)。

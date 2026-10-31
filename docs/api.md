@@ -1,5 +1,27 @@
 # HTTP and operator interfaces
 
+## Application journey
+
+All routes below are account-scoped and do not call models or mailbox providers. Reads/previews return `Cache-Control: no-store`.
+
+| Method / path | Contract |
+| --- | --- |
+| GET /api/applications/{id}/dossier | Immutable contexts, selected submitted/planned context, legacy absence, frozen preparation, confirmed notices, interviews |
+| POST /api/applications/{id}/context-preview | Optional `resume_text` (60,000 UTF-8 bytes); current full materials and `context_key`; no write |
+| POST /api/recruitment-notices | `content`, `format: text|eml`; max 128 KiB content; saves pending item and returns current candidate reasons and ambiguity; duplicates return existing item |
+| GET /api/recruitment-notices | Latest 100 owned items |
+| GET /api/recruitment-notices/{id} | Owned item and current candidate versions |
+| POST /api/recruitment-notices/{id}/confirm | Notice `version`, `application_id`, `application_version`, `kind`, optional RFC3339 `scheduled_at`, `round`, `reference`, `note`; RESCHEDULE also requires `interview_id`, `previous_scheduled_at` |
+| POST /api/matching/company-plan | Company workspace identity/scope plus `decision_key`, `selected_job_ids`; atomic batch plans and original-result replay |
+
+Company workspace includes `plan` with suggested/available IDs, unknown-rule IDs, blocked reasons and dependency key. Model ranking does not allocate slots; unknown rules do not imply unlimited submissions. Confirm scope must match the viewed scope.
+
+Application create/transition additionally accepts optional `context_key`, `resume_text`; JSON bound is 128 KiB. SUBMITTED preserves PLANNED. Old callers without a key remain compatible, marked unreviewed. Legacy already-submitted records are not backfilled.
+
+Notice import/context preview use a 1 MiB JSON envelope, with smaller field bounds. Optional dates must be omitted, never `null`. Confirmation replay uses the original full payload; changed payload, stale dependencies/versions or mismatched original interview time return 409. Quota errors use `CAMPAIGN_LIMIT_REACHED`. Notice transactions never silently regress stages.
+
+Migration, demo, limits and acceptance: [application journey](application-journey.md).
+
 API binds localhost by default. JSON requests are strict and limited to 64KiB except imports (1MiB / 100 rows). Every `/api/*` and `/agent/*` route requires a Bearer JWT or a browser session cookie. User identity is derived from the credential, never from a client-supplied ownership argument. Cookie-authenticated writes require a matching Origin. `/metrics` and health routes are local operational endpoints without authentication.
 
 | Method / path | Behavior |
@@ -10,7 +32,8 @@ API binds localhost by default. JSON requests are strict and limited to 64KiB ex
 | POST /auth/logout | revoke browser session in Redis and clear cookie; same-origin; no-store |
 | GET /healthz, /readyz | process health; MySQL+Redis readiness |
 | GET /metrics | process-local counters and latency sums/counts |
-| GET /api/jobs?q=Go | up to 100 shared canonical jobs |
+| GET /api/jobs?q=Go | up to 100 visible jobs; configured Search also queries JD content |
+| POST /api/jobs/search | text, mode ALL/ANY, exclude, company, city, job_type, limit (1..1000); authenticated subject; returns Core jobs, job_ids, mode fulltext/basic, more |
 | GET /api/jobs/{id} | job, observation/evidence/change/assessment history, current user eligibility/ranking, `official_url` from a visible official posting (empty if absent or unsafe) |
 | POST /api/ingest | manual text or public URL, forced manual trust |
 | POST /api/import | JSON array or text/csv; per-row results, not an all-or-nothing batch |
@@ -20,6 +43,8 @@ API binds localhost by default. JSON requests are strict and limited to 64KiB ex
 | POST /api/matching/preview | all accessible jobs, redacted candidate facts, and `local` version/score/tier/role/reasons/warnings/checks with source and candidate excerpts; optional model_url/model_name/mask_name; no model call |
 | PUT /api/matching/settings | round_limit 1..100, daily_calls 1..200, auto_new |
 | POST /api/matching/analyze | job_ids (1..3), candidate_hash, optional mask_name/model_config; evidence-checked cached comparison with daily quota |
+| GET /api/matching/calls | latest 100 owned call-ledger entries and aggregate shared-pool status; no model call; no-store |
+| POST /api/matching/calls/{id}/review | version, decision USED/NOT_SENT, verified=true, review note; versioned idempotent reconciliation only, never starts a model retry |
 | POST /api/matching/results/{id} | optional model_url/model_name/mask_name; BASIC/ANALYZED/STALE, current owner-scoped `local` screening/excluded_reason and optional saved model result; no model call |
 | POST /api/matching/export | job_ids (1..1000 unique visible IDs), candidate_hash, optional model_url/model_name/mask_name; no model or quota use; ordered redacted facts/preferences/job text and metadata, max 5 MiB, Cache-Control: no-store |
 | GET, POST /api/applications | latest 500 owner-scoped records with visible job metadata, safe official URL and allowed next states; or directly create a plan (human API path) |
@@ -128,6 +153,10 @@ Legacy model evidence containing only `id` and `excerpt` remains accepted with e
 - `POST /api/applications` accepts optional `submitted:true` for human truthful APPLIED recording. Plain creation reserves planned quota transactionally and returns `409 CAMPAIGN_LIMIT_REACHED` if full. Actual submitted records are allowed even over quota and surfaced as conflicts. Submitted withdrawn/rejected records retain usage. Agent tools cannot call the human-only submitted-record action.
 - `GET /metrics/prometheus`: Prometheus histograms, safe counters and runtime/DB gauges. Existing JSON `/metrics` remains unchanged. Worker exposes the same additional metrics format.
 
+Matching calls share SQL-backed capacity and daily call-count admission across API processes. Overload returns `503 / MODEL_GLOBAL_QUEUE_FULL` with `Retry-After: 2`; global daily exhaustion returns `429 / MODEL_GLOBAL_BUDGET`. Unknown outcomes require `409 / MODEL_REVIEW_REQUIRED`; lost execution ownership returns `409 / MODEL_EXECUTION_LOST`. These limits cover matching and company comparison, not all Agent/resume/background model calls. Review details and verified boundaries: [model-control.md](model-control.md).
+
+When optional tracing is configured, responses include `X-Trace-ID`; W3C traceparent connects durable tasks and the application RPC envelope. Metrics additionally expose fixed queue-lane gauges and shared model-pool aggregates, with no user/job/request labels. See [operations.md](operations.md#可选的完整观测栈) for sampling, optional local monitoring, and data boundaries.
+
 See [backend-upgrade.md](backend-upgrade.md), [performance.md](performance.md) and [operations.md](operations.md) for measured results and execution/privacy boundaries.
 
 ## Adaptive source monitoring
@@ -210,6 +239,7 @@ Agent execution responses include server-computed `can_resume` and optional `lea
 ## 公司投递决策与匹配评测
 
 - `GET /api/matching/company-catalog`：当前账号可见公司的数量目录；加 `?company=...` 返回该公司岗位元数据，可在读取完整决策前缩小范围。公司目录上限 1,000，公司岗位目录上限 10,000，超限明确拒绝。
+- `POST /api/matching/company-auto-candidates`：接收匹配模型身份、company 与补充遮盖姓名，不接受 job_ids。对本人可见的该公司完整本地候选目录（最多 10,000）进行只读挑选，返回 company、as_of、total、eligible、selected（job_id/title/reason）、skipped 分类计数与 deferred。跳过不可用、已关闭、忽略、已投、限投已满及明显无关岗位；当前有效整体分析为优先/相关时可覆盖本地方向判断。相同 JD 优先只选一个代表，最多16个，按完整资料与 JD 的128,000字节上限装入。不会创建任务或调用模型，不回传个人资料；后续确认与任务创建继续使用原有完整输入校验。
 - `POST /api/matching/company-workspace`：接收匹配模型身份、company 与可选 job_ids，返回 comparison 和 workflow。完整读取上限 200 个岗位；workflow 包含当前范围岗位的截止、官网链接、投递状态，以及整家公司的个人限投规则和可见投递记录。只读、不调用模型，响应禁止缓存。
 - `POST /api/matching/evaluation/export`：明确选择 1～16 个岗位，提交 expected_scope_key 与人工 reference（acceptable_top_job_ids、reason、reviewed=true；可附 pairs），返回 `campustrace-matching-eval-v1` 案例与当前可复用报告。输入变化返回 MATCH_INPUT_CHANGED，越界参考结论拒绝；不创建任务、不调用模型、不修改个人资料。前端展示完整脱敏文字后再下载。
 
@@ -229,3 +259,27 @@ Agent execution responses include server-computed `can_resume` and optional `lea
 # Agent 下一步入口
 
 问答结果与 `GET /api/agent/executions/{id}`、任务开始/继续响应包含可选 `next_actions`。每项含 `kind`、`label`、`reason`、`source_tool` 及适用的 `job_id`、`company`、`document_id`、`topic` 或 `run_id`，最多六项。它们是程序从成功业务工具观察中生成的只读导航提示，没有外部 URL、执行指令或写操作确认编号；进入目标页面时按当前账号重新查询。失效或取消的常用任务不生成提示，列表摘要不携带完整观察与提示。
+
+Job search synchronization, internal read/write credentials, bounded fallback and deployment: [Search service](search-service.md). Search requests cannot override user, dataset or index generation. They do not call models.
+
+
+## Frozen application preparation and retired practice
+
+`POST /api/agent/executions` accepts `skill_id: "application-prep"`, owned `application_id`, and a fresh `request_key`; it rejects mixed job/company/topic scope. The fixed task calls `get_application_preparation`, using frozen application materials and same-application reviews. Enabled retrieval services may be called; matching/chat generation is not started. Its `next_actions` can open the dossier or full owned source note. No-snapshot legacy applications return unknown, without current-material substitution or retrieval.
+
+`GET /api/practice/capabilities` returns disabled/retired with history available. Authenticated `GET /api/practice/runs` remains owner-scoped and does not modify history. `POST /api/practice/runs` returns HTTP 410 `PRACTICE_RETIRED` without executing or writing. There is no practice tool in the current Agent/MCP definitions.
+
+
+## Review-to-learning materials and application links
+
+- `GET /api/interviews/{id}/learning-draft`: owned saved review only; returns editable `title`, `text`, and server origin (`kind`, application/interview/review IDs, `source_key`), no writes/model calls. A missing or foreign review returns 404.
+- `POST /api/interviews/{id}/learning-material`: strict `source_key`, `title` (200 UTF-8 bytes), `text` (60,000 bytes); JSON body capped at 400,000 bytes. Revalidates origin under the same user lock used by review writes and knowledge deletion; atomically inserts document/chunks and increments knowledge revision. Returns `id`, `title`, `reused`. Changed source yields 409 `REVIEW_MATERIAL_CHANGED`. Same source/title/text reuses the owned document. Ordinary document endpoints reject client-provided non-null `origin`.
+- `GET /api/documents/{id}` includes optional server-recorded `origin`; it describes the saved source snapshot, not unchanged current content or proven personal skills.
+- `GET /api/agent/todos` and `GET /api/notifications` append optional `related_applications` (`id`, `current_state`) for owned applications of referenced jobs. This is a read-time, bounded batch projection. Existing `UNIQUE(user_id,job_id)` limits it to one application per job. No notes/resume bodies are read for these links; event payloads are not authorization sources. No task is started and read/dismiss state is untouched.
+
+
+## Document-save compatibility and deduplication
+
+`POST /api/documents` remains a compatibility entry returning a full `Document` (including original ID/created_at/text). It delegates to the same owner/source/title/text deduplication used by `POST /api/documents/import`, whose response remains `{id,title,reused}`. Concurrent mixed-entry requests and a retry after a lost response reuse the existing document; a replay does not add chunks or advance the knowledge revision. Client-provided non-null origin remains rejected.
+
+Review imports resolve the owned interview/review with one joined read after acquiring the user lock, check the supplied source key, and commit document/chunks/revision together. Changed sources still return 409 `REVIEW_MATERIAL_CHANGED`; no source-checking step has moved outside the transaction. New chunks omit the unused legacy hash vector while old chunk JSON and the existing format marker remain readable.

@@ -1,0 +1,103 @@
+FIRST PAGE (100)
+{
+  "query_block": {
+    "select_id": 1,
+    "cost_info": {
+      "query_cost": "909.21"
+    },
+    "ordering_operation": {
+      "using_filesort": false,
+      "table": {
+        "table_name": "j",
+        "access_type": "range",
+        "possible_keys": [
+          "PRIMARY"
+        ],
+        "key": "PRIMARY",
+        "used_key_parts": [
+          "id"
+        ],
+        "key_length": "130",
+        "rows_examined_per_scan": 4539,
+        "rows_produced_per_join": 494,
+        "filtered": "10.90",
+        "cost_info": {
+          "read_cost": "859.74",
+          "eval_cost": "49.48",
+          "prefix_cost": "909.21",
+          "data_read_per_join": "738K"
+        },
+        "used_columns": [
+          "id",
+          "body",
+          "visibility",
+          "owner_id"
+        ],
+        "attached_condition": "((`campustrace_perf_355186b67746`.`j`.`id` > '') and ((`campustrace_perf_355186b67746`.`j`.`visibility` = 'GLOBAL') or ((`campustrace_perf_355186b67746`.`j`.`owner_id` = 'd5586e4b7ae1bf06e907f16280dd713b') and (`campustrace_perf_355186b67746`.`j`.`visibility` = 'PRIVATE'))))"
+      },
+      "select_list_subqueries": [
+        {
+          "dependent": true,
+          "cacheable": false,
+          "query_block": {
+            "select_id": 2,
+            "cost_info": {
+              "query_cost": "0.35"
+            },
+            "ordering_operation": {
+              "using_filesort": true,
+              "table": {
+                "table_name": "o",
+                "access_type": "ref",
+                "possible_keys": [
+                  "job_id"
+                ],
+                "key": "job_id",
+                "used_key_parts": [
+                  "job_id"
+                ],
+                "key_length": "130",
+                "ref": [
+                  "campustrace_perf_355186b67746.j.id"
+                ],
+                "rows_examined_per_scan": 1,
+                "rows_produced_per_join": 1,
+                "filtered": "100.00",
+                "cost_info": {
+                  "read_cost": "0.25",
+                  "eval_cost": "0.10",
+                  "prefix_cost": "0.35",
+                  "data_read_per_join": "408"
+                },
+                "used_columns": [
+                  "id",
+                  "job_id",
+                  "observed_at",
+                  "body"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
+-> Limit: 100 row(s)  (cost=909 rows=100) (actual time=0.0105..0.134 rows=100 loops=1)
+    -> Filter: ((j.id > '') and ((j.visibility = 'GLOBAL') or ((j.owner_id = 'd5586e4b7ae1bf06e907f16280dd713b') and (j.visibility = 'PRIVATE'))))  (cost=909 rows=495) (actual time=0.00988..0.128 rows=100 loops=1)
+        -> Index range scan on j using PRIMARY over ('' < id)  (cost=909 rows=4539) (actual time=0.00812..0.0717 rows=137 loops=1)
+-> Select #2 (subquery in projection; dependent)
+    -> Limit: 1 row(s)  (cost=0.35 rows=1) (actual time=0.0065..0.00653 rows=1 loops=100)
+        -> Sort: o.observed_at DESC, o.id DESC, limit input to 1 row(s) per chunk  (cost=0.35 rows=1) (actual time=0.00638..0.00638 rows=1 loops=100)
+            -> Index lookup on o using job_id (job_id=j.id)  (cost=0.35 rows=1) (actual time=0.00456..0.00486 rows=1 loops=100)
+
+
+LATER BATCH (500; same range for plan inspection)
+-> Limit: 500 row(s)  (cost=909 rows=495) (actual time=0.0126..0.469 rows=500 loops=1)
+    -> Filter: ((j.id > '') and ((j.visibility = 'GLOBAL') or ((j.owner_id = 'd5586e4b7ae1bf06e907f16280dd713b') and (j.visibility = 'PRIVATE'))))  (cost=909 rows=495) (actual time=0.0122..0.445 rows=500 loops=1)
+        -> Index range scan on j using PRIMARY over ('' < id)  (cost=909 rows=4539) (actual time=0.01..0.232 rows=668 loops=1)
+-> Select #2 (subquery in projection; dependent)
+    -> Limit: 1 row(s)  (cost=0.35 rows=1) (actual time=0.00476..0.00478 rows=1 loops=500)
+        -> Sort: o.observed_at DESC, o.id DESC, limit input to 1 row(s) per chunk  (cost=0.35 rows=1) (actual time=0.00467..0.00467 rows=1 loops=500)
+            -> Index lookup on o using job_id (job_id=j.id)  (cost=0.35 rows=1) (actual time=0.00363..0.00387 rows=1 loops=500)
+

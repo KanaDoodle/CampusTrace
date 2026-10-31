@@ -11,7 +11,7 @@ import (
 // Recovery copies must not start old watches or pretend to retain credentials.
 // This method refuses the live schema and never touches results or personal facts.
 func (s *Store) PrepareRecovery(ctx context.Context) (map[string]int, error) {
-	counts := map[string]int{"paused_watches": 0, "interrupted_matching_tasks": 0}
+	counts := map[string]int{"paused_watches": 0, "interrupted_matching_tasks": 0, "rotated_job_dataset": 0, "retired_job_events": 0}
 	var database string
 	if err := s.DB.QueryRowContext(ctx, "SELECT DATABASE()").Scan(&database); err != nil {
 		return counts, err
@@ -19,7 +19,16 @@ func (s *Store) PrepareRecovery(ctx context.Context) (map[string]int, error) {
 	if !regexp.MustCompile(`^campustrace_restore_[a-f0-9]{32}$`).MatchString(database) {
 		return counts, ErrValidation
 	}
-	err := s.Tx(ctx, func(tx *sql.Tx) error {
+	conn, release, err := lockRecoveryProjection(ctx, s.DB)
+	if err != nil {
+		return counts, err
+	}
+	defer release()
+	err = s.Tx(ctx, func(tx *sql.Tx) error {
+		if err := prepareJobDataset(ctx, tx, database, counts); err != nil {
+			return err
+		}
+
 		watches, err := Many[d.WatchTarget](ctx, tx, "SELECT body FROM watch_targets WHERE enabled=TRUE FOR UPDATE")
 		if err != nil {
 			return err
@@ -59,7 +68,10 @@ func (s *Store) PrepareRecovery(ctx context.Context) (map[string]int, error) {
 			return err
 		}
 		_, err = tx.ExecContext(ctx, "UPDATE match_runs SET token='',lease_until=NULL")
-		return err
+		if err != nil {
+			return err
+		}
+		return verifyRecoveryProjectionLocks(ctx, conn)
 	})
 	return counts, err
 }

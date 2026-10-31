@@ -13,6 +13,7 @@ import (
 	"github.com/KanaDoodle/CampusTrace/internal/rag"
 	"github.com/KanaDoodle/CampusTrace/internal/resume"
 	"github.com/KanaDoodle/CampusTrace/internal/rules"
+	"github.com/KanaDoodle/CampusTrace/internal/searchapi"
 	"github.com/redis/go-redis/v9"
 	"log/slog"
 	"os"
@@ -23,7 +24,7 @@ import (
 )
 
 func Root() (context.Context, context.CancelFunc) {
-	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stderr, nil)))
+	slog.SetDefault(slog.New(observability.ContextHandler{Handler: slog.NewJSONHandler(os.Stderr, nil)}))
 	return signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 }
 
@@ -42,6 +43,30 @@ func Open(ctx context.Context) (*App, error) {
 	s, err := p.Open(ctx, c.DSN)
 	if err != nil {
 		return nil, err
+	}
+	metrics := observability.New()
+	s.Metrics = metrics
+	mode := config.Env("JOB_EVENTS_MODE", "direct")
+	if mode != "direct" && mode != "kafka" {
+		s.DB.Close()
+		return nil, fmt.Errorf("invalid JOB_EVENTS_MODE")
+	}
+	s.JobEvents = mode == "kafka"
+	if endpoint := os.Getenv("SEARCH_URL"); endpoint != "" {
+		var client *searchapi.Client
+		client, err = searchapi.NewClient(endpoint, os.Getenv("SEARCH_QUERY_TOKEN"), os.Getenv("SEARCH_WRITE_TOKEN"))
+		if err == nil {
+			var policy searchapi.QueryPolicy
+			policy, err = searchapi.QueryPolicyFromEnv()
+			if err == nil {
+				err = client.ConfigureQueries(policy, metrics)
+			}
+		}
+		s.Search = client
+		if err != nil {
+			s.DB.Close()
+			return nil, fmt.Errorf("invalid Search configuration")
+		}
 	}
 	if raw := os.Getenv("RANKING_WEIGHTS"); raw != "" {
 		if err = json.Unmarshal([]byte(raw), &s.Weights); err != nil {
@@ -65,7 +90,7 @@ func Open(ctx context.Context) (*App, error) {
 		r.Close()
 		return nil, fmt.Errorf("invalid Redis namespace")
 	}
-	q := &pipeline.Queue{R: r, Prefix: prefix}
+	q := &pipeline.Queue{R: r, Prefix: prefix, Partitioned: c.QueueMode == "typed", Capacity: c.QueueCapacity, OwnerCapacity: c.QueueOwnerCapacity, ResolveOwner: s.TaskOwner}
 	rg := &rag.Service{Cache: &rag.QueryCache{}, Store: s, Sem: make(chan struct{}, c.EmbeddingConcurrency), Allow: func(ctx context.Context) (bool, error) { return q.Allow(ctx, "embedding:global", 120, time.Minute) }}
 	tools := &agent.Tools{Store: s, RAG: rg, Queue: q}
 	var model agent.Model = agent.DemoModel{}
@@ -77,8 +102,12 @@ func Open(ctx context.Context) (*App, error) {
 		resumeModel = client
 	}
 	runtime := &agent.Runtime{Store: s, MaxToolResultBytes: config.Int("AGENT_MAX_TOOL_RESULT_BYTES", 32768), MaxFactsBytes: config.Int("AGENT_MAX_FACTS_BYTES", 98304), MaxAnswerBytes: config.Int("AGENT_MAX_ANSWER_BYTES", 32768), MaxFinalBytes: config.Int("AGENT_MAX_FINAL_BYTES", 163840), Model: model, Tools: tools, R: r, Prefix: q.Prefix, MaxModels: config.Int("AGENT_MAX_MODEL_CALLS", 4), MaxTools: config.Int("AGENT_MAX_TOOL_CALLS", 8), Deadline: time.Duration(config.Int("AGENT_DEADLINE_SECONDS", 35)) * time.Second, ToolTimeout: time.Duration(config.Int("AGENT_TOOL_TIMEOUT_SECONDS", 8)) * time.Second}
-	metrics := observability.New()
-	s.Metrics = metrics
 	return &App{Config: c, Store: s, Queue: q, Tools: tools, Agent: runtime, Metrics: metrics, ResumeModel: resumeModel}, nil
 }
-func (a *App) Close() { a.Store.DB.Close(); a.Queue.R.Close() }
+func (a *App) Close() {
+	if client, ok := a.Store.Search.(*searchapi.Client); ok {
+		client.Close()
+	}
+	a.Store.DB.Close()
+	a.Queue.R.Close()
+}

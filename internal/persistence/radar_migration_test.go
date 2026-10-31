@@ -3,6 +3,7 @@ package persistence
 import (
 	"context"
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
+	"github.com/KanaDoodle/CampusTrace/internal/testsupport/sqlfixture"
 	"github.com/KanaDoodle/CampusTrace/migrations"
 	"os"
 	"strings"
@@ -12,9 +13,13 @@ import (
 
 func TestRadarUpgradeV01(t *testing.T) {
 	dsn := os.Getenv("MYSQL_RADAR_MIGRATION_TEST_DSN")
-	if os.Getenv("CAMPUS_INTEGRATION") != "1" || dsn == "" {
+	if os.Getenv("CAMPUS_INTEGRATION") != "1" || dsn == "" && os.Getenv("MYSQL_TEST_ADMIN_DSN") == "" {
 		t.Skip("requires an empty MYSQL_RADAR_MIGRATION_TEST_DSN")
 	}
+	if dsn == "" {
+		dsn = os.Getenv("MYSQL_TEST_DSN")
+	}
+	dsn = sqlfixture.Database(t, dsn, "radar-migration")
 	ctx := context.Background()
 	s, err := Open(ctx, dsn)
 	if err != nil {

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
+	"github.com/KanaDoodle/CampusTrace/internal/observability"
 	p "github.com/KanaDoodle/CampusTrace/internal/persistence"
 	"github.com/redis/go-redis/v9"
 	"math/rand/v2"
@@ -17,25 +18,76 @@ import (
 )
 
 type Queue struct {
-	recoveryMu     sync.Mutex
-	recoveryCursor string
-	R              *redis.Client
-	Prefix         string
+	Partitioned             bool
+	Lane                    string
+	Capacity, OwnerCapacity int
+	ResolveOwner            func(context.Context, p.Task) (string, error)
+	recoveryMu              sync.Mutex
+	recoveryCursor          string
+	scheduleMu              sync.Mutex
+	retryOffsets            map[string]int64
+	R                       *redis.Client
+	Prefix                  string
 }
 
-func (q *Queue) Stream() string { return q.Prefix + "tasks" }
-func (q *Queue) Group() string  { return "workers" }
+func (q *Queue) Stream() string {
+	if q.Lane != "" {
+		return q.Prefix + "tasks:" + q.Lane
+	}
+	return q.Prefix + "tasks"
+}
+func (q *Queue) Group() string { return "workers" }
 func (q *Queue) Init(ctx context.Context) error {
+	if !q.Partitioned && q.Lane == "" {
+		// Stop typed producers and drain their queues before a legacy rollback.
+		for _, lane := range QueueLanes() {
+			keys := q.ForLane(lane).queueKeys()
+			count, e := q.R.HLen(ctx, keys[0]).Result()
+			if e != nil {
+				return e
+			}
+			length, e := q.R.XLen(ctx, keys[6]).Result()
+			if e != nil {
+				return e
+			}
+			if count > 0 || length > 0 {
+				return errors.New("typed queues must be drained before legacy rollback")
+			}
+		}
+	}
+	if q.Lane != "" && !validLane(q.Lane) {
+		return ErrWrongLane
+	}
+	n, owner := q.limits()
+	if n < 1 || n > 4096 || owner < 1 || owner > n {
+		return errors.New("queue capacity must be 1..4096 and owner capacity in 1..capacity")
+	}
 	err := q.R.XGroupCreateMkStream(ctx, q.Stream(), q.Group(), "0").Err()
 	if err != nil && strings.Contains(err.Error(), "BUSYGROUP") {
-		return nil
+		err = nil
+	}
+	if err == nil && q.Partitioned && q.Lane == "" {
+		for _, name := range QueueLanes() {
+			if e := q.ForLane(name).Init(ctx); e != nil {
+				return e
+			}
+		}
 	}
 	return err
 }
-func (q *Queue) Publish(ctx context.Context, t p.Task) error {
+func (q *Queue) Publish(ctx context.Context, t p.Task) (err error) {
+	ctx, span := observability.Producer(observability.Extract(ctx, t.TraceParent), "queue.publish")
+	defer func() { observability.End(span, err) }()
+	t.TraceParent = observability.TraceParent(ctx)
+	if q.Partitioned || q.Lane != "" {
+		return q.publishTyped(ctx, t)
+	}
 	return q.R.XAdd(ctx, &redis.XAddArgs{Stream: q.Stream(), Values: map[string]any{"task": d.JSON(t)}}).Err()
 }
 func (q *Queue) Ack(ctx context.Context, id string) error {
+	if q.Lane != "" {
+		return ackTyped.Run(ctx, q.R, q.releaseKeys([]string{q.Stream(), q.Prefix + "ack-unused", q.Prefix + "dlq", q.marker()}), id, q.Group()).Err()
+	}
 	return q.R.XAck(ctx, q.Stream(), q.Group(), id).Err()
 }
 func (q *Queue) Recover(ctx context.Context, consumer string, idle time.Duration) ([]redis.XMessage, error) {
@@ -116,7 +168,7 @@ func Backoff(attempt int) time.Duration {
 // Lua serializes this transition but runtime errors do not roll back writes.
 // Preflight predictable key/group errors; write destination before completion marker.
 // The v2 marker never trusts legacy failed-messages markers written before transfer.
-var failScript = redis.NewScript(`
+const failureLua = `
 local function expect(key,kind)
  local actual=redis.call('TYPE',key).ok
  if actual~='none' and actual~=kind then error('WRONGTYPE '..key) end
@@ -125,11 +177,30 @@ expect(KEYS[1],'stream');expect(KEYS[4],'set')
 local groups=redis.call('XINFO','GROUPS',KEYS[1]);local found=false
 for _,g in ipairs(groups) do for i=1,#g,2 do if g[i]=='name' and g[i+1]==ARGV[2] then found=true end end end
 if not found then error('NOGROUP') end
-if redis.call('SISMEMBER',KEYS[4],ARGV[1])==1 then redis.call('XACK',KEYS[1],ARGV[2],ARGV[1]);return 0 end
+if redis.call('SISMEMBER',KEYS[4],ARGV[1])==1 then redis.call('XACK',KEYS[1],ARGV[2],ARGV[1]);if afterAck then afterAck() end;return 0 end
 if ARGV[3]=='retry' then expect(KEYS[2],'zset');redis.call('ZADD',KEYS[2],ARGV[4],ARGV[5])
 else expect(KEYS[3],'hash');redis.call('HSET',KEYS[3],ARGV[6],ARGV[5]) end
 redis.call('SADD',KEYS[4],ARGV[1])
-redis.call('XACK',KEYS[1],ARGV[2],ARGV[1]);return 1`)
+redis.call('XACK',KEYS[1],ARGV[2],ARGV[1]);if afterAck then afterAck() end;return 1`
+
+var failScript = redis.NewScript("local afterAck=nil\n" + failureLua)
+var typedFailScript = redis.NewScript(typedReleaseLua + `
+local markerType=redis.call('TYPE',KEYS[4]).ok;if markerType~='none' and markerType~='set' then error('WRONGTYPE marker') end
+local transferred=redis.call('SISMEMBER',KEYS[4],ARGV[1])==1
+local kind=redis.call('TYPE',KEYS[2]).ok
+if ARGV[3]=='retry' and kind~='none' and kind~='zset' then error('WRONGTYPE retry') end
+if not transferred and ARGV[3]=='retry' and redis.call('ZCARD',KEYS[2])>=tonumber(ARGV[7]) and not redis.call('ZSCORE',KEYS[2],ARGV[5]) then error('RETRY_CAPACITY') end
+if ARGV[3]~='retry' then local k=redis.call('TYPE',KEYS[3]).ok;if k~='none' and k~='hash' then error('WRONGTYPE dlq') end
+ if not transferred and redis.call('HLEN',KEYS[3])>=10000 and redis.call('HEXISTS',KEYS[3],ARGV[6])==0 then error('DLQ_CAPACITY') end end
+` + failureLua)
+
+func (q *Queue) failureTransition() (*redis.Script, []string) {
+	keys := []string{q.Stream(), "", q.Prefix + "dlq", q.marker()}
+	if q.Lane != "" {
+		return typedFailScript, q.releaseKeys(keys)
+	}
+	return failScript, keys
+}
 
 func (q *Queue) Fail(ctx context.Context, msg string, t p.Task, err error, max int) (bool, error) {
 	if e := ValidateTask(t); e != nil {
@@ -172,7 +243,10 @@ func (q *Queue) Fail(ctx context.Context, msg string, t p.Task, err error, max i
 			delay = minimum
 		}
 	}
-	_, e := failScript.Run(ctx, q.R, []string{q.Stream(), q.Prefix + "retry:" + t.Type, q.Prefix + "dlq", q.Prefix + "failure-transferred:v2"}, msg, q.Group(), mode, now.Add(delay).UnixMilli(), value, t.ID).Result()
+	script, keys := q.failureTransition()
+	keys[1] = q.Prefix + "retry:" + t.Type
+	capacity, _ := q.limits()
+	_, e := script.Run(ctx, q.R, keys, msg, q.Group(), mode, now.Add(delay).UnixMilli(), value, t.ID, capacity).Result()
 	return retry, e
 }
 
@@ -182,9 +256,11 @@ func (q *Queue) DeferRateLimited(ctx context.Context, msg string, t p.Task) erro
 	if err := ValidateTask(t); err != nil {
 		return err
 	}
-	_, err := failScript.Run(ctx, q.R,
-		[]string{q.Stream(), q.Prefix + "retry:" + t.Type, q.Prefix + "dlq", q.Prefix + "failure-transferred:v2"},
-		msg, q.Group(), "retry", time.Now().Add(time.Minute).UnixMilli(), d.JSON(t), t.ID).Result()
+	script, keys := q.failureTransition()
+	keys[1] = q.Prefix + "retry:" + t.Type
+	capacity, _ := q.limits()
+	_, err := script.Run(ctx, q.R, keys,
+		msg, q.Group(), "retry", time.Now().Add(time.Minute).UnixMilli(), d.JSON(t), t.ID, capacity).Result()
 	return err
 }
 
@@ -192,6 +268,9 @@ func (q *Queue) DeferRateLimited(ctx context.Context, msg string, t p.Task) erro
 var dueScript = redis.NewScript(`local t=redis.call('TIME');local now=t[1]*1000+math.floor(t[2]/1000);local xs=redis.call('ZRANGEBYSCORE',KEYS[1],'-inf',now,'LIMIT',0,100);for _,v in ipairs(xs) do redis.call('XADD',KEYS[2],'*','task',v);redis.call('ZREM',KEYS[1],v) end;return #xs`)
 
 func (q *Queue) Schedule(ctx context.Context) (int, error) {
+	if q.Partitioned {
+		return q.scheduleTyped(ctx)
+	}
 	n := 0
 	for _, typ := range []string{"ANALYZE", "ASSESS", "WATCH_CHECK", "WATCH_FETCH", "SOURCE_IMPORT"} {
 		v, err := dueScript.Run(ctx, q.R, []string{q.Prefix + "retry:" + typ, q.Stream()}).Int()
@@ -209,6 +288,9 @@ func (q *Queue) DLQ(ctx context.Context) (map[string]string, error) {
 var redriveScript = redis.NewScript(`local v=redis.call('HGET',KEYS[1],ARGV[1]);if not v then return 0 end;local f=cjson.decode(v);f.task.attempt=1;redis.call('XADD',KEYS[2],'*','task',cjson.encode(f.task));redis.call('HDEL',KEYS[1],ARGV[1]);return 1`)
 
 func (q *Queue) Redrive(ctx context.Context, id string) error {
+	if q.Partitioned {
+		return q.redriveTyped(ctx, id)
+	}
 	n, err := redriveScript.Run(ctx, q.R, []string{q.Prefix + "dlq", q.Stream()}, id).Int()
 	if err == nil && n == 0 {
 		return p.ErrNotFound
@@ -230,6 +312,19 @@ func Decode(m redis.XMessage) (p.Task, error) {
 const MaxTaskAttempt = 100
 
 func ValidateTask(t p.Task) error {
+	if !observability.ValidTraceParent(t.TraceParent) {
+		return errors.New("schema: invalid trace context")
+	}
+	if t.OwnerID != "" {
+		if len(t.OwnerID) != 32 {
+			return errors.New("schema: invalid task owner")
+		}
+		for _, c := range t.OwnerID {
+			if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
+				return errors.New("schema: invalid task owner")
+			}
+		}
+	}
 	if t.Type == "SOURCE_IMPORT" && (len(t.EntityID) != 32 || t.Generation == 0 || t.ID != p.SourceImportTaskID(t.EntityID, t.Generation) || t.ProcessingVersion != "" || t.CorrelationID == "") {
 		return errors.New("schema: invalid source import envelope")
 	}
@@ -285,5 +380,8 @@ func (q *Queue) Quarantine(ctx context.Context, m redis.XMessage, t p.Task, deco
 		detail = detail[:512]
 	}
 	v := Poison{MessageID: m.ID, RawSummary: summary, RawHash: d.Hash(raw), DecodeError: detail, Timestamp: time.Now().UTC(), Consumer: consumer, CorrelationID: correlation}
+	if q.Lane != "" {
+		return poisonTyped.Run(ctx, q.R, q.releaseKeys([]string{q.Stream(), q.Prefix + "poison:" + q.Lane, q.Prefix + "dlq", q.marker()}), m.ID, q.Group(), d.JSON(v)).Err()
+	}
 	return poisonScript.Run(ctx, q.R, []string{q.Prefix + "poison", q.Stream()}, m.ID, d.JSON(v), q.Group()).Err()
 }

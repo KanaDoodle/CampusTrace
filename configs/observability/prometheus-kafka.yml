@@ -1,0 +1,29 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+rule_files:
+  - /etc/prometheus/alerts.yml
+scrape_configs:
+  - job_name: campustrace-api
+    metrics_path: /metrics/prometheus
+    scrape_timeout: 5s
+    static_configs:
+      - targets: [api:8080]
+  - job_name: campustrace-worker
+    metrics_path: /metrics/prometheus
+    scrape_timeout: 5s
+    static_configs:
+      - targets: [worker:18081]
+  - job_name: prometheus
+    static_configs:
+      - targets: [localhost:9090]
+  - job_name: campustrace-search
+    metrics_path: /metrics/prometheus
+    scrape_timeout: 5s
+    static_configs:
+      - targets: [search:18083]
+  - job_name: campustrace-notify
+    metrics_path: /metrics/prometheus
+    scrape_timeout: 5s
+    static_configs:
+      - targets: [notify:18084]

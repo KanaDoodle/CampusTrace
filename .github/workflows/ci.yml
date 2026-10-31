@@ -32,6 +32,9 @@ jobs:
       - name: Frontend tests
         run: node --test web/*.test.cjs
 
+      - name: Performance acceptance contracts
+        run: make performance-test
+
       # Fails if the module resolves KanaRPC-Go through a replace directive or
       # anything other than the published v0.1.0 tag.
       - name: Verify published dependency boundary
@@ -64,8 +67,15 @@ jobs:
           ./bin/campustrace stop
           ./bin/campustrace start --timeout 180
 
-      - name: Retain failure diagnostics
-        if: failure()
+      - name: Complete synthetic application journey
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p bin/ci
+          JOURNEY_SMOKE_OUTPUT="$PWD/bin/ci/journey.json" sh scripts/journey-local.sh smoke 2>&1 | tee bin/ci/journey.log
+
+      - name: Retain verification diagnostics
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: ci-diagnostics

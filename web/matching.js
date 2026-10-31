@@ -239,7 +239,8 @@ const CampusMatching=(function(root){
     let lastJob=browse.lastJob||'',lastTab=browse.lastTab||'overview',drawerOpen=!freshFilter&&!!browse.drawerOpen,lastOpened=null;
     let comparisonCompany='',comparisonScope='ALL',comparisonReport=null,comparisonBusy=false,comparisonError='',comparisonRevision=0,comparisonTaskIDs=[];
     let reviewKeys=new Map(),renderedViewKey='',cardRead=null,cardError='',updateDetailNavigation=null,inventoryRevision=0;
-    let searchDraft=query,searchPending=false,searchComposing=false;
+    let searchDraft=query,searchPending=false,searchComposing=false,jobSearchState=null;
+    const jobSearch=cap.job_search&&root.CampusJobSearch?root.CampusJobSearch.create({api,active:()=>current(),changed:()=>render()}):null;
     let queryMode=freshFilter?'ALL':browse.queryMode||'ALL',excludeQuery=freshFilter||initialTask?'':browse.excludeQuery||'',cityFilters=freshFilter||initialTask?[]:browse.cities||[],presetName='',bulkExpanded=false,undoIDs=Navigation?.readUndo(cap.user_id)||[];
     let importText='',importDocument=null,importPreview=null,importError='',importBusy=false,importRevision=0,importMask=maskName,importOrigins=new Map();
     const selected=C.readSelection(cap.user_id,remembered?undefined:snapshot.jobs);
@@ -286,7 +287,7 @@ const CampusMatching=(function(root){
     const resolveCity=value=>snapshot.city_aliases?.[value]?.length===1?snapshot.city_aliases[value][0]:String(value||'').trim().replace(/市$/,'');
     const preferredCities=()=>[...new Set(snapshot.candidate.facts.filter(f=>['CITY_PREFERRED','CITY_ACCEPTABLE'].includes(f.kind)).flatMap(f=>snapshot.city_aliases?.[f.text]||[resolveCity(f.text)]))];
     cityFilter=resolveCity(cityFilter);cityFilters=cityFilters.map(resolveCity);
-    function matchingRows(direction=directionFilter,skip=''){return filtered(snapshot.jobs,query,filter==='FAILED'?'':filter,tierFilter,queryMode,excludeQuery).filter(j=>(skip==='hidden'||catalogVisible(j,workflowFilter,showIgnored||onlySelected))&&(skip==='hidden'||skip==='quota'||showQuotaFull||onlySelected||!j.campaign?.hide_unsubmitted)&&directionMatch(j,direction)&&workflowMatch(j,workflowFilter)&&(skip==='company'||!companyFilter||j.job.company===companyFilter)&&(skip==='city'||(cityFilters.length?cityFilters.some(c=>cityMatch(j,c)):cityMatch(j,cityFilter)))&&(filter!=='FAILED'||progress.failed.some(f=>f.id===j.job.id))&&(!onlySelected||selected.has(j.job.id)));}
+    function matchingRows(direction=directionFilter,skip=''){return filtered(snapshot.jobs,jobSearchState?.ids?'':query,filter==='FAILED'?'':filter,tierFilter,queryMode,jobSearchState?.ids?'':excludeQuery).filter(j=>(!jobSearchState?.ids||jobSearchState.ids.has(j.job.id))&&(skip==='hidden'||catalogVisible(j,workflowFilter,showIgnored||onlySelected))&&(skip==='hidden'||skip==='quota'||showQuotaFull||onlySelected||!j.campaign?.hide_unsubmitted)&&directionMatch(j,direction)&&workflowMatch(j,workflowFilter)&&(skip==='company'||!companyFilter||j.job.company===companyFilter)&&(skip==='city'||(cityFilters.length?cityFilters.some(c=>cityMatch(j,c)):cityMatch(j,cityFilter)))&&(filter!=='FAILED'||progress.failed.some(f=>f.id===j.job.id))&&(!onlySelected||selected.has(j.job.id)));}
     function rows(direction=directionFilter){return ordered(matchingRows(direction));}
     const chosen=()=>C.selectedRows(ordered(snapshot.jobs),selected);
     const exportKey=j=>JSON.stringify([j.input_key,j.excluded_reason]);
@@ -440,6 +441,12 @@ const CampusMatching=(function(root){
     function render(){
       // Replacing the focused input would end the browser's IME session.
       if(!current()||searchComposing)return;
+      jobSearchState=jobSearch?.ensure({scope:JSON.stringify([cap.user_id,snapshot.snapshot_key||snapshot.input_hash||inventoryRevision]),text:query,mode:queryMode,exclude:excludeQuery})||null;
+      const dialogIDs={settings:'match-settings-dialog',review:'match-review-dialog',export:'match-export-review',import:'match-import-dialog',company:'match-comparison-dialog'};
+      for(const id of Object.values(dialogIDs)){
+        const dialog=document.querySelector('#'+id);
+        if(id!==dialogIDs[panel]&&dialog?.open)dialog.close();
+      }
       if(!searchPending)searchDraft=query;
       if(!inventoryBlocked()){
         if(companyFilter&&!snapshot.jobs.some(j=>j.job.company===companyFilter))companyFilter='';
@@ -471,7 +478,7 @@ const CampusMatching=(function(root){
         <form id="match-filter" class="matching-filter radar-filter-bar" aria-label="筛选岗位">
           <div class="radar-filter-topline">${browseViewsHTML({direction:directionFilter,workflow:workflowFilter,onlySelected,hasDirection:!!targetRoles().length,selectedCount:selected.size})}<button type="button" id="match-clear-filters" class="text-btn" ${hasFilters?'':'disabled'}>清空条件</button></div>
           <div class="radar-filter-controls">
-            <div class="search-field">${U.icon('search')}<input id="match-search" name="q" type="search" aria-label="搜索公司、岗位或城市" placeholder="搜索岗位或公司" value="${esc(searchDraft)}">${query?`<button type="button" id="match-clear-query" class="icon-btn" aria-label="清空搜索">${U.icon('close')}</button>`:''}</div>
+            <div class="search-field">${U.icon('search')}<input id="match-search" name="q" type="search" aria-label="搜索公司、岗位、城市或 JD 关键词" placeholder="搜索岗位、公司或 JD 关键词" value="${esc(searchDraft)}">${query?`<button type="button" id="match-clear-query" class="icon-btn" aria-label="清空搜索">${U.icon('close')}</button>`:''}</div>
             <div class="radar-filter-field"><div class="radar-field-heading"><label for="match-company">公司</label>${companyFilter?'<button type="button" id="match-clear-company" class="text-btn" aria-label="清除公司条件">×</button>':''}</div><select id="match-company" name="company" aria-label="按公司筛选"><option value="">全部公司</option>${companies.filter(c=>companyCounts.get(c)||c===companyFilter).map(c=>`<option value="${esc(c)}" ${companyFilter===c?'selected':''}>${esc(c)}（${companyCounts.get(c)||0}）</option>`).join('')}</select></div>
             <div class="radar-filter-field"><div class="radar-field-heading"><label for="match-city">城市</label>${cityFilter||cityFilters.length?'<button type="button" id="match-clear-city" class="text-btn" aria-label="清除城市条件">×</button>':''}</div><select id="match-city" name="city" aria-label="城市筛选"><option value="">全部城市</option>${cityFilters.length?`<option value="__MULTI__" selected>已选 ${cityFilters.length} 个城市</option>`:''}${cities.some(c=>c.preferred)?`<optgroup label="我的意向城市">${cities.filter(c=>c.preferred).map(cityOption).join('')}</optgroup>`:''}${cities.some(c=>!c.preferred)?`<optgroup label="其他城市">${cities.filter(c=>!c.preferred).map(cityOption).join('')}</optgroup>`:''}<option value="__PICK_CITIES__">选择多个城市…</option></select></div>
             <div class="radar-filter-field"><div class="radar-field-heading"><label for="match-sort">排序</label></div><div class="radar-sort-input"><select id="match-sort" name="sort" aria-label="岗位排序">${Object.entries(sortModes).filter(([v])=>!['technical','local'].includes(v)).map(sortOption).join('')}<optgroup label="历史与初筛参考">${Object.entries(sortModes).filter(([v])=>['technical','local'].includes(v)).map(sortOption).join('')}</optgroup></select><button type="button" id="match-sort-order" class="icon-btn" aria-label="切换排序方向" title="${reverseLabel}，点击反转；未知值始终排在最后">${sortOrder==='asc'?'↑':'↓'}</button></div></div>
@@ -493,12 +500,13 @@ const CampusMatching=(function(root){
         <div class="table-footer"><span>今日分析调用 ${snapshot.calls_today} / ${snapshot.settings.daily_calls}</span><span><button id="match-refresh" class="btn btn-small" ${taskStateBlocked()||running||preparing||bulkBusy?'disabled':''}>刷新</button> 第 ${pageNo} / ${totalPages} 页 <button id="match-prev" class="btn btn-small" ${pageNo===1?'disabled':''}>上一页</button><button id="match-next" class="btn btn-small" ${pageNo===totalPages?'disabled':''}>下一页</button></span></div></section><aside id="match-detail" data-scroll-region class="workbench-detail" aria-label="岗位详情"><div class="workbench-detail-empty"><span>${U.icon('radar')}</span><h2>选择一个岗位</h2><p>查看匹配结果和岗位原文。</p></div></aside></div>${selectionHTML()}${settingsHTML()}${reviewHTML()}${exportHTML()}${importHTML()}${comparisonHTML()}`;
       U.releaseDrawer();
       const sync=`<div id="match-sync-status" class="inventory-sync" role="status" aria-live="polite">${inventoryChecking?'正在核对最新岗位，当前显示上次浏览内容。':inventoryError?`暂未更新，当前显示上次浏览内容。${esc(inventoryError)} <button type="button" id="match-sync-retry" class="text-btn">重新读取</button>`:''}</div>`;
-      if(!set(html.replace('<form id="match-filter"',sync+'<form id="match-filter"'),{stable:true}))return;
+      if(!set(html.replace('<form id="match-filter"',sync+(jobSearchState?`<p class="form-note" role="status">${jobSearchState.pending?'正在搜索岗位内容…':jobSearchState.error?'搜索暂不可用，当前按列表中的岗位资料筛选。 <button type="button" id="match-search-retry" class="text-btn">重试搜索</button>':jobSearchState.mode==='basic'?'当前使用基础搜索。':'已搜索岗位名称和 JD 内容。'}${jobSearchState.more?' 结果较多，请缩小搜索范围。':''}</p>`:'')+'<form id="match-filter"'),{stable:true}))return;
       restorePosition=false;
       U.placeDrawer(document.querySelector('#match-detail'));
       updateDetailNavigation?.();
       const $=s=>document.querySelector(s),on=(id,fn)=>{const el=$('#'+id);if(el)el.onclick=fn;};
       on('match-sync-retry',()=>refresh().catch(()=>{}));
+      on('match-search-retry',()=>{if(jobSearch?.retry())render();});
       if(returnPage)on('match-return-radar',goBack);
       deadlines?.bind(document.querySelector('#deadline-overview'));
       if(paged){Promise.resolve().then(readCards);on('match-cards-retry',()=>{cardError='';render();});}
@@ -583,8 +591,8 @@ const CampusMatching=(function(root){
       for(const b of document.querySelectorAll('[data-match-task]'))b.onclick=()=>{applyTask(taskRuns.find(v=>v.id===b.dataset.matchTask));notice='';render();};
       on('match-prev',()=>{clearTimeout(searchTimer);checkpoint();pageNo=Math.max(1,pageNo-1);render();});on('match-next',()=>{clearTimeout(searchTimer);checkpoint();pageNo=Math.min(Math.max(1,Math.ceil(rows().length/50)),pageNo+1);render();});
       for(const b of document.querySelectorAll('[data-match-job]'))b.onclick=()=>openMatchDetail(b.dataset.matchJob);
-      const dialogID={settings:'match-settings-dialog',review:'match-review-dialog',export:'match-export-review',import:'match-import-dialog',company:'match-comparison-dialog'}[panel];
-      if(dialogID){const dialog=$('#'+dialogID);U.openDialog(dialog,()=>{if(document.querySelector('#'+dialogID)!==dialog)return;panel='';if(dialogID==='match-import-dialog'){importRevision++;importBusy=false;importPreview=null;}if(dialogID==='match-comparison-dialog'){comparisonRevision++;comparisonBusy=false;}if(dialogID==='match-review-dialog'){consentHash='';paused=true;reviewRevision++;reviewBusy=false;}});}
+      const dialogID=dialogIDs[panel],dialogPanel=panel;
+      if(dialogID){const dialog=$('#'+dialogID);U.openDialog(dialog,()=>{if(document.querySelector('#'+dialogID)!==dialog||panel!==dialogPanel)return;panel='';if(dialogID==='match-import-dialog'){importRevision++;importBusy=false;importPreview=null;}if(dialogID==='match-comparison-dialog'){comparisonRevision++;comparisonBusy=false;}if(dialogID==='match-review-dialog'){consentHash='';paused=true;reviewRevision++;reviewBusy=false;}});}
       U.restore(saved);
     }
     async function openMatchDetail(id,initialTab='overview',focus=true){

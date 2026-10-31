@@ -3,29 +3,38 @@ package analysis
 import (
 	"context"
 	"errors"
-	"github.com/KanaDoodle/KanaRPC-Go/rpc"
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
 	"github.com/KanaDoodle/CampusTrace/internal/observability"
+	"github.com/KanaDoodle/KanaRPC-Go/rpc"
 	"log/slog"
 	"net"
 	"time"
+
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 )
 
 const ServiceName = "CampusTraceAnalysis"
 
+var ErrSemanticVersion = errors.New("schema: incompatible analysis semantics")
+
 type Request struct {
-	TaskID        string    `json:"task_id"`
-	JobID         string    `json:"job_id"`
-	ObservationID string    `json:"observation_id"`
-	Text          string    `json:"text"`
-	Deadline      time.Time `json:"deadline"`
-	CorrelationID string    `json:"correlation_id"`
+	AnalysisVersion string    `json:"analysis_version,omitempty"`
+	TraceParent     string    `json:"traceparent,omitempty"`
+	TaskID          string    `json:"task_id"`
+	JobID           string    `json:"job_id"`
+	ObservationID   string    `json:"observation_id"`
+	Text            string    `json:"text"`
+	Deadline        time.Time `json:"deadline"`
+	CorrelationID   string    `json:"correlation_id"`
 }
 type Response struct {
-	Claims   []d.Claim `json:"claims"`
-	Instance string    `json:"instance"`
-	Error    string    `json:"error,omitempty"`
-	Category string    `json:"category,omitempty"`
+	AnalysisVersion string    `json:"analysis_version"`
+	Claims          []d.Claim `json:"claims"`
+	Instance        string    `json:"instance"`
+	Error           string    `json:"error,omitempty"`
+	Category        string    `json:"category,omitempty"`
+	RejectedStatus  int       `json:"rejected_status,omitempty"`
 }
 type Extractor interface {
 	Claims(context.Context, string) ([]d.Claim, error)
@@ -43,7 +52,7 @@ type Service struct {
 	Delay     time.Duration
 }
 
-func (s *Service) AnalyzeObservation(req *Request, resp *Response) error {
+func (s *Service) AnalyzeObservation(req *Request, resp *Response) (err error) {
 	// MyRPC only supports net/rpc-style methods. Explicit envelope deadline bounds
 	// server work. Early remote cancellation is unavailable in its wire protocol.
 	deadline := req.Deadline
@@ -52,7 +61,21 @@ func (s *Service) AnalyzeObservation(req *Request, resp *Response) error {
 	}
 	ctx, cancel := context.WithDeadline(s.Root, deadline)
 	defer cancel()
+	ctx, span := observability.Server(observability.Extract(ctx, req.TraceParent), "rpc.AnalyzeObservation")
+	defer func() {
+		if resp.Error != "" {
+			span.SetStatus(codes.Error, "analysis rejected")
+		}
+		observability.End(span, err)
+	}()
+	ctx = observability.With(ctx, observability.Fields{RequestID: req.CorrelationID, TaskID: req.TaskID, JobID: req.JobID})
+	span.SetAttributes(attribute.String("rpc.system", "kanarpc"), attribute.String("rpc.method", "AnalyzeObservation"), attribute.String("task.id", req.TaskID))
 	resp.Instance = s.Instance
+	resp.AnalysisVersion = d.AnalysisVersion
+	if req.AnalysisVersion != "" && req.AnalysisVersion != d.AnalysisVersion {
+		resp.Error, resp.Category = "analysis version mismatch", "SCHEMA"
+		return nil
+	}
 	if s.Delay > 0 {
 		timer := time.NewTimer(s.Delay)
 		defer timer.Stop()
@@ -69,6 +92,10 @@ func (s *Service) AnalyzeObservation(req *Request, resp *Response) error {
 		}
 		resp.Error = "analysis failed"
 		resp.Category = "SCHEMA"
+		var rejected *HTTPError
+		if errors.As(err, &rejected) && (rejected.Status == 429 || rejected.Status == 401 || rejected.Status == 403) {
+			resp.RejectedStatus = rejected.Status
+		}
 		if IsTransient(err) {
 			resp.Category = "TRANSIENT"
 		}
@@ -112,10 +139,11 @@ func (c *RPCClient) Analyze(ctx context.Context, o d.Observation, correlation st
 	r, err := c.Call(ctx, Request{ObservationID: o.ID, Text: o.Text, CorrelationID: correlation, TaskID: observability.From(ctx).TaskID, JobID: o.JobID})
 	return r.Claims, err
 }
-func (c *RPCClient) Call(ctx context.Context, req Request) (Response, error) {
+func (c *RPCClient) Call(ctx context.Context, req Request) (out Response, err error) {
+	ctx, span := observability.Client(ctx, "rpc.AnalyzeObservation")
+	defer func() { observability.End(span, err) }()
 	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
-	var out Response
 	select {
 	case c.sem <- struct{}{}:
 		defer func() { <-c.sem }()
@@ -123,22 +151,36 @@ func (c *RPCClient) Call(ctx context.Context, req Request) (Response, error) {
 		return out, ctx.Err()
 	}
 	req.Deadline, _ = ctx.Deadline()
-	err := c.client.Invoke(ctx, c.service, "AnalyzeObservation", &req, &out)
+	req.AnalysisVersion = d.AnalysisVersion
+	req.TraceParent = observability.TraceParent(ctx)
+	err = c.client.Invoke(ctx, c.service, "AnalyzeObservation", &req, &out)
 	if err != nil {
 		return out, err
 	}
 	if out.Error != "" {
+		if out.RejectedStatus == 429 || out.RejectedStatus == 401 || out.RejectedStatus == 403 {
+			return out, &HTTPError{Status: out.RejectedStatus}
+		}
 		if out.Category == "TRANSIENT" {
 			return out, errors.New("503: analysis transient failure")
 		}
 		return out, errors.New("schema: analysis rejected")
 	}
-	for _, v := range out.Claims {
-		if err = v.Validate(req.Text); err != nil {
-			return out, err
+	return out, validateResponse(req, out)
+}
+
+func validateResponse(req Request, out Response) error {
+	// Missing versions include pre-upgrade servers. Do not stamp their claims
+	// with the caller's newer cache/receipt namespace during a rolling deploy.
+	if out.AnalysisVersion != d.AnalysisVersion {
+		return ErrSemanticVersion
+	}
+	for _, claim := range out.Claims {
+		if err := claim.Validate(req.Text); err != nil {
+			return err
 		}
 	}
-	return out, nil
+	return nil
 }
 func (c *RPCClient) Close() { c.client.Close(); c.reg.Close() }
 

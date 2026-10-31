@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"regexp"
 	"time"
 
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
@@ -46,6 +47,32 @@ type AgentExecution struct {
 	UpdatedAt      time.Time              `json:"updated_at"`
 	LeaseUntil     *time.Time             `json:"lease_until,omitempty"`
 	CanResume      bool                   `json:"can_resume"`
+	SourceIdentity string                 `json:"source_identity,omitempty"`
+	Narration      *NarrationState        `json:"narration,omitempty"`
+}
+
+const NarrationSkillID = "evidence-explanation"
+
+type NarrationState struct {
+	ParentID         string   `json:"parent_id"`
+	ReviewHash       string   `json:"review_hash"`
+	Model            string   `json:"model"`
+	EvidenceKind     string   `json:"evidence_kind"`
+	ProviderState    string   `json:"provider_state"`
+	AttemptKeys      []string `json:"attempt_keys"`
+	Draft            string   `json:"draft"`
+	Revision         uint64   `json:"revision"`
+	Failure          string   `json:"failure,omitempty"`
+	PromptTokens     int      `json:"prompt_tokens,omitempty"`
+	CompletionTokens int      `json:"completion_tokens,omitempty"`
+}
+type NarrationClaim struct {
+	AttemptKey   string
+	RetryUnknown bool
+}
+
+func validExecutionKey(key string) bool {
+	return regexp.MustCompile(`^[A-Za-z0-9_-]{8,64}$`).MatchString(key)
 }
 
 const MaxAgentExecutionAttempts = 5
@@ -84,6 +111,11 @@ func (s *Store) AgentExecutions(ctx context.Context, user string) ([]AgentExecut
 	for i := range rows {
 		rows[i].Observations = nil
 		rows[i].Input = nil
+		if rows[i].Narration != nil {
+			copyNarration := *rows[i].Narration
+			copyNarration.Draft = ""
+			rows[i].Narration = &copyNarration
+		}
 		if text := []rune(rows[i].Answer); len(text) > 500 {
 			rows[i].Answer = string(text[:500]) + "…"
 		}
@@ -101,7 +133,12 @@ func (s *Store) AgentExecution(ctx context.Context, user, id string) (AgentExecu
 	return rows[0], nil
 }
 func (s *Store) BeginAgentExecution(ctx context.Context, user string, v AgentExecution) (AgentExecution, error) {
+	out, _, err := s.BeginAgentExecutionOnce(ctx, user, v)
+	return out, err
+}
+func (s *Store) BeginAgentExecutionOnce(ctx context.Context, user string, v AgentExecution) (AgentExecution, bool, error) {
 	var out AgentExecution
+	created := false
 	e := s.Tx(ctx, func(tx *sql.Tx) error {
 		if e := lockRunUser(ctx, tx, user); e != nil {
 			return e
@@ -132,11 +169,18 @@ func (s *Store) BeginAgentExecution(ctx context.Context, user string, v AgentExe
 		v.Failures = []ExecutionFailure{}
 		_, e = tx.ExecContext(ctx, "INSERT INTO agent_executions(id,user_id,request_key,fingerprint,state,created_at,body) VALUES(?,?,?,?,?,?,?)", v.ID, user, v.RequestKey, v.Fingerprint, v.State, v.CreatedAt, d.JSON(v))
 		out = v
+		created = e == nil
 		return e
 	})
-	return out, e
+	return out, created, e
 }
 func (s *Store) ClaimAgentExecution(ctx context.Context, user, id string) (AgentExecution, string, error) {
+	return s.claimAgentExecution(ctx, user, id, nil)
+}
+func (s *Store) ClaimAgentNarration(ctx context.Context, user, id string, claim NarrationClaim) (AgentExecution, string, error) {
+	return s.claimAgentExecution(ctx, user, id, &claim)
+}
+func (s *Store) claimAgentExecution(ctx context.Context, user, id string, claim *NarrationClaim) (AgentExecution, string, error) {
 	var v AgentExecution
 	token := d.ID()
 	e := s.Tx(ctx, func(tx *sql.Tx) error {
@@ -154,11 +198,27 @@ func (s *Store) ClaimAgentExecution(ctx context.Context, user, id string) (Agent
 		if e := json.Unmarshal(raw, &v); e != nil {
 			return e
 		}
+		if claim != nil {
+			if v.SkillID != NarrationSkillID || v.Narration == nil || !validExecutionKey(claim.AttemptKey) {
+				return ErrValidation
+			}
+			for _, key := range v.Narration.AttemptKeys {
+				if key == claim.AttemptKey {
+					token = ""
+					return nil
+				}
+			}
+		} else if v.Narration != nil {
+			return ErrConflict
+		}
 		if v.State == "COMPLETED" || v.State == "STALE" || v.State == "CANCELLED" || v.State == "FAILED" {
 			token = ""
 			return nil
 		}
 		if lease.Valid && lease.Time.After(time.Now()) {
+			return ErrConflict
+		}
+		if claim != nil && (v.Narration.ProviderState == "DISPATCHED" || v.Narration.ProviderState == "UNKNOWN") && !claim.RetryUnknown {
 			return ErrConflict
 		}
 		var running int
@@ -176,6 +236,13 @@ func (s *Store) ClaimAgentExecution(ctx context.Context, user, id string) (Agent
 			return e
 		}
 		v.Resumes++
+		if claim != nil {
+			v.Narration.AttemptKeys = append(v.Narration.AttemptKeys, claim.AttemptKey)
+			v.Narration.ProviderState = "NOT_DISPATCHED"
+			v.Narration.Draft = ""
+			v.Narration.Failure = ""
+			v.Narration.Revision++
+		}
 		v.State = "RUNNING"
 		v.UpdatedAt = time.Now().UTC()
 		_, e := tx.ExecContext(ctx, "UPDATE agent_executions SET state=?,lease_token=?,lease_until=?,body=? WHERE id=? AND user_id=?", v.State, token, v.UpdatedAt.Add(60*time.Second), d.JSON(v), id, user)
@@ -232,6 +299,9 @@ func (s *Store) CancelAgentExecution(ctx context.Context, user, id string) error
 
 // Bind checkpoints to current reviewed inputs and the source snapshots they use.
 func (s *Store) AgentExecutionIdentity(ctx context.Context, user, company, job string, scope ...string) (string, uint64, error) {
+	if len(scope) > 0 && scope[0] == "application-prep" {
+		return s.applicationPreparationIdentity(ctx, user, job)
+	}
 	rev, notes, profile, e := s.AgentContext(ctx, user)
 	if e != nil {
 		return "", 0, e
@@ -251,7 +321,7 @@ func (s *Store) AgentExecutionIdentity(ctx context.Context, user, company, job s
 		case "company-choice":
 			tables = append(tables, struct{ table, id string }{"job_match_results", "job_id"}, struct{ table, id string }{"company_match_reports", "input_key"})
 		case "interview-prep", "review-plan":
-			for _, table := range []string{"interviews", "reviews", "weak_topics", "practice_runs", "chunks"} {
+			for _, table := range []string{"interviews", "reviews", "weak_topics", "chunks"} {
 				tables = append(tables, struct{ table, id string }{table, "id"})
 			}
 			if scope[0] == "interview-prep" {

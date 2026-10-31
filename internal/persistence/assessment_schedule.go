@@ -35,7 +35,14 @@ func enqueueAssessment(ctx context.Context, tx *sql.Tx, job string) error {
 	if pending.Valid {
 		return nil
 	}
-	return scheduleAssessment(ctx, tx, job, now)
+	err := scheduleAssessment(ctx, tx, job, now)
+	if errors.Is(err, ErrQueueBusy) {
+		// The due row above is durable. Blocking a source task on admitting
+		// its derived assessment can deadlock a full outbox. Keep it due;
+		// ScheduleAssessments will admit it once source dispatch frees room.
+		return nil
+	}
+	return err
 }
 
 func scheduleAssessment(ctx context.Context, tx *sql.Tx, job string, now time.Time) error {

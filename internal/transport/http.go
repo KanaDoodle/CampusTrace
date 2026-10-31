@@ -10,10 +10,10 @@ import (
 	"github.com/KanaDoodle/CampusTrace/internal/auth"
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
 	"github.com/KanaDoodle/CampusTrace/internal/modelconfig"
+	"github.com/KanaDoodle/CampusTrace/internal/modelcontrol"
 	"github.com/KanaDoodle/CampusTrace/internal/observability"
 	p "github.com/KanaDoodle/CampusTrace/internal/persistence"
 	"github.com/KanaDoodle/CampusTrace/internal/pipeline"
-	"github.com/KanaDoodle/CampusTrace/internal/practice"
 	"github.com/KanaDoodle/CampusTrace/internal/rag"
 	"github.com/KanaDoodle/CampusTrace/internal/resume"
 	"github.com/KanaDoodle/CampusTrace/internal/source"
@@ -25,10 +25,12 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 )
 
 type API struct {
-	Practice         *practice.Client
 	Store            *p.Store
 	Queue            *pipeline.Queue
 	Auth             auth.Service
@@ -40,6 +42,8 @@ type API struct {
 	ResumeModelName  string
 	CustomModelSlots chan struct{}
 	MatchTasks       *MatchTaskRunner
+	ModelControl     *modelcontrol.Controller
+	Narrations       *agent.NarrationRunner
 }
 
 func (a *API) customModel(cfg modelconfig.Config) (*analysis.ChatClient, error) {
@@ -122,7 +126,17 @@ func write(w http.ResponseWriter, v any, err error) {
 		if rec, ok := w.(*recorder); ok {
 			rec.err = err
 		}
+		if errors.Is(err, p.ErrSearchBusy) {
+			w.Header().Set("Retry-After", "1")
+			codedError(w, http.StatusServiceUnavailable, "SEARCH_BUSY")
+			return
+		}
 		status := http.StatusBadRequest
+		if errors.Is(err, p.ErrQueueBusy) {
+			w.Header().Set("Retry-After", "2")
+			codedError(w, 503, "QUEUE_BUSY")
+			return
+		}
 		if errors.Is(err, p.ErrNotFound) {
 			status = 404
 		}
@@ -205,7 +219,7 @@ func (a *API) Handler() http.Handler {
 		write(w, map[string]string{"status": "ready"}, nil)
 	})
 	mux.Handle("GET /metrics", a.Metrics)
-	mux.HandleFunc("GET /metrics/prometheus", func(w http.ResponseWriter, r *http.Request) { a.Metrics.Prometheus(w, r, a.Store.DB.Stats()) })
+	mux.HandleFunc("GET /metrics/prometheus", a.prometheus)
 	for _, route := range []string{"register", "login"} {
 		mux.HandleFunc("POST /auth/"+route, func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Cache-Control", "no-store")
@@ -278,6 +292,8 @@ func (a *API) Handler() http.Handler {
 	a.knowledgeRoutes(on)
 	a.matchingTaskRoutes(on)
 	a.campaignRoutes(on)
+	a.journeyRoutes(on)
+	on("POST /api/jobs/search", a.searchJobs)
 	on("GET /api/jobs", func(w http.ResponseWriter, r *http.Request) {
 		v, err := a.Store.JobsForUser(r.Context(), user(r), r.URL.Query().Get("q"))
 		write(w, v, err)
@@ -404,7 +420,7 @@ func (a *API) Handler() http.Handler {
 		write(w, map[string]bool{"saved": true}, a.Store.SaveProfile(r.Context(), user(r), v))
 	})
 	on("GET /api/profile/resume/capabilities", func(w http.ResponseWriter, r *http.Request) {
-		write(w, map[string]any{"model_available": a.ResumeModel != nil, "model": a.ResumeModelName, "user_id": user(r), "durable_matching": a.MatchTasks != nil, "application_campaigns": true, "inventory_paging": true, "foundation_topics": d.FoundationTopics()}, nil)
+		write(w, map[string]any{"model_available": a.ResumeModel != nil, "model": a.ResumeModelName, "user_id": user(r), "durable_matching": a.MatchTasks != nil, "application_campaigns": true, "inventory_paging": true, "job_search": true, "foundation_topics": d.FoundationTopics()}, nil)
 	})
 	on("GET /api/profile/document", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
@@ -512,13 +528,13 @@ func (a *API) Handler() http.Handler {
 		write(w, v, err)
 	})
 	on("POST /api/applications", func(w http.ResponseWriter, r *http.Request) {
-		b, err := io.ReadAll(io.LimitReader(r.Body, 65537))
+		b, err := io.ReadAll(io.LimitReader(r.Body, 131073))
 		if err != nil {
 			write(w, nil, err)
 			return
 		}
 		var in p.CreateArgs
-		if err := d.Strict(b, &in); err != nil {
+		if err := d.StrictLimit(b, &in, 131072); err != nil {
 			write(w, nil, err)
 			return
 		}
@@ -530,7 +546,7 @@ func (a *API) Handler() http.Handler {
 		write(w, v, err)
 	})
 	on("POST /api/applications/transition", func(w http.ResponseWriter, r *http.Request) {
-		b, err := io.ReadAll(io.LimitReader(r.Body, 65537))
+		b, err := io.ReadAll(io.LimitReader(r.Body, 131073))
 		if err != nil {
 			write(w, nil, err)
 			return
@@ -751,6 +767,11 @@ func (a *API) Handler() http.Handler {
 		w.Header().Set("Referrer-Policy", "no-referrer")
 		w.Header().Set("Content-Security-Policy", "default-src 'self'; style-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'")
 		ctx := observability.With(r.Context(), observability.Fields{RequestID: id})
+		ctx, span := observability.Server(observability.HTTPContext(ctx, r.Header), "HTTP")
+		defer span.End()
+		if parent := observability.TraceParent(ctx); parent != "" {
+			w.Header().Set("X-Trace-ID", parent[3:35])
+		}
 		rec := &recorder{ResponseWriter: w}
 		start := time.Now()
 		request := r.WithContext(ctx)
@@ -764,6 +785,13 @@ func (a *API) Handler() http.Handler {
 		}
 		if rec.status == 0 {
 			rec.status = http.StatusOK
+		}
+		if request.Pattern != "" {
+			span.SetName(request.Pattern)
+		}
+		span.SetAttributes(attribute.String("http.request.method", r.Method), attribute.String("http.route", request.Pattern), attribute.Int("http.response.status_code", rec.status))
+		if rec.status >= 500 {
+			span.SetStatus(codes.Error, "HTTP server error")
 		}
 		fields := []any{"request_id", id, "method", r.Method, "route", request.Pattern, "status", rec.status, "duration_ms", time.Since(start).Milliseconds()}
 		switch {

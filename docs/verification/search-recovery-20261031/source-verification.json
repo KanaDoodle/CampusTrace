@@ -1,0 +1,15 @@
+{
+  "baseline_fingerprint": "26b9607c463608f29a2aadf823c946a67a6798e9a801914c57e54c772e7f36a5",
+  "candidate_fingerprint": "786e24602941c1f8d2a77cffabac3a015609d58547a71df46aa2a43c7c5588d6",
+  "candidate_matches_worktree": true,
+  "runtime_delta": [
+    "internal/bootstrap/bootstrap.go",
+    "internal/integration/search_recovery_probe_test.go",
+    "internal/integration/search_resilience_test.go",
+    "internal/integration/search_test.go",
+    "internal/searchapi/client.go",
+    "internal/searchapi/guard.go",
+    "internal/searchapi/recovery_test.go"
+  ],
+  "unchanged_original_files": 613
+}

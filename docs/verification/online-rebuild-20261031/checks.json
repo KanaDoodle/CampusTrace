@@ -1,0 +1,36 @@
+{
+  "parent_commit": "c3a630f616d1d1c103f783dfdc57150c359653ae",
+  "date": "2026-10-31",
+  "scope": "isolated synthetic fixtures; no external models or personal data",
+  "checks": {
+    "online_rebuild_real_integration": "5 top-level cases passed; helper skipped in parent",
+    "search_regression": "original 7 cases passed; online cases separately passed",
+    "kafka_real_integration": "6 SQL/event cases plus real broker replay passed",
+    "cli_recovery": "79 tables / 75 reference checks passed",
+    "go_public_build": "passed",
+    "go_vet": "passed",
+    "go_race_all": "passed without integration environment; real integration run separately with race",
+    "frontend": "437 passed in isolated candidate",
+    "release_boundary": "passed; Search has no Core database or RPC dependency",
+    "performance_contract": "passed",
+    "full_stack": "passed; online cutover DONE; 5 quiescent fulltext polls, 0 basic; 8 new panels",
+    "k6_comparison": "passed; baseline replace 85/150 basic vs candidate online 0/151 basic",
+    "full_sql_regression": {
+      "integration_top_level_passed": 181,
+      "integration_top_level_skipped": 17,
+      "all_packages_top_level_passed": 205,
+      "race": true,
+      "external_model_calls": 0,
+      "scope": "owned synthetic MySQL/Redis/etcd; Kafka/OpenSearch cases separately exercised in dedicated runs"
+    },
+    "merged_workspace_build_race_frontend": "build / race passed; frontend 445/445",
+    "merged_workspace_online_kafka_recovery": "5 online cases, Kafka SQL/broker cases, 79-table CLI restore all passed"
+  },
+  "not_claimed": [
+    "remote GitHub Actions execution",
+    "production HA / SLA / maximum QPS",
+    "full real-model or product effectiveness",
+    "automatic old-index cleanup",
+    "automatic takeover of another recovery dataset unfinished cutover"
+  ]
+}

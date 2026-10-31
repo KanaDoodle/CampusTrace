@@ -1,0 +1,11 @@
+# Add after Kafka + existing Search/observability overlays.
+services:
+  notify:
+    environment:
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://tempo:4318/v1/traces
+  prometheus:
+    volumes:
+      - ./configs/observability/prometheus-kafka.yml:/etc/prometheus/prometheus.yml:ro
+  grafana:
+    volumes:
+      - ./configs/observability/grafana/kafka.json:/var/lib/grafana/dashboards/kafka.json:ro

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/KanaDoodle/CampusTrace/internal/modelcontrol"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -38,6 +39,18 @@ func (a *API) matchIdentity(in matchPreviewRequest) (string, error) {
 func matchFailure(w http.ResponseWriter, err error, stage ...string) {
 	status, code := 502, ""
 	switch {
+	case errors.Is(err, p.ErrModelQueueFull):
+		status, code = 503, "MODEL_GLOBAL_QUEUE_FULL"
+		w.Header().Set("Retry-After", "2")
+	case errors.Is(err, modelcontrol.ErrWaitDeadline):
+		status, code = 503, "MATCH_QUEUE_TIMEOUT"
+		w.Header().Set("Retry-After", "2")
+	case errors.Is(err, p.ErrModelBudget):
+		status, code = 429, "MODEL_GLOBAL_BUDGET"
+	case errors.Is(err, p.ErrModelReview):
+		status, code = 409, "MODEL_REVIEW_REQUIRED"
+	case errors.Is(err, p.ErrModelLease):
+		status, code = 409, "MODEL_EXECUTION_LOST"
 	case errors.Is(err, p.ErrMatchJobUnavailable):
 		status, code = 409, "MATCH_JOB_UNAVAILABLE"
 	case errors.Is(err, p.ErrMatchQuota):
@@ -108,16 +121,22 @@ func addCapacityDiagnostic(diagnostic map[string]any, err error) {
 }
 
 type budgetedMatchModel struct {
-	model resume.Completer
-	store *p.Store
-	user  string
-	calls int
+	control   *modelcontrol.Controller
+	identity  string
+	model     resume.Completer
+	store     *p.Store
+	user      string
+	calls     int
+	preflight func(context.Context) error
 }
 
 func (m *budgetedMatchModel) Complete(ctx context.Context, messages, tools any) (json.RawMessage, error) {
 	return m.CompleteJSON(ctx, messages, tools)
 }
 func (m *budgetedMatchModel) CompleteJSON(ctx context.Context, messages, tools any) (json.RawMessage, error) {
+	if m.control != nil {
+		return m.control.Complete(ctx, m.user, m.identity, m.model, messages, tools, func() { m.calls++ }, m.preflight)
+	}
 	if err := m.store.CheckMatchRunGuard(ctx, m.user); err != nil {
 		return nil, err
 	}
@@ -254,6 +273,17 @@ func (a *API) analyzeMatches(w http.ResponseWriter, r *http.Request) {
 	if a.Queue == nil {
 		write(w, nil, p.ErrBackendUnavailable)
 		return
+	}
+	// A crashed synchronous caller can leave its Redis account lease alive.
+	// Surface the durable review requirement before that temporary busy marker.
+	if a.ModelControl != nil {
+		if err := a.Store.CheckModelCallReview(r.Context(), user(r), a.ModelControl.Options.Policy.ID, ""); err != nil {
+			if !errors.Is(err, p.ErrModelReview) {
+				err = p.ErrBackendUnavailable
+			}
+			matchFailure(w, err)
+			return
+		}
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 175*time.Second)
 	defer cancel()

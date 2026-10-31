@@ -1,0 +1,56 @@
+[
+  {
+    "probe": {
+      "duration_ms": 201.635042,
+      "end_ns": 1793451351481206719,
+      "instance": "bf3e3034a6fc-candidate",
+      "name": "search.query.probe",
+      "parent_id": "ce5addd4bf729820",
+      "service": "campustrace-api",
+      "span_id": "ae8ec013643910be",
+      "start_ns": 1793451351279571677,
+      "status": "STATUS_CODE_ERROR",
+      "trace_id": "bef3536f61045e0b4713fe5712abb4d0"
+    },
+    "foreground_core": {
+      "duration_ms": 3.259833,
+      "end_ns": 1793451351282060094,
+      "instance": "bf3e3034a6fc-candidate",
+      "name": "search.core",
+      "parent_id": "42f27db34eaddbd0",
+      "service": "campustrace-api",
+      "span_id": "ce5addd4bf729820",
+      "start_ns": 1793451351278800261,
+      "status": "STATUS_CODE_UNSET",
+      "trace_id": "bef3536f61045e0b4713fe5712abb4d0"
+    },
+    "probe_outlives_foreground": true
+  },
+  {
+    "probe": {
+      "duration_ms": 203.150501,
+      "end_ns": 1793451355729680097,
+      "instance": "bf3e3034a6fc-candidate",
+      "name": "search.query.probe",
+      "parent_id": "c5debaa4294c86f5",
+      "service": "campustrace-api",
+      "span_id": "ac05348e435dcd28",
+      "start_ns": 1793451355526529596,
+      "status": "STATUS_CODE_ERROR",
+      "trace_id": "c0bf00f86e24cc9b70ef18d119b2494f"
+    },
+    "foreground_core": {
+      "duration_ms": 11.5035,
+      "end_ns": 1793451355536869804,
+      "instance": "bf3e3034a6fc-candidate",
+      "name": "search.core",
+      "parent_id": "88552cb45b40e477",
+      "service": "campustrace-api",
+      "span_id": "c5debaa4294c86f5",
+      "start_ns": 1793451355525366304,
+      "status": "STATUS_CODE_UNSET",
+      "trace_id": "c0bf00f86e24cc9b70ef18d119b2494f"
+    },
+    "probe_outlives_foreground": true
+  }
+]

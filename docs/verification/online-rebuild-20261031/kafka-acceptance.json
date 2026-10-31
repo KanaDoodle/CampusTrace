@@ -1,0 +1,25 @@
+{
+  "independent_search_and_notify_groups": true,
+  "broker_ack_not_index_ack": true,
+  "search_restart_catchup": true,
+  "notify_restart_catchup": true,
+  "broker_outage_core_crud_and_redis_analysis_continued": true,
+  "durable_publish_recovered": true,
+  "sql_receipts_deduplicate_replay": true,
+  "poison_quarantine_without_raw_payload": true,
+  "distinct_job_notifications": 6,
+  "kafka_dashboard_panels": 9,
+  "trace": {
+    "trace_id": "c6c7f907f2c93e1a65fd57652220c5e6",
+    "spans": 134,
+    "services": [
+      "campustrace-analysis",
+      "campustrace-api",
+      "campustrace-notify",
+      "campustrace-search",
+      "campustrace-worker"
+    ]
+  },
+  "external_model_calls": 0,
+  "limits": "Single-host synthetic acceptance; single Kafka broker, no cluster HA or production throughput claim."
+}

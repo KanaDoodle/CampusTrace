@@ -1,0 +1,185 @@
+{
+  "uid": "campustrace-search-resilience",
+  "title": "CampusTrace · Search 故障隔离",
+  "schemaVersion": 39,
+  "version": 1,
+  "tags": [
+    "CampusTrace"
+  ],
+  "timezone": "Asia/Shanghai",
+  "refresh": "15s",
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "editable": false,
+  "panels": [
+    {
+      "id": 1,
+      "title": "查询熔断状态：0 关闭 / 1 打开 / 2 探测",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "campustrace-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "campustrace_search_query_circuit_state{job=\"campustrace-api\"}",
+          "legendFormat": "状态"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Core 搜索并发与回退并发",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "campustrace-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "campustrace_search_read_active{job=\"campustrace-api\"}",
+          "legendFormat": "搜索执行中"
+        },
+        {
+          "refId": "B",
+          "expr": "campustrace_search_fallback_active{job=\"campustrace-api\"}",
+          "legendFormat": "回退执行中"
+        },
+        {
+          "refId": "C",
+          "expr": "campustrace_search_read_limit{job=\"campustrace-api\"}",
+          "legendFormat": "搜索上限"
+        },
+        {
+          "refId": "D",
+          "expr": "campustrace_search_fallback_limit{job=\"campustrace-api\"}",
+          "legendFormat": "回退上限"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "远程查询 P95（秒）",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "campustrace-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 7,
+        "w": 12,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95,sum by(le)(rate(campustrace_search_query_remote_seconds_bucket{job=\"campustrace-api\"}[5m])))",
+          "legendFormat": "远程等待"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "数据库回退 P95（秒）",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "campustrace-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 7,
+        "w": 12,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95,sum by(le)(rate(campustrace_search_fallback_seconds_bucket{job=\"campustrace-api\"}[5m])))",
+          "legendFormat": "数据库回退"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "保护动作 / 秒",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "campustrace-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 14,
+        "w": 12,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(campustrace_search_query_circuit_rejected_total{job=\"campustrace-api\"}[5m])",
+          "legendFormat": "熔断回退"
+        },
+        {
+          "refId": "B",
+          "expr": "rate(campustrace_search_read_rejected_total{job=\"campustrace-api\"}[5m])",
+          "legendFormat": "搜索入口拒绝"
+        },
+        {
+          "refId": "C",
+          "expr": "rate(campustrace_search_fallback_rejected_total{job=\"campustrace-api\"}[5m])",
+          "legendFormat": "回退容量拒绝"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "熔断与恢复 / 秒",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "campustrace-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 14,
+        "w": 12,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(campustrace_search_query_circuit_trips_total{job=\"campustrace-api\"}[5m])",
+          "legendFormat": "打开熔断"
+        },
+        {
+          "refId": "B",
+          "expr": "rate(campustrace_search_query_recoveries_total{job=\"campustrace-api\"}[5m])",
+          "legendFormat": "健康探测恢复"
+        },
+        {
+          "refId": "C",
+          "expr": "campustrace_search_query_retry_seconds{job=\"campustrace-api\"}",
+          "legendFormat": "距下次探测（秒）"
+        }
+      ]
+    }
+  ]
+}

@@ -9,7 +9,7 @@ import (
 
 func TestFoundationAssessmentsSupplyScopedKnowledgeWithoutInventingPractice(t *testing.T) {
 	p := d.Profile{FoundationSkills: []d.FoundationSkill{{Topic: "ALGORITHMS", Level: "UNDERSTAND"}}}
-	c, err := CandidateFrom(p, nil, "")
+	c, err := CandidateWithProjects(p, nil, nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -33,7 +33,7 @@ func TestFoundationAssessmentsSupplyScopedKnowledgeWithoutInventingPractice(t *t
 		}
 	}
 	p.FoundationSkills[0].Level = "FAMILIAR"
-	changed, _ := CandidateFrom(p, nil, "")
+	changed, _ := CandidateWithProjects(p, nil, nil, "")
 	if changed.Hash() == c.Hash() {
 		t.Fatal("changed assessment reused old analysis")
 	}

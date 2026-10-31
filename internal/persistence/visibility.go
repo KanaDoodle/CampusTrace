@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
+	"github.com/KanaDoodle/CampusTrace/internal/searchapi"
 	"strings"
 )
 
@@ -25,6 +26,10 @@ func (s *Store) JobForUser(ctx context.Context, user, id string) (d.Job, error) 
 func (s *Store) JobsForUser(ctx context.Context, user, query string) ([]d.Job, error) {
 	if user == "" {
 		return nil, ErrNotFound
+	}
+	if s.Search != nil && strings.TrimSpace(query) != "" {
+		out, err := s.SearchJobs(ctx, user, searchapi.Query{Text: query, Limit: 100})
+		return out.Jobs, err
 	}
 	pattern := "%" + strings.ToLower(query) + "%"
 	return Many[d.Job](ctx, s.DB, "SELECT body FROM jobs WHERE (visibility='GLOBAL' OR (visibility='PRIVATE' AND owner_id=?)) AND (LOWER(JSON_UNQUOTE(JSON_EXTRACT(body,'$.title'))) LIKE ? OR LOWER(JSON_UNQUOTE(JSON_EXTRACT(body,'$.company'))) LIKE ?) ORDER BY id LIMIT 100", user, pattern, pattern)

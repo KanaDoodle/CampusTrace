@@ -52,16 +52,17 @@ type UserJobPreference struct {
 func ValidDisposition(v string) bool { return v == "NONE" || v == "SAVED" || v == "IGNORED" }
 
 type Notification struct {
-	ID           string     `json:"id"`
-	UserID       string     `json:"user_id"`
-	Type         string     `json:"type"`
-	EntityType   string     `json:"entity_type"`
-	EntityID     string     `json:"entity_id"`
-	EventVersion string     `json:"event_version"`
-	Title        string     `json:"title"`
-	Body         string     `json:"body"`
-	CreatedAt    time.Time  `json:"created_at"`
-	ReadAt       *time.Time `json:"read_at,omitempty"`
+	ID           string            `json:"id"`
+	UserID       string            `json:"user_id"`
+	Type         string            `json:"type"`
+	EntityType   string            `json:"entity_type"`
+	EntityID     string            `json:"entity_id"`
+	EventVersion string            `json:"event_version"`
+	Title        string            `json:"title"`
+	Body         string            `json:"body"`
+	CreatedAt    time.Time         `json:"created_at"`
+	ReadAt       *time.Time        `json:"read_at,omitempty"`
+	Applications []ApplicationLink `json:"related_applications,omitempty"`
 }
 type RadarJob struct {
 	Job             Job          `json:"job"`

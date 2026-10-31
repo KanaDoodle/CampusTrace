@@ -1,0 +1,318 @@
+{
+  "Kind": "assistant-reviewed-historical-excerpts-and-synthetic-controls",
+  "DatasetSHA256": "c2fad7ae1c402d3fd3c879703e447ead64485c2473316246a396bc61a4cbce76",
+  "AnalysisVersion": "claims-v4-tech-requirements",
+  "RuleVersion": "rules-v7-tech-expressions",
+  "ProviderCalls": 0,
+  "Checks": 85,
+  "Passed": 85,
+  "Rows": [
+    {
+      "go_fit": "NO_GO_SIGNAL",
+      "id": "s06-historical-fragment",
+      "source_kind": "assistant-reviewed-historical-excerpt",
+      "technologies": [
+        {
+          "type": "TECH_STACK",
+          "value": "REQUIRED:c++",
+          "excerpt": "任职要求：\n1、计算机相关专业，本科或以上学历；\n2、C++基础扎实，有较强的逻辑思维能力，能够独立解决问题",
+          "extraction_method": "RULE",
+          "confidence": 1
+        }
+      ],
+      "technology_rule_results": {
+        "cpp": "PASS",
+        "go": "FAIL",
+        "go_cpp": "PASS",
+        "golang": "FAIL",
+        "java": "FAIL",
+        "rust": "FAIL"
+      }
+    },
+    {
+      "go_fit": "NO_GO_SIGNAL",
+      "id": "s07-historical-fragment",
+      "source_kind": "assistant-reviewed-historical-excerpt",
+      "technologies": [
+        {
+          "type": "TECH_STACK",
+          "value": "REQUIRED:c|c++",
+          "excerpt": "任职要求\n1、泛CS相关专业，本科及以上学历；2027届毕业\n2、熟悉C/C++编程语言及其思想",
+          "extraction_method": "RULE",
+          "confidence": 1
+        }
+      ],
+      "technology_rule_results": {
+        "cpp": "PASS",
+        "go": "FAIL",
+        "go_cpp": "PASS",
+        "golang": "FAIL",
+        "java": "FAIL",
+        "rust": "FAIL"
+      }
+    },
+    {
+      "go_fit": "CONFLICTING",
+      "id": "s09-historical-fragment",
+      "source_kind": "assistant-reviewed-historical-excerpt",
+      "technologies": [
+        {
+          "type": "TECH_STACK",
+          "value": "UNCERTAIN:c|c++",
+          "excerpt": "任职要求\n1. 应届毕业生计算机相关专业，本科及以上学历\n2. 熟悉Client-server网络架构\n3. 熟悉网络底层TCP/UDP协议及通用Online Game Service开发\n4. 熟悉C/C++编程以及Visual Studio开发环境",
+          "extraction_method": "RULE",
+          "confidence": 1
+        }
+      ],
+      "technology_rule_results": {
+        "cpp": "UNKNOWN",
+        "go": "UNKNOWN",
+        "go_cpp": "UNKNOWN",
+        "golang": "UNKNOWN",
+        "java": "UNKNOWN",
+        "rust": "UNKNOWN"
+      }
+    },
+    {
+      "go_fit": "CONFLICTING",
+      "id": "s10-historical-fragment",
+      "source_kind": "assistant-reviewed-historical-excerpt",
+      "technologies": [
+        {
+          "type": "TECH_STACK",
+          "value": "UNCERTAIN:c|c++",
+          "excerpt": "岗位要求\n\n我们希望您符合以下任意两条或以上的描述：\n- 计算机及相关专业，扎实的计算机基础知识，深入理解数据结构、算法、操作系统等知识；\n- 了解C/C++编程语言",
+          "extraction_method": "RULE",
+          "confidence": 1
+        }
+      ],
+      "technology_rule_results": {
+        "cpp": "UNKNOWN",
+        "go": "UNKNOWN",
+        "go_cpp": "UNKNOWN",
+        "golang": "UNKNOWN",
+        "java": "UNKNOWN",
+        "rust": "UNKNOWN"
+      }
+    },
+    {
+      "go_fit": "LANGUAGE_FLEXIBLE",
+      "id": "exact-language-choice",
+      "source_kind": "synthetic-control",
+      "technologies": [
+        {
+          "type": "TECH_STACK",
+          "value": "REQUIRED:go|rust",
+          "excerpt": "必须掌握Go或Rust任一种语言",
+          "extraction_method": "RULE",
+          "confidence": 1
+        }
+      ],
+      "technology_rule_results": {
+        "cpp": "FAIL",
+        "go": "PASS",
+        "go_cpp": "PASS",
+        "golang": "PASS",
+        "java": "FAIL",
+        "rust": "PASS"
+      }
+    },
+    {
+      "go_fit": "EXPLICIT_GO",
+      "id": "required-conjunction",
+      "source_kind": "synthetic-control",
+      "technologies": [
+        {
+          "type": "TECH_STACK",
+          "value": "REQUIRED:go+c++",
+          "excerpt": "必须掌握Go和C++",
+          "extraction_method": "RULE",
+          "confidence": 1
+        }
+      ],
+      "technology_rule_results": {
+        "cpp": "FAIL",
+        "go": "FAIL",
+        "go_cpp": "PASS",
+        "golang": "FAIL",
+        "java": "FAIL",
+        "rust": "FAIL"
+      }
+    },
+    {
+      "go_fit": "EXPLICIT_GO",
+      "id": "preferred-is-not-required",
+      "source_kind": "synthetic-control",
+      "technologies": [
+        {
+          "type": "TECH_STACK",
+          "value": "REQUIRED:go",
+          "excerpt": "任职要求：熟悉Go",
+          "extraction_method": "RULE",
+          "confidence": 1
+        },
+        {
+          "type": "TECH_STACK",
+          "value": "c++",
+          "excerpt": "C++经验优先",
+          "extraction_method": "RULE",
+          "confidence": 1
+        }
+      ],
+      "technology_rule_results": {
+        "cpp": "FAIL",
+        "go": "PASS",
+        "go_cpp": "PASS",
+        "golang": "PASS",
+        "java": "FAIL",
+        "rust": "FAIL"
+      }
+    },
+    {
+      "go_fit": "UNKNOWN",
+      "id": "negated-requirement",
+      "source_kind": "synthetic-control",
+      "technologies": [],
+      "technology_rule_results": {
+        "cpp": "NOT_APPLICABLE",
+        "go": "NOT_APPLICABLE",
+        "go_cpp": "NOT_APPLICABLE",
+        "golang": "NOT_APPLICABLE",
+        "java": "NOT_APPLICABLE",
+        "rust": "NOT_APPLICABLE"
+      }
+    },
+    {
+      "go_fit": "NO_GO_SIGNAL",
+      "id": "open-language-examples",
+      "source_kind": "synthetic-control",
+      "technologies": [
+        {
+          "type": "TECH_STACK",
+          "value": "java|c++",
+          "excerpt": "熟悉Java、C++等至少一门语言",
+          "extraction_method": "RULE",
+          "confidence": 1
+        }
+      ],
+      "technology_rule_results": {
+        "cpp": "NOT_APPLICABLE",
+        "go": "NOT_APPLICABLE",
+        "go_cpp": "NOT_APPLICABLE",
+        "golang": "NOT_APPLICABLE",
+        "java": "NOT_APPLICABLE",
+        "rust": "NOT_APPLICABLE"
+      }
+    },
+    {
+      "go_fit": "NO_GO_SIGNAL",
+      "id": "malformed-expression",
+      "source_kind": "synthetic-control",
+      "technologies": [
+        {
+          "type": "TECH_STACK",
+          "value": "REQUIRED:go|",
+          "excerpt": "tech: REQUIRED:go|",
+          "extraction_method": "RULE",
+          "confidence": 1
+        }
+      ],
+      "technology_rule_results": {
+        "cpp": "UNKNOWN",
+        "go": "UNKNOWN",
+        "go_cpp": "UNKNOWN",
+        "golang": "UNKNOWN",
+        "java": "UNKNOWN",
+        "rust": "UNKNOWN"
+      }
+    },
+    {
+      "go_fit": "CONFLICTING",
+      "id": "mixed-and-or",
+      "source_kind": "synthetic-control",
+      "technologies": [
+        {
+          "type": "TECH_STACK",
+          "value": "UNCERTAIN:go|rust+c++",
+          "excerpt": "必须熟悉Go或Rust并掌握C++",
+          "extraction_method": "RULE",
+          "confidence": 1
+        }
+      ],
+      "technology_rule_results": {
+        "cpp": "UNKNOWN",
+        "go": "UNKNOWN",
+        "go_cpp": "UNKNOWN",
+        "golang": "UNKNOWN",
+        "java": "UNKNOWN",
+        "rust": "UNKNOWN"
+      }
+    },
+    {
+      "go_fit": "CONFLICTING",
+      "id": "unknown-language-option",
+      "source_kind": "synthetic-control",
+      "technologies": [
+        {
+          "type": "TECH_STACK",
+          "value": "UNCERTAIN:go",
+          "excerpt": "必须掌握Go或Zig任一种语言",
+          "extraction_method": "RULE",
+          "confidence": 1
+        }
+      ],
+      "technology_rule_results": {
+        "cpp": "UNKNOWN",
+        "go": "UNKNOWN",
+        "go_cpp": "UNKNOWN",
+        "golang": "UNKNOWN",
+        "java": "UNKNOWN",
+        "rust": "UNKNOWN"
+      }
+    },
+    {
+      "go_fit": "NO_GO_SIGNAL",
+      "id": "literal-cpp",
+      "source_kind": "synthetic-control",
+      "technologies": [
+        {
+          "type": "TECH_STACK",
+          "value": "REQUIRED:c++",
+          "excerpt": "tech: REQUIRED:c++",
+          "extraction_method": "RULE",
+          "confidence": 1
+        }
+      ],
+      "technology_rule_results": {
+        "cpp": "PASS",
+        "go": "FAIL",
+        "go_cpp": "PASS",
+        "golang": "FAIL",
+        "java": "FAIL",
+        "rust": "FAIL"
+      }
+    },
+    {
+      "go_fit": "EXPLICIT_GO",
+      "id": "go-required-c-family-choice",
+      "source_kind": "synthetic-control",
+      "technologies": [
+        {
+          "type": "TECH_STACK",
+          "value": "REQUIRED:go+c|c++",
+          "excerpt": "tech: REQUIRED:go+c|c++",
+          "extraction_method": "RULE",
+          "confidence": 1
+        }
+      ],
+      "technology_rule_results": {
+        "cpp": "FAIL",
+        "go": "FAIL",
+        "go_cpp": "PASS",
+        "golang": "FAIL",
+        "java": "FAIL",
+        "rust": "FAIL"
+      }
+    }
+  ]
+}

@@ -296,6 +296,48 @@ func TestRadarAgentGroundingAndConfirmation(t *testing.T) {
 	}
 }
 
+func TestRadarAgentWatchProposalBeyondCatalogPageRemainsOwnerScoped(t *testing.T) {
+	ctx, s, q, u, _ := setup(t)
+	ids := []string{}
+	t.Cleanup(func() {
+		cleanup, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		for _, id := range ids {
+			if _, e := s.DB.ExecContext(cleanup, "DELETE FROM sources WHERE id=?", id); e != nil {
+				t.Error(e)
+			}
+		}
+	})
+	for i := 0; i < 101; i++ {
+		id := "0" + d.ID()[1:]
+		ids = append(ids, id)
+		must(t, s.SaveSource(ctx, d.Source{ID: id, Name: "Synthetic catalog filler", Type: "OFFICIAL", Trust: "OFFICIAL", Visibility: "GLOBAL"}))
+	}
+	id := "f" + d.ID()[1:]
+	ids = append(ids, id)
+	src := d.Source{ID: id, Name: "Synthetic beyond-page source", Type: "OFFICIAL", Trust: "OFFICIAL", Visibility: "GLOBAL", Adapter: "lever", Tenant: "fixture"}
+	must(t, s.SaveSource(ctx, src))
+	page, e := s.SourcesForUser(ctx, u)
+	must(t, e)
+	for _, row := range page {
+		if row.ID == id {
+			t.Fatal("fixture target unexpectedly inside first page")
+		}
+	}
+	tools := &agent.Tools{Store: s, Queue: q}
+	args := json.RawMessage(d.JSON(d.WatchInput{SourceID: id, CheckInterval: 3600, Enabled: true}))
+	if _, e = tools.Execute(ctx, u, "watch_source", args); e != nil {
+		t.Fatal("visible source beyond first page rejected", e)
+	}
+	src.Visibility = "PRIVATE"
+	src.OwnerID = d.ID()
+	_, e = s.DB.ExecContext(ctx, "UPDATE sources SET body=? WHERE id=?", d.JSON(src), src.ID)
+	must(t, e)
+	if _, e = tools.Execute(ctx, u, "watch_source", args); !errors.Is(e, p.ErrNotFound) {
+		t.Fatal("private foreign source proposal accepted", e)
+	}
+}
+
 func TestRadarRetryQueueAndRateLimit(t *testing.T) {
 	ctx, s, q, u, src := radarSetup(t)
 	_, task := scheduledWatch(t, ctx, s, u, src)

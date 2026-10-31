@@ -3,7 +3,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
 
-function harness({pending=['pending-a','pending-b'],failed=['failed-a','failed-b'],analyze,exportError,compare,exportRequest,evidenceReviews=0,durable=false,taskRuns=[],taskRequest,taskRead,bulkRequest,importRequest,paging=false,inventoryRequest,previewRequest,deadlineRequest}={}){
+function harness({pending=['pending-a','pending-b'],failed=['failed-a','failed-b'],analyze,exportError,compare,exportRequest,evidenceReviews=0,durable=false,taskRuns=[],taskRequest,taskRead,bulkRequest,importRequest,paging=false,inventoryRequest,previewRequest,deadlineRequest,preserveDialogs=false,searchRequest}={}){
   const stored=new Map(),elements=new Map(),requests=[],exports=[],decisionRequests=[],taskRequests=[],bulkRequests=[],importRequests=[],inventoryRequests=[],timers=[],navigations=[];
   const model={url:'https://model.example/chat',model:'test-model',api_key:'synthetic-test-key'};
   const modelKey=JSON.stringify([model.url,model.model,'server-model']);
@@ -13,10 +13,10 @@ function harness({pending=['pending-a','pending-b'],failed=['failed-a','failed-b
   const document={activeElement:null,querySelector:selector=>elements.get(selector.slice(1)),querySelectorAll:()=>[],getElementById:id=>elements.get(id)};
   let html='';
   const set=value=>{
-    html=value;elements.clear();
+    html=value;const previousElements=new Map(elements);elements.clear();
     for(const match of value.matchAll(/<([a-z][\w:-]*)\b([^>]*\bid="([^"]+)"[^>]*)>/gi)){
       const [,tag,attributes,id]=match;
-      elements.set(id,{id,tagName:tag.toUpperCase(),disabled:/\sdisabled(?:\s|>|$)/.test(attributes),checked:/\schecked(?:\s|>|$)/.test(attributes),value:attributes.match(/\bvalue="([^"]*)"/)?.[1]||'',isConnected:true,innerHTML:'',dataset:{},querySelector:()=>({onclick:null}),querySelectorAll:()=>[],getClientRects:()=>[],showModal(){this.open=true;},close(){this.open=false;this.onclose?.();}});
+      elements.set(id,preserveDialogs&&tag.toUpperCase()==='DIALOG'&&previousElements.has(id)?previousElements.get(id):{id,tagName:tag.toUpperCase(),disabled:/\sdisabled(?:\s|>|$)/.test(attributes),checked:/\schecked(?:\s|>|$)/.test(attributes),value:attributes.match(/\bvalue="([^"]*)"/)?.[1]||'',isConnected:true,innerHTML:'',dataset:{},querySelector:()=>({onclick:null}),querySelectorAll:()=>[],getClientRects:()=>[],showModal(){this.open=true;},close(){this.open=false;this.onclose?.();}});
     }
     for(const match of value.matchAll(/<select\b[^>]*id="([^"]+)"[^>]*>([\s\S]*?)<\/select>/gi)){
       const options=[...match[2].matchAll(/<option\b([^>]*)>([^<]*)<\/option>/gi)];
@@ -26,12 +26,13 @@ function harness({pending=['pending-a','pending-b'],failed=['failed-a','failed-b
     return true;
   };
   const context={document,TextEncoder,setTimeout:(fn,delay)=>{timers.push({fn,delay});return timers.length;},FormData:class{get(k){const el=elements.get({q:'match-search',company:'match-company',state:'match-state',tier:'match-tier',direction:'match-direction',workflow:'match-workflow',city:'match-city',query_mode:'match-query-mode',exclude:'match-exclude',sort:'match-sort',only_selected:'match-only-selected',show_ignored:'match-show-ignored',show_quota_full:'match-show-quota-full'}[k]);return el?.tagName==='INPUT'&&['only_selected','show_ignored','show_quota_full'].includes(k)?el.checked?'on':'':el?.value||'';}},clearTimeout:id=>{if(timers[id-1])timers[id-1].canceled=true;},crypto:{randomUUID:()=>'synthetic-task-request-00000000000'},sessionStorage:{getItem:k=>stored.get(k),setItem:(k,v)=>stored.set(k,v)},CampusModels:{bindUser(){},requestConfig:()=>model,available:()=>true,label:()=> '测试模型'},CampusMatchingChat:{readSelection:()=>new Set(),selectedRows:()=>[],pruneSelection(){},storeSelection(){}},console};
-  vm.createContext(context);vm.runInContext(fs.readFileSync(__dirname+'/ui.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/navigation.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching_decision.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching_tasks.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching_chat.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/inventory.js','utf8'),context);if(deadlineRequest)vm.runInContext(fs.readFileSync(__dirname+'/deadlines.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching.js','utf8'),context);
+  vm.createContext(context);vm.runInContext(fs.readFileSync(__dirname+'/ui.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/navigation.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching_decision.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching_tasks.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching_chat.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/inventory.js','utf8'),context);if(deadlineRequest)vm.runInContext(fs.readFileSync(__dirname+'/deadlines.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/job_search.js','utf8'),context);vm.runInContext(fs.readFileSync(__dirname+'/matching.js','utf8'),context);
   if(deadlineRequest)context.CampusUI.reconcile=(host,html)=>host.innerHTML=html;
   const api=async(path,method,body)=>{
+    if(path==='/api/jobs/search'&&searchRequest)return searchRequest(body);
     if(path==='/api/jobs')return snapshot.jobs.map(row=>structuredClone(row.job));
     if(path==='/api/radar/deadlines'&&deadlineRequest)return deadlineRequest();
-    if(path==='/api/profile/resume/capabilities')return {inventory_paging:paging,user_id:'alice',model:'server-model',model_available:true,durable_matching:durable};
+    if(path==='/api/profile/resume/capabilities')return {job_search:!!searchRequest,inventory_paging:paging,user_id:'alice',model:'server-model',model_available:true,durable_matching:durable};
     if(path.startsWith('/api/matching/tasks')){if(!method||method==='GET'){if(path==='/api/matching/tasks'&&taskRead)return taskRead();return structuredClone(path==='/api/matching/tasks'?taskRuns:taskRuns.find(v=>v.id===path.split('/')[4]));}taskRequests.push({path,body});if(taskRequest)return taskRequest(path,body);throw new Error('unexpected mutation');}
     if(path.startsWith('/api/matching/import/')){importRequests.push({path,body});if(importRequest)return importRequest(path,body);throw new Error('Unexpected chat import');}
     if(path==='/api/matching/inventory'){
@@ -741,4 +742,16 @@ test('browse tabs commit interrupted Chinese composition and keep selection plus
 test('search blur recovers an interrupted composition and does not leave a stale search timer after a tab change',async()=>{
  const h=harness({pending:[],failed:[]});h.snapshot.candidate.facts=[{kind:'ROLE',text:'后端开发'}];h.snapshot.jobs=[directionRow('backend','MATCH'),directionRow('marketing','UNRELATED')];await h.start();const search=h.elements.get('match-search');search.oncompositionstart();search.value='岗位';search.oninput({isComposing:true});search.onblur();
  h.elements.get('match-view-ALL').onclick();for(const timer of h.timers.filter(v=>v.delay===240&&!v.canceled))timer.fn();assert.match(h.html(),/id="match-view-ALL" aria-pressed="true"/);assert.match(h.html(),/data-match-job="marketing"/);assert.equal(h.navigation.readBrowse('alice').query,'岗位');
+});
+
+test('changing radar panels closes the previous dialog without its close callback canceling the new one',async()=>{
+ const h=harness({preserveDialogs:true});await h.start();h.elements.get('match-compare-company').onclick();const previous=h.elements.get('match-comparison-dialog');let closed=0;previous.close=()=>{closed++;previous.open=false;previous.onclose?.();};h.elements.get('match-open-settings').onclick();assert.equal(closed,1);assert.equal(h.elements.get('match-settings-dialog').open,true);assert.equal(!!h.elements.get('match-comparison-dialog')?.open,false);
+});
+test('confirmed analysis closes the reviewed dialog and preserves authorization for its one submission',async()=>{
+ const h=harness({pending:['job-a'],failed:[],preserveDialogs:true});await h.start();await h.elements.get('match-run').onclick();h.consent();const previous=h.elements.get('match-review-dialog');let closed=0;previous.close=()=>{closed++;previous.open=false;previous.onclose?.();};await h.review();assert.equal(closed,1);assert.equal(h.requests.length,1);assert.equal(h.elements.get('match-review-dialog').open,false);
+});
+
+test('JD search results survive the local title filter and show bounded fallback status',async()=>{
+ const h=harness({pending:['jd-only'],failed:[],searchRequest:async body=>{assert.equal(body.text,'Redis');return {job_ids:['jd-only'],mode:'basic',more:true};}});
+ await h.start({initialQuery:'Redis'});await new Promise(setImmediate);assert.match(h.html(),/当前使用基础搜索/);assert.match(h.html(),/结果较多/);assert.match(h.html(),/data-match-job="jd-only"/);
 });

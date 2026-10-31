@@ -1,0 +1,27 @@
+groups:
+  - name: campustrace
+    rules:
+      - alert: CampusTraceTargetDown
+        expr: up{job=~"campustrace-.*"} == 0
+        for: 1m
+        labels: {severity: warning}
+        annotations:
+          summary: CampusTrace 服务指标无法读取
+      - alert: CampusTraceQueuePressure
+        expr: campustrace_queue_outstanding / campustrace_queue_capacity > 0.8
+        for: 2m
+        labels: {severity: warning}
+        annotations:
+          summary: CampusTrace 后台队列持续接近容量
+      - alert: CampusTraceModelReviewRequired
+        expr: campustrace_model_pool_unknown > 0
+        for: 1m
+        labels: {severity: warning}
+        annotations:
+          summary: 存在需要核对的模型调用
+      - alert: CampusTraceDependencyMetricsUnavailable
+        expr: campustrace_model_pool_scrape_success == 0 or campustrace_queue_scrape_success == 0
+        for: 1m
+        labels: {severity: warning}
+        annotations:
+          summary: CampusTrace 数据库或队列指标暂不可用

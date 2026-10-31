@@ -181,7 +181,7 @@ func Eligibility(j d.Job, p d.Profile, es []d.Evidence, now time.Time) d.Eligibi
 		if typ == "TECH_STACK" {
 			hard := []d.Evidence{}
 			for _, v := range ev {
-				if strings.HasPrefix(v.Value, "REQUIRED:") {
+				if strings.HasPrefix(v.Value, "REQUIRED:") || strings.HasPrefix(v.Value, "UNCERTAIN:") {
 					hard = append(hard, v)
 				}
 			}
@@ -291,14 +291,25 @@ func Eligibility(j d.Job, p d.Profile, es []d.Evidence, now time.Time) d.Eligibi
 			}
 		case "TECH_STACK":
 			value := strings.TrimPrefix(e.Value, "REQUIRED:")
-			if !strings.HasPrefix(e.Value, "REQUIRED:") {
+			groups, valid := d.TechnologyExpression(value)
+			if strings.HasPrefix(e.Value, "UNCERTAIN:") {
+				unknown()
+			} else if !strings.HasPrefix(e.Value, "REQUIRED:") {
 				r.Result = "NOT_APPLICABLE"
 				r.Explanation = "Technology signal is not an explicit hard constraint"
-			} else if len(p.Skills) == 0 {
+			} else if !valid || len(p.Skills) == 0 {
 				unknown()
 			} else {
-				for _, part := range strings.Split(value, "+") {
-					if !alternatives(part, p.Skills) {
+				skills := map[string]bool{}
+				for _, skill := range p.Skills {
+					skills[d.TechnologyName(skill)] = true
+				}
+				for _, group := range groups {
+					matched := false
+					for _, name := range group {
+						matched = matched || skills[name]
+					}
+					if !matched {
 						fail()
 					}
 				}
@@ -317,21 +328,34 @@ func Eligibility(j d.Job, p d.Profile, es []d.Evidence, now time.Time) d.Eligibi
 }
 func GoFit(es []d.Evidence) string {
 	goSeen, other, flex := false, false, false
+	uncertain := false
 	count := 0
 	for _, e := range byType(es, "TECH_STACK") {
 		count++
-		v := strings.ToLower(e.Value)
-		has := strings.Contains(v, "golang") || contains(strings.FieldsFunc(v, func(r rune) bool { return r == ':' || r == '|' || r == '+' || r == ' ' }), "go")
+		if strings.HasPrefix(e.Value, "UNCERTAIN:") {
+			uncertain = true
+			continue
+		}
+		groups, valid := d.TechnologyExpression(strings.TrimPrefix(e.Value, "REQUIRED:"))
+		has, choice := false, false
+		if valid {
+			for _, group := range groups {
+				if contains(group, "go") {
+					has = true
+					choice = choice || len(group) > 1
+				}
+			}
+		}
 		if has {
 			goSeen = true
-			if strings.Contains(v, "|") {
+			if choice {
 				flex = true
 			}
 		} else if strings.HasPrefix(e.Value, "REQUIRED:") {
 			other = true
 		}
 	}
-	if goSeen && other {
+	if uncertain || goSeen && other {
 		return "CONFLICTING"
 	}
 	if flex {

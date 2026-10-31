@@ -15,15 +15,16 @@ import (
 // Only successful application tools can supply targets. A click re-reads the
 // destination with the current account and its current data.
 type NextAction struct {
-	Kind       string `json:"kind"`
-	Label      string `json:"label"`
-	Reason     string `json:"reason"`
-	Source     string `json:"source_tool"`
-	JobID      string `json:"job_id,omitempty"`
-	Company    string `json:"company,omitempty"`
-	DocumentID string `json:"document_id,omitempty"`
-	Topic      string `json:"topic,omitempty"`
-	RunID      string `json:"run_id,omitempty"`
+	Kind          string `json:"kind"`
+	Label         string `json:"label"`
+	Reason        string `json:"reason"`
+	Source        string `json:"source_tool"`
+	JobID         string `json:"job_id,omitempty"`
+	Company       string `json:"company,omitempty"`
+	DocumentID    string `json:"document_id,omitempty"`
+	Topic         string `json:"topic,omitempty"`
+	RunID         string `json:"run_id,omitempty"`
+	ApplicationID string `json:"application_id,omitempty"`
 }
 
 var actionID = regexp.MustCompile(`^[a-f0-9]{32}$`)
@@ -45,7 +46,7 @@ func NextActions(facts []any) []NextAction {
 	items := []candidate{}
 	seen := map[string]int{}
 	add := func(a NextAction, priority int) {
-		key := a.Kind + ":" + a.JobID + ":" + a.Company + ":" + a.DocumentID + ":" + a.Topic + ":" + a.RunID
+		key := a.Kind + ":" + a.JobID + ":" + a.Company + ":" + a.DocumentID + ":" + a.Topic + ":" + a.RunID + ":" + a.ApplicationID
 		if i, ok := seen[key]; ok {
 			if priority < items[i].priority {
 				items[i] = candidate{a, priority}
@@ -74,6 +75,40 @@ func NextActions(facts []any) []NextAction {
 			add(NextAction{Kind: kind, Label: label + actionText(title, 60), Reason: reason, Source: item.Tool, JobID: id}, priority)
 		}
 		switch item.Tool {
+		case "get_agent_todos":
+			var feed struct {
+				Items []struct {
+					Applications []d.ApplicationLink `json:"related_applications"`
+				} `json:"items"`
+			}
+			if json.Unmarshal(item.Data, &feed) != nil {
+				continue
+			}
+			for _, todo := range feed.Items[:min(len(feed.Items), 5)] {
+				for _, application := range todo.Applications[:min(len(todo.Applications), 1)] {
+					if actionID.MatchString(application.ID) {
+						add(NextAction{Kind: "dossier", ApplicationID: application.ID, Label: "核对变化关联的申请留档", Reason: "以当时留档为准核对本次投递，再决定是否调整准备。", Source: item.Tool}, 1)
+					}
+				}
+			}
+		case "get_application_dossier", "get_application_preparation":
+			var v struct {
+				ID        string    `json:"application_id"`
+				Context   string    `json:"context_key"`
+				Legacy    bool      `json:"legacy"`
+				Knowledge []rag.Hit `json:"knowledge"`
+			}
+			if json.Unmarshal(item.Data, &v) == nil && actionID.MatchString(v.ID) {
+				add(NextAction{Kind: "dossier", ApplicationID: v.ID, Label: "打开这次申请的档案与准备", Reason: "核对固定材料、已确认通知与面试安排。", Source: item.Tool}, 0)
+				if item.Tool == "get_application_dossier" && !v.Legacy && v.Context != "" {
+					add(NextAction{Kind: "application_preparation", ApplicationID: v.ID, Label: "按这次申请整理面试准备", Reason: "先打开准备任务，核对本次留档范围后再开始。", Source: item.Tool}, 1)
+				}
+				for _, hit := range v.Knowledge[:min(len(v.Knowledge), 2)] {
+					if actionID.MatchString(hit.DocumentID) {
+						add(NextAction{Kind: "knowledge_source", DocumentID: hit.DocumentID, Label: "阅读材料：" + actionText(hit.Title, 60), Reason: "阅读完整材料，核对面试准备引用的上下文。", Source: item.Tool}, 2)
+					}
+				}
+			}
 		case "compare_company_jobs":
 			var v struct {
 				Company string `json:"company"`

@@ -48,6 +48,8 @@ func TestHarnessReviewedPlansAndBoundaries(t *testing.T) {
 			in.Company = "腾讯"
 		case "topic":
 			in.Topic = "Redis"
+		case "application_id":
+			in.ApplicationID = strings.Repeat("a", 32)
 		case "job_id":
 			in.JobID = strings.Repeat("a", 32)
 		}
@@ -81,7 +83,7 @@ func TestContextSelectionAndAuthority(t *testing.T) {
 		t.Fatal(got)
 	}
 	defs := selectDefinitions("查看练习记录", "", (&Tools{}).Definitions())
-	if len(defs) != 2 {
+	if len(defs) != 1 {
 		t.Fatal(defs)
 	}
 	tools := &retryTools{defs: (&Tools{}).Definitions()}
