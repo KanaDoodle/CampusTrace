@@ -28,6 +28,7 @@ done
 mysql_port=$(docker port "$mysql_name" 3306/tcp | sed -n 's/^127.0.0.1://p')
 redis_port=$(docker port "$redis_name" 6379/tcp | sed -n 's/^127.0.0.1://p')
 dsn="journey:synthetic-test-only@tcp(127.0.0.1:$mysql_port)/campustrace_journey_demo?parseTime=true&loc=UTC"
+export MYSQL_TEST_ADMIN_DSN="root:synthetic-test-only@tcp(127.0.0.1:$mysql_port)/mysql?parseTime=true&loc=UTC"
 if [ "$mode" = scheduler-test ]; then
   export CAMPUS_INTEGRATION=1 CAMPUS_LIVE_SOURCES=0 MYSQL_DSN="$dsn" MYSQL_TEST_DSN="$dsn" REDIS_ADDR="127.0.0.1:$redis_port"
   docker exec "$mysql_name" mysql -uroot -psynthetic-test-only -e "CREATE DATABASE campustrace_migration_test; GRANT ALL ON campustrace_migration_test.* TO 'journey'@'%';"

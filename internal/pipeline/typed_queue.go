@@ -7,8 +7,9 @@ import (
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
 	p "github.com/KanaDoodle/CampusTrace/internal/persistence"
 	"github.com/redis/go-redis/v9"
+
 	"strconv"
-	"strings"
+
 	"time"
 )
 
@@ -320,4 +321,3 @@ func validLane(lane string) bool {
 	}
 	return false
 }
-func isSystemLane(lane string) bool { return strings.HasPrefix(lane, "SYSTEM_") }

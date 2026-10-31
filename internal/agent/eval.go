@@ -125,7 +125,17 @@ func RunEval() []EvalScore {
 		if budget == 0 {
 			budget = 8
 		}
-		r := &Runtime{Model: model, Tools: tools, MaxModels: models, MaxTools: budget, Deadline: 30 * time.Millisecond, ToolTimeout: 3 * time.Millisecond}
+		// Ordinary validation cases must not become timeout cases just because
+		// -race or another package preempted this goroutine. Keep short deadlines
+		// only for fixtures which deliberately wait for context cancellation.
+		deadline, toolTimeout := 2*time.Second, time.Second
+		if c.ModelWait {
+			deadline = 30 * time.Millisecond
+		}
+		if c.Slow {
+			toolTimeout = 3 * time.Millisecond
+		}
+		r := &Runtime{Model: model, Tools: tools, MaxModels: models, MaxTools: budget, Deadline: deadline, ToolTimeout: toolTimeout}
 		user := "eval-user"
 		if c.User == "-" {
 			user = ""

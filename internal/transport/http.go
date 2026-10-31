@@ -14,7 +14,6 @@ import (
 	"github.com/KanaDoodle/CampusTrace/internal/observability"
 	p "github.com/KanaDoodle/CampusTrace/internal/persistence"
 	"github.com/KanaDoodle/CampusTrace/internal/pipeline"
-	"github.com/KanaDoodle/CampusTrace/internal/practice"
 	"github.com/KanaDoodle/CampusTrace/internal/rag"
 	"github.com/KanaDoodle/CampusTrace/internal/resume"
 	"github.com/KanaDoodle/CampusTrace/internal/source"
@@ -32,7 +31,6 @@ import (
 )
 
 type API struct {
-	Practice         *practice.Client
 	Store            *p.Store
 	Queue            *pipeline.Queue
 	Auth             auth.Service
@@ -45,6 +43,7 @@ type API struct {
 	CustomModelSlots chan struct{}
 	MatchTasks       *MatchTaskRunner
 	ModelControl     *modelcontrol.Controller
+	Narrations       *agent.NarrationRunner
 }
 
 func (a *API) customModel(cfg modelconfig.Config) (*analysis.ChatClient, error) {

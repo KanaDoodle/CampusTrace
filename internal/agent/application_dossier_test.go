@@ -28,7 +28,7 @@ func TestApplicationDossierToolKeepsLegacyUnknownAndFrozenProvenance(t *testing.
 	}
 	facts := []any{map[string]any{"tool": "get_application_dossier", "data": data}}
 	actions := NextActions(facts)
-	if len(actions) != 1 || actions[0].Kind != "dossier" || actions[0].ApplicationID != id {
+	if len(actions) != 2 || actions[0].Kind != "dossier" || actions[0].ApplicationID != id || actions[1].Kind != "application_preparation" {
 		t.Fatal(actions)
 	}
 	if text := GroundedAnswer(facts); !strings.Contains(text, "frozen-key") || strings.Contains(text, "QPS") {

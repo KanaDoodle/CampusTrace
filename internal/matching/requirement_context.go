@@ -66,30 +66,6 @@ func restoreRequirementContext(items []Requirement, source string) []Requirement
 	return items
 }
 
-// Only repair an explicit conjunctive component list for a new comparison.
-// Completed chat judgments are not cloned across freshly created abilities.
-func splitAIRequirements(items []Requirement) []Requirement {
-	out := []Requirement{}
-	for _, r := range items {
-		parts := capabilityParts(r.Text)
-		level := knowledgeLevel.FindString(r.Text)
-		if r.Category == "QUALIFICATION" || r.Aspect == "SOFT" || r.GroupID != "" || alternativeCue.MatchString(r.Excerpt) || len(parts) < 2 || level == "" {
-			out = append(out, r)
-			continue
-		}
-		for _, part := range parts {
-			q := r
-			subject := "RAG "
-			if agentParts.MatchString(part) {
-				subject = "Agent "
-			}
-			q.Text = level + subject + part + "机制"
-			out = append(out, q)
-		}
-	}
-	return withoutCoveredUmbrellas(out)
-}
-
 // An explicit umbrella and all of its listed component conditions are one
 // description of the same capabilities, not extra scoring weight. Only omit
 // the umbrella when every named component has its own same-context item.

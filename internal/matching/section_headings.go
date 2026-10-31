@@ -33,16 +33,6 @@ func isSectionHeading(r Requirement, source string) bool {
 	return false
 }
 
-func omitSectionHeadings(items []Requirement, source string) []Requirement {
-	out := []Requirement{}
-	for _, r := range items {
-		if !isSectionHeading(r, source) {
-			out = append(out, r)
-		}
-	}
-	return out
-}
-
 func ignorableChatHeading(r Requirement, source string, c Candidate, matches []Match) bool {
 	if !isSectionHeading(r, source) {
 		return false

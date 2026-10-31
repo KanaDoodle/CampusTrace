@@ -91,7 +91,7 @@ func (DemoModel) Next(ctx context.Context, msgs []Message, defs []Definition) (R
 	case Has(q, "记忆", "记住了什么"):
 		add("search_memories", map[string]string{"query": ""})
 	case Has(q, "练习结果", "练习记录"):
-		add("get_practice_runs", struct{}{})
+		return Reply{Text: "Go 练习已移出求职主流程，旧运行记录仍可通过本人历史接口读取。面试复盘与知识点复习继续保留。"}, nil
 	case Has(q, "历史讨论", "讨论记录"):
 		add("get_agent_tasks", struct{}{})
 	case Has(q, "深度分析进度", "匹配任务", "分析任务") || Has(q, "深度分析") && Has(q, "失败", "进度", "还在", "完成"):

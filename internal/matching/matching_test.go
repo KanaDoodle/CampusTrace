@@ -27,7 +27,7 @@ func (m *fakeModel) Complete(_ context.Context, messages any, _ any) (json.RawMe
 func TestCandidateUsesOnlyConfirmedFactsAndMasksIdentifiers(t *testing.T) {
 	p := d.Profile{UserID: "private-account", Revision: 2, Degree: "MASTER", Languages: []string{"Go"}, Skills: []string{"Redis"}}
 	facts := []d.ProjectFact{{ID: "yes", Kind: "IMPLEMENTED", Verified: true, Claim: "张同学用 Go 实现重试，邮箱 test@example.com"}, {ID: "pending", Kind: "IMPLEMENTED", Claim: "未核对的项目"}, {ID: "plan", Kind: "PLANNED", Verified: true, Claim: "计划支持 Kafka"}, {ID: "limit", Kind: "LIMITATION", Verified: true, Claim: "没有真实生产流量"}}
-	c, err := CandidateFrom(p, facts, "张同学")
+	c, err := CandidateWithProjects(p, facts, nil, "张同学")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,22 +42,12 @@ func TestCandidateUsesOnlyConfirmedFactsAndMasksIdentifiers(t *testing.T) {
 	}
 	changed := facts
 	changed[0].Claim = "实现退避重试"
-	next, _ := CandidateFrom(p, changed, "")
+	next, _ := CandidateWithProjects(p, changed, nil, "")
 	if c.Hash() == next.Hash() {
 		t.Fatal("fact edits did not invalidate match")
 	}
 }
-func TestExtractionRejectsCrossJobEvidenceAndDuplicateJobs(t *testing.T) {
-	jobs := []JobText{{"a", "熟悉 Go"}, {"b", "熟悉 Java"}}
-	model := &fakeModel{output: map[string]any{"jobs": []any{map[string]any{"job_id": "a", "requirements": []Requirement{{Category: "REQUIRED", Text: "掌握 Go", Excerpt: "熟悉 Go", Confidence: 1}}}, map[string]any{"job_id": "b", "requirements": []Requirement{{Category: "REQUIRED", Text: "掌握 Java", Excerpt: "熟悉 Go", Confidence: 1}}}}}}
-	if _, err := Extract(context.Background(), model, jobs); err != ErrInvalid {
-		t.Fatal("cross-job excerpt accepted", err)
-	}
-	model.output = map[string]any{"jobs": []any{map[string]any{"job_id": "a", "requirements": []Requirement{}}, map[string]any{"job_id": "a", "requirements": []Requirement{}}}}
-	if _, err := Extract(context.Background(), model, jobs); err != ErrInvalid {
-		t.Fatal("duplicate accepted", err)
-	}
-}
+
 func TestCitationsCannotInventSkillsOrTurnLimitationsIntoAchievements(t *testing.T) {
 	c := Candidate{Facts: []Fact{{ID: "go", Kind: "LANGUAGE", Text: "Go"}, {ID: "limit", Kind: "LIMITATION", Text: "没有生产部署"}, {ID: "role", Kind: "ROLE", Text: "后端开发"}}}
 	reqs := []Requirement{{ID: "r", Category: "REQUIRED", Confidence: 1}}
@@ -93,26 +83,29 @@ func TestMissingEvidenceReducesCoverageAndSuppressesUnreliableScores(t *testing.
 func TestLocalScreeningRetainsUnknownRequirementsAndNormalizesCitiesAndRoles(t *testing.T) {
 	p := d.Profile{GraduationYear: 2027, Degree: "MASTER", TargetRoles: []string{"后端开发"}, PreferredCities: []string{"Shanghai"}, PreferredTypes: []string{"FULL_TIME"}, Languages: []string{"Go"}}
 	j := d.Job{Title: "服务端开发工程师", Locations: []string{"上海市"}, JobType: "FULL_TIME", UpdatedAt: time.Now()}
-	score, excluded := Preliminary(j, p, "岗位要求尚不明确", time.Now())
-	if excluded != "" || score != 50 {
-		t.Fatal(score, excluded)
-	}
-	_, excluded = Preliminary(j, p, "degree: PHD\ngraduation: 2027", time.Now())
-	if excluded == "" {
-		t.Fatal("explicit degree failure not identified")
-	}
-	_, excluded = Preliminary(j, p, "必须掌握 C++，Go 可作为加分项", time.Now())
-	if excluded != "" {
-		t.Fatal("local skill absence treated as hard failure")
-	}
-	_, excluded = Preliminary(j, p, "面向2026届、2027届毕业生", time.Now())
-	if excluded != "" {
-		t.Fatal("alternative graduation cohorts were truncated", excluded)
-	}
-	p.Degree = "BACHELOR"
-	_, excluded = Preliminary(j, p, "硕士及以上优先", time.Now())
-	if excluded != "" {
-		t.Fatal("preferred degree became a mandatory gate", excluded)
+	for _, tc := range []struct {
+		text, degree string
+		excluded     bool
+	}{
+		{"岗位要求尚不明确", "MASTER", false},
+		{"degree: PHD\ngraduation: 2027", "MASTER", true},
+		{"必须掌握 C++，Go 可作为加分项", "MASTER", false},
+		{"面向2026届、2027届毕业生", "MASTER", false},
+		{"硕士及以上优先", "BACHELOR", false},
+	} {
+		profile := p
+		profile.Degree = tc.degree
+		candidate, err := CandidateWithProjects(profile, nil, nil, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := NewLocalScreener(profile, candidate).Screen(j, tc.text)
+		if (got.ExcludedReason != "") != tc.excluded {
+			t.Fatal(tc, got)
+		}
+		if tc.text == "岗位要求尚不明确" && got.Score != 50 {
+			t.Fatal(got)
+		}
 	}
 	if RequirementKey("same JD", "model-a") == RequirementKey("same JD", "model-b") {
 		t.Fatal("model not in cache identity")

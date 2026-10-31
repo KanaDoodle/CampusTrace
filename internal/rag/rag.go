@@ -82,28 +82,6 @@ func Cosine(a, b []float64) float64 {
 	}
 	return dot / math.Sqrt(an*bn)
 }
-func Score(query string, c Chunk) Hit {
-	q := map[string]bool{}
-	for _, w := range Tokens(query) {
-		q[w] = true
-	}
-	words := map[string]bool{}
-	for _, w := range Tokens(c.Title + " " + c.Text) {
-		words[w] = true
-	}
-	n := 0
-	for w := range q {
-		if words[w] {
-			n++
-		}
-	}
-	keyword := 0.0
-	if len(q) > 0 {
-		keyword = float64(n) / float64(len(q))
-	}
-	cos := Cosine(Embed(query), c.Vector)
-	return Hit{Chunk: c, Score: 0.55*keyword + 0.45*cos, Cosine: cos, Keyword: keyword}
-}
 
 type Service struct {
 	Store    *p.Store

@@ -10,7 +10,7 @@ import (
 
 func headingChatFixture() (ChatJob, string, d.Profile, Candidate) {
 	p := d.Profile{Languages: []string{"Go"}}
-	c, _ := CandidateFrom(p, nil, "")
+	c, _ := CandidateWithProjects(p, nil, nil, "")
 	return ChatJob{Requirements: []Requirement{
 		{ID: "header", Category: "QUALIFICATION", Aspect: "TECHNICAL", Text: "专业能力：", Excerpt: "专业能力：", ClaimType: "MAJOR_REQUIREMENT", Confidence: .95},
 		{ID: "go", Category: "REQUIRED", Text: "熟悉 Go", Excerpt: "熟悉 Go", Confidence: 1},
@@ -28,10 +28,6 @@ func TestChatIgnoresStandaloneHeadingWithoutChangingRealJudgment(t *testing.T) {
 	}
 	if len(in.Requirements) != 2 || len(in.Matches) != 2 || in.Requirements[0].ClaimType != "MAJOR_REQUIREMENT" {
 		t.Fatal("input document was changed")
-	}
-	api := normalizeRequirements(in.Requirements, text)
-	if len(api) != 1 || api[0].ID != "go" {
-		t.Fatal(api)
 	}
 	for _, label := range []string{"专业领域：", "AI应用技能：", "职业素养：", "知识与技能要求：", "3、能力特质:"} {
 		r := Requirement{Category: "REQUIRED", Text: label, Excerpt: label, Confidence: 1}
@@ -75,7 +71,7 @@ func TestHeadingRepairNeverDropsConditionsOrFabricatedEvidence(t *testing.T) {
 	}
 	in, source, _, _ := headingChatFixture()
 	in.Requirements[0].Value = "计算机"
-	if isSectionHeading(in.Requirements[0], source) || len(omitSectionHeadings(in.Requirements, source)) != 2 {
+	if isSectionHeading(in.Requirements[0], source) {
 		t.Fatal("a qualification value was discarded as formatting")
 	}
 }
@@ -163,9 +159,5 @@ func TestChatRepairsOnlyLiteralUnrestrictedMajor(t *testing.T) {
 	r := Requirement{Category: "QUALIFICATION", ClaimType: "MAJOR_REQUIREMENT", Text: "专业不限", Excerpt: "专业不限于计算机"}
 	if repairUnrestrictedMajor(r).Value != "" {
 		t.Fatal("a partial quotation erased a major condition")
-	}
-	api := normalizeRequirements(in.Requirements, text)
-	if len(api) != 2 || api[1].Value != "不限" {
-		t.Fatal("API extraction lost literal major normalization", api)
 	}
 }

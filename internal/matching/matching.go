@@ -21,7 +21,7 @@ const MaxBatchText = 24000
 // Complete resume bullets need room for evidence IDs, profile fields and
 // project context as well as the original text. Comparison has its own budget.
 const MaxCandidateText = 64000
-const MaxComparisonText = 54000
+
 const MaxRequirements = 64
 
 var ErrInvalid = errors.New("unverifiable matching output")
@@ -61,10 +61,6 @@ type CandidateProject struct {
 	Name        string `json:"name"`
 	Description string `json:"description,omitempty"`
 	Bullets     []Fact `json:"bullets"`
-}
-
-func CandidateFrom(p d.Profile, facts []d.ProjectFact, maskName string) (Candidate, error) {
-	return CandidateWithProjects(p, facts, nil, maskName)
 }
 
 func CandidateWithProjects(p d.Profile, facts []d.ProjectFact, projects []d.Project, maskName string) (Candidate, error) {
@@ -166,10 +162,6 @@ func InputKey(requirementsKey, candidateHash string) string {
 	return d.Hash(requirementsKey + "\n" + candidateHash)
 }
 
-type JobText struct {
-	ID   string `json:"job_id"`
-	Text string `json:"text"`
-}
 type Requirement struct {
 	ID               string            `json:"id"`
 	Category         string            `json:"category"`
@@ -197,10 +189,7 @@ type Match struct {
 	Evidence      []Citation `json:"evidence"`
 	ReviewNote    string     `json:"review_note,omitempty"`
 }
-type MatchInput struct {
-	ID           string        `json:"job_id"`
-	Requirements []Requirement `json:"requirements"`
-}
+
 type Result struct {
 	Holistic           *HolisticAssessment `json:"holistic,omitempty"`
 	QualityVersion     string              `json:"quality_version,omitempty"`
@@ -259,83 +248,7 @@ func complete(ctx context.Context, m resume.Completer, prompt string, input any,
 	}
 	return nil
 }
-func Extract(ctx context.Context, m resume.Completer, jobs []JobText) (map[string]Requirements, error) {
-	if len(jobs) == 0 || len(jobs) > MaxBatch {
-		return nil, ErrCapacity
-	}
-	total := 0
-	for _, j := range jobs {
-		total += len(j.Text)
-	}
-	if total > MaxBatchText {
-		return nil, ErrCapacity
-	}
-	var out struct {
-		Jobs []struct {
-			ID        string        `json:"job_id"`
-			Items     []Requirement `json:"requirements"`
-			Truncated bool          `json:"truncated,omitempty"`
-		} `json:"jobs"`
-	}
-	err := complete(ctx, m, extractionPrompt, jobs, &out)
-	if err != nil {
-		return nil, err
-	}
-	texts := map[string]string{}
-	for _, j := range jobs {
-		if _, ok := texts[j.ID]; ok {
-			return nil, ErrInvalid
-		}
-		texts[j.ID] = j.Text
-	}
-	result := map[string]Requirements{}
-	for _, j := range out.Jobs {
-		text, ok := texts[j.ID]
-		if !ok {
-			return nil, ErrInvalid
-		}
-		if _, ok = result[j.ID]; ok {
-			return nil, ErrInvalid
-		}
-		if j.Truncated {
-			return nil, ErrCapacity
-		}
-		if len(j.Items) > MaxRequirements {
-			return nil, ErrInvalid
-		}
-		if err := validateGroups(j.Items); err != nil {
-			return nil, err
-		}
-		j.Items = normalizeRequirements(j.Items, text)
-		j.Items = RepairQualifications(j.Items, text)
-		if len(j.Items) > MaxRequirements {
-			return nil, ErrCapacity
-		}
-		if err := validateGroups(j.Items); err != nil {
-			return nil, err
-		}
-		seen := map[string]bool{}
-		for i, r := range j.Items {
-			if err := ValidateRequirement(r, text); err != nil {
-				return nil, err
-			}
-			r.ID = d.Hash(r.Category + "\n" + r.Text + "\n" + r.Excerpt + "\n" + r.Aspect + "\n" + r.GroupID)[:24]
-			if seen[r.ID] {
-				return nil, ErrInvalid
-			}
-			seen[r.ID] = true
-			j.Items[i] = r
-		}
-		if j.Items == nil {
-			j.Items = []Requirement{}
-		}
-		result[j.ID] = Requirements{j.Items}
-	}
-	if len(result) != len(texts) {
-		return nil, ErrInvalid
-	}
-	return result, nil
-}
+
 func ValidateRequirement(r Requirement, text string) error {
 	if r.GraduationWindow != nil {
 		w := graduationWindow(r.GraduationWindow.Excerpt)
@@ -372,76 +285,7 @@ func ValidateRequirement(r Requirement, text string) error {
 	}
 	return nil
 }
-func Compare(ctx context.Context, m resume.Completer, c Candidate, jobs []MatchInput) (map[string][]Match, error) {
-	if len(jobs) == 0 || len(jobs) > MaxBatch {
-		return nil, ErrCapacity
-	}
-	if size := ComparisonBytes(c, jobs); size > MaxComparisonText {
-		return nil, &CapacityError{Reason: "COMPARISON_BYTES", Actual: size, Limit: MaxComparisonText}
-	}
-	var out struct {
-		Jobs []struct {
-			ID      string            `json:"job_id"`
-			Matches []comparisonMatch `json:"matches"`
-		} `json:"jobs"`
-	}
-	err := complete(ctx, m, comparisonPrompt, comparisonRequest{candidateWithExcerpts(c), jobs}, &out)
-	if err != nil {
-		return nil, err
-	}
-	inputs := map[string][]Requirement{}
-	positions := map[string]int{}
-	for i, j := range jobs {
-		if _, exists := inputs[j.ID]; exists {
-			return nil, invalid("INPUT_JOB_DUPLICATE", 0)
-		}
-		inputs[j.ID] = j.Requirements
-		positions[j.ID] = i + 1
-	}
-	result := map[string][]Match{}
-	for _, j := range out.Jobs {
-		reqs, ok := inputs[j.ID]
-		if !ok {
-			return nil, invalid("JOB_UNKNOWN", 0)
-		}
-		if _, ok = result[j.ID]; ok {
-			return nil, &ValidationError{Reason: "JOB_DUPLICATE", JobIndex: positions[j.ID]}
-		}
-		// Ignore model judgments about location/type preferences. These are computed
-		// from the supplied saved values; validate the rewritten result afterward.
-		// Missing, unknown or duplicate requirement IDs still fail validation.
-		matches := make([]Match, 0, len(j.Matches))
-		for _, m := range j.Matches {
-			matches = append(matches, Match{RequirementID: m.RequirementID, Result: m.Result, Explanation: m.Explanation, Evidence: []Citation{}})
-		}
-		matches = comparePreferences(c, reqs, matches)
-		if err := resolveComparisonCitations(c, reqs, j.Matches, matches); err != nil {
-			var validation *ValidationError
-			if errors.As(err, &validation) {
-				validation.JobIndex = positions[j.ID]
-			}
-			return nil, err
-		}
-		// Validate every ID, explanation and exact excerpt before withdrawing any
-		// semantic misuse, so a bad citation cannot conceal another invalid field.
-		if err := validateMatches(c, reqs, matches, false); err != nil {
-			var validation *ValidationError
-			if errors.As(err, &validation) {
-				validation.JobIndex = positions[j.ID]
-			}
-			return nil, err
-		}
-		withdrawInvalidAbilityEvidence(c, reqs, matches)
-		if err := ValidateMatches(c, reqs, matches); err != nil {
-			return nil, err
-		}
-		result[j.ID] = matches
-	}
-	if len(result) != len(inputs) {
-		return nil, &ValidationError{Reason: "JOB_COUNT", Expected: len(inputs), Actual: len(result)}
-	}
-	return result, nil
-}
+
 func ValidateMatches(c Candidate, reqs []Requirement, matches []Match) error {
 	return validateMatches(c, reqs, matches, true)
 }
@@ -592,15 +436,4 @@ func Normalize(s string) string {
 		s = v
 	}
 	return d.CanonicalCity(s)
-}
-
-// Preliminary remains a compatibility entry point. Snapshot screening prepares
-// project evidence once with NewLocalScreener; time only breaks ordering ties.
-func Preliminary(j d.Job, p d.Profile, text string, _ time.Time) (float64, string) {
-	candidate, err := CandidateFrom(p, nil, "")
-	if err != nil {
-		return 0, "求职资料超出初筛容量，请精简后重试"
-	}
-	v := NewLocalScreener(p, candidate).Screen(j, text)
-	return v.Score, v.ExcludedReason
 }

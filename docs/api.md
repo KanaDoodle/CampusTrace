@@ -261,3 +261,10 @@ Agent execution responses include server-computed `can_resume` and optional `lea
 问答结果与 `GET /api/agent/executions/{id}`、任务开始/继续响应包含可选 `next_actions`。每项含 `kind`、`label`、`reason`、`source_tool` 及适用的 `job_id`、`company`、`document_id`、`topic` 或 `run_id`，最多六项。它们是程序从成功业务工具观察中生成的只读导航提示，没有外部 URL、执行指令或写操作确认编号；进入目标页面时按当前账号重新查询。失效或取消的常用任务不生成提示，列表摘要不携带完整观察与提示。
 
 Job search synchronization, internal read/write credentials, bounded fallback and deployment: [Search service](search-service.md). Search requests cannot override user, dataset or index generation. They do not call models.
+
+
+## Frozen application preparation and retired practice
+
+`POST /api/agent/executions` accepts `skill_id: "application-prep"`, owned `application_id`, and a fresh `request_key`; it rejects mixed job/company/topic scope. The fixed task calls `get_application_preparation`, using frozen application materials and same-application reviews. Enabled retrieval services may be called; matching/chat generation is not started. Its `next_actions` can open the dossier or full owned source note. No-snapshot legacy applications return unknown, without current-material substitution or retrieval.
+
+`GET /api/practice/capabilities` returns disabled/retired with history available. Authenticated `GET /api/practice/runs` remains owner-scoped and does not modify history. `POST /api/practice/runs` returns HTTP 410 `PRACTICE_RETIRED` without executing or writing. There is no practice tool in the current Agent/MCP definitions.

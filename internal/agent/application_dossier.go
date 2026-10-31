@@ -27,6 +27,9 @@ func applicationDossierObservation(v p.ApplicationDossier, t *Tools) map[string]
 	}
 	notices := []any{}
 	for _, n := range v.Notices {
+		if n.Confirmed == nil {
+			continue
+		}
 		notices = append(notices, map[string]any{"notice_id": n.ID, "confirmation": n.Confirmed, "text": t.memoryText(n.Parsed.Text)})
 	}
 	out["confirmed_notices"] = notices

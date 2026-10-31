@@ -39,10 +39,11 @@ func (r SkillRunner) Start(ctx context.Context, user string, in SkillInput) (p.A
 			return p.AgentExecution{}, e
 		}
 	}
-	identity, rev, e := r.Store.AgentExecutionIdentity(ctx, user, in.Company, in.JobID, in.SkillID)
+	identity, rev, e := r.Store.AgentExecutionIdentity(ctx, user, in.Company, in.ScopeID(), in.SkillID)
 	if e != nil {
 		return p.AgentExecution{}, e
 	}
+	sourceIdentity := identity
 	identity = r.binding(identity)
 	s, _ := FindSkill(in.SkillID)
 	calls := []p.ExecutionCall{}
@@ -54,6 +55,7 @@ func (r SkillRunner) Start(ctx context.Context, user string, in SkillInput) (p.A
 	}
 	input := json.RawMessage(d.JSON(in))
 	v := p.AgentExecution{SkillID: s.ID, SkillVersion: s.Version, HarnessVersion: HarnessVersion, Input: input, RequestKey: in.RequestKey, Fingerprint: d.Hash(string(input)), Identity: identity, MemoryRevision: rev, Calls: calls}
+	v.SourceIdentity = sourceIdentity
 	v, e = r.Store.BeginAgentExecution(ctx, user, v)
 	if e != nil {
 		return v, e
@@ -101,7 +103,7 @@ func (r SkillRunner) Resume(parent context.Context, user, id string) (v p.AgentE
 			return v, e
 		}
 	}
-	identity, rev, e := r.Store.AgentExecutionIdentity(ctx, user, in.Company, in.JobID, in.SkillID)
+	identity, rev, e := r.Store.AgentExecutionIdentity(ctx, user, in.Company, in.ScopeID(), in.SkillID)
 	if e != nil {
 		return v, e
 	}
@@ -113,6 +115,10 @@ func (r SkillRunner) Resume(parent context.Context, user, id string) (v p.AgentE
 		v.Observations = []p.ExecutionObservation{}
 		v.Answer = "资料、来源或执行版本已变化。旧检查点未复用，请用当前资料发起新任务。"
 		return v, nil
+	}
+	v.SourceIdentity, _, e = r.Store.AgentExecutionIdentity(ctx, user, in.Company, in.ScopeID(), in.SkillID)
+	if e != nil {
+		return v, e
 	}
 	allowed := map[string]bool{}
 	for _, name := range skill.Tools {
@@ -163,7 +169,7 @@ func (r SkillRunner) Resume(parent context.Context, user, id string) (v p.AgentE
 		}
 	}
 	facts := []any{}
-	finalIdentity, finalRevision, e := r.Store.AgentExecutionIdentity(ctx, user, in.Company, in.JobID, in.SkillID)
+	finalIdentity, finalRevision, e := r.Store.AgentExecutionIdentity(ctx, user, in.Company, in.ScopeID(), in.SkillID)
 	if e != nil {
 		return v, e
 	}

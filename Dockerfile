@@ -13,8 +13,7 @@ RUN go build -trimpath -o /out/api ./cmd/api && \
     go build -trimpath -o /out/notify ./cmd/notify && \
     go build -trimpath -o /out/events ./cmd/events && \
     go build -trimpath -o /out/analysis ./cmd/analysis && \
-    go build -trimpath -o /out/campustrace ./cmd/campustrace && \
-    go build -trimpath -o /out/sandbox-runner ./cmd/sandbox-runner
+    go build -trimpath -o /out/campustrace ./cmd/campustrace
 
 FROM scratch
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt

@@ -12,11 +12,12 @@ func TestHybrid(t *testing.T) {
 	if math.Abs(Cosine([]float64{1, 0}, []float64{1, 0})-1) > 1e-9 {
 		t.Fatal("cosine")
 	}
-	a := Chunk{Title: "Redis Streams", Text: "PEL ACK XAUTOCLAIM pending recovery"}
+	a := Chunk{ID: "redis", Title: "Redis Streams", Text: "PEL ACK XAUTOCLAIM pending recovery"}
 	a.Vector = Embed(a.Title + " " + a.Text)
-	b := Chunk{Title: "SQL joins", Text: "nested loop merge join"}
+	b := Chunk{ID: "sql", Title: "SQL joins", Text: "nested loop merge join"}
 	b.Vector = Embed(b.Title + " " + b.Text)
-	if Score("Redis pending", a).Score <= Score("Redis pending", b).Score {
+	hits := KeywordRank("Redis pending", []Chunk{b, a})
+	if len(hits) == 0 || hits[0].ID != a.ID {
 		t.Fatal("irrelevant retrieval")
 	}
 	if len(Tokens("面试复盘")) != 3 {

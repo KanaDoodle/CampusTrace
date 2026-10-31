@@ -74,7 +74,7 @@ func selectDefinitions(question, skillID string, all []Definition) []Definition 
 	case Has(question, "记忆", "记住了什么", "记住：", "记住:"):
 		names = []string{"search_memories", "remember_memory"}
 	case Has(question, "练习结果", "练习记录"):
-		names = []string{"get_practice_runs", "get_weak_topics"}
+		names = []string{"get_weak_topics"}
 	case Has(question, "历史讨论", "讨论记录"):
 		names = []string{"get_agent_tasks"}
 	case Has(question, "MCP", "外部资料", "外部文档"):

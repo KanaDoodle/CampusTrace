@@ -18,6 +18,8 @@ __debug_bin*
 *.db
 *.sqlite
 *.sqlite3
+__pycache__/
+*.py[cod]
 /docs/*
 !/docs/api.md
 !/docs/dependency-audit.md
@@ -43,8 +45,12 @@ __debug_bin*
 !/docs/search-resilience.md
 !/docs/engineering-evidence.md
 !/docs/job-events.md
+!/docs/rpc-agent-m4.md
+!/docs/stream-sdk.md
+!/docs/model-backends.md
 !/docs/verification/
 /docs/verification/*
+!/docs/verification/cohesion-20261031/
 !/docs/verification/job-events-20261031/
 !/docs/verification/depth-20261031/
 !/docs/images/

@@ -1,0 +1,11 @@
+{
+  "status": "PASS",
+  "archive_commit": "8556e2a8aee3a7668108ed743cc12671196c430b",
+  "commands": [
+    "GOWORK=off go build -mod=readonly ./...",
+    "GOWORK=off go test ./internal/practice ./internal/inferencebridge"
+  ],
+  "execution": "detached temporary worktree; removed after verification",
+  "models": "not called",
+  "published": "not pushed"
+}

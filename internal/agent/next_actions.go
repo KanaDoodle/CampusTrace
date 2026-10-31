@@ -75,12 +75,23 @@ func NextActions(facts []any) []NextAction {
 			add(NextAction{Kind: kind, Label: label + actionText(title, 60), Reason: reason, Source: item.Tool, JobID: id}, priority)
 		}
 		switch item.Tool {
-		case "get_application_dossier":
+		case "get_application_dossier", "get_application_preparation":
 			var v struct {
-				ID string `json:"application_id"`
+				ID        string    `json:"application_id"`
+				Context   string    `json:"context_key"`
+				Legacy    bool      `json:"legacy"`
+				Knowledge []rag.Hit `json:"knowledge"`
 			}
 			if json.Unmarshal(item.Data, &v) == nil && actionID.MatchString(v.ID) {
 				add(NextAction{Kind: "dossier", ApplicationID: v.ID, Label: "打开这次申请的档案与准备", Reason: "核对固定材料、已确认通知与面试安排。", Source: item.Tool}, 0)
+				if item.Tool == "get_application_dossier" && !v.Legacy && v.Context != "" {
+					add(NextAction{Kind: "application_preparation", ApplicationID: v.ID, Label: "按这次申请整理面试准备", Reason: "先打开准备任务，核对本次留档范围后再开始。", Source: item.Tool}, 1)
+				}
+				for _, hit := range v.Knowledge[:min(len(v.Knowledge), 2)] {
+					if actionID.MatchString(hit.DocumentID) {
+						add(NextAction{Kind: "knowledge_source", DocumentID: hit.DocumentID, Label: "阅读材料：" + actionText(hit.Title, 60), Reason: "阅读完整材料，核对面试准备引用的上下文。", Source: item.Tool}, 2)
+					}
+				}
 			}
 		case "compare_company_jobs":
 			var v struct {

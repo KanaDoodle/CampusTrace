@@ -10,16 +10,6 @@ CampusTrace 就是为这些小麻烦做的。它是一个用 **Go** 写的个人
 
 后端工程设计与证据可以从[三条问题主线](docs/engineering-evidence.md)开始看：岗位事件可靠投递、Search 故障隔离、跨 API 付费模型控制。每条都提供故障窗口、实现边界与隔离复现命令；实验条件和未验证能力单独说明。
 
-后台任务现按类型和用户／系统归属隔离，岗位分析按批次公平分配执行名额，带排队期限与过载反馈。设计、升级顺序、合成负载实测和复现方法见[可靠任务调度](docs/task-scheduling.md)。
-
-匹配模型调用新增跨 API 的共享许可、次数额度和未知结果核对，已完成双进程与强杀验收，见[模型执行控制](docs/model-control.md)。排障时可用 `make observability` 启动 OpenTelemetry、Prometheus / Grafana / Tempo，查看跨服务耗时和预置面板；已有数据升级前先备份。普通启动仍保持轻量，详见[完整观测栈](docs/operations.md#可选的完整观测栈)。
-
-岗位关键词搜索现可独立部署：`make search-stack` 启动 Go Search + OpenSearch，搜索 JD 中的技术要求；故障或索引追平期间回退到 Core。Core 和已有 Analysis 保留原职责，详见[Search 服务](docs/search-service.md)。
-
-`make performance` 可在独立合成环境运行 Search 的 k6 端到端压测，覆盖正常查询、基础回退、索引重建和并发更新；同机参考／候选版本的性能回归与证据说明见[性能验证](docs/performance.md#search-的-k6-端到端性能回归2026-10-31)。
-
-岗位变更现可通过 Kafka 分发：`make kafka-stack` 启动 Search 与站内通知的独立消费组；MySQL 事务事件、消费回执与版本检查支持故障恢复和去重，Redis 继续负责原有任务调度。使用 `make kafka-test` / `make kafka-stack-test` 运行真实依赖验收，详见[岗位事件](docs/job-events.md)。
-
 ```text
 关注招聘来源 → 本地筛选 → 挑选岗位深入分析 → 安排投递 → 面试与复盘
 ```
@@ -148,6 +138,8 @@ CLI 使用固定的 `campustrace` Compose 项目名。备份和数据都留在�
 
 「**模型设置**」内置 OpenAI 和 DeepSeek 预设。填入自己的 API 密钥，再选模型即可；也可以使用部署者配置的服务器默认模型。
 
+经核对依据后生成的流式说明使用服务器配置的 `LLM_URL / LLM_MODEL / LLM_API_KEY`，默认直连模型 API，无需部署 vLLM 或安装未发布 RPC SDK。流式展示、停止生成、刷新读取和中断恢复继续保留。日常配置与验收见[模型接入](docs/model-backends.md)；RPC/vLLM 与 Go 执行练习保存在[独立实验归档](experiments/README.md)。
+
 - **原始简历文件和原始文字不上传。** 简历导入只发送你确认过的脱敏预览；自动遮盖可能漏项，请检查姓名、联系方式及项目中的敏感文字。
 - **保存后的求职资料和项目事实会写入 CampusTrace 的 MySQL。** 默认部署时，数据库在本机 Docker 中。
 - **网页 API 密钥按账号保存在当前浏览器。** 本地存储未加密；调用时会经 CampusTrace 服务转发给对应模型提供商，不写入项目数据库。
@@ -163,11 +155,11 @@ CLI 使用固定的 `campustrace` Compose 项目名。备份和数据都留在�
 
 展开「我的记忆与讨论记录」，可以保存、修改和遗忘偏好与决定，也能继续之前的讨论。想让它记住事情，可以说“记住：主投 Go 后端，优先上海”，核对预览后再确认。记忆不会被当成能力证明；资料或记忆改了，旧摘要就不再作为当前依据。
 
-还有可选的「Go 练习」：运行 `./campustrace practice start` 后，粘贴实现和测试，主动运行验证自己的理解。练习在有时间、资源和网络限制的独立容器中执行，结果能保存、重新载入。使用方式与边界见 [资料、记忆与练习说明](docs/agent-workspace.md)。
+在「投递进展 → 申请档案与准备」点击「按本次留档准备面试」，会填入这次申请，核对后主动开始任务。任务结合当时的 JD、材料与同一申请的真实面试复盘检索笔记；当前简历或 JD 改动不会替换当时留档。结果可直接打开完整资料。旧申请缺少留档时会明确提示，不补造历史。
 
-常用任务可以直接选择“同公司岗位取舍”“岗位面试准备”“复盘与复习”或“今天的求职待办”。每一步保存进度，中断后继续剩下的查询。还可开启招聘变化提醒、连接自己选定的 MCP 学习资料，并为问答设置模型分工和调用预算。具体用法见 [求职助手说明](docs/agent-harness.md)。
+常用任务可以直接选择“这次申请的面试准备”“同公司岗位取舍”“岗位面试准备”“复盘与复习”或“今天的求职待办”。每一步保存进度，中断后继续剩下的查询。招聘变化提醒统一放在「今日待办」，站内提醒历史也从这里查看。还可连接自己选定的 MCP 学习资料，并为问答设置模型分工和调用预算。具体用法见 [求职助手说明](docs/agent-harness.md)。
 
-复习笔记可以放到「更多工具 → 学习资料」。默认本地关键词搜索，也可预览确认后建立语义索引，用自己的话找资料；重排序按需启用。检索模型在「模型设置」单独配置，密钥留在浏览器。用法与效果检查见 [学习资料检索](docs/knowledge-retrieval.md)。
+复习笔记可以放到「更多工具 → 面试资料」。默认本地关键词搜索，也可预览确认后建立语义索引，用自己的话找资料；重排序按需启用。检索模型在「模型设置」单独配置，密钥留在浏览器。用法与效果检查见 [学习资料检索](docs/knowledge-retrieval.md)。
 
 未配置外部模型时，提供一个能力有限的离线路由器，方便查看工具流程。它不是完整的聊天大模型。
 
@@ -185,6 +177,17 @@ CLI 使用固定的 `campustrace` Compose 项目名。备份和数据都留在�
 | 出了问题，要知道卡在哪一步 | 请求编号、任务阶段事件、Prometheus 指标，以及可复现的性能测量 |
 | 搜索与通知不能相互阻塞 | Kafka 独立消费组、事务事件 Outbox、至少一次投递与幂等回执，保留 Redis 任务调度 |
 | 分析服务需要独立运行 | 使用 [KanaRPC-Go](https://github.com/KanaDoodle/KanaRPC-Go) 的公开接口，配合 etcd 发现两个 Analysis 实例 |
+
+日常使用以 `./campustrace start` 为入口。扩展组件与工程验收按需运行：
+
+| 入口 | 用途与说明 |
+| --- | --- |
+| `make search-stack` | 独立全文检索：[Search 服务](docs/search-service.md) |
+| `make kafka-stack` | 搜索与通知独立消费：[岗位事件](docs/job-events.md) |
+| `make observability` | Trace、指标和面板：[监控与排障](docs/operations.md#可选的完整观测栈) |
+| `make performance` | 隔离合成环境的 k6 回归：[性能验证](docs/performance.md) |
+
+任务公平调度与跨 API 模型许可分别见[任务调度](docs/task-scheduling.md)和[模型执行控制](docs/model-control.md)。
 
 招聘观察链路把「抓到了什么」「原文依据是什么」「规则如何判断」分开保存。页面还能访问，不会仅凭这一点就说岗位仍开放；已有投递也不会因为岗位关闭而自动终止。
 
@@ -231,6 +234,10 @@ make verify-boundary
 | [监控与排障](docs/operations.md) | 指标、失败阶段与请求编号 |
 | [备份与恢复](docs/recovery.md) | 备份验证、隔离恢复与历史清理 |
 | [Agent 评测](docs/agent-evaluation.md) | 评测题集、运行时检查与结果说明 |
+| [模型接入与依据说明](docs/model-backends.md) | API 流式说明、取消、恢复与隔离浏览器验收 |
+| [功能收束与申请准备验收](docs/verification/cohesion-20261031/README.md) | 精简范围、448 项前端回归、隔离 SQL 与完整浏览器链路 |
+| [独立实验归档](experiments/README.md) | Go 练习与 RPC/vLLM 的源码快照、恢复方式和历史边界 |
+| [日常 API 与 RPC 实验后端](docs/model-backends.md) | 默认模型 API、流式任务、取消恢复及可选 vLLM 实验 |
 
 ## 目前还没学会的事 (´・ω・`)
 

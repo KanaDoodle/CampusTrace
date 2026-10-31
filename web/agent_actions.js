@@ -7,6 +7,7 @@ const text=(v,n)=>typeof v==='string'&&v.trim()&&new TextEncoder().encode(v).len
 function destination(v){
  if(!v||typeof v!=='object')return null;
  switch(v.kind){
+ case 'application_preparation':return id(v.application_id)?{page:'agent',query:{skill:{id:'application-prep',value:v.application_id}}}:null;
  case 'dossier':return id(v.application_id)?{page:'dossier',query:{applicationID:v.application_id}}:null;
  case 'job':return id(v.job_id)?{page:'matching',query:{jobID:v.job_id}}:null;
  case 'preparation':return id(v.job_id)?{page:'matching',query:{jobID:v.job_id,view:'preparation'}}:null;
@@ -32,6 +33,7 @@ function restartInput(v){
  case 'daily-review':return {id:v.skill_id,value:''};
  case 'review-plan':return text(input.topic,500)?{id:v.skill_id,value:input.topic}:null;
  case 'company-choice':return text(input.company,200)?{id:v.skill_id,value:input.company}:null;
+ case 'application-prep':return id(input.application_id)?{id:v.skill_id,value:input.application_id}:null;
  case 'interview-prep':return id(input.job_id)?{id:v.skill_id,value:input.job_id}:null;
  default:return null;
  }
@@ -43,7 +45,18 @@ function bindTargets(form,{api,active=()=>true}){
  function setValue(v){value.value=v;value.dispatchEvent(new Event('input',{bubbles:true}));}
  function choose(job){setValue(job.id);box.querySelector('[data-target-selected]').innerHTML=`<strong></strong><button type="button" class="text-btn">重新选择</button>`;box.querySelector('[data-target-selected] strong').textContent=job.company+' · '+job.title;box.querySelector('[data-target-results]').replaceChildren();box.querySelector('[data-target-selected] button').onclick=()=>{setValue('');box.querySelector('[data-target-selected]').replaceChildren();box.querySelector('[data-target-search]').focus();};}
  async function activate(next){
-  kind=next;const current=++revision;root.clearTimeout(timer);box.replaceChildren();box.hidden=kind!=='job_id';value.type=kind==='job_id'?'hidden':'text';value.removeAttribute('list');
+  kind=next;const current=++revision;root.clearTimeout(timer);box.replaceChildren();box.hidden=!['job_id','application_id'].includes(kind);value.type=['job_id','application_id'].includes(kind)?'hidden':'text';value.removeAttribute('list');
+  if(kind==='application_id'){
+   box.innerHTML='<label>选择这次申请<select data-application-target><option value="">正在读取本人申请…</option></select></label><p class="meta">使用这次申请留档的 JD 和材料；没有历史快照时会明确提示。</p>';
+   const select=box.querySelector('[data-application-target]');
+   try{let rows=await api('/api/applications');if(!active()||current!==revision||kind!=='application_id')return;
+    if(id(value.value)&&!rows.some(v=>v.id===value.value)){const target=await api('/api/applications/'+encodeURIComponent(value.value));if(!active()||current!==revision||kind!=='application_id')return;rows=[target,...rows];}
+    select.replaceChildren();const blank=document.createElement('option');blank.value='';blank.textContent='请选择要准备的申请';select.append(blank);
+    for(const row of rows){if(!id(row.id))continue;const option=document.createElement('option');option.value=row.id;option.textContent=(row.job?.company||'历史申请')+' · '+(row.job?.title||row.id.slice(-8))+' · '+(row.current_state||'');select.append(option);}
+    select.value=value.value||'';if(select.value!==value.value)setValue('');select.onchange=()=>setValue(select.value);
+   }catch{if(active()&&current===revision){select.replaceChildren();const option=document.createElement('option');option.value='';option.textContent='申请读取失败，请重新选择此任务重试';select.append(option);setValue('');}}
+   return;
+  }
   if(kind==='company'){
    try{if(!companies)companies=await api('/api/matching/company-catalog');if(!active()||current!==revision)return;const list=document.createElement('datalist');list.id='agent-company-options';for(const item of companies){const option=document.createElement('option');option.value=typeof item==='string'?item:item.company||'';list.append(option);}box.append(list);value.setAttribute('list',list.id);}catch{/* Company text remains usable when the optional list is unavailable. */}return;
   }

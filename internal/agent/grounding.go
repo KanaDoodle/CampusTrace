@@ -25,6 +25,8 @@ func GroundedAnswer(facts []any) string {
 		switch item.Tool {
 		case "get_application_dossier":
 			lines = append(lines, dossierAnswer(item.Data)...)
+		case "get_application_preparation":
+			lines = append(lines, applicationPreparationAnswer(item.Data)...)
 		case "get_candidate_document":
 			lines = append(lines, "已读取你核对过的完整求职资料；项目段落和教育经历按原有结构保留。")
 		case "get_agent_todos":
@@ -38,7 +40,7 @@ func GroundedAnswer(facts []any) string {
 			}
 			if json.Unmarshal(item.Data, &feed) == nil {
 				if !feed.Enabled {
-					lines = append(lines, "招聘变化待办尚未开启，可在此页开启。")
+					lines = append(lines, "招聘变化待办尚未开启，可在今日待办开启。")
 				}
 				if len(feed.Items) == 0 && feed.Enabled {
 					lines = append(lines, "目前没有待处理的招聘变化。")

@@ -8,7 +8,6 @@ import (
 	"github.com/KanaDoodle/CampusTrace/internal/auth"
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
 	p "github.com/KanaDoodle/CampusTrace/internal/persistence"
-	"github.com/KanaDoodle/CampusTrace/internal/practice"
 	"github.com/KanaDoodle/CampusTrace/internal/transport"
 	"net/http"
 	"strings"
@@ -146,65 +145,7 @@ func TestAgentContextBindsCorrectionsAndExplicitContinuation(t *testing.T) {
 		t.Fatal(e)
 	}
 }
-func TestPracticeDurableNoncePreventsDuplicateAndOwnership(t *testing.T) {
-	ctx, s, _, u, _ := setup(t)
-	in := practice.Input{Code: "package exercise\nfunc Sum(a,b int)int{return a+b}", Tests: "package exercise\nimport \"testing\"\nfunc TestSum(t *testing.T){if Sum(1,2)!=3{t.Fatal(\"sum\")}}", RequestKey: d.ID()}
-	var wg sync.WaitGroup
-	var runs atomic.Int32
-	for i := 0; i < 2; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			_, fresh, e := s.BeginPractice(ctx, u, in)
-			must(t, e)
-			if fresh {
-				runs.Add(1)
-			}
-		}()
-	}
-	wg.Wait()
-	if runs.Load() != 1 {
-		t.Fatal("duplicate execution claim", runs.Load())
-	}
-	out, fresh, e := s.BeginPractice(ctx, u, in)
-	must(t, e)
-	if fresh {
-		t.Fatal("claim repeated")
-	}
-	changed := in
-	changed.Code += "\n// changed"
-	if _, _, e = s.BeginPractice(ctx, u, changed); !errors.Is(e, p.ErrConflict) {
-		t.Fatal(e)
-	}
-	out.State = "PASSED"
-	out.Output = "ok exercise"
-	must(t, s.FinishPractice(ctx, u, out))
-	same, fresh, e := s.BeginPractice(ctx, u, in)
-	must(t, e)
-	if fresh || same.State != "PASSED" {
-		t.Fatal(same)
-	}
-	other, e := s.NewUser(ctx, d.ID()+"@synthetic.test", "unused")
-	must(t, e)
-	rows, e := s.PracticeRuns(ctx, other)
-	must(t, e)
-	if len(rows) > 0 {
-		t.Fatal("cross-user exercise")
-	}
-	interrupted := in
-	interrupted.RequestKey = d.ID()
-	abandoned, _, e := s.BeginPractice(ctx, u, interrupted)
-	must(t, e)
-	_, e = s.DB.ExecContext(ctx, "UPDATE practice_runs SET created_at=UTC_TIMESTAMP(6)-INTERVAL 61 SECOND WHERE id=?", abandoned.ID)
-	must(t, e)
-	rows, e = s.PracticeRuns(ctx, u)
-	must(t, e)
-	for _, v := range rows {
-		if v.ID == abandoned.ID && v.State != "INTERRUPTED" {
-			t.Fatal(v)
-		}
-	}
-}
+
 func TestAgentWorkspaceHTTPOwnerAndDisabledPractice(t *testing.T) {
 	ctx, s, q, u, _ := setup(t)
 	authn := auth.Service{Store: s, Secret: []byte("agent-test-secret-longer-than-32-bytes")}
@@ -229,28 +170,5 @@ func TestAgentWorkspaceHTTPOwnerAndDisabledPractice(t *testing.T) {
 	res = matchingRequest(h, tok, "/api/practice/capabilities", "GET", nil)
 	if res.Code != 200 || !strings.Contains(res.Body.String(), `"enabled":false`) {
 		t.Fatal(res.Body.String())
-	}
-}
-
-func TestPracticeHTTPReplayDoesNotRequireRunner(t *testing.T) {
-	ctx, s, q, u, _ := setup(t)
-	in := practice.Input{Code: "package exercise\nfunc Sum(a,b int)int{return a+b}", Tests: "package exercise\nimport \"testing\"\nfunc TestSum(t *testing.T){if Sum(1,2)!=3{t.Fatal(\"sum\")}}", RequestKey: d.ID()}
-	out, _, err := s.BeginPractice(ctx, u, in)
-	must(t, err)
-	out.State = "PASSED"
-	out.Output = "ok exercise"
-	must(t, s.FinishPractice(ctx, u, out))
-	authn := auth.Service{Store: s, Secret: []byte("practice-test-secret-longer-than-32-bytes")}
-	tok, err := authn.Token(u)
-	must(t, err)
-	h := (&transport.API{Store: s, Queue: q, Auth: authn}).Handler()
-	rec := matchingRequest(h, tok, "/api/practice/runs", "POST", in)
-	if rec.Code != 200 || !strings.Contains(rec.Body.String(), `"state":"PASSED"`) {
-		t.Fatal(rec.Code, rec.Body.String())
-	}
-	in.Code += "\n// changed"
-	rec = matchingRequest(h, tok, "/api/practice/runs", "POST", in)
-	if rec.Code != http.StatusConflict {
-		t.Fatal(rec.Code, rec.Body.String())
 	}
 }

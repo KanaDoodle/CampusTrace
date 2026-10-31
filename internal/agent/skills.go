@@ -10,7 +10,7 @@ import (
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
 )
 
-const HarnessVersion = "harness-2026-10-09-v2"
+const HarnessVersion = "harness-2026-10-31-preparation-v3"
 
 type Skill struct {
 	ID          string   `json:"id"`
@@ -27,8 +27,9 @@ type Skill struct {
 func Skills() []Skill {
 	return []Skill{
 		{"company-choice", "同公司岗位取舍", "1", "读取完整资料与已有比较，核对岗位范围；没有有效比较时提示生成，不自行付费分析。", []string{"get_candidate_document", "search_jobs", "compare_company_jobs", "search_memories"}, "company", 4},
-		{"interview-prep", "岗位面试准备", "1", "结合岗位、已核对经历、薄弱点和真实练习记录整理准备依据。", []string{"get_candidate_document", "get_preparation_context", "get_weak_topics", "get_practice_runs"}, "job_id", 4},
-		{"review-plan", "复盘与复习", "1", "查看真实复盘、薄弱点、练习和相关学习材料，不把建议写成项目经历。", []string{"get_interview_history", "get_weak_topics", "get_practice_runs", "search_knowledge", "list_mcp_resources", "read_mcp_resource"}, "topic", 4},
+		{"application-prep", "这次申请的面试准备", "1", "按本次申请留档的 JD、材料与复盘检索学习资料，不用当前简历替换历史材料。", []string{"get_application_preparation"}, "application_id", 1},
+		{"interview-prep", "岗位面试准备", "1", "结合岗位、已核对经历、薄弱点和相关复盘资料整理准备依据。", []string{"get_candidate_document", "get_preparation_context", "get_weak_topics"}, "job_id", 4},
+		{"review-plan", "复盘与复习", "1", "查看真实复盘、薄弱点和相关学习材料，不把建议写成项目经历。", []string{"get_interview_history", "get_weak_topics", "search_knowledge", "list_mcp_resources", "read_mcp_resource"}, "topic", 4},
 		{"daily-review", "今天的求职待办", "1", "查看招聘变化和近期截止事项，提示下一步；不自动提交申请或触发分析。", []string{"get_agent_todos", "get_closing_jobs", "get_recent_changes", "list_applications"}, "none", 4},
 	}
 }
@@ -42,11 +43,12 @@ func FindSkill(id string) (Skill, bool) {
 }
 
 type SkillInput struct {
-	SkillID    string `json:"skill_id"`
-	Company    string `json:"company,omitempty"`
-	JobID      string `json:"job_id,omitempty"`
-	Topic      string `json:"topic,omitempty"`
-	RequestKey string `json:"request_key"`
+	SkillID       string `json:"skill_id"`
+	Company       string `json:"company,omitempty"`
+	JobID         string `json:"job_id,omitempty"`
+	ApplicationID string `json:"application_id,omitempty"`
+	Topic         string `json:"topic,omitempty"`
+	RequestKey    string `json:"request_key"`
 }
 
 func (v SkillInput) Validate() error {
@@ -56,7 +58,14 @@ func (v SkillInput) Validate() error {
 	if len(v.Company) > 200 || len(v.Topic) > 500 || !utf8.ValidString(v.Company+v.Topic) || strings.ContainsAny(v.Company+v.Topic, "\x00") {
 		return errors.New("invalid skill input")
 	}
+	if v.SkillID != "application-prep" && v.ApplicationID != "" {
+		return errors.New("unexpected application scope")
+	}
 	switch v.SkillID {
+	case "application-prep":
+		if !regexp.MustCompile(`^[a-f0-9]{32}$`).MatchString(v.ApplicationID) || v.JobID != "" || v.Company != "" || v.Topic != "" {
+			return errors.New("application required")
+		}
 	case "company-choice":
 		if strings.TrimSpace(v.Company) == "" || v.JobID != "" || v.Topic != "" {
 			return errors.New("company required")
@@ -82,14 +91,23 @@ func (v SkillInput) Plan() []Call {
 	}
 	empty := struct{}{}
 	switch v.SkillID {
+	case "application-prep":
+		return []Call{call("get_application_preparation", map[string]string{"application_id": v.ApplicationID})}
 	case "company-choice":
 		return []Call{call("get_candidate_document", empty), call("search_jobs", map[string]string{"query": v.Company}), call("compare_company_jobs", map[string]string{"company": v.Company}), call("search_memories", map[string]string{"query": v.Company})}
 	case "interview-prep":
-		return []Call{call("get_candidate_document", empty), call("get_preparation_context", map[string]string{"job_id": v.JobID}), call("get_weak_topics", empty), call("get_practice_runs", empty)}
+		return []Call{call("get_candidate_document", empty), call("get_preparation_context", map[string]string{"job_id": v.JobID}), call("get_weak_topics", empty)}
 	case "review-plan":
-		return []Call{call("get_interview_history", empty), call("get_weak_topics", empty), call("get_practice_runs", empty), call("search_knowledge", map[string]string{"query": v.Topic})}
+		return []Call{call("get_interview_history", empty), call("get_weak_topics", empty), call("search_knowledge", map[string]string{"query": v.Topic})}
 	case "daily-review":
 		return []Call{call("get_agent_todos", empty), call("get_closing_jobs", map[string]int{"days": 7}), call("get_recent_changes", map[string]int{"days": 7}), call("list_applications", empty)}
 	}
 	return nil
+}
+
+func (v SkillInput) ScopeID() string {
+	if v.SkillID == "application-prep" {
+		return v.ApplicationID
+	}
+	return v.JobID
 }

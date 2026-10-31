@@ -20,13 +20,6 @@ func softOnly(r Requirement) bool {
 	return softCue.MatchString(r.Text) && (!technicalCue.MatchString(r.Text) || len(localFeatures(r.Text)) == 0 && !concreteTechnicalCue.MatchString(r.Text))
 }
 
-// Correct explicit preference/attitude cues even when a model mislabels them.
-// The selectable-direction repair is limited to an explicit heading and its
-// numbered direction lines; a shared engineering duty is not an alternative.
-func normalizeRequirements(items []Requirement, text string) []Requirement {
-	return splitAIRequirements(splitTestableRequirements(restoreRequirementContext(normalizeRequirementSemantics(omitSectionHeadings(items, text), text), text)))
-}
-
 func normalizeRequirementSemantics(items []Requirement, text string) []Requirement {
 	heading, lines := "", []string{}
 	active := false
@@ -73,20 +66,6 @@ func normalizeRequirementSemantics(items []Requirement, text string) []Requireme
 		}
 	}
 	return items
-}
-
-func validateGroups(items []Requirement) error {
-	groups := map[string]Requirement{}
-	for _, r := range items {
-		if r.GroupID == "" {
-			continue
-		}
-		if prev, ok := groups[r.GroupID]; ok && (prev.Category != r.Category || prev.Aspect != r.Aspect || prev.GroupExcerpt != r.GroupExcerpt) {
-			return ErrInvalid
-		}
-		groups[r.GroupID] = r
-	}
-	return nil
 }
 
 func isPreference(kind string) bool {

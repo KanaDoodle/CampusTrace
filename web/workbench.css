@@ -352,7 +352,7 @@ main:has(.matching-workbench) { max-width: none; padding-inline: clamp(20px, 2vw
 .holistic-finding details { font-size: 12px; margin-top: 8px; }
 .holistic-finding blockquote { margin-inline: 0; overflow-wrap: anywhere; }
 
-.preserve-lines,.practice-output{white-space:pre-wrap;overflow-wrap:anywhere}.code-editor,.practice-output{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:13px;line-height:1.65}.practice-output{background:var(--surface-muted,#f6f7fa);padding:16px;max-height:360px;overflow:auto;border-radius:10px}
+.preserve-lines{white-space:pre-wrap;overflow-wrap:anywhere}
 
 /* Saved views and advanced filters stay quiet until needed. */
 .radar-presets {display:flex;align-items:end;gap:12px;margin:12px 0}
