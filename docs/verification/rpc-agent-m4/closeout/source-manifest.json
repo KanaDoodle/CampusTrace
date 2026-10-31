@@ -1,0 +1,135 @@
+{
+  "scope": "M4 closeout only; concurrent performance and other prior changes are not attributed to this task",
+  "projects": {
+    "campustrace": {
+      "observed_head": "3a7541eb3f6309595ed33c29d4845192b079d445",
+      "files": {
+        ".gitignore": {
+          "sha256": "c23a14b9851c7f76e2bf9ff07d5e20435c067b9809b8b75fd11186242356970e",
+          "before_sha256": "0c8ed8a6e608613bc8c0098427a107281e62b2025d78d8243ebb283d52956742"
+        },
+        "Makefile": {
+          "sha256": "3bee90c59bbbc9b2b17dc120b43e15f1c6514ca13edf83765a34df41207cbef1",
+          "before_sha256": "4bcbeea0807a806793b30c219c634ed96d5f7b58ef05d09ba4d4975fef9e9d40"
+        },
+        "README.md": {
+          "sha256": "493e7e50ac1b6598b8351a4499fe81a108c65a528a2efa038e95c4aec2cc545f",
+          "before_sha256": "729d3e9818e8a4f61d3bd8b12ee03e536227641f967b4ec315f6fde421ef7071"
+        },
+        ".github/workflows/stream-sdk.yml": {
+          "sha256": "82ef287b93ba81b4c7ae78e0d0bed9d1fcb612710e0fd724424f970e2976828e",
+          "before_sha256": null
+        },
+        "internal/agent/eval.go": {
+          "sha256": "02bf294d0567a8e4adfacc52f6b3fcffe604939601abfa2ebd9125fa1a8a8f08",
+          "before_sha256": "6da18b2006ea11757e35fc385b8a5c85efb0c70c169f2167852317fd8d935ac3"
+        },
+        "internal/integration/system_test.go": {
+          "sha256": "342e3fa5beac980dbd675ee641d5cc0c5fad88c48535f2fa0c3c87ce40d8eac5",
+          "before_sha256": "d0f143a458d5a73688e055b38e76a7c81d5417f3423830f25d70f50406b34ee9"
+        },
+        "internal/integration/migration_repair_test.go": {
+          "sha256": "598d9def34fa35022417f721e7fd6769dd18528dbcf16a424f4f12b6492353a4",
+          "before_sha256": "0c822a3e8a47ed43eb23cf03b7da7aeaa33ce87d0186e9f643235037c54e1bab"
+        },
+        "internal/integration/fixture_cleanup_test.go": {
+          "sha256": "56394504eb5bfcf4f5a39631c2ce5bb8eaeae673ad0c09558d8010916db1ae27",
+          "before_sha256": "9037357bc79e341df116eb4b7915c23617a93277d06cde57130e242217692bec"
+        },
+        "internal/integration/fixture_isolation_test.go": {
+          "sha256": "435a2b47b8868edfd887cbe1492c8a770c201631291e25aa12e763a85b302699",
+          "before_sha256": null
+        },
+        "internal/integration/scheduler_test.go": {
+          "sha256": "f56364f050facc6ec375029ec9ca1f2323db3e4c3836dc5d4705ff6a7cd53dcb",
+          "before_sha256": "1f4ee578541fb6d6a9c2bf9a1d428d1eff96fa0e495416efdbe6a9f99a01b003"
+        },
+        "internal/launcher/recovery_integration_test.go": {
+          "sha256": "536a6eab767127d1d1558b24bfc8b4262c9b1bc5c10fbc937b42076e3e35bcd3",
+          "before_sha256": "45b8e8a6877a0d390779f6e540eb6902f19ace226d4505701eb5121538916002"
+        },
+        "internal/launcher/recovery_fixture_test.go": {
+          "sha256": "481191e6fc19e80be6493a08e511fd23601e474db1caf86d6b1bd8f44e300972",
+          "before_sha256": null
+        },
+        "internal/persistence/radar_migration_test.go": {
+          "sha256": "61f9e5e20526cb49f697042e45c9b04102f31fb55be3cc40aff00b33120d7dab",
+          "before_sha256": "07e3d448f8a9579a0cc8467ade164fa9533a4eb35d6d29d6f47828c7ad60ffc6"
+        },
+        "internal/testsupport/sqlfixture/database.go": {
+          "sha256": "c962ee1d6345d8625e7620c86efea9f7361426ee812807f6dc50c5232477ac42",
+          "before_sha256": null
+        },
+        "scripts/verify-integration-isolation.py": {
+          "sha256": "f5a1023a8eea1ef30972d75606754ba28e7325c0aee4ea4b9425781c1edee6dc",
+          "before_sha256": null
+        },
+        "scripts/verify-radar.sh": {
+          "sha256": "602caf78a519e16551c0a77da9c9d5422951ccce70f65afbb69672b9db1c4363",
+          "before_sha256": "b724c476945cab5d67f2d73b2af401035d58f1160978631e3006d01538d437a5"
+        },
+        "scripts/journey-local.sh": {
+          "sha256": "78e25aa94329462499debe2033520b9d4501701bb67aa329b8223fb16667d7c0",
+          "before_sha256": "0b7707fa4f41d9b9d26bf4767c5a28a047de32ca853c8dd000438e1135cd798f"
+        },
+        "scripts/adversarial-local.sh": {
+          "sha256": "68bfe122454342e3229c94e1151e2f8bb9888b69b8f49a9d09ac9642cdba2a8a",
+          "before_sha256": "5a03190392fea428d94650107b47104a101bc6bbb22cb8b6ae2f3b3a16694eea"
+        },
+        "scripts/stream_sdk.py": {
+          "sha256": "eaaea63826969f48490c07978eb5e9c02a2ab983dbc2a9365c8cac73b49f8e64",
+          "before_sha256": null
+        },
+        "scripts/build-stream-sdk.py": {
+          "sha256": "b665294ac283e72111aa8567c304e319f162dd84517032bfe088343e74169ccd",
+          "before_sha256": null
+        },
+        "scripts/verify-stream-sdk.py": {
+          "sha256": "a02357bf711fe5d9a0370aae8cf587b91eed6f73e2666c39e4f6fec1f841a9c0",
+          "before_sha256": null
+        },
+        "scripts/verify-rpc-agent.py": {
+          "sha256": "72755f9cc7a994e4b0f9dae5467c68822478c8aa94333cf9cc436e4fd3622936",
+          "before_sha256": "04940134846456bd8940ea57eaf9d7a60846cb973087b7e11fa7c3099be1dd2d"
+        },
+        "scripts/test_stream_sdk.py": {
+          "sha256": "214fe8cfd7c65f63960a37bcfd516a4e6d86bbfc1438fc2ccd47b8a059befa87",
+          "before_sha256": null
+        },
+        "docs/stream-sdk.md": {
+          "sha256": "b6732f394710490e4fa4af39d343a8b6c2f7dd10b2db0227e4038e3dc55681ac",
+          "before_sha256": null
+        },
+        "docs/rpc-agent-m4.md": {
+          "sha256": "7736900ddf7074dcba8fed4f0744a93d69b115b258559757213546b97cf57a2d",
+          "before_sha256": "7cd209382fd9375470ae4b7c3ebdf155819b909080abd53e7379dd224f309209"
+        }
+      }
+    },
+    "KanaRPC-Go": {
+      "observed_head": "79f5acf0da672651b28c63b4da94c0fcda19417b",
+      "files": {
+        "inference/gateway/gateway_test.go": {
+          "sha256": "fbf2c0563bda083e0f2e5cac61347fce8537a4ec521a0bf54a9602f0f0162e70",
+          "before_sha256": "770f94a0d1dea93b3fc3ed7e2c75efbc991cc4ba1f520528f1240ee4bd35e6d8"
+        },
+        "scripts/package-sdk.py": {
+          "sha256": "199899a7618156f8e2991e8625ec3ff35c0e633e4ee5a8a8fb2ac9214d0f4bd4",
+          "before_sha256": null
+        },
+        "scripts/test_sdk_package.py": {
+          "sha256": "9363102dac4d6ac774f31e6b89c4a189a13d2a9c274d2b6ae124e4a61b303f2e",
+          "before_sha256": null
+        },
+        "docs/implementation/sdk-release.md": {
+          "sha256": "4bb976313c0115872b8ae3e451d03f23b7e8e6835d49da64438df2685acfd5b8",
+          "before_sha256": null
+        },
+        "docs/implementation/campustrace-m4.md": {
+          "sha256": "fa13234bc66142b38623d767075b462080a0985d3869faec470acad16761625e",
+          "before_sha256": "23a9ed90bc27e512bea4ba6440f1806d0a221954e082e8c2bff0815bc694503b"
+        }
+      }
+    }
+  }
+}

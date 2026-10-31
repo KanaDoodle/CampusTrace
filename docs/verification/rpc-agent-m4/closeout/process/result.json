@@ -1,0 +1,16 @@
+{
+  "status": "PASS",
+  "backend": "fixture-no-model",
+  "checks": [
+    "review-and-consent-no-provider-side-effect; strict-fields; cookie-CSRF; authentication",
+    "partial-before-EOF; observer-reconnect-read-only; concurrent-nonce-dedup; owner-isolation",
+    "user-cancel-propagates-through-RPC-to-upstream-HTTP",
+    "SIGKILL-checkpoint-recovery; injected-expired-lease; no-auto-replay; unknown-outcome-explicit-retry; attempt-receipts",
+    "real-Chromium-consent-stream-refresh-XSS-and-cancel"
+  ],
+  "browser": "PASS",
+  "limits": [
+    "No vLLM/model/GPU; no inference/cache/quality gains measured.",
+    "Lease expiration injected in disposable SQL after SIGKILL; not a 60-second elapsed-time measurement."
+  ]
+}

@@ -1,0 +1,6 @@
+=== RUN   TestNarrationMemoryEditDuringCheckpointDoesNotStrandRunningLease
+    narration_test.go:432: changed memory stranded a lease: state=RUNNING lease=2026-10-30 16:58:33.905912 +0000 UTC draft_bytes=2832
+--- FAIL: TestNarrationMemoryEditDuringCheckpointDoesNotStrandRunningLease (0.33s)
+FAIL
+FAIL	github.com/KanaDoodle/CampusTrace/internal/integration	0.876s
+FAIL

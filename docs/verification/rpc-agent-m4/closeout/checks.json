@@ -1,0 +1,33 @@
+{
+  "status": "PASS",
+  "date": "2026-10-31",
+  "sdk": {
+    "version": "v0.2.0-rc.4",
+    "publication": "LOCAL_UNPUBLISHED_CANDIDATE",
+    "sum": "h1:9wOcoXf47wmXASAkt5iCQ9P0ivH2kFL80vmwOUBzku8="
+  },
+  "real_vllm": "NOT_VALIDATED",
+  "go_vet": "PASS: both projects and stream profile",
+  "node": {
+    "pass": 444,
+    "fail": 0
+  },
+  "sdk_guard_tests": {
+    "pass": 10,
+    "fail": 0
+  },
+  "live_entry_guard_tests": {
+    "pass": 5,
+    "fail": 0
+  },
+  "migration_skipped": false,
+  "recovery_skipped": false,
+  "skipped_checks": "see go-results.json for exact lists",
+  "process_regressions": {
+    "M1": "PASS fixture-no-model",
+    "M2": "PASS fixture-no-model",
+    "M3": "PASS simulated KV events; no inference gains"
+  },
+  "validation_scope": "saved M4 source snapshot; later concurrent Kafka changes not covered",
+  "cleanup": "only owned M4 services stopped"
+}

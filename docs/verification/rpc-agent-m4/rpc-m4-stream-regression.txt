@@ -1,0 +1,1 @@
+{"status": "passed", "backend": "fixture-no-model", "processes": ["fixture", "rpc-worker", "rpc-check"], "checks": ["complete stream", "early cancel", "upstream HTTP canceled"], "evidence": "/private/tmp/rpc-m4-stream-regression"}

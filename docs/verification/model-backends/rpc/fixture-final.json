@@ -1,0 +1,8 @@
+{
+  "backend": "fixture-no-model",
+  "calls": 4,
+  "canceled": 2,
+  "completed": 2,
+  "distinct_scopes": 1,
+  "mode": "narration"
+}

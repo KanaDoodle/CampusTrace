@@ -1,0 +1,9 @@
+=== RUN   TestNarrationBeforeDispatchInterruptionRemainsResumable
+    narration_test.go:327: pre-dispatch timeout must not invalidate reviewed source: {ID:4dba53573a0601a7bcbffb6b741c6228 SkillID:evidence-explanation SkillVersion:1 HarnessVersion:reviewed-evidence-stream-v1 RequestKey:faea5d57a8a6d9a2d04813a655782919 Fingerprint:6d304dea0564a4b3f96ea8efb5e189b25e6e841286e9f0138892a5b9dac85c81 Input:{"version": "reviewed-evidence-stream-v1", "parent_id": "84f2733199a5851e5a29d90d69dee0cf", "review_hash": "2093e8742ebfd73c6ce5d5d46a5bb2d9225022987404395ac614cb3bdeb756da"} Identity:2093e8742ebfd73c6ce5d5d46a5bb2d9225022987404395ac614cb3bdeb756da MemoryRevision:0 Next:0 Calls:[] Observations:[] Failures:[] State:STALE Answer: Resumes:1 CreatedAt:2026-10-30 16:35:25.614561 +0000 UTC UpdatedAt:2026-10-30 16:35:25.625022 +0000 UTC LeaseUntil:<nil> CanResume:false SourceIdentity: Narration:0x23d7ef5965a0}
+--- FAIL: TestNarrationBeforeDispatchInterruptionRemainsResumable (0.12s)
+=== RUN   TestNarrationRateLimitPreservesReasonWithoutDispatch
+    narration_test.go:343: rate-limit cause lost: &{ParentID:ba92ebabac3c415d1d0d26d5b008fb90 ReviewHash:2093e8742ebfd73c6ce5d5d46a5bb2d9225022987404395ac614cb3bdeb756da Model:fixture-no-model EvidenceKind:fixture-no-model ProviderState:NOT_DISPATCHED AttemptKeys:[049440b1c37eb499f571b2ada922b88d] Draft: Revision:2 Failure:INTERRUPTED PromptTokens:0 CompletionTokens:0}
+--- FAIL: TestNarrationRateLimitPreservesReasonWithoutDispatch (0.10s)
+FAIL
+FAIL	github.com/KanaDoodle/CampusTrace/internal/integration	0.754s
+FAIL

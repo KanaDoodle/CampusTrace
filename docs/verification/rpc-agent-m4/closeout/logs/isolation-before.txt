@@ -1,0 +1,9 @@
+=== RUN   TestFixtureScopeRemovesUntrackedGlobalCatalog
+=== RUN   TestFixtureScopeRemovesUntrackedGlobalCatalog/additional-source
+=== NAME  TestFixtureScopeRemovesUntrackedGlobalCatalog
+    fixture_isolation_test.go:28: a finished test scope left an unrelated public job visible to later fixtures
+--- FAIL: TestFixtureScopeRemovesUntrackedGlobalCatalog (0.30s)
+    --- PASS: TestFixtureScopeRemovesUntrackedGlobalCatalog/additional-source (0.06s)
+FAIL
+FAIL	github.com/KanaDoodle/CampusTrace/internal/integration	0.612s
+FAIL

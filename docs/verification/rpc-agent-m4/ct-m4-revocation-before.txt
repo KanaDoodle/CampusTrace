@@ -1,0 +1,7 @@
+=== RUN   TestNarrationSessionRevocationClosesObserverWithoutReplayingGeneration
+    narration_test.go:378: revoked session kept receiving private narration snapshots
+2026/10/31 00:48:02 INFO http request request_id=261dcf27718276c0b83e2f514d6c161b method=GET route="GET /api/agent/executions/{id}/stream" status=200 duration_ms=801
+--- FAIL: TestNarrationSessionRevocationClosesObserverWithoutReplayingGeneration (0.92s)
+FAIL
+FAIL	github.com/KanaDoodle/CampusTrace/internal/integration	1.605s
+FAIL

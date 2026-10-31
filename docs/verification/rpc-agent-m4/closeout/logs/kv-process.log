@@ -1,0 +1,1 @@
+{"status": "PASS", "evidence": "loopback-tcp-http-zmq-fixture-no-model", "checks": ["cold", "warm", "different-salt", "saturated-transfer", "event-gap", "rebuilt", "evicted-root", "unsupported-event", "expired", "cancel", "bridge-handoff-fencing"], "warning": "No model/GPU used; cache hints and timer delays are not real inference hits or gains."}

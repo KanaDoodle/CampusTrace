@@ -1,0 +1,21 @@
+{
+  "model": "fixture-model",
+  "policy": "token_work",
+  "refresh_interval_ns": 100000000,
+  "workers": [
+    {
+      "id": "fixture-worker",
+      "address": "127.0.0.1:62631",
+      "admin_url": "http://127.0.0.1:62630",
+      "profile": {
+        "model": "fixture-model",
+        "id": "fixture-serial-v1",
+        "tokenizer_id": "fixture-words-plus-template-v1",
+        "prefill_tokens_per_second": 100000,
+        "decode_tokens_per_second": 100000,
+        "base_ttft_ns": 1000000,
+        "max_in_flight": 4
+      }
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "status": "PASS",
+  "sdk": {
+    "module": "github.com/KanaDoodle/KanaRPC-Go",
+    "version": "v0.2.0-rc.4",
+    "publication": "LOCAL_UNPUBLISHED_CANDIDATE",
+    "sum": "h1:9wOcoXf47wmXASAkt5iCQ9P0ivH2kFL80vmwOUBzku8=",
+    "go_mod_sum": "h1:J89ygsYsnCcOnte0WHCkNEeTQMmw5ckzk//mmH+cJ1s=",
+    "replace": false,
+    "workspace": "off",
+    "sdk_source": "/private/tmp/ct-m4-followup-1031/sdk-rc4-acceptance/sdk/module-cache/github.com/!kana!doodle/!kana!r!p!c-!go@v0.2.0-rc.4",
+    "modfile": "/private/tmp/ct-m4-followup-1031/sdk-rc4-acceptance/sdk/campustrace-stream.mod",
+    "real_vllm": "NOT_VALIDATED"
+  },
+  "consumer": "independent-source-snapshot",
+  "checks": [
+    "versioned-module-download",
+    "no-workspace-or-replace",
+    "consumer-build",
+    "consumer-race",
+    "API-RPC-HTTP-process-fixture"
+  ],
+  "browser": "PASS",
+  "backend": "fixture-no-model",
+  "real_vllm": "NOT_VALIDATED"
+}

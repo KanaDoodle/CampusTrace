@@ -1,0 +1,13 @@
+{
+  "status": "PASS",
+  "backend": "fixture-no-model",
+  "checks": [
+    "unknown-outcome-retry-requires-unchecked-explicit-acknowledgment",
+    "review-dismissal-has-no-provider-call",
+    "partial-visible-before-completion",
+    "reload-reattaches-without-generation",
+    "HTML-output-is-literal-text",
+    "UI-cancel-fences-task-and-cancels-upstream"
+  ],
+  "page_errors": []
+}

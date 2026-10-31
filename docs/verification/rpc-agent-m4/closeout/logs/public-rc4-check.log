@@ -1,0 +1,5 @@
+SDK resolution failed: {
+	"Path": "github.com/KanaDoodle/KanaRPC-Go",
+	"Version": "v0.2.0-rc.4",
+	"Error": "github.com/KanaDoodle/KanaRPC-Go@v0.2.0-rc.4: reading https://proxy.golang.org/github.com/%21kana%21doodle/%21kana%21r%21p%21c-%21go/@v/v0.2.0-rc.4.info: 404 Not Found\n\tserver response: not found: github.com/KanaDoodle/KanaRPC-Go@v0.2.0-rc.4: invalid version: unknown revision v0.2.0-rc.4"
+}

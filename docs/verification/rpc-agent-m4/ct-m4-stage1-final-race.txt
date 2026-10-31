@@ -1,0 +1,100 @@
+=== RUN   TestNarrationReviewReplayAndReadOnlyStreamReconnect
+2026/10/31 00:58:11 INFO http request request_id=a54af8b0ea1a69e47e57be5fec5e86a9 method=GET route="GET /api/agent/executions/{id}" status=200 duration_ms=1
+2026/10/31 00:58:11 INFO http request request_id=af19ba266193e05538d60b98ea32ac1a method=GET route="GET /api/agent/executions/{id}/stream" status=200 duration_ms=51
+2026/10/31 00:58:11 INFO http request request_id=5db1a49d6933763b2a40027df4633046 method=GET route="GET /api/agent/executions/{id}/stream" status=200 duration_ms=51
+2026/10/31 00:58:11 ERROR http request failed request_id=a46c7598865f66825f0cd8f0e60e7d00 method=GET route="GET /api/agent/executions/{id}" status=404 duration_ms=0 error="sql: no rows in result set"
+2026/10/31 00:58:11 ERROR http request failed request_id=5b14a02045c339b7d7bedfe4395443f1 method=GET route="GET /api/agent/executions/{id}/stream" status=404 duration_ms=0 error="sql: no rows in result set"
+2026/10/31 00:58:11 ERROR http request failed request_id=f493f642edda773e996fe35aedd73576 method=POST route="POST /api/agent/executions/{id}/cancel" status=404 duration_ms=1 error="sql: no rows in result set"
+--- PASS: TestNarrationReviewReplayAndReadOnlyStreamReconnect (0.38s)
+=== RUN   TestNarrationUnknownOutcomeNeedsReviewAndAttemptReceipt
+--- PASS: TestNarrationUnknownOutcomeNeedsReviewAndAttemptReceipt (0.62s)
+=== RUN   TestNarrationCancelAcrossAPIsFencesLateCompletion
+2026/10/31 00:58:12 INFO http request request_id=fd134c40ac514d3b19fb20a71bb1db18 method=POST route="POST /api/agent/executions/{id}/cancel" status=200 duration_ms=6
+--- PASS: TestNarrationCancelAcrossAPIsFencesLateCompletion (0.36s)
+=== RUN   TestNarrationShutdownRecoveryAndStaleReview
+--- PASS: TestNarrationShutdownRecoveryAndStaleReview (0.57s)
+=== RUN   TestNarrationForgetErasesDraftAndRejectsLateResult
+--- PASS: TestNarrationForgetErasesDraftAndRejectsLateResult (0.34s)
+=== RUN   TestNarrationBeforeDispatchInterruptionRemainsResumable
+--- PASS: TestNarrationBeforeDispatchInterruptionRemainsResumable (0.13s)
+=== RUN   TestNarrationRateLimitPreservesReasonWithoutDispatch
+--- PASS: TestNarrationRateLimitPreservesReasonWithoutDispatch (0.12s)
+=== RUN   TestNarrationSessionRevocationClosesObserverWithoutReplayingGeneration
+2026/10/31 00:58:13 INFO http request request_id=1e640bfd8ce37d1b46ceeab62bb91929 method=GET route="GET /api/agent/executions/{id}/stream" status=200 duration_ms=102
+--- PASS: TestNarrationSessionRevocationClosesObserverWithoutReplayingGeneration (0.36s)
+=== RUN   TestNarrationRedactionExpansionCannotExceedSnapshotLimit
+--- PASS: TestNarrationRedactionExpansionCannotExceedSnapshotLimit (0.21s)
+=== RUN   TestNarrationMemoryEditDuringCheckpointDoesNotStrandRunningLease
+--- PASS: TestNarrationMemoryEditDuringCheckpointDoesNotStrandRunningLease (0.35s)
+=== RUN   TestNarrationReviewReplayAndReadOnlyStreamReconnect
+2026/10/31 00:58:14 INFO http request request_id=ae69db9df831d717e3e4a7aa971f4fea method=GET route="GET /api/agent/executions/{id}" status=200 duration_ms=0
+2026/10/31 00:58:14 INFO http request request_id=f07fd03e0b62cca4be811ef075702652 method=GET route="GET /api/agent/executions/{id}/stream" status=200 duration_ms=51
+2026/10/31 00:58:14 INFO http request request_id=8e4924e6da33e205317d88d47a9a4f51 method=GET route="GET /api/agent/executions/{id}/stream" status=200 duration_ms=51
+2026/10/31 00:58:14 ERROR http request failed request_id=f997bdaf3416a661f159f3a402092773 method=GET route="GET /api/agent/executions/{id}" status=404 duration_ms=0 error="sql: no rows in result set"
+2026/10/31 00:58:14 ERROR http request failed request_id=53f7730d32bb66fad4c970980cf01f6b method=GET route="GET /api/agent/executions/{id}/stream" status=404 duration_ms=0 error="sql: no rows in result set"
+2026/10/31 00:58:14 ERROR http request failed request_id=658c155eedd6b022b8a7f72b5b2d3261 method=POST route="POST /api/agent/executions/{id}/cancel" status=404 duration_ms=2 error="sql: no rows in result set"
+--- PASS: TestNarrationReviewReplayAndReadOnlyStreamReconnect (0.37s)
+=== RUN   TestNarrationUnknownOutcomeNeedsReviewAndAttemptReceipt
+--- PASS: TestNarrationUnknownOutcomeNeedsReviewAndAttemptReceipt (0.66s)
+=== RUN   TestNarrationCancelAcrossAPIsFencesLateCompletion
+2026/10/31 00:58:15 INFO http request request_id=8228309437a9ec2b8cb8d2339d129f52 method=POST route="POST /api/agent/executions/{id}/cancel" status=200 duration_ms=4
+--- PASS: TestNarrationCancelAcrossAPIsFencesLateCompletion (0.33s)
+=== RUN   TestNarrationShutdownRecoveryAndStaleReview
+--- PASS: TestNarrationShutdownRecoveryAndStaleReview (0.54s)
+=== RUN   TestNarrationForgetErasesDraftAndRejectsLateResult
+--- PASS: TestNarrationForgetErasesDraftAndRejectsLateResult (0.35s)
+=== RUN   TestNarrationBeforeDispatchInterruptionRemainsResumable
+--- PASS: TestNarrationBeforeDispatchInterruptionRemainsResumable (0.12s)
+=== RUN   TestNarrationRateLimitPreservesReasonWithoutDispatch
+--- PASS: TestNarrationRateLimitPreservesReasonWithoutDispatch (0.12s)
+=== RUN   TestNarrationSessionRevocationClosesObserverWithoutReplayingGeneration
+2026/10/31 00:58:16 INFO http request request_id=37c31f2d77385b95068637db534cf54e method=GET route="GET /api/agent/executions/{id}/stream" status=200 duration_ms=102
+--- PASS: TestNarrationSessionRevocationClosesObserverWithoutReplayingGeneration (0.35s)
+=== RUN   TestNarrationRedactionExpansionCannotExceedSnapshotLimit
+--- PASS: TestNarrationRedactionExpansionCannotExceedSnapshotLimit (0.19s)
+=== RUN   TestNarrationMemoryEditDuringCheckpointDoesNotStrandRunningLease
+--- PASS: TestNarrationMemoryEditDuringCheckpointDoesNotStrandRunningLease (0.35s)
+=== RUN   TestNarrationReviewReplayAndReadOnlyStreamReconnect
+2026/10/31 00:58:17 INFO http request request_id=52f0b614de7e6f4e90e08aafeee99d8e method=GET route="GET /api/agent/executions/{id}" status=200 duration_ms=0
+2026/10/31 00:58:17 INFO http request request_id=8c5c5f068fe3a265e551d90cd60c389c method=GET route="GET /api/agent/executions/{id}/stream" status=200 duration_ms=51
+2026/10/31 00:58:17 INFO http request request_id=3ef04376125f154bf17f2ff03a3f87a6 method=GET route="GET /api/agent/executions/{id}/stream" status=200 duration_ms=51
+2026/10/31 00:58:17 ERROR http request failed request_id=0d2f8ebd96acd7c3d3178e0975808501 method=GET route="GET /api/agent/executions/{id}" status=404 duration_ms=0 error="sql: no rows in result set"
+2026/10/31 00:58:17 ERROR http request failed request_id=70c0b6c3d87032cd40fe58d9825dc163 method=GET route="GET /api/agent/executions/{id}/stream" status=404 duration_ms=0 error="sql: no rows in result set"
+2026/10/31 00:58:17 ERROR http request failed request_id=dc13441a93f3b8774013094922e05cac method=POST route="POST /api/agent/executions/{id}/cancel" status=404 duration_ms=1 error="sql: no rows in result set"
+--- PASS: TestNarrationReviewReplayAndReadOnlyStreamReconnect (0.36s)
+=== RUN   TestNarrationUnknownOutcomeNeedsReviewAndAttemptReceipt
+--- PASS: TestNarrationUnknownOutcomeNeedsReviewAndAttemptReceipt (0.61s)
+=== RUN   TestNarrationCancelAcrossAPIsFencesLateCompletion
+2026/10/31 00:58:18 INFO http request request_id=9a770489db0c5173935d69e743ccda07 method=POST route="POST /api/agent/executions/{id}/cancel" status=200 duration_ms=2
+--- PASS: TestNarrationCancelAcrossAPIsFencesLateCompletion (0.32s)
+=== RUN   TestNarrationShutdownRecoveryAndStaleReview
+--- PASS: TestNarrationShutdownRecoveryAndStaleReview (0.51s)
+=== RUN   TestNarrationForgetErasesDraftAndRejectsLateResult
+--- PASS: TestNarrationForgetErasesDraftAndRejectsLateResult (0.33s)
+=== RUN   TestNarrationBeforeDispatchInterruptionRemainsResumable
+--- PASS: TestNarrationBeforeDispatchInterruptionRemainsResumable (0.11s)
+=== RUN   TestNarrationRateLimitPreservesReasonWithoutDispatch
+--- PASS: TestNarrationRateLimitPreservesReasonWithoutDispatch (0.11s)
+=== RUN   TestNarrationSessionRevocationClosesObserverWithoutReplayingGeneration
+2026/10/31 00:58:20 INFO http request request_id=03073d67c6809147ac2b32194ac8489a method=GET route="GET /api/agent/executions/{id}/stream" status=200 duration_ms=101
+--- PASS: TestNarrationSessionRevocationClosesObserverWithoutReplayingGeneration (0.35s)
+=== RUN   TestNarrationRedactionExpansionCannotExceedSnapshotLimit
+--- PASS: TestNarrationRedactionExpansionCannotExceedSnapshotLimit (0.19s)
+=== RUN   TestNarrationMemoryEditDuringCheckpointDoesNotStrandRunningLease
+--- PASS: TestNarrationMemoryEditDuringCheckpointDoesNotStrandRunningLease (0.34s)
+PASS
+ok  	github.com/KanaDoodle/CampusTrace/internal/integration	11.665s
+=== RUN   TestNarrationOutputRedactionUsesCumulativeTextAndHoldback
+--- PASS: TestNarrationOutputRedactionUsesCumulativeTextAndHoldback (0.00s)
+=== RUN   TestNarrationSnapshotBoundsAfterRedaction
+--- PASS: TestNarrationSnapshotBoundsAfterRedaction (0.13s)
+=== RUN   TestNarrationOutputRedactionUsesCumulativeTextAndHoldback
+--- PASS: TestNarrationOutputRedactionUsesCumulativeTextAndHoldback (0.00s)
+=== RUN   TestNarrationSnapshotBoundsAfterRedaction
+--- PASS: TestNarrationSnapshotBoundsAfterRedaction (0.13s)
+=== RUN   TestNarrationOutputRedactionUsesCumulativeTextAndHoldback
+--- PASS: TestNarrationOutputRedactionUsesCumulativeTextAndHoldback (0.00s)
+=== RUN   TestNarrationSnapshotBoundsAfterRedaction
+--- PASS: TestNarrationSnapshotBoundsAfterRedaction (0.14s)
+PASS
+ok  	github.com/KanaDoodle/CampusTrace/internal/agent	1.941s

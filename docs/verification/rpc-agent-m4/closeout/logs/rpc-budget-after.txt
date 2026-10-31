@@ -1,0 +1,82 @@
+=== RUN   TestGatewayRepeatedBudgetRejectionDoesNotOpenBreaker
+2026/10/31 01:24:10 server shutdown complete
+2026/10/31 01:24:10 server shutdown complete
+--- PASS: TestGatewayRepeatedBudgetRejectionDoesNotOpenBreaker (0.40s)
+=== RUN   TestGatewayElapsedTokenizationBudgetDoesNotOpenBreaker
+2026/10/31 01:24:11 server shutdown complete
+2026/10/31 01:24:11 server shutdown complete
+--- PASS: TestGatewayElapsedTokenizationBudgetDoesNotOpenBreaker (0.40s)
+=== RUN   TestGatewayRepeatedBudgetRejectionDoesNotOpenBreaker
+2026/10/31 01:24:11 server shutdown complete
+2026/10/31 01:24:11 server shutdown complete
+--- PASS: TestGatewayRepeatedBudgetRejectionDoesNotOpenBreaker (0.45s)
+=== RUN   TestGatewayElapsedTokenizationBudgetDoesNotOpenBreaker
+2026/10/31 01:24:11 server shutdown complete
+2026/10/31 01:24:11 server shutdown complete
+--- PASS: TestGatewayElapsedTokenizationBudgetDoesNotOpenBreaker (0.39s)
+=== RUN   TestGatewayRepeatedBudgetRejectionDoesNotOpenBreaker
+2026/10/31 01:24:12 server shutdown complete
+2026/10/31 01:24:12 server shutdown complete
+--- PASS: TestGatewayRepeatedBudgetRejectionDoesNotOpenBreaker (0.77s)
+=== RUN   TestGatewayElapsedTokenizationBudgetDoesNotOpenBreaker
+2026/10/31 01:24:13 server shutdown complete
+2026/10/31 01:24:13 server shutdown complete
+--- PASS: TestGatewayElapsedTokenizationBudgetDoesNotOpenBreaker (0.41s)
+=== RUN   TestGatewayRepeatedBudgetRejectionDoesNotOpenBreaker
+2026/10/31 01:24:13 server shutdown complete
+2026/10/31 01:24:13 server shutdown complete
+--- PASS: TestGatewayRepeatedBudgetRejectionDoesNotOpenBreaker (0.64s)
+=== RUN   TestGatewayElapsedTokenizationBudgetDoesNotOpenBreaker
+2026/10/31 01:24:14 server shutdown complete
+2026/10/31 01:24:14 server shutdown complete
+--- PASS: TestGatewayElapsedTokenizationBudgetDoesNotOpenBreaker (0.40s)
+=== RUN   TestGatewayRepeatedBudgetRejectionDoesNotOpenBreaker
+2026/10/31 01:24:14 server shutdown complete
+2026/10/31 01:24:14 server shutdown complete
+--- PASS: TestGatewayRepeatedBudgetRejectionDoesNotOpenBreaker (0.76s)
+=== RUN   TestGatewayElapsedTokenizationBudgetDoesNotOpenBreaker
+2026/10/31 01:24:15 server shutdown complete
+2026/10/31 01:24:15 server shutdown complete
+--- PASS: TestGatewayElapsedTokenizationBudgetDoesNotOpenBreaker (0.42s)
+=== RUN   TestGatewayRepeatedBudgetRejectionDoesNotOpenBreaker
+2026/10/31 01:24:15 server shutdown complete
+2026/10/31 01:24:15 server shutdown complete
+--- PASS: TestGatewayRepeatedBudgetRejectionDoesNotOpenBreaker (0.67s)
+=== RUN   TestGatewayElapsedTokenizationBudgetDoesNotOpenBreaker
+2026/10/31 01:24:16 server shutdown complete
+2026/10/31 01:24:16 server shutdown complete
+--- PASS: TestGatewayElapsedTokenizationBudgetDoesNotOpenBreaker (0.39s)
+=== RUN   TestGatewayRepeatedBudgetRejectionDoesNotOpenBreaker
+2026/10/31 01:24:16 server shutdown complete
+2026/10/31 01:24:16 server shutdown complete
+--- PASS: TestGatewayRepeatedBudgetRejectionDoesNotOpenBreaker (0.62s)
+=== RUN   TestGatewayElapsedTokenizationBudgetDoesNotOpenBreaker
+2026/10/31 01:24:17 server shutdown complete
+2026/10/31 01:24:17 server shutdown complete
+--- PASS: TestGatewayElapsedTokenizationBudgetDoesNotOpenBreaker (0.39s)
+=== RUN   TestGatewayRepeatedBudgetRejectionDoesNotOpenBreaker
+2026/10/31 01:24:17 server shutdown complete
+2026/10/31 01:24:17 server shutdown complete
+--- PASS: TestGatewayRepeatedBudgetRejectionDoesNotOpenBreaker (0.62s)
+=== RUN   TestGatewayElapsedTokenizationBudgetDoesNotOpenBreaker
+2026/10/31 01:24:18 server shutdown complete
+2026/10/31 01:24:18 server shutdown complete
+--- PASS: TestGatewayElapsedTokenizationBudgetDoesNotOpenBreaker (0.40s)
+=== RUN   TestGatewayRepeatedBudgetRejectionDoesNotOpenBreaker
+2026/10/31 01:24:18 server shutdown complete
+2026/10/31 01:24:18 server shutdown complete
+--- PASS: TestGatewayRepeatedBudgetRejectionDoesNotOpenBreaker (0.62s)
+=== RUN   TestGatewayElapsedTokenizationBudgetDoesNotOpenBreaker
+2026/10/31 01:24:19 server shutdown complete
+2026/10/31 01:24:19 server shutdown complete
+--- PASS: TestGatewayElapsedTokenizationBudgetDoesNotOpenBreaker (0.38s)
+=== RUN   TestGatewayRepeatedBudgetRejectionDoesNotOpenBreaker
+2026/10/31 01:24:19 server shutdown complete
+2026/10/31 01:24:19 server shutdown complete
+--- PASS: TestGatewayRepeatedBudgetRejectionDoesNotOpenBreaker (0.56s)
+=== RUN   TestGatewayElapsedTokenizationBudgetDoesNotOpenBreaker
+2026/10/31 01:24:20 server shutdown complete
+2026/10/31 01:24:20 server shutdown complete
+--- PASS: TestGatewayElapsedTokenizationBudgetDoesNotOpenBreaker (0.38s)
+PASS
+ok  	github.com/KanaDoodle/KanaRPC-Go/inference/gateway	11.563s

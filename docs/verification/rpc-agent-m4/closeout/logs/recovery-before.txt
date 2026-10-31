@@ -1,0 +1,6 @@
+=== RUN   TestRecoveryRoundTripAndImportIsolation
+    recovery_integration_test.go:31: 本机 MySQL 管理操作失败，请检查服务状态
+--- FAIL: TestRecoveryRoundTripAndImportIsolation (0.12s)
+FAIL
+FAIL	github.com/KanaDoodle/CampusTrace/internal/launcher	0.589s
+FAIL

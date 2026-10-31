@@ -1,0 +1,40 @@
+{
+  "ready": true,
+  "offered": 4,
+  "completed": 2,
+  "ttft_met": 2,
+  "batch_completed": 0,
+  "outcomes": {
+    "canceled": 2,
+    "eof": 2
+  },
+  "admission": {
+    "interactive": {
+      "running": 0,
+      "running_tokens": 0,
+      "queued": 0,
+      "queued_tokens": 0
+    },
+    "batch": {
+      "running": 0,
+      "running_tokens": 0,
+      "queued": 0,
+      "queued_tokens": 0
+    },
+    "shared": false,
+    "accepted": 4,
+    "rejected": 0,
+    "expired": 0,
+    "canceled": 0,
+    "completed": 4
+  },
+  "workers": [
+    {
+      "id": "fixture-worker",
+      "available": true,
+      "source": "worker_snapshot_and_local",
+      "in_flight": 0,
+      "local_reservations": 0
+    }
+  ]
+}

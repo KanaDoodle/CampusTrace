@@ -1,0 +1,39 @@
+✔ narration snapshots tolerate CRLF and fragmented frames (0.6665ms)
+✔ narration never resurrects a cancelled execution from a delayed snapshot (0.087ms)
+✔ narration labels fixture output and escapes model markup (0.532625ms)
+✔ retry requires an unknown-outcome review, and terminal tasks are not resumable (0.070208ms)
+✔ reattachment uses GET snapshots and never submits generation or resume (4.890458ms)
+✔ expired lease ends observation without automatically restarting work (0.198041ms)
+✔ a full durable snapshot is emitted only after a complete frame (0.099458ms)
+✖ cancelled or stale history never redisplays the draft (0.285ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 7
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 54.584167
+
+✖ failing tests:
+
+test at web/agent_narration.test.cjs:12:1
+✖ cancelled or stale history never redisplays the draft (0.285ms)
+  AssertionError [ERR_ASSERTION]: The input was expected to not match the regular expression /obsolete-private-draft/. Input:
+  
+  '<article class="agent-execution" data-narration-record="task"><h3>依据说明</h3><p class="meta">已停止生成 · 模型生成说明，尚未核实</p><p class="preserve-lines">obsolete-private-draft</p><p class="meta">依据仍以原任务记录为准；这段文字不会修改求职资料或执行操作。</p><div class="actions"><button type="button" class="btn btn-small" data-narration-open="task">查看说明与进度</button></div></article>'
+  
+      at TestContext.<anonymous> (/Users/kana/Projects/campustrace/web/agent_narration.test.cjs:12:115)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1397:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:969:18)
+      at Test.postRun (node:internal/test_runner/test:1537:19)
+      at Test.run (node:internal/test_runner/test:1462:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:969:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '<article class="agent-execution" data-narration-record="task"><h3>依据说明</h3><p class="meta">已停止生成 · 模型生成说明，尚未核实</p><p class="preserve-lines">obsolete-private-draft</p><p class="meta">依据仍以原任务记录为准；这段文字不会修改求职资料或执行操作。</p><div class="actions"><button type="button" class="btn btn-small" data-narration-open="task">查看说明与进度</button></div></article>',
+    expected: /obsolete-private-draft/,
+    operator: 'doesNotMatch',
+    diff: 'simple'
+  }

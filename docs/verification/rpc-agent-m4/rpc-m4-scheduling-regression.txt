@@ -1,0 +1,1 @@
+{"status": "passed", "backend": "fixture-no-model", "processes": ["fixture", "rpc-worker", "scheduled-gateway", "rpc-check"], "checks": ["interactive completion", "batch completion", "upstream HTTP cancellation", "SLO rejection", "reservation cleanup"], "evidence": "/private/tmp/rpc-m4-scheduling-regression"}

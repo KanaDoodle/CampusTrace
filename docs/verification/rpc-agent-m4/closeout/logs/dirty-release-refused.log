@@ -1,0 +1,9 @@
+Traceback (most recent call last):
+  File "/Users/kana/Projects/KanaRPC-Go/scripts/package-sdk.py", line 95, in <module>
+    main()
+    ~~~~^^
+  File "/Users/kana/Projects/KanaRPC-Go/scripts/package-sdk.py", line 90, in main
+    result = package(repo, args.output.resolve(), args.version, args.require_clean)
+  File "/Users/kana/Projects/KanaRPC-Go/scripts/package-sdk.py", line 28, in package
+    raise ValueError('release preparation requires a clean committed checkout')
+ValueError: release preparation requires a clean committed checkout

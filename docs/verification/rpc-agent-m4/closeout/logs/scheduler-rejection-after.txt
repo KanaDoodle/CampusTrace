@@ -1,0 +1,32 @@
+=== RUN   TestSchedulerProviderRejectionAndUnknownTimeoutStopWithoutReplay
+=== RUN   TestSchedulerProviderRejectionAndUnknownTimeoutStopWithoutReplay/429
+2026/10/31 01:27:07 INFO http request request_id=3740cf538e496ae0b421aaeacf1e0bec method=POST route="POST /api/matching/tasks" status=202 duration_ms=13
+2026/10/31 01:27:07 INFO matching batch completed request_id=3740cf538e496ae0b421aaeacf1e0bec run_id=b7a0e4f94796bb73ce2b1aeedc52e3f2 jobs=2 duration_ms=21 model_calls=1 error_code=MODEL_PROVIDER_BUSY diagnostic="map[provider_status:429 stage:ANALYZE]"
+=== RUN   TestSchedulerProviderRejectionAndUnknownTimeoutStopWithoutReplay/timeout
+2026/10/31 01:27:08 INFO http request request_id=54d7992aaff2e5294680294862c99b2e method=POST route="POST /api/matching/tasks" status=202 duration_ms=15
+2026/10/31 01:27:10 INFO matching batch completed request_id=54d7992aaff2e5294680294862c99b2e run_id=7541f51f1fdfe27e1db918c8df7fca0e jobs=2 duration_ms=1985 model_calls=1 error_code=MODEL_TIMEOUT diagnostic=map[stage:ANALYZE]
+--- PASS: TestSchedulerProviderRejectionAndUnknownTimeoutStopWithoutReplay (3.27s)
+    --- PASS: TestSchedulerProviderRejectionAndUnknownTimeoutStopWithoutReplay/429 (0.69s)
+    --- PASS: TestSchedulerProviderRejectionAndUnknownTimeoutStopWithoutReplay/timeout (2.57s)
+=== RUN   TestSchedulerProviderRejectionAndUnknownTimeoutStopWithoutReplay
+=== RUN   TestSchedulerProviderRejectionAndUnknownTimeoutStopWithoutReplay/429
+2026/10/31 01:27:11 INFO http request request_id=cc7d9bc68bea63a873710baae4cfcf7e method=POST route="POST /api/matching/tasks" status=202 duration_ms=19
+2026/10/31 01:27:11 INFO matching batch completed request_id=cc7d9bc68bea63a873710baae4cfcf7e run_id=3ff9ea4442947d7f854c1510404c11d4 jobs=2 duration_ms=37 model_calls=1 error_code=MODEL_PROVIDER_BUSY diagnostic="map[provider_status:429 stage:ANALYZE]"
+=== RUN   TestSchedulerProviderRejectionAndUnknownTimeoutStopWithoutReplay/timeout
+2026/10/31 01:27:11 INFO http request request_id=0cf8a10a1f275c8ea2f4ab6fc6ca7085 method=POST route="POST /api/matching/tasks" status=202 duration_ms=17
+2026/10/31 01:27:13 INFO matching batch completed request_id=0cf8a10a1f275c8ea2f4ab6fc6ca7085 run_id=9a7ade24ab0cc6a8d92b67c0a6a82929 jobs=2 duration_ms=1979 model_calls=1 error_code=MODEL_TIMEOUT diagnostic=map[stage:ANALYZE]
+--- PASS: TestSchedulerProviderRejectionAndUnknownTimeoutStopWithoutReplay (3.49s)
+    --- PASS: TestSchedulerProviderRejectionAndUnknownTimeoutStopWithoutReplay/429 (0.75s)
+    --- PASS: TestSchedulerProviderRejectionAndUnknownTimeoutStopWithoutReplay/timeout (2.74s)
+=== RUN   TestSchedulerProviderRejectionAndUnknownTimeoutStopWithoutReplay
+=== RUN   TestSchedulerProviderRejectionAndUnknownTimeoutStopWithoutReplay/429
+2026/10/31 01:27:14 INFO http request request_id=8e850d4ea060ca7c83a568ec51a51205 method=POST route="POST /api/matching/tasks" status=202 duration_ms=13
+2026/10/31 01:27:14 INFO matching batch completed request_id=8e850d4ea060ca7c83a568ec51a51205 run_id=c93eef29ba04c4bc6b6285731cda774d jobs=2 duration_ms=21 model_calls=1 error_code=MODEL_PROVIDER_BUSY diagnostic="map[provider_status:429 stage:ANALYZE]"
+=== RUN   TestSchedulerProviderRejectionAndUnknownTimeoutStopWithoutReplay/timeout
+2026/10/31 01:27:15 INFO http request request_id=981e7178ae568687a461067a9961bdf0 method=POST route="POST /api/matching/tasks" status=202 duration_ms=12
+2026/10/31 01:27:17 INFO matching batch completed request_id=981e7178ae568687a461067a9961bdf0 run_id=e17cda80040275a5e03234e2eab9f227 jobs=2 duration_ms=1984 model_calls=1 error_code=MODEL_TIMEOUT diagnostic=map[stage:ANALYZE]
+--- PASS: TestSchedulerProviderRejectionAndUnknownTimeoutStopWithoutReplay (3.17s)
+    --- PASS: TestSchedulerProviderRejectionAndUnknownTimeoutStopWithoutReplay/429 (0.59s)
+    --- PASS: TestSchedulerProviderRejectionAndUnknownTimeoutStopWithoutReplay/timeout (2.58s)
+PASS
+ok  	github.com/KanaDoodle/CampusTrace/internal/integration	11.722s

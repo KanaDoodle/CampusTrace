@@ -1,0 +1,46 @@
+=== RUN   TestFixtureCleanupRemovesJobsBeforeLaterFreshness
+=== RUN   TestFixtureCleanupRemovesJobsBeforeLaterFreshness/finished-catalog
+--- PASS: TestFixtureCleanupRemovesJobsBeforeLaterFreshness (0.92s)
+    --- PASS: TestFixtureCleanupRemovesJobsBeforeLaterFreshness/finished-catalog (0.57s)
+=== RUN   TestFixtureScopeRemovesUntrackedGlobalCatalog
+=== RUN   TestFixtureScopeRemovesUntrackedGlobalCatalog/additional-source
+--- PASS: TestFixtureScopeRemovesUntrackedGlobalCatalog (0.53s)
+    --- PASS: TestFixtureScopeRemovesUntrackedGlobalCatalog/additional-source (0.25s)
+=== RUN   TestRepairLegacyMigration
+--- PASS: TestRepairLegacyMigration (0.36s)
+=== RUN   TestModelControlGlobalTurnsAndAtomicBudget
+--- PASS: TestModelControlGlobalTurnsAndAtomicBudget (0.41s)
+=== RUN   TestFixtureCleanupRemovesJobsBeforeLaterFreshness
+=== RUN   TestFixtureCleanupRemovesJobsBeforeLaterFreshness/finished-catalog
+--- PASS: TestFixtureCleanupRemovesJobsBeforeLaterFreshness (0.70s)
+    --- PASS: TestFixtureCleanupRemovesJobsBeforeLaterFreshness/finished-catalog (0.44s)
+=== RUN   TestFixtureScopeRemovesUntrackedGlobalCatalog
+=== RUN   TestFixtureScopeRemovesUntrackedGlobalCatalog/additional-source
+--- PASS: TestFixtureScopeRemovesUntrackedGlobalCatalog (0.49s)
+    --- PASS: TestFixtureScopeRemovesUntrackedGlobalCatalog/additional-source (0.25s)
+=== RUN   TestRepairLegacyMigration
+--- PASS: TestRepairLegacyMigration (0.29s)
+=== RUN   TestModelControlGlobalTurnsAndAtomicBudget
+--- PASS: TestModelControlGlobalTurnsAndAtomicBudget (0.37s)
+=== RUN   TestFixtureCleanupRemovesJobsBeforeLaterFreshness
+=== RUN   TestFixtureCleanupRemovesJobsBeforeLaterFreshness/finished-catalog
+--- PASS: TestFixtureCleanupRemovesJobsBeforeLaterFreshness (0.69s)
+    --- PASS: TestFixtureCleanupRemovesJobsBeforeLaterFreshness/finished-catalog (0.42s)
+=== RUN   TestFixtureScopeRemovesUntrackedGlobalCatalog
+=== RUN   TestFixtureScopeRemovesUntrackedGlobalCatalog/additional-source
+--- PASS: TestFixtureScopeRemovesUntrackedGlobalCatalog (0.47s)
+    --- PASS: TestFixtureScopeRemovesUntrackedGlobalCatalog/additional-source (0.24s)
+=== RUN   TestRepairLegacyMigration
+--- PASS: TestRepairLegacyMigration (0.29s)
+=== RUN   TestModelControlGlobalTurnsAndAtomicBudget
+--- PASS: TestModelControlGlobalTurnsAndAtomicBudget (0.36s)
+PASS
+ok  	github.com/KanaDoodle/CampusTrace/internal/integration	7.653s
+=== RUN   TestRadarUpgradeV01
+--- PASS: TestRadarUpgradeV01 (0.38s)
+=== RUN   TestRadarUpgradeV01
+--- PASS: TestRadarUpgradeV01 (0.34s)
+=== RUN   TestRadarUpgradeV01
+--- PASS: TestRadarUpgradeV01 (0.37s)
+PASS
+ok  	github.com/KanaDoodle/CampusTrace/internal/persistence	2.767s

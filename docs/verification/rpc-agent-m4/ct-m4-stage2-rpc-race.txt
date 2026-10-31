@@ -1,0 +1,331 @@
+=== RUN   TestRPCNarrationStreamsUsageAndScopesCacheByAuthenticatedOwner
+2026/10/31 00:14:35 server shutdown complete
+2026/10/31 00:14:35 server shutdown complete
+--- PASS: TestRPCNarrationStreamsUsageAndScopesCacheByAuthenticatedOwner (0.06s)
+=== RUN   TestRPCNarrationRejectsToolCallsAndDoesNotExposeReasoning
+=== RUN   TestRPCNarrationRejectsToolCallsAndDoesNotExposeReasoning/tool_calls
+2026/10/31 00:14:35 server shutdown complete
+=== RUN   TestRPCNarrationRejectsToolCallsAndDoesNotExposeReasoning/reasoning_only
+2026/10/31 00:14:35 server shutdown complete
+=== RUN   TestRPCNarrationRejectsToolCallsAndDoesNotExposeReasoning/missing_summary
+2026/10/31 00:14:35 server shutdown complete
+--- PASS: TestRPCNarrationRejectsToolCallsAndDoesNotExposeReasoning (0.01s)
+    --- PASS: TestRPCNarrationRejectsToolCallsAndDoesNotExposeReasoning/tool_calls (0.00s)
+    --- PASS: TestRPCNarrationRejectsToolCallsAndDoesNotExposeReasoning/reasoning_only (0.00s)
+    --- PASS: TestRPCNarrationRejectsToolCallsAndDoesNotExposeReasoning/missing_summary (0.00s)
+=== RUN   TestRPCNarrationStreamsUsageAndScopesCacheByAuthenticatedOwner
+2026/10/31 00:14:35 server shutdown complete
+2026/10/31 00:14:35 server shutdown complete
+--- PASS: TestRPCNarrationStreamsUsageAndScopesCacheByAuthenticatedOwner (0.06s)
+=== RUN   TestRPCNarrationRejectsToolCallsAndDoesNotExposeReasoning
+=== RUN   TestRPCNarrationRejectsToolCallsAndDoesNotExposeReasoning/tool_calls
+2026/10/31 00:14:35 server shutdown complete
+=== RUN   TestRPCNarrationRejectsToolCallsAndDoesNotExposeReasoning/reasoning_only
+2026/10/31 00:14:35 server shutdown complete
+=== RUN   TestRPCNarrationRejectsToolCallsAndDoesNotExposeReasoning/missing_summary
+2026/10/31 00:14:35 server shutdown complete
+--- PASS: TestRPCNarrationRejectsToolCallsAndDoesNotExposeReasoning (0.01s)
+    --- PASS: TestRPCNarrationRejectsToolCallsAndDoesNotExposeReasoning/tool_calls (0.00s)
+    --- PASS: TestRPCNarrationRejectsToolCallsAndDoesNotExposeReasoning/reasoning_only (0.00s)
+    --- PASS: TestRPCNarrationRejectsToolCallsAndDoesNotExposeReasoning/missing_summary (0.00s)
+=== RUN   TestRPCNarrationStreamsUsageAndScopesCacheByAuthenticatedOwner
+2026/10/31 00:14:35 server shutdown complete
+2026/10/31 00:14:35 server shutdown complete
+--- PASS: TestRPCNarrationStreamsUsageAndScopesCacheByAuthenticatedOwner (0.06s)
+=== RUN   TestRPCNarrationRejectsToolCallsAndDoesNotExposeReasoning
+=== RUN   TestRPCNarrationRejectsToolCallsAndDoesNotExposeReasoning/tool_calls
+2026/10/31 00:14:35 server shutdown complete
+=== RUN   TestRPCNarrationRejectsToolCallsAndDoesNotExposeReasoning/reasoning_only
+2026/10/31 00:14:35 server shutdown complete
+=== RUN   TestRPCNarrationRejectsToolCallsAndDoesNotExposeReasoning/missing_summary
+2026/10/31 00:14:35 server shutdown complete
+--- PASS: TestRPCNarrationRejectsToolCallsAndDoesNotExposeReasoning (0.01s)
+    --- PASS: TestRPCNarrationRejectsToolCallsAndDoesNotExposeReasoning/tool_calls (0.00s)
+    --- PASS: TestRPCNarrationRejectsToolCallsAndDoesNotExposeReasoning/reasoning_only (0.00s)
+    --- PASS: TestRPCNarrationRejectsToolCallsAndDoesNotExposeReasoning/missing_summary (0.00s)
+PASS
+ok  	github.com/KanaDoodle/CampusTrace/internal/inferencebridge	2.026s
+=== RUN   TestApplicationDossierToolKeepsLegacyUnknownAndFrozenProvenance
+--- PASS: TestApplicationDossierToolKeepsLegacyUnknownAndFrozenProvenance (0.00s)
+=== RUN   TestHarnessReviewedPlansAndBoundaries
+--- PASS: TestHarnessReviewedPlansAndBoundaries (0.00s)
+=== RUN   TestContextSelectionAndAuthority
+--- PASS: TestContextSelectionAndAuthority (0.00s)
+=== RUN   TestReadRetryAndStructuredFailure
+--- PASS: TestReadRetryAndStructuredFailure (0.10s)
+=== RUN   TestObservationRedactionPreservesJSONNumbers
+--- PASS: TestObservationRedactionPreservesJSONNumbers (0.00s)
+=== RUN   TestRoutingAndTokenBudgetStopsNextProviderCall
+--- PASS: TestRoutingAndTokenBudgetStopsNextProviderCall (0.01s)
+=== RUN   TestSyntheticJourneyEvaluation
+--- PASS: TestSyntheticJourneyEvaluation (0.10s)
+=== RUN   TestJourneyEvaluationDetectsWrongToolAndNoEvidence
+--- PASS: TestJourneyEvaluationDetectsWrongToolAndNoEvidence (0.00s)
+=== RUN   TestMatchingToolArgumentsAreScopedAndBounded
+--- PASS: TestMatchingToolArgumentsAreScopedAndBounded (0.00s)
+=== RUN   TestMatchingAnswerUsesCurrentProjectedEvidenceOnly
+--- PASS: TestMatchingAnswerUsesCurrentProjectedEvidenceOnly (0.00s)
+=== RUN   TestWholeGroundingUsesQualitativeFitAndNamedRelativeChoices
+--- PASS: TestWholeGroundingUsesQualitativeFitAndNamedRelativeChoices (0.00s)
+=== RUN   TestNarrationOutputRedactionUsesCumulativeTextAndHoldback
+--- PASS: TestNarrationOutputRedactionUsesCumulativeTextAndHoldback (0.00s)
+=== RUN   TestNextActionsUseOnlySuccessfulApplicationFacts
+--- PASS: TestNextActionsUseOnlySuccessfulApplicationFacts (0.00s)
+=== RUN   TestNextActionsPrioritizeDeadlinesAndDeduplicateSources
+--- PASS: TestNextActionsPrioritizeDeadlinesAndDeduplicateSources (0.00s)
+=== RUN   TestReviewPrioritiesRequireEvidenceAndKeepHistorySeparate
+--- PASS: TestReviewPrioritiesRequireEvidenceAndKeepHistorySeparate (0.00s)
+=== RUN   TestNextActionsBoundLabelsAndTotal
+--- PASS: TestNextActionsBoundLabelsAndTotal (0.01s)
+=== RUN   TestRadarToolValidationAndRouting
+--- PASS: TestRadarToolValidationAndRouting (0.00s)
+=== RUN   TestReleaseOutputBudgetsAndCanonicalDedup
+--- PASS: TestReleaseOutputBudgetsAndCanonicalDedup (7.19s)
+=== RUN   TestReleaseAnswerAndAggregateBudgets
+--- PASS: TestReleaseAnswerAndAggregateBudgets (0.04s)
+=== RUN   TestRuntimeEval
+=== RUN   TestRuntimeEval/normal_read
+=== RUN   TestRuntimeEval/multi_tool
+=== RUN   TestRuntimeEval/unknown_tool
+=== RUN   TestRuntimeEval/unknown_fields
+=== RUN   TestRuntimeEval/missing_args
+=== RUN   TestRuntimeEval/null_args
+=== RUN   TestRuntimeEval/null_value
+=== RUN   TestRuntimeEval/trailing_JSON
+=== RUN   TestRuntimeEval/wrong_type
+=== RUN   TestRuntimeEval/step_limit
+=== RUN   TestRuntimeEval/last_proposed_not_executed
+=== RUN   TestRuntimeEval/tool_budget
+=== RUN   TestRuntimeEval/authentication
+=== RUN   TestRuntimeEval/write_confirmation_proposal
+=== RUN   TestRuntimeEval/invalid_enum
+=== RUN   TestRuntimeEval/invalid_version
+=== RUN   TestRuntimeEval/prompt_injection_tool
+=== RUN   TestRuntimeEval/fabricated_factual_answer
+=== RUN   TestRuntimeEval/structured_facts
+=== RUN   TestRuntimeEval/failed_tool
+=== RUN   TestRuntimeEval/tool_timeout
+=== RUN   TestRuntimeEval/model_timeout
+=== RUN   TestRuntimeEval/model_error
+=== RUN   TestRuntimeEval/invalid_review_binding
+--- PASS: TestRuntimeEval (0.07s)
+    --- PASS: TestRuntimeEval/normal_read (0.00s)
+    --- PASS: TestRuntimeEval/multi_tool (0.00s)
+    --- PASS: TestRuntimeEval/unknown_tool (0.00s)
+    --- PASS: TestRuntimeEval/unknown_fields (0.00s)
+    --- PASS: TestRuntimeEval/missing_args (0.00s)
+    --- PASS: TestRuntimeEval/null_args (0.00s)
+    --- PASS: TestRuntimeEval/null_value (0.00s)
+    --- PASS: TestRuntimeEval/trailing_JSON (0.00s)
+    --- PASS: TestRuntimeEval/wrong_type (0.00s)
+    --- PASS: TestRuntimeEval/step_limit (0.00s)
+    --- PASS: TestRuntimeEval/last_proposed_not_executed (0.00s)
+    --- PASS: TestRuntimeEval/tool_budget (0.00s)
+    --- PASS: TestRuntimeEval/authentication (0.00s)
+    --- PASS: TestRuntimeEval/write_confirmation_proposal (0.00s)
+    --- PASS: TestRuntimeEval/invalid_enum (0.00s)
+    --- PASS: TestRuntimeEval/invalid_version (0.00s)
+    --- PASS: TestRuntimeEval/prompt_injection_tool (0.00s)
+    --- PASS: TestRuntimeEval/fabricated_factual_answer (0.00s)
+    --- PASS: TestRuntimeEval/structured_facts (0.00s)
+    --- PASS: TestRuntimeEval/failed_tool (0.00s)
+    --- PASS: TestRuntimeEval/tool_timeout (0.00s)
+    --- PASS: TestRuntimeEval/model_timeout (0.00s)
+    --- PASS: TestRuntimeEval/model_error (0.00s)
+    --- PASS: TestRuntimeEval/invalid_review_binding (0.00s)
+=== RUN   TestSizeAndPermission
+--- PASS: TestSizeAndPermission (0.00s)
+=== RUN   TestCancellation
+--- PASS: TestCancellation (0.00s)
+=== RUN   TestModelCannotInventFactsAfterRead
+--- PASS: TestModelCannotInventFactsAfterRead (0.00s)
+=== RUN   TestApplicationDossierToolKeepsLegacyUnknownAndFrozenProvenance
+--- PASS: TestApplicationDossierToolKeepsLegacyUnknownAndFrozenProvenance (0.00s)
+=== RUN   TestHarnessReviewedPlansAndBoundaries
+--- PASS: TestHarnessReviewedPlansAndBoundaries (0.00s)
+=== RUN   TestContextSelectionAndAuthority
+--- PASS: TestContextSelectionAndAuthority (0.00s)
+=== RUN   TestReadRetryAndStructuredFailure
+--- PASS: TestReadRetryAndStructuredFailure (0.10s)
+=== RUN   TestObservationRedactionPreservesJSONNumbers
+--- PASS: TestObservationRedactionPreservesJSONNumbers (0.00s)
+=== RUN   TestRoutingAndTokenBudgetStopsNextProviderCall
+--- PASS: TestRoutingAndTokenBudgetStopsNextProviderCall (0.01s)
+=== RUN   TestSyntheticJourneyEvaluation
+--- PASS: TestSyntheticJourneyEvaluation (0.10s)
+=== RUN   TestJourneyEvaluationDetectsWrongToolAndNoEvidence
+--- PASS: TestJourneyEvaluationDetectsWrongToolAndNoEvidence (0.00s)
+=== RUN   TestMatchingToolArgumentsAreScopedAndBounded
+--- PASS: TestMatchingToolArgumentsAreScopedAndBounded (0.00s)
+=== RUN   TestMatchingAnswerUsesCurrentProjectedEvidenceOnly
+--- PASS: TestMatchingAnswerUsesCurrentProjectedEvidenceOnly (0.00s)
+=== RUN   TestWholeGroundingUsesQualitativeFitAndNamedRelativeChoices
+--- PASS: TestWholeGroundingUsesQualitativeFitAndNamedRelativeChoices (0.00s)
+=== RUN   TestNarrationOutputRedactionUsesCumulativeTextAndHoldback
+--- PASS: TestNarrationOutputRedactionUsesCumulativeTextAndHoldback (0.00s)
+=== RUN   TestNextActionsUseOnlySuccessfulApplicationFacts
+--- PASS: TestNextActionsUseOnlySuccessfulApplicationFacts (0.00s)
+=== RUN   TestNextActionsPrioritizeDeadlinesAndDeduplicateSources
+--- PASS: TestNextActionsPrioritizeDeadlinesAndDeduplicateSources (0.00s)
+=== RUN   TestReviewPrioritiesRequireEvidenceAndKeepHistorySeparate
+--- PASS: TestReviewPrioritiesRequireEvidenceAndKeepHistorySeparate (0.00s)
+=== RUN   TestNextActionsBoundLabelsAndTotal
+--- PASS: TestNextActionsBoundLabelsAndTotal (0.01s)
+=== RUN   TestRadarToolValidationAndRouting
+--- PASS: TestRadarToolValidationAndRouting (0.00s)
+=== RUN   TestReleaseOutputBudgetsAndCanonicalDedup
+--- PASS: TestReleaseOutputBudgetsAndCanonicalDedup (7.15s)
+=== RUN   TestReleaseAnswerAndAggregateBudgets
+--- PASS: TestReleaseAnswerAndAggregateBudgets (0.04s)
+=== RUN   TestRuntimeEval
+=== RUN   TestRuntimeEval/normal_read
+=== RUN   TestRuntimeEval/multi_tool
+=== RUN   TestRuntimeEval/unknown_tool
+=== RUN   TestRuntimeEval/unknown_fields
+=== RUN   TestRuntimeEval/missing_args
+=== RUN   TestRuntimeEval/null_args
+=== RUN   TestRuntimeEval/null_value
+=== RUN   TestRuntimeEval/trailing_JSON
+=== RUN   TestRuntimeEval/wrong_type
+=== RUN   TestRuntimeEval/step_limit
+=== RUN   TestRuntimeEval/last_proposed_not_executed
+=== RUN   TestRuntimeEval/tool_budget
+=== RUN   TestRuntimeEval/authentication
+=== RUN   TestRuntimeEval/write_confirmation_proposal
+=== RUN   TestRuntimeEval/invalid_enum
+=== RUN   TestRuntimeEval/invalid_version
+=== RUN   TestRuntimeEval/prompt_injection_tool
+=== RUN   TestRuntimeEval/fabricated_factual_answer
+=== RUN   TestRuntimeEval/structured_facts
+=== RUN   TestRuntimeEval/failed_tool
+=== RUN   TestRuntimeEval/tool_timeout
+=== RUN   TestRuntimeEval/model_timeout
+=== RUN   TestRuntimeEval/model_error
+=== RUN   TestRuntimeEval/invalid_review_binding
+--- PASS: TestRuntimeEval (0.07s)
+    --- PASS: TestRuntimeEval/normal_read (0.00s)
+    --- PASS: TestRuntimeEval/multi_tool (0.00s)
+    --- PASS: TestRuntimeEval/unknown_tool (0.00s)
+    --- PASS: TestRuntimeEval/unknown_fields (0.00s)
+    --- PASS: TestRuntimeEval/missing_args (0.00s)
+    --- PASS: TestRuntimeEval/null_args (0.00s)
+    --- PASS: TestRuntimeEval/null_value (0.00s)
+    --- PASS: TestRuntimeEval/trailing_JSON (0.00s)
+    --- PASS: TestRuntimeEval/wrong_type (0.00s)
+    --- PASS: TestRuntimeEval/step_limit (0.00s)
+    --- PASS: TestRuntimeEval/last_proposed_not_executed (0.00s)
+    --- PASS: TestRuntimeEval/tool_budget (0.00s)
+    --- PASS: TestRuntimeEval/authentication (0.00s)
+    --- PASS: TestRuntimeEval/write_confirmation_proposal (0.00s)
+    --- PASS: TestRuntimeEval/invalid_enum (0.00s)
+    --- PASS: TestRuntimeEval/invalid_version (0.00s)
+    --- PASS: TestRuntimeEval/prompt_injection_tool (0.00s)
+    --- PASS: TestRuntimeEval/fabricated_factual_answer (0.00s)
+    --- PASS: TestRuntimeEval/structured_facts (0.00s)
+    --- PASS: TestRuntimeEval/failed_tool (0.00s)
+    --- PASS: TestRuntimeEval/tool_timeout (0.00s)
+    --- PASS: TestRuntimeEval/model_timeout (0.00s)
+    --- PASS: TestRuntimeEval/model_error (0.00s)
+    --- PASS: TestRuntimeEval/invalid_review_binding (0.00s)
+=== RUN   TestSizeAndPermission
+--- PASS: TestSizeAndPermission (0.00s)
+=== RUN   TestCancellation
+--- PASS: TestCancellation (0.00s)
+=== RUN   TestModelCannotInventFactsAfterRead
+--- PASS: TestModelCannotInventFactsAfterRead (0.00s)
+=== RUN   TestApplicationDossierToolKeepsLegacyUnknownAndFrozenProvenance
+--- PASS: TestApplicationDossierToolKeepsLegacyUnknownAndFrozenProvenance (0.00s)
+=== RUN   TestHarnessReviewedPlansAndBoundaries
+--- PASS: TestHarnessReviewedPlansAndBoundaries (0.00s)
+=== RUN   TestContextSelectionAndAuthority
+--- PASS: TestContextSelectionAndAuthority (0.00s)
+=== RUN   TestReadRetryAndStructuredFailure
+--- PASS: TestReadRetryAndStructuredFailure (0.10s)
+=== RUN   TestObservationRedactionPreservesJSONNumbers
+--- PASS: TestObservationRedactionPreservesJSONNumbers (0.00s)
+=== RUN   TestRoutingAndTokenBudgetStopsNextProviderCall
+--- PASS: TestRoutingAndTokenBudgetStopsNextProviderCall (0.01s)
+=== RUN   TestSyntheticJourneyEvaluation
+--- PASS: TestSyntheticJourneyEvaluation (0.10s)
+=== RUN   TestJourneyEvaluationDetectsWrongToolAndNoEvidence
+--- PASS: TestJourneyEvaluationDetectsWrongToolAndNoEvidence (0.00s)
+=== RUN   TestMatchingToolArgumentsAreScopedAndBounded
+--- PASS: TestMatchingToolArgumentsAreScopedAndBounded (0.00s)
+=== RUN   TestMatchingAnswerUsesCurrentProjectedEvidenceOnly
+--- PASS: TestMatchingAnswerUsesCurrentProjectedEvidenceOnly (0.00s)
+=== RUN   TestWholeGroundingUsesQualitativeFitAndNamedRelativeChoices
+--- PASS: TestWholeGroundingUsesQualitativeFitAndNamedRelativeChoices (0.00s)
+=== RUN   TestNarrationOutputRedactionUsesCumulativeTextAndHoldback
+--- PASS: TestNarrationOutputRedactionUsesCumulativeTextAndHoldback (0.00s)
+=== RUN   TestNextActionsUseOnlySuccessfulApplicationFacts
+--- PASS: TestNextActionsUseOnlySuccessfulApplicationFacts (0.00s)
+=== RUN   TestNextActionsPrioritizeDeadlinesAndDeduplicateSources
+--- PASS: TestNextActionsPrioritizeDeadlinesAndDeduplicateSources (0.00s)
+=== RUN   TestReviewPrioritiesRequireEvidenceAndKeepHistorySeparate
+--- PASS: TestReviewPrioritiesRequireEvidenceAndKeepHistorySeparate (0.00s)
+=== RUN   TestNextActionsBoundLabelsAndTotal
+--- PASS: TestNextActionsBoundLabelsAndTotal (0.01s)
+=== RUN   TestRadarToolValidationAndRouting
+--- PASS: TestRadarToolValidationAndRouting (0.00s)
+=== RUN   TestReleaseOutputBudgetsAndCanonicalDedup
+--- PASS: TestReleaseOutputBudgetsAndCanonicalDedup (7.01s)
+=== RUN   TestReleaseAnswerAndAggregateBudgets
+--- PASS: TestReleaseAnswerAndAggregateBudgets (0.04s)
+=== RUN   TestRuntimeEval
+=== RUN   TestRuntimeEval/normal_read
+=== RUN   TestRuntimeEval/multi_tool
+=== RUN   TestRuntimeEval/unknown_tool
+=== RUN   TestRuntimeEval/unknown_fields
+=== RUN   TestRuntimeEval/missing_args
+=== RUN   TestRuntimeEval/null_args
+=== RUN   TestRuntimeEval/null_value
+=== RUN   TestRuntimeEval/trailing_JSON
+=== RUN   TestRuntimeEval/wrong_type
+=== RUN   TestRuntimeEval/step_limit
+=== RUN   TestRuntimeEval/last_proposed_not_executed
+=== RUN   TestRuntimeEval/tool_budget
+=== RUN   TestRuntimeEval/authentication
+=== RUN   TestRuntimeEval/write_confirmation_proposal
+=== RUN   TestRuntimeEval/invalid_enum
+=== RUN   TestRuntimeEval/invalid_version
+=== RUN   TestRuntimeEval/prompt_injection_tool
+=== RUN   TestRuntimeEval/fabricated_factual_answer
+=== RUN   TestRuntimeEval/structured_facts
+=== RUN   TestRuntimeEval/failed_tool
+=== RUN   TestRuntimeEval/tool_timeout
+=== RUN   TestRuntimeEval/model_timeout
+=== RUN   TestRuntimeEval/model_error
+=== RUN   TestRuntimeEval/invalid_review_binding
+--- PASS: TestRuntimeEval (0.07s)
+    --- PASS: TestRuntimeEval/normal_read (0.00s)
+    --- PASS: TestRuntimeEval/multi_tool (0.00s)
+    --- PASS: TestRuntimeEval/unknown_tool (0.00s)
+    --- PASS: TestRuntimeEval/unknown_fields (0.00s)
+    --- PASS: TestRuntimeEval/missing_args (0.00s)
+    --- PASS: TestRuntimeEval/null_args (0.00s)
+    --- PASS: TestRuntimeEval/null_value (0.00s)
+    --- PASS: TestRuntimeEval/trailing_JSON (0.00s)
+    --- PASS: TestRuntimeEval/wrong_type (0.00s)
+    --- PASS: TestRuntimeEval/step_limit (0.00s)
+    --- PASS: TestRuntimeEval/last_proposed_not_executed (0.00s)
+    --- PASS: TestRuntimeEval/tool_budget (0.00s)
+    --- PASS: TestRuntimeEval/authentication (0.00s)
+    --- PASS: TestRuntimeEval/write_confirmation_proposal (0.00s)
+    --- PASS: TestRuntimeEval/invalid_enum (0.00s)
+    --- PASS: TestRuntimeEval/invalid_version (0.00s)
+    --- PASS: TestRuntimeEval/prompt_injection_tool (0.00s)
+    --- PASS: TestRuntimeEval/fabricated_factual_answer (0.00s)
+    --- PASS: TestRuntimeEval/structured_facts (0.00s)
+    --- PASS: TestRuntimeEval/failed_tool (0.00s)
+    --- PASS: TestRuntimeEval/tool_timeout (0.00s)
+    --- PASS: TestRuntimeEval/model_timeout (0.00s)
+    --- PASS: TestRuntimeEval/model_error (0.00s)
+    --- PASS: TestRuntimeEval/invalid_review_binding (0.00s)
+=== RUN   TestSizeAndPermission
+--- PASS: TestSizeAndPermission (0.00s)
+=== RUN   TestCancellation
+--- PASS: TestCancellation (0.00s)
+=== RUN   TestModelCannotInventFactsAfterRead
+--- PASS: TestModelCannotInventFactsAfterRead (0.00s)
+PASS
+ok  	github.com/KanaDoodle/CampusTrace/internal/agent	24.232s

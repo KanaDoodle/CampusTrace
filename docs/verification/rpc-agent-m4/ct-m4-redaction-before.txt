@@ -1,0 +1,6 @@
+=== RUN   TestNarrationRedactionExpansionCannotExceedSnapshotLimit
+    narration_test.go:403: redaction bypassed snapshot cap: state=COMPLETED answer_bytes=51000 draft_bytes=51000 failure=
+--- FAIL: TestNarrationRedactionExpansionCannotExceedSnapshotLimit (0.12s)
+FAIL
+FAIL	github.com/KanaDoodle/CampusTrace/internal/integration	0.800s
+FAIL

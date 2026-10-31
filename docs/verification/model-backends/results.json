@@ -1,0 +1,1169 @@
+{
+  "default": {
+    "tests": {
+      "pass": 1987,
+      "skip": 241
+    },
+    "failures": [],
+    "skipped": [
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/eventbus",
+        "test": "TestKafkaIndependentGroupsAndFailedBatchReplay"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestAdversarialDifferentCompanySelectionsRaceForLastSlot"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestAdversarialNoticeReferenceConflictAndNoUnconfirmedMutation"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestAdversarialChild"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestAdversarialMultiprocessResidentCapacityAndMatchLease"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestAdversarialMultiprocessLegacyMigrationAndDuplicates"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestAdversarialMultiprocessVariableProviderLoad"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestAdversarialKillWorkerAtPaidBoundaries"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestAdversarialLegacyUnindexedQuotaAcrossProcesses"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestAdversarialPauseBetweenExecutingAndCall"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestAdversarialOrphanLegacyOutboxCannotBlockHealthyOwner"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestAdversarialFullOutboxDoesNotDeadlockDerivedAssessment"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestAgentCheckpointResumeReplayAndStaleProfile"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestAgentAttemptLimitAndLeaseContinuation"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestAgentLeaseFenceCancelAndForget"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestAgentEventFeedIsolationAndCoalescing"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestAgentHarnessHTTPAndOpaqueMCPResources"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestAgentClosingReadSurvivesLargeUnrelatedCatalog"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestAgentMemoryReviewedWritesAndForget"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestAgentContextBindsCorrectionsAndExplicitContinuation"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestPracticeDurableNoncePreventsDuplicateAndOwnership"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestAgentWorkspaceHTTPOwnerAndDisabledPractice"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestPracticeHTTPReplayDoesNotRequireRunner"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestApplicationFollowUpOwnedVersionedWorkflow"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestApplicationFollowUpTodosBeijingDayOwnershipAndMatchingPrivacy"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestApplicationJourneyHTTPOptionalFieldsAndLargeNotice"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestApplicationJourneyAtomicPlanSnapshotsNoticesAndRescheduling"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestApplicationRecordsJoinOwnedJobsAndVersionDetailsWithoutChangingStage"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestApplicationRecordsNeverLabelManualOrUnsafeLinksAsOfficial"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestAssessmentScheduleCoalescesChangesAndSkipsUnchangedHistory"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestAssessmentScheduleConcurrentDueAndExpiredLease"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestAssessmentScheduleBootstrapAndRestartPreserveFuturePlan"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestAssessmentScheduleClosesAtDeadlineWithoutNewObservation"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestRegisterDuplicateEmailReportsConflict"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestBrowserSessionsRestoreExpireRotateAndRevoke"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestRegistrationByteLimitsAndLegacyPasswordLogin"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestDurableMatchingSurvivesRequestEndAndIdempotentReplay"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestDurablePauseResumeAndCancellationFence"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestExpiredTaskRequiresAuthorizationAndResumeOnlySelectedItems"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestCampaignQuotaSerializesPlansButPreservesActualApplications"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/launcher",
+        "test": "TestRecoveryRoundTripAndImportIsolation"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestBulkPreferencesAtomicOwnershipProtectionRestoreAndReimport"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestCampusSourceRegistrationAndOwnership"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestNationwideCampusCitiesArePreservedOnImport"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestCampusSourceLocalPaceDoesNotSpendRetry"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestGraduateSourceRegistrationIsScopedPrivateAndIdempotent"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestAutoCompanyCandidatesAreReadOnlyPrivateAndDoNotCallModels"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestCompanyChatCommitFencesConcurrentReportAndJDChanges"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestCompanyChatRoundTripNeedsNoSingleJobAnalysisAndShowsNewestReport"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestCompanyChatRejectsChangedSourcesForeignAccountsAndMalformedScope"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestCompanyWorkspaceRetainsWholeCampaignUsageAcrossSubsetAndAccounts"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestMatchingEvaluationExportBindsHumanLabelToCurrentSanitizedScope"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestCompanyDecisionCatalogRequiresAuthentication"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestCompanyCandidatePickerUsesCurrentSummariesAndKeepsPrivateMaterialsOut"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestRadarSummaryPreviewPreservesInventoryAndLoadsEvidenceOnDemand"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestInventorySummaryCacheReadsCurrentPreferencesProfileAndLatestObservation"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestCompanyCandidatePickerCanNarrowMoreThanTwoHundredJobs"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestDeadlineDashboardLargeCatalogAndNotificationWindows"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestDeadlineDashboardDateOnlyAndChangedPosting"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestEducationHistoryPersistsWithCASAndSurvivesLegacyClientEdits"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestJobDetailRetainsSavedProfileWithoutJobRequirements"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestFixtureCleanupRemovesJobsBeforeLaterFreshness"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestFixtureScopeRemovesUntrackedGlobalCatalog"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestFoundationAssessmentPersistenceLegacyEditsAndClearing"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestWholeAnalysisSavesNarrativeReportAndInvalidatesOnProjectEdit"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestCompanyWholeTaskWorksBeforeSingleAnalysisAndCachesExactScope"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestWholeChatRoundTripPreservesCompanyRankingAndPartialImports"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestCompanyQuoteFailureKeepsExactSourceLocationAndRetryScope"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestWholeMatchingReadsCompleteScopeRegardlessOfLegacyRequirements"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestIncrementalMatchingReadOnlyLocalUpdatesKeepPaidEvidenceAndFences"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestWholeMatchingDoesNotDeriveAbilityFromLegacyQualificationOnlyCache"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestInterviewRecordsPreserveCompletionTimeAndOwnedContext"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestInventoryCampaignHidingTracksSubmissionsRulesAndAccountScope"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestPagedInventoryTracksChangesWithoutCallingModelOrLosingGlobalScope"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestJobDetailExposesOnlyVisibleSafeOfficialLink"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestKafkaSearchAndNotificationsIndependentRecovery"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestKafkaOutboxRollsBackWithBusinessWrite"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestKafkaNotificationAudienceAndCurrentStatus"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestKnowledgeHTTPPreservesLargeEscapedTextAndRequiresIndexConfirmation"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestKnowledgeIndexReuseOwnershipPrivacyAndDeletion"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestKnowledgeSearchFencesDeletedInFlightMaterials"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestKnowledgeConcurrentIndexLeaseAndClearFencesInFlight"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestKnowledgeImportConcurrentReplayAndAccountIsolation"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestRadarPreviewAndAnalysisAllowCompleteResumeOverTheOldByteLimit"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestMatchingScreensBeyondSearchPageAndObservationsInvalidateByContent"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestChatHeadingRecoveryPreviewConfirmAndReload"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestChatImportPreviewConfirmStalenessOwnershipAndDecisionFlows"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestOldMatchingQualityIsStaleInBothCatalogAndDecisionUntilReimport"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestMaskedChatImportRemainsUsableAfterReloadWithoutStoringMask"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestChatImportSharedQualificationExcerptPreviewAndConfirm"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestChatImportMixedBatchReportsAllJobsAndConfirmsOnlyReviewedSubset"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestChatSourceLabelRepairsPreviewConfirmAndReload"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestDecisionViewsUseCurrentOwnedResultsWithoutModelCalls"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestLocalDirectionHandlesAgentTargetsWithoutCallsAndPreservesPaidResults"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestWholeMatchingRejectsFabricatedAndMisusedEvidenceWithoutAutomaticCalls"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestMatchingExcerptRetryReusesRequirementsAndPersistsOnlyOriginalProjectText"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestMatchingExportPrivateSanitizedOrderedAndWithoutModelCalls"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestMatchingExportRejectsOversizedCatalogWithoutCallingModel"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestMatchingLocalFactsPreferencesAndOwnerScopeWithoutModelCalls"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestSavedComparisonLocalPrecisionIsReadOnlyAndMonthEditsReuseAbilities"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestMatchingBatchCachesAndInvalidatesOnlyPersonalComparison"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestMatchingQuotaStopsBeforeNextWholeAnalysis"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestMatchingRejectsInventedCitationsAndRetriesWholeAnalysis"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestMatchingDailyLimitIsAtomic"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestMatchingLeasePreventsDuplicatePaidBatches"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestMatchingV2PreferencesSectionsProjectContextAndStaleResults"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestRepairLegacyMigration"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestModelControlTwoAPIProcessesShareCapacityFairnessAndReplay"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestModelControlAPICrashBeforeAndDuringProviderCall"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestModelControlControllerHeartbeatRejectionCancellationAndPreflight"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestModelControlDailyBudgetRaceAcrossAPIProcesses"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestModelControlDatabaseWaitFailsClosedAndRecovers"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestModelControlLostHeartbeatQuarantinesAndFencesResponse"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestModelControlGlobalTurnsAndAtomicBudget"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestModelControlUnknownReviewIsVersionedAndRefundsOnce"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestModelControlQueueBoundsAndExpiredFence"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestModelControlMetricsDetectExpiredCallWithoutMutatingLedger"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestNarrationAPIRecoveryAndBackendChangeBoundary"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestNarrationReviewReplayAndReadOnlyStreamReconnect"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestNarrationUnknownOutcomeNeedsReviewAndAttemptReceipt"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestNarrationCancelAcrossAPIsFencesLateCompletion"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestNarrationShutdownRecoveryAndStaleReview"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestNarrationForgetErasesDraftAndRejectsLateResult"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestNarrationBeforeDispatchInterruptionRemainsResumable"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestNarrationRateLimitPreservesReasonWithoutDispatch"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestNarrationSessionRevocationClosesObserverWithoutReplayingGeneration"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestNarrationRedactionExpansionCannotExceedSnapshotLimit"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestNarrationMemoryEditDuringCheckpointDoesNotStrandRunningLease"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestRepairPoisonWorkerSubprocess"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestPreferenceJobsLargeProfileIndependentOwnedPages"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestProfileFactReviewAndOwnerScope"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestProjectAndFactDeletionAreOwnerScopedAndInvalidateMatching"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestRadarOutboxDuplicateAndFanoutRecovery"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestRadarFetchFailureAndLateGeneration"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestRadarNotificationVersionsAndIsolation"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestRadarAgentGroundingAndConfirmation"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestRadarAgentWatchProposalBeyondCatalogPageRemainsOwnerScoped"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestRadarRetryQueueAndRateLimit"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestRadarWatchThroughRPC"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestRadarChangesWindowPreservesHistoricalPredecessorAndTies"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestRadarHTTPOwnershipAndAssets"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestRadarLiveSources"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestRadarScheduleAndIngestionReceipts"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestRadarPreferencesAndDigest"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestRepairAnalysisRegistrationReadiness"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/practice",
+        "test": "TestRealGoPracticeIsolation"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/persistence",
+        "test": "TestRadarUpgradeV01"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/pipeline",
+        "test": "TestHistoryProtectsAllGroupsUnreadAndPending"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/pipeline",
+        "test": "TestHistoryNeverTrimsWithoutGroupsOrPastFirstPending"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/pipeline",
+        "test": "TestSourceImportRetryIsScheduled"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/pipeline",
+        "test": "TestHistoryCleanupIsBoundedAndPreservesRecentMessages"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/pipeline",
+        "test": "TestRepairPoisonIsolation"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/pipeline",
+        "test": "TestRepairFailureReentrancy/false"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/pipeline",
+        "test": "TestRepairFailureReentrancy/true"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/pipeline",
+        "test": "TestRepairPoisonRedisErrorIsRecoverable"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/pipeline",
+        "test": "TestRepairFailureAfterDestinationWrite"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/pipeline",
+        "test": "TestTypedFairBoundDedupAndIsolation"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/pipeline",
+        "test": "TestTypedLegacyPendingFullRecoveryAndRetry"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/pipeline",
+        "test": "TestTypedRestartAndFailureKeyIsolation"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/pipeline",
+        "test": "TestTypedRetryBackpressureRetainsPending"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/pipeline",
+        "test": "TestTypedExpiredBeforeExecutionNeverCallsProcessor"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/pipeline",
+        "test": "TestTypedMalformedLegacyRetryIsQuarantinedWithoutBlockingValidWork"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/searchservice",
+        "test": "TestOpenSearchContract"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestReleaseAgentDuplicatesAndBudgets"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestReleasePELScanAndClaimWait"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestReleaseRAGBoundaryAndIndex"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestReleaseParserReceiptReconciliation"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestReleaseGenerationClearsDerivedFields"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestReleaseReceiptOwnershipAndBackendFailure"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestReleaseActiveGenerationConsumersAndInputCAS"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestReleaseBoundTaskCannotChangeImplementation"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestReleaseAnalysisVersionDowngrade"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestReleasePrepareHistoryAndReceipts"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestReleaseIdentityEdges"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestReleaseStaleEvaluateInterleaving"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestReleaseMCPVisibilityAndGrowth"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestRepairCanonicalIdentity/company-boundary"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestRepairCanonicalIdentity/external-case"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestRepairCanonicalIdentity/url-case"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestRepairCanonicalIdentity/candidate-city"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestRepairCanonicalIdentity/candidate-type"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestRepairCanonicalIdentity/candidate-bu"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestRepairCanonicalIdentity/candidate-bu-text"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestRepairColdAndCachedClaims"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestRepairManualOwnership"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestRepairMetadataRefresh"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestRepairSourceTimezone"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestRepairLegacyCacheAndReceiptInvalidation"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestResumeReviewRetainsUsableDraftWithoutSavingOrResendingPrivateInput"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestReviewedDocumentIncludesCorrectionsAndInvalidatesOldInput"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestSchedulerWorkerLaneIsolationAndDurableUnknownFence"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestSchedulerOutboxFairRoutingBackfillAndSaturatedType"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestSchedulerBackgroundRejectionRetriesButUnknownOutcomeDoesNot/429"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestSchedulerBackgroundRejectionRetriesButUnknownOutcomeDoesNot/unknown"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestSchedulerWorkerRestartReclaimsPendingWithoutRepeatingUnknownCall"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestSchedulerMatchingYieldsBetweenBatches"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestSchedulerQueueDeadlineCancelAndPauseDoNotCallProvider/DEADLINE"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestSchedulerQueueDeadlineCancelAndPauseDoNotCallProvider/CANCEL"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestSchedulerQueueDeadlineCancelAndPauseDoNotCallProvider/PAUSE"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestSchedulerProviderRejectionAndUnknownTimeoutStopWithoutReplay/429"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestSchedulerProviderRejectionAndUnknownTimeoutStopWithoutReplay/timeout"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestSearchProjectionIsolationRecovery"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestSearchAcknowledgementAndTombstone"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestSearchInitialBackfillAcrossPages"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestSearchHTTPAuthoritativeIdentity"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestSGMLivePrivateIngest"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestSourceImportRejectsUnregisteredOrRepeatedSources"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestSourceImportAllPresetScopesPreservePausedFilteredWatches"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestSourceImportPartialRetryGenerationAndJobDedup"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestSourceImportHTTPSelectsOnlyServerPresets"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestSourceImportWorkerPersistsTerminalFailure"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestBusinessPaths"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestRedisReliability"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestMyRPCTwoInstances"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestAgentConfirmationSSEMCP"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestSSEDisconnect"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestRunningWorkerOutboxRPC"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestFailureStatusAndOwnership"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestTodosOwnedWorkflowAndReadOnlyProjection"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestTodoFailuresDeduplicateLatestAttemptsAndKeepReadOnly"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestAdaptiveWatchRoundChangeFailureAndGeneration"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestAdaptiveDeadlineUsesNewestActualObservation"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestAdaptiveWatchDoesNotReplaceActiveRoundAndCacheBounded"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestRetentionProtectsEvidenceReceiptsAndUnfinishedTasks"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/source",
+        "test": "TestAdditionalCampusLiveReadOnly"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/source",
+        "test": "TestAlibabaLiveReadOnly"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/source",
+        "test": "TestBankCampusLiveReadOnly"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/source",
+        "test": "TestBilibiliLiveReadOnly"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/source",
+        "test": "TestMoreCampusLiveReadOnly"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/source",
+        "test": "TestCtripCampusLiveReadOnly"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/source",
+        "test": "TestExpandedCampusLiveReadOnly"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/source",
+        "test": "TestFinanceCampusLiveReadOnly"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/source",
+        "test": "TestGraduateLiveReadOnly"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/source",
+        "test": "TestKuaishouLiveReadOnly"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/source",
+        "test": "TestNextCampusLiveReadOnly"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/source",
+        "test": "TestPortalCampusLiveReadOnly"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/source",
+        "test": "TestSAPCampusLiveReadOnly"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/source",
+        "test": "TestSectorCampusLiveReadOnly"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/source",
+        "test": "TestSGMCampusLiveReadOnly"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/source",
+        "test": "TestTencentCampusLiveReadOnly"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/source",
+        "test": "TestXiaohongshuLiveReadOnly"
+      }
+    ]
+  },
+  "full_race": {
+    "tests": {
+      "pass": 2193,
+      "skip": 41
+    },
+    "failures": [],
+    "skipped": [
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/eventbus",
+        "test": "TestKafkaIndependentGroupsAndFailedBatchReplay"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/practice",
+        "test": "TestRealGoPracticeIsolation"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/searchservice",
+        "test": "TestOpenSearchContract"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/source",
+        "test": "TestAdditionalCampusLiveReadOnly"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/source",
+        "test": "TestSGMCampusLiveReadOnly"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/source",
+        "test": "TestNextCampusLiveReadOnly"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/source",
+        "test": "TestKuaishouLiveReadOnly"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/source",
+        "test": "TestBilibiliLiveReadOnly"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/source",
+        "test": "TestCtripCampusLiveReadOnly"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/source",
+        "test": "TestSectorCampusLiveReadOnly"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/source",
+        "test": "TestGraduateLiveReadOnly"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/source",
+        "test": "TestFinanceCampusLiveReadOnly"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/source",
+        "test": "TestPortalCampusLiveReadOnly"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/source",
+        "test": "TestXiaohongshuLiveReadOnly"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/source",
+        "test": "TestTencentCampusLiveReadOnly"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/source",
+        "test": "TestBankCampusLiveReadOnly"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/source",
+        "test": "TestSAPCampusLiveReadOnly"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/source",
+        "test": "TestMoreCampusLiveReadOnly"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/source",
+        "test": "TestExpandedCampusLiveReadOnly"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/source",
+        "test": "TestAlibabaLiveReadOnly"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestKafkaSearchAndNotificationsIndependentRecovery"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestAdversarialChild"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestAdversarialPauseBetweenExecutingAndCall"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestKafkaNotificationAudienceAndCurrentStatus"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestAdversarialNoticeReferenceConflictAndNoUnconfirmedMutation"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestModelControlTwoAPIProcessesShareCapacityFairnessAndReplay"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestAdversarialMultiprocessVariableProviderLoad"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestAdversarialFullOutboxDoesNotDeadlockDerivedAssessment"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestAdversarialMultiprocessResidentCapacityAndMatchLease"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestRadarLiveSources"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestAdversarialMultiprocessLegacyMigrationAndDuplicates"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestAdversarialDifferentCompanySelectionsRaceForLastSlot"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestModelControlDailyBudgetRaceAcrossAPIProcesses"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestModelControlAPICrashBeforeAndDuringProviderCall"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestSearchProjectionIsolationRecovery"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestSearchInitialBackfillAcrossPages"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestAdversarialLegacyUnindexedQuotaAcrossProcesses"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestSearchAcknowledgementAndTombstone"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestAdversarialKillWorkerAtPaidBoundaries"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestSGMLivePrivateIngest"
+      },
+      {
+        "package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+        "test": "TestAdversarialOrphanLegacyOutboxCannotBlockHealthyOwner"
+      }
+    ]
+  },
+  "narration_race": {
+    "tests": {
+      "pass": 26
+    },
+    "failures": [],
+    "skipped": []
+  },
+  "real_cloud_api": "NOT_VALIDATED",
+  "real_vllm": "NOT_VALIDATED",
+  "model_quality": "NOT_VALIDATED",
+  "fuzz": {
+    "seconds_requested": 10,
+    "executions": 344611
+  },
+  "node": {
+    "pass": 444,
+    "fail": 0
+  },
+  "rpc_tag_race": "PASS with isolated SDK candidate environment",
+  "vet": "PASS",
+  "release_boundary": "PASS; published v0.1.0 retained"
+}

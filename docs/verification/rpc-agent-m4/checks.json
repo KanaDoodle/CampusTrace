@@ -1,0 +1,19 @@
+{
+  "backend": "fixture-no-model",
+  "real_vllm": "NOT_RUN",
+  "go_vet": {
+    "campustrace_default": "PASS",
+    "campustrace_kanarpc_stream": "PASS",
+    "kanarpc": "PASS"
+  },
+  "node": {
+    "pass": 444,
+    "fail": 0
+  },
+  "live_entry_guard_fixtures": {
+    "pass": 5,
+    "fail": 0
+  },
+  "narration_race_repeat": 3,
+  "note": "All model content/token counts/delays in local acceptance are synthetic. No GPU, cache-hit or model-quality gain is measured."
+}

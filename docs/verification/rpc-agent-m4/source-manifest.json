@@ -1,0 +1,147 @@
+{
+  "scope": "M4 source only; unrelated concurrent workspace changes excluded",
+  "projects": {
+    "campustrace": {
+      "observed_head": "b4a871f18fde0206af91bc512067bc283db4fc83",
+      "files": {
+        ".gitignore": {
+          "sha256": "0c8ed8a6e608613bc8c0098427a107281e62b2025d78d8243ebb283d52956742",
+          "before_m4_sha256": "2ad9175e2f42b57bf233e5f16338be337977c15f8cf9a54923c2b0fef75efab2"
+        },
+        "README.md": {
+          "sha256": "729d3e9818e8a4f61d3bd8b12ee03e536227641f967b4ec315f6fde421ef7071",
+          "before_m4_sha256": "93b4b74f44b4e5f888d4fb9d0be68e0f880665cbc8c3bafb566e6c64bc94ce83"
+        },
+        "cmd/api/main.go": {
+          "sha256": "c97fcd7ca5d73941ef78e313d08c38ff16f904debfc3e535b82b6590ff8b89ee",
+          "before_m4_sha256": "67e4041298bd0ac1ad51a9e44472e57a57892ae55b10701059e2566545405645"
+        },
+        "docs/rpc-agent-m4.md": {
+          "sha256": "7cd209382fd9375470ae4b7c3ebdf155819b909080abd53e7379dd224f309209",
+          "before_m4_sha256": null
+        },
+        "internal/agent/execution.go": {
+          "sha256": "b65433c4625dea08b08c68754c8543ae504298cb97ccbf67d0c2deb92db25df7",
+          "before_m4_sha256": "01db0f80262cc43c9ea0afbc6b5d2d715426c27f20aa48ccfce8a413446a81d7"
+        },
+        "internal/agent/narration.go": {
+          "sha256": "c8f4b4850aebbd19c8fe631d0e660fe8412e1977af3bb0b99e50e6d04fe419e2",
+          "before_m4_sha256": null
+        },
+        "internal/agent/narration_test.go": {
+          "sha256": "a0b475425efac4571f23b83c9b5f746d7269f9db6c13250ac62509448af68868",
+          "before_m4_sha256": null
+        },
+        "internal/inferencebridge/config.go": {
+          "sha256": "cd0d79f6228697ee043ef471b3d6bbdf8fd2ae1ea55cd89aacdf76c4dab1533a",
+          "before_m4_sha256": null
+        },
+        "internal/inferencebridge/config_test.go": {
+          "sha256": "8bfe75a9aa07457f220519b7cfc52d39c2f0c566076bc368f678a396bd7f8279",
+          "before_m4_sha256": null
+        },
+        "internal/inferencebridge/rpc_disabled.go": {
+          "sha256": "aece7ea06cdf313680b1a943bcd6a1d3e70aad47b7cf1e182ced47d424f85d18",
+          "before_m4_sha256": null
+        },
+        "internal/inferencebridge/rpc_disabled_test.go": {
+          "sha256": "e68dca7521a7ecdccbf8833f57a4bbdd889138a276e67bde65747b843cf55878",
+          "before_m4_sha256": null
+        },
+        "internal/inferencebridge/rpc_enabled.go": {
+          "sha256": "a6c1ce1cc6577d267fe786f62eed4db2c24bf0106c0506b227fb9967ebebabb2",
+          "before_m4_sha256": null
+        },
+        "internal/inferencebridge/rpc_enabled_test.go": {
+          "sha256": "3bc3b8744adc6bda50b4ce681d1291d0ae35739dce37be3b4c56683a5535149c",
+          "before_m4_sha256": null
+        },
+        "internal/persistence/agent_execution.go": {
+          "sha256": "9d5cdba62a19544d28dd616ba5672c1cf5d98ce707a8352f857372752297c0c6",
+          "before_m4_sha256": "dcbe3098b7800eba20746abe8a3694ca5f21c15594acaa00a471b184a3ec5da5"
+        },
+        "internal/persistence/agent_memory.go": {
+          "sha256": "54f8fdcd78e0db80dbe221c710fccd5b716a8086cc024698a631c2119338edf1",
+          "before_m4_sha256": "4029971c21c25aadc8e61a9acf911bb05680e23db579dd44fa773f00f8e63889"
+        },
+        "internal/transport/agent_harness.go": {
+          "sha256": "33137165dc63ffdada48321878e5646d4f35e6e1efee9625fa1c790022635a74",
+          "before_m4_sha256": "3921e0bcebba2b1dd297637c44462135dc6514d5ee83fa5c169ac6cebca5a66a"
+        },
+        "internal/transport/http.go": {
+          "sha256": "7bbf919347bf91dcffe1a3a880ff5b6ff8758e828196d8c68ec80f83569176c7",
+          "before_m4_sha256": "6edb16434f154e2892b292834d5ecfdacf9e19478e69d9697e84d91988422a72"
+        },
+        "internal/transport/narration.go": {
+          "sha256": "9eab30ce558420d32100f95178b4e39a73629a45bba7bc1fa13c685c92b55149",
+          "before_m4_sha256": null
+        },
+        "scripts/rpc-agent-browser.cjs": {
+          "sha256": "2f057efea276bd3f164eef0f7b4c8437bab8e2c1560b7d640592005381ca52c2",
+          "before_m4_sha256": null
+        },
+        "scripts/test_rpc_agent_live.py": {
+          "sha256": "e27a48a064b4776c0859aadaf422963585563ed6f91440a207a7a4f69ec3d2e4",
+          "before_m4_sha256": null
+        },
+        "scripts/verify-rpc-agent-live.py": {
+          "sha256": "73121c94a68ce9acbd877486153878037f389fb3b3180569044176d076ef980a",
+          "before_m4_sha256": null
+        },
+        "scripts/verify-rpc-agent.py": {
+          "sha256": "04940134846456bd8940ea57eaf9d7a60846cb973087b7e11fa7c3099be1dd2d",
+          "before_m4_sha256": null
+        },
+        "web/agent.css": {
+          "sha256": "f950c76c624fcd39363463619078b4c277c971520daf34315f6e0f6dcf5ca31c",
+          "before_m4_sha256": "cb71adc15c35cbcb7139a5bebbba4828c359518e8664fe381614dfdb3082d568"
+        },
+        "web/agent_harness.js": {
+          "sha256": "1e1e858ae487ecd35ac07ddde51b5ddb70ef51d3dd19b99a8e42593c2f64291f",
+          "before_m4_sha256": "f3772b3fa8c98baedf4085feb3f37d3f720fbf04f7480fc596f5a832320a74d1"
+        },
+        "web/agent_narration.js": {
+          "sha256": "80eba9f29bc6c53ecdc3abc3b163157d7336fb718be37466e8d2345af76526c2",
+          "before_m4_sha256": null
+        },
+        "web/agent_narration.test.cjs": {
+          "sha256": "6b882121af67592f6cfb5dc17e66d8e4273f00167be1bd474677697a4877e291",
+          "before_m4_sha256": null
+        },
+        "web/app.js": {
+          "sha256": "b0339e7aa33ae97610f1cfeb37211ab0885d7fd002b6dec9691614940ab92478",
+          "before_m4_sha256": "21293d00574abb9d1c8866490182f391040a9eae8d68f4f41e67455ddf0e7325"
+        },
+        "web/embed.go": {
+          "sha256": "354ef8086cf30365eccb26f477e29591da4b40752bd150e19e791f1393326f4f",
+          "before_m4_sha256": "287ba7e96f943ff8b3f42e46e0b4d8bd7fad8c3c6bfc4839b4e90c78e534d0ff"
+        },
+        "web/loader.js": {
+          "sha256": "bd9f1b8926747b75eef29a290bf2860323df82bfa7593f34cc5e64f674d905a2",
+          "before_m4_sha256": "8e13b505ba4ce9499f5bc1aac8f32452c68c37edc5348105c3b55de74c5d6adc"
+        }
+      }
+    },
+    "KanaRPC-Go": {
+      "observed_head": "79f5acf0da672651b28c63b4da94c0fcda19417b",
+      "files": {
+        "README.md": {
+          "sha256": "5a276f44c6821f8bf47f9d843b95433377d91780edaa3fb6669b239b2f9afc19",
+          "before_m4_sha256": "8ca86b0c89f41ac4cf81331964875f229219a17254cc8166ce147543f112a047"
+        },
+        "cmd/inference-fixture/main.go": {
+          "sha256": "76e04e9370dda64e22da593346bcf2c3aca1b6ab13f633277cb2d6a09b7e8965",
+          "before_m4_sha256": "566667a8dc01c06d4eda2c734ed383059ae1c17d0db85f246db7b7c10aefcfcf"
+        },
+        "docs/implementation/ai-inference-roadmap.md": {
+          "sha256": "dba0a6d66b21138733e5794e55d0db8ed5e26aed9f4b517957cfc92a797112de",
+          "before_m4_sha256": "148374d951f57463ac8842212d77c781a62d7bbdb6f99169cf6c5fa19702989e"
+        },
+        "docs/implementation/campustrace-m4.md": {
+          "sha256": "23a9ed90bc27e512bea4ba6440f1806d0a221954e082e8c2bff0815bc694503b",
+          "before_m4_sha256": null
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "status": "PASS",
+  "check": "published v0.1.0 module content sum matches repackaged clean tag",
+  "sum": "h1:eqZOLKZev4uE5fhggpwpevusJrXO7spCUDv42XRF7aA="
+}

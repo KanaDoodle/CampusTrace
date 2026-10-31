@@ -1,0 +1,6 @@
+=== RUN   TestRepairLegacyMigration
+    migration_repair_test.go:78: business validation
+--- FAIL: TestRepairLegacyMigration (0.25s)
+FAIL
+FAIL	github.com/KanaDoodle/CampusTrace/internal/integration	0.963s
+FAIL

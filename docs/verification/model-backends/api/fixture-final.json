@@ -1,0 +1,9 @@
+{
+  "calls": 7,
+  "completed": 3,
+  "canceled": 4,
+  "active": 0,
+  "invalid_requests": 0,
+  "backend": "fixture-no-model",
+  "model_runtime": "none"
+}

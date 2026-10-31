@@ -1,0 +1,10 @@
+test_candidate_cannot_claim_public_release (test_stream_sdk.CandidateGuards.test_candidate_cannot_claim_public_release) ... ok
+test_candidate_is_explicitly_unpublished (test_stream_sdk.CandidateGuards.test_candidate_is_explicitly_unpublished) ... ok
+test_consumer_snapshot_omits_even_a_tracked_workspace (test_stream_sdk.CandidateGuards.test_consumer_snapshot_omits_even_a_tracked_workspace) ... ok
+test_corrupted_archive_is_rejected_before_go_execution (test_stream_sdk.CandidateGuards.test_corrupted_archive_is_rejected_before_go_execution) ... ok
+test_different_module_or_unsafe_version_is_rejected (test_stream_sdk.CandidateGuards.test_different_module_or_unsafe_version_is_rejected) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.045s
+
+OK

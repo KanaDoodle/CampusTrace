@@ -1,0 +1,10 @@
+test_authenticated_redirect_is_not_followed (test_rpc_agent_live.LiveEntryGuards.test_authenticated_redirect_is_not_followed) ... ok
+test_changed_review_cannot_generate (test_rpc_agent_live.LiveEntryGuards.test_changed_review_cannot_generate) ... ok
+test_fixture_is_explicitly_rejected (test_rpc_agent_live.LiveEntryGuards.test_fixture_is_explicitly_rejected) ... ok
+test_preview_has_no_generation_and_files_are_private (test_rpc_agent_live.LiveEntryGuards.test_preview_has_no_generation_and_files_are_private) ... ok
+test_receipt_reused_without_a_new_logical_nonce (test_rpc_agent_live.LiveEntryGuards.test_receipt_reused_without_a_new_logical_nonce) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 2.961s
+
+OK

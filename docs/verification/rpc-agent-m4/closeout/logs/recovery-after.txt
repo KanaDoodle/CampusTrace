@@ -1,0 +1,8 @@
+=== RUN   TestRecoveryRoundTripAndImportIsolation
+    recovery_integration_test.go:272: synthetic recovery: 73 tables, 75 references, 572 ms
+--- PASS: TestRecoveryRoundTripAndImportIsolation (4.76s)
+=== RUN   TestRecoveryRoundTripAndImportIsolation
+    recovery_integration_test.go:272: synthetic recovery: 73 tables, 75 references, 577 ms
+--- PASS: TestRecoveryRoundTripAndImportIsolation (4.65s)
+PASS
+ok  	github.com/KanaDoodle/CampusTrace/internal/launcher	11.092s

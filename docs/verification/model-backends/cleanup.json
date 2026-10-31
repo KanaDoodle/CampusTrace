@@ -1,0 +1,14 @@
+{
+  "remaining_owned_containers": [],
+  "remaining_owned_executables": [],
+  "unrelated_containers_left_untouched": [
+    "ct-adversarial-etcd-54870",
+    "ct-adversarial-redis-54870",
+    "ct-adversarial-mysql-54870",
+    "ct-kafka-search-validation-54826",
+    "ct-kafka-validation-54826",
+    "campustrace-journey-redis-94185",
+    "campustrace-journey-mysql-94185"
+  ],
+  "real_environment_changed": false
+}

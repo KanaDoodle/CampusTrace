@@ -1,0 +1,5 @@
+{
+  "remaining_test_schemas_before_shutdown": 0,
+  "remaining_test_accounts_before_shutdown": 0,
+  "cleanup": "only M4 followup-owned services stopped"
+}

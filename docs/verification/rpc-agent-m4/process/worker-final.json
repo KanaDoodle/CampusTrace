@@ -1,0 +1,18 @@
+{
+  "model": "fixture-model",
+  "profile_id": "fixture-serial-v1",
+  "tokenizer_id": "fixture-words-plus-template-v1",
+  "instance_id": "81937eb6a73ce05c85d2380e6334f9b5",
+  "revision": 247,
+  "backend_kind": "fixture-no-model",
+  "token_source": "upstream_tokenizer_api",
+  "ready": true,
+  "active": null,
+  "waiting_for_first_text": 0,
+  "completed": 3,
+  "failed": 4,
+  "adapter_ttft_ewma_ns": 130719,
+  "adapter_text_event_gap_ewma_ns": 82030419,
+  "last_usage_prompt_tokens": 54,
+  "last_usage_output_tokens": 453
+}

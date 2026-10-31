@@ -1,0 +1,4 @@
+=== RUN   TestRepairLegacyMigration
+--- PASS: TestRepairLegacyMigration (0.27s)
+PASS
+ok  	github.com/KanaDoodle/CampusTrace/internal/integration	2.244s

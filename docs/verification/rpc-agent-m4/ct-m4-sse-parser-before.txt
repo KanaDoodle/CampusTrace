@@ -1,0 +1,27 @@
+✖ narration snapshots tolerate CRLF and fragmented frames (0.378875ms)
+✔ narration never resurrects a cancelled execution from a delayed snapshot (0.110459ms)
+✔ narration labels fixture output and escapes model markup (0.194709ms)
+✔ retry requires an unknown-outcome review, and terminal tasks are not resumable (0.102917ms)
+✔ reattachment uses GET snapshots and never submits generation or resume (4.283667ms)
+✔ expired lease ends observation without automatically restarting work (0.204167ms)
+✔ a full durable snapshot is emitted only after a complete frame (0.097916ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 6
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 44.546375
+
+✖ failing tests:
+
+test at web/agent_narration.test.cjs:4:1
+✖ narration snapshots tolerate CRLF and fragmented frames (0.378875ms)
+  Error: 说明快照未完整接收
+      at Object.finish (/Users/kana/Projects/campustrace/web/agent_narration.js:20:593)
+      at TestContext.<anonymous> (/Users/kana/Projects/campustrace/web/agent_narration.test.cjs:4:270)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1397:25)
+      at Test.start (node:internal/test_runner/test:1257:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17)

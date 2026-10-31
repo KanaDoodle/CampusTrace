@@ -1,0 +1,19 @@
+=== RUN   TestOptionalConfigurationDoesNotSilentlyEnableAnotherProvider
+--- PASS: TestOptionalConfigurationDoesNotSilentlyEnableAnotherProvider (0.00s)
+=== RUN   TestRPCNarrationStreamsUsageAndScopesCacheByAuthenticatedOwner
+2026/10/31 00:46:17 server shutdown complete
+2026/10/31 00:46:17 server shutdown complete
+--- PASS: TestRPCNarrationStreamsUsageAndScopesCacheByAuthenticatedOwner (0.06s)
+=== RUN   TestRPCNarrationRejectsToolCallsAndDoesNotExposeReasoning
+=== RUN   TestRPCNarrationRejectsToolCallsAndDoesNotExposeReasoning/tool_calls
+2026/10/31 00:46:17 server shutdown complete
+=== RUN   TestRPCNarrationRejectsToolCallsAndDoesNotExposeReasoning/reasoning_only
+2026/10/31 00:46:17 server shutdown complete
+=== RUN   TestRPCNarrationRejectsToolCallsAndDoesNotExposeReasoning/missing_summary
+2026/10/31 00:46:17 server shutdown complete
+--- PASS: TestRPCNarrationRejectsToolCallsAndDoesNotExposeReasoning (0.01s)
+    --- PASS: TestRPCNarrationRejectsToolCallsAndDoesNotExposeReasoning/tool_calls (0.00s)
+    --- PASS: TestRPCNarrationRejectsToolCallsAndDoesNotExposeReasoning/reasoning_only (0.00s)
+    --- PASS: TestRPCNarrationRejectsToolCallsAndDoesNotExposeReasoning/missing_summary (0.00s)
+PASS
+ok  	github.com/KanaDoodle/CampusTrace/internal/inferencebridge	1.728s

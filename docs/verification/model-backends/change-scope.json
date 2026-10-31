@@ -1,0 +1,35 @@
+{
+  "new": [
+    "internal/analysis/stream.go",
+    "internal/analysis/stream_test.go",
+    "internal/inferencebridge/api.go",
+    "internal/inferencebridge/api_test.go",
+    "internal/inferencebridge/backend_selection_test.go",
+    "internal/integration/narration_api_test.go",
+    "scripts/model-api-fixture.py",
+    "docs/model-backends.md"
+  ],
+  "modified_this_turn": [
+    "internal/analysis/model.go",
+    "internal/inferencebridge/config.go",
+    "internal/inferencebridge/config_test.go",
+    "cmd/api/main.go",
+    "scripts/verify-rpc-agent.py",
+    "scripts/rpc-agent-browser.cjs",
+    "scripts/verify-integration-isolation.py",
+    "configs/local.env.example",
+    "compose.app.yml",
+    ".gitignore",
+    "README.md",
+    "docs/stream-sdk.md",
+    "docs/rpc-agent-m4.md",
+    "docs/architecture.md"
+  ],
+  "preserved_concurrent_work": [
+    "Kafka/job-events",
+    "Search",
+    "observability",
+    "existing M1-M4 source/evidence"
+  ],
+  "no_real_environment_or_running_deployment_changes": true
+}

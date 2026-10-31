@@ -1,0 +1,18 @@
+{
+  "status": "PASS",
+  "backend": "fixture-no-model",
+  "transport": "rpc",
+  "checks": [
+    "review-and-consent-no-provider-side-effect; strict-fields; cookie-CSRF; authentication",
+    "partial-before-EOF; observer-reconnect-read-only; concurrent-nonce-dedup; owner-isolation",
+    "user-cancel-propagates-through-rpc-to-upstream-HTTP",
+    "SIGKILL-checkpoint-recovery; injected-expired-lease; no-auto-replay; unknown-outcome-explicit-retry; attempt-receipts"
+  ],
+  "real_cloud_api": "NOT_VALIDATED",
+  "real_vllm": "NOT_VALIDATED",
+  "browser": "NOT_RUN",
+  "limits": [
+    "No vLLM/model/GPU; no inference/cache/quality gains measured.",
+    "Lease expiration injected in disposable SQL after SIGKILL; not a 60-second elapsed-time measurement."
+  ]
+}

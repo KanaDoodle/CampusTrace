@@ -1,0 +1,65 @@
+=== RUN   TestNarrationReviewReplayAndReadOnlyStreamReconnect
+2026/10/31 00:35:47 INFO http request request_id=8025a79dd368f416f058d8b46e482d2a method=GET route="GET /api/agent/executions/{id}" status=200 duration_ms=0
+2026/10/31 00:35:48 INFO http request request_id=ee5274f4354472bdaa9a579c57e8ab19 method=GET route="GET /api/agent/executions/{id}/stream" status=200 duration_ms=51
+2026/10/31 00:35:48 INFO http request request_id=f931001c7906180b989a3eb5b196dbcb method=GET route="GET /api/agent/executions/{id}/stream" status=200 duration_ms=51
+2026/10/31 00:35:48 ERROR http request failed request_id=d84139d79fad21f70d8bd62a9a619891 method=GET route="GET /api/agent/executions/{id}" status=404 duration_ms=0 error="sql: no rows in result set"
+2026/10/31 00:35:48 ERROR http request failed request_id=4f4479def2487f45e76971a5dc250b6b method=GET route="GET /api/agent/executions/{id}/stream" status=404 duration_ms=0 error="sql: no rows in result set"
+2026/10/31 00:35:48 ERROR http request failed request_id=e9a64a6c1ad990f329d57754bf305068 method=POST route="POST /api/agent/executions/{id}/cancel" status=404 duration_ms=2 error="sql: no rows in result set"
+--- PASS: TestNarrationReviewReplayAndReadOnlyStreamReconnect (0.42s)
+=== RUN   TestNarrationUnknownOutcomeNeedsReviewAndAttemptReceipt
+--- PASS: TestNarrationUnknownOutcomeNeedsReviewAndAttemptReceipt (0.67s)
+=== RUN   TestNarrationCancelAcrossAPIsFencesLateCompletion
+2026/10/31 00:35:49 INFO http request request_id=04376ac69446ab782032c534623117aa method=POST route="POST /api/agent/executions/{id}/cancel" status=200 duration_ms=3
+--- PASS: TestNarrationCancelAcrossAPIsFencesLateCompletion (0.34s)
+=== RUN   TestNarrationShutdownRecoveryAndStaleReview
+--- PASS: TestNarrationShutdownRecoveryAndStaleReview (0.55s)
+=== RUN   TestNarrationForgetErasesDraftAndRejectsLateResult
+--- PASS: TestNarrationForgetErasesDraftAndRejectsLateResult (0.35s)
+=== RUN   TestNarrationBeforeDispatchInterruptionRemainsResumable
+--- PASS: TestNarrationBeforeDispatchInterruptionRemainsResumable (0.12s)
+=== RUN   TestNarrationRateLimitPreservesReasonWithoutDispatch
+--- PASS: TestNarrationRateLimitPreservesReasonWithoutDispatch (0.12s)
+=== RUN   TestNarrationReviewReplayAndReadOnlyStreamReconnect
+2026/10/31 00:35:50 INFO http request request_id=76c7b47186fb8fe42b19169783d3d07e method=GET route="GET /api/agent/executions/{id}" status=200 duration_ms=1
+2026/10/31 00:35:50 INFO http request request_id=7cdcd6e1eb14adf9dc0d027561fb9975 method=GET route="GET /api/agent/executions/{id}/stream" status=200 duration_ms=52
+2026/10/31 00:35:50 INFO http request request_id=42df7f6460a03dc85f5a27ee8ac99634 method=GET route="GET /api/agent/executions/{id}/stream" status=200 duration_ms=51
+2026/10/31 00:35:50 ERROR http request failed request_id=03a0f45b3534ebcea84e92447debc3ce method=GET route="GET /api/agent/executions/{id}" status=404 duration_ms=0 error="sql: no rows in result set"
+2026/10/31 00:35:50 ERROR http request failed request_id=1f66537953e9ac9e1587089d5f243ffa method=GET route="GET /api/agent/executions/{id}/stream" status=404 duration_ms=0 error="sql: no rows in result set"
+2026/10/31 00:35:50 ERROR http request failed request_id=09a9a176a556bec226c5c2e3b29ccf99 method=POST route="POST /api/agent/executions/{id}/cancel" status=404 duration_ms=1 error="sql: no rows in result set"
+--- PASS: TestNarrationReviewReplayAndReadOnlyStreamReconnect (0.35s)
+=== RUN   TestNarrationUnknownOutcomeNeedsReviewAndAttemptReceipt
+--- PASS: TestNarrationUnknownOutcomeNeedsReviewAndAttemptReceipt (0.64s)
+=== RUN   TestNarrationCancelAcrossAPIsFencesLateCompletion
+2026/10/31 00:35:51 INFO http request request_id=25e283b9efe04843e7ca3d917f85b430 method=POST route="POST /api/agent/executions/{id}/cancel" status=200 duration_ms=2
+--- PASS: TestNarrationCancelAcrossAPIsFencesLateCompletion (0.34s)
+=== RUN   TestNarrationShutdownRecoveryAndStaleReview
+--- PASS: TestNarrationShutdownRecoveryAndStaleReview (0.53s)
+=== RUN   TestNarrationForgetErasesDraftAndRejectsLateResult
+--- PASS: TestNarrationForgetErasesDraftAndRejectsLateResult (0.34s)
+=== RUN   TestNarrationBeforeDispatchInterruptionRemainsResumable
+--- PASS: TestNarrationBeforeDispatchInterruptionRemainsResumable (0.12s)
+=== RUN   TestNarrationRateLimitPreservesReasonWithoutDispatch
+--- PASS: TestNarrationRateLimitPreservesReasonWithoutDispatch (0.12s)
+=== RUN   TestNarrationReviewReplayAndReadOnlyStreamReconnect
+2026/10/31 00:35:52 INFO http request request_id=bc9972c3f65516d33d780e6b57a08309 method=GET route="GET /api/agent/executions/{id}" status=200 duration_ms=1
+2026/10/31 00:35:53 INFO http request request_id=ed2c6d9c9fc3f9b57dc3af62b5813cc2 method=GET route="GET /api/agent/executions/{id}/stream" status=200 duration_ms=51
+2026/10/31 00:35:53 INFO http request request_id=870570f77dbc568ba21887325915df33 method=GET route="GET /api/agent/executions/{id}/stream" status=200 duration_ms=51
+2026/10/31 00:35:53 ERROR http request failed request_id=ebdbcb0b8b43953e16b2fff6261a3828 method=GET route="GET /api/agent/executions/{id}" status=404 duration_ms=0 error="sql: no rows in result set"
+2026/10/31 00:35:53 ERROR http request failed request_id=75e9307f0ec23c264ba41b0057d4a9f2 method=GET route="GET /api/agent/executions/{id}/stream" status=404 duration_ms=0 error="sql: no rows in result set"
+2026/10/31 00:35:53 ERROR http request failed request_id=1c267170ddc7b3d7f7bd07cc591cb58d method=POST route="POST /api/agent/executions/{id}/cancel" status=404 duration_ms=1 error="sql: no rows in result set"
+--- PASS: TestNarrationReviewReplayAndReadOnlyStreamReconnect (0.36s)
+=== RUN   TestNarrationUnknownOutcomeNeedsReviewAndAttemptReceipt
+--- PASS: TestNarrationUnknownOutcomeNeedsReviewAndAttemptReceipt (0.62s)
+=== RUN   TestNarrationCancelAcrossAPIsFencesLateCompletion
+2026/10/31 00:35:53 INFO http request request_id=548811561422057d91142e75db564612 method=POST route="POST /api/agent/executions/{id}/cancel" status=200 duration_ms=2
+--- PASS: TestNarrationCancelAcrossAPIsFencesLateCompletion (0.32s)
+=== RUN   TestNarrationShutdownRecoveryAndStaleReview
+--- PASS: TestNarrationShutdownRecoveryAndStaleReview (0.51s)
+=== RUN   TestNarrationForgetErasesDraftAndRejectsLateResult
+--- PASS: TestNarrationForgetErasesDraftAndRejectsLateResult (0.33s)
+=== RUN   TestNarrationBeforeDispatchInterruptionRemainsResumable
+--- PASS: TestNarrationBeforeDispatchInterruptionRemainsResumable (0.11s)
+=== RUN   TestNarrationRateLimitPreservesReasonWithoutDispatch
+--- PASS: TestNarrationRateLimitPreservesReasonWithoutDispatch (0.11s)
+PASS
+ok  	github.com/KanaDoodle/CampusTrace/internal/integration	9.052s

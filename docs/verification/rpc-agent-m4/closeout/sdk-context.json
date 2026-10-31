@@ -1,0 +1,7 @@
+{
+  "workspace_file_exists": false,
+  "git_dir_exists": false,
+  "sibling_rpc_exists": false,
+  "candidate_dirty_release_was_refused": true,
+  "real_vllm": "NOT_VALIDATED"
+}
