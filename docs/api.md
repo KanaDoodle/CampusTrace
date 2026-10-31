@@ -268,3 +268,18 @@ Job search synchronization, internal read/write credentials, bounded fallback an
 `POST /api/agent/executions` accepts `skill_id: "application-prep"`, owned `application_id`, and a fresh `request_key`; it rejects mixed job/company/topic scope. The fixed task calls `get_application_preparation`, using frozen application materials and same-application reviews. Enabled retrieval services may be called; matching/chat generation is not started. Its `next_actions` can open the dossier or full owned source note. No-snapshot legacy applications return unknown, without current-material substitution or retrieval.
 
 `GET /api/practice/capabilities` returns disabled/retired with history available. Authenticated `GET /api/practice/runs` remains owner-scoped and does not modify history. `POST /api/practice/runs` returns HTTP 410 `PRACTICE_RETIRED` without executing or writing. There is no practice tool in the current Agent/MCP definitions.
+
+
+## Review-to-learning materials and application links
+
+- `GET /api/interviews/{id}/learning-draft`: owned saved review only; returns editable `title`, `text`, and server origin (`kind`, application/interview/review IDs, `source_key`), no writes/model calls. A missing or foreign review returns 404.
+- `POST /api/interviews/{id}/learning-material`: strict `source_key`, `title` (200 UTF-8 bytes), `text` (60,000 bytes); JSON body capped at 400,000 bytes. Revalidates origin under the same user lock used by review writes and knowledge deletion; atomically inserts document/chunks and increments knowledge revision. Returns `id`, `title`, `reused`. Changed source yields 409 `REVIEW_MATERIAL_CHANGED`. Same source/title/text reuses the owned document. Ordinary document endpoints reject client-provided non-null `origin`.
+- `GET /api/documents/{id}` includes optional server-recorded `origin`; it describes the saved source snapshot, not unchanged current content or proven personal skills.
+- `GET /api/agent/todos` and `GET /api/notifications` append optional `related_applications` (`id`, `current_state`) for owned applications of referenced jobs. This is a read-time, bounded batch projection. Existing `UNIQUE(user_id,job_id)` limits it to one application per job. No notes/resume bodies are read for these links; event payloads are not authorization sources. No task is started and read/dismiss state is untouched.
+
+
+## Document-save compatibility and deduplication
+
+`POST /api/documents` remains a compatibility entry returning a full `Document` (including original ID/created_at/text). It delegates to the same owner/source/title/text deduplication used by `POST /api/documents/import`, whose response remains `{id,title,reused}`. Concurrent mixed-entry requests and a retry after a lost response reuse the existing document; a replay does not add chunks or advance the knowledge revision. Client-provided non-null origin remains rejected.
+
+Review imports resolve the owned interview/review with one joined read after acquiring the user lock, check the supplied source key, and commit document/chunks/revision together. Changed sources still return 409 `REVIEW_MATERIAL_CHANGED`; no source-checking step has moved outside the transaction. New chunks omit the unused legacy hash vector while old chunk JSON and the existing format marker remain readable.

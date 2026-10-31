@@ -75,6 +75,22 @@ func NextActions(facts []any) []NextAction {
 			add(NextAction{Kind: kind, Label: label + actionText(title, 60), Reason: reason, Source: item.Tool, JobID: id}, priority)
 		}
 		switch item.Tool {
+		case "get_agent_todos":
+			var feed struct {
+				Items []struct {
+					Applications []d.ApplicationLink `json:"related_applications"`
+				} `json:"items"`
+			}
+			if json.Unmarshal(item.Data, &feed) != nil {
+				continue
+			}
+			for _, todo := range feed.Items[:min(len(feed.Items), 5)] {
+				for _, application := range todo.Applications[:min(len(todo.Applications), 1)] {
+					if actionID.MatchString(application.ID) {
+						add(NextAction{Kind: "dossier", ApplicationID: application.ID, Label: "核对变化关联的申请留档", Reason: "以当时留档为准核对本次投递，再决定是否调整准备。", Source: item.Tool}, 1)
+					}
+				}
+			}
 		case "get_application_dossier", "get_application_preparation":
 			var v struct {
 				ID        string    `json:"application_id"`

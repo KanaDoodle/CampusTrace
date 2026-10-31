@@ -16,9 +16,9 @@ import (
 	"unicode/utf8"
 )
 
-const AnalysisVersion = "claims-v3-semantics"
+const AnalysisVersion = "claims-v4-tech-requirements"
 const ParserVersion = "generic-v2-lines"
-const RuleVersion = "rules-v6-city-addresses"
+const RuleVersion = "rules-v7-tech-expressions"
 const SourceParserVersion = "public-http-v2-complete"
 
 // Nationwide graduate roles can list more than 30 distinct cities.

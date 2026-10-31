@@ -39,6 +39,32 @@ func (g *searchReads) leave(fallback bool) {
 		<-g.slots
 	}
 }
+
+// The enclosing read gate admits at most eight callers, so with two active
+// fallback readers at most six can wait here. A short wait absorbs bursty
+// half-open probes; it never starts additional SQL or extends the caller budget.
+func (g *searchReads) admitFallback(ctx context.Context) (waited bool, err error) {
+	if err = ctx.Err(); err != nil {
+		return false, err
+	}
+	if g.enter(true) {
+		return false, nil
+	}
+	timer := time.NewTimer(50 * time.Millisecond)
+	defer timer.Stop()
+	select {
+	case g.fallback <- struct{}{}:
+		if err = ctx.Err(); err != nil {
+			g.leave(true)
+			return true, err
+		}
+		return true, nil
+	case <-ctx.Done():
+		return true, ctx.Err()
+	case <-timer.C:
+		return true, ErrSearchBusy
+	}
+}
 func (s *Store) SearchReadStats() (active, limit, fallback, fallbackLimit int) {
 	s.searchReads.init()
 	return len(s.searchReads.slots), cap(s.searchReads.slots), len(s.searchReads.fallback), cap(s.searchReads.fallback)
@@ -47,15 +73,24 @@ func (s *Store) guardedBasicSearch(ctx context.Context, user string, q a.Query) 
 	if e := ctx.Err(); e != nil {
 		return JobSearch{}, e
 	}
-	if !s.searchReads.enter(true) {
+	// Admission time is included in the existing one-second fallback deadline.
+	child, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+	admissionStarted := time.Now()
+	waited, admissionErr := s.searchReads.admitFallback(child)
+	if waited && s.Metrics != nil {
+		s.Metrics.Observe("search_fallback_admission_wait_seconds", time.Since(admissionStarted).Seconds())
+	}
+	if admissionErr != nil {
+		if ctx.Err() != nil {
+			return JobSearch{}, ctx.Err()
+		}
 		if s.Metrics != nil {
 			s.Metrics.Add("search_fallback_rejected_total", 1)
 		}
 		return JobSearch{}, ErrSearchBusy
 	}
 	defer s.searchReads.leave(true)
-	child, cancel := context.WithTimeout(ctx, time.Second)
-	defer cancel()
 	started := time.Now()
 	out, e := s.basicSearch(child, user, q)
 	if s.Metrics != nil {

@@ -1,0 +1,376 @@
+--- a/internal/searchapi/contract.go
++++ b/internal/searchapi/contract.go
+@@ -154,52 +154,10 @@
+ 	}
+ 	return out
+ }
+-func (q Query) Matches(d Document) bool {
+-	if d.Deleted || q.Company != "" && !strings.EqualFold(q.Company, d.Company) || q.JobType != "" && q.JobType != d.JobType {
+-		return false
+-	}
+-	if q.City != "" {
+-		found := false
+-		for _, city := range d.Locations {
+-			if strings.EqualFold(city, q.City) {
+-				found = true
+-			}
+-		}
+-		if !found {
+-			return false
+-		}
+-	}
+-	text := strings.ToLower(d.Title + " " + d.Company + " " + strings.Join(d.Locations, " ") + " " + d.Text)
+-	has := func(term string) bool {
+-		if tech := Technology(term); tech != "" {
+-			for _, t := range d.Technologies() {
+-				if t == tech {
+-					return true
+-				}
+-			}
+-			return false
+-		}
+-		return strings.Contains(text, strings.ToLower(term))
+-	}
+-	terms := strings.Fields(q.Text)
+-	matched := len(terms) == 0
+-	for _, term := range terms {
+-		if has(term) {
+-			matched = true
+-		} else if q.Mode != "ANY" {
+-			return false
+-		}
+-	}
+-	if !matched {
+-		return false
+-	}
+-	for _, term := range strings.Fields(q.Exclude) {
+-		if has(term) {
+-			return false
+-		}
+-	}
+-	return true
+-}
++
++// Matches is the one-document convenience form. Reuse PrepareMatcher when
++// scanning a catalog so query normalization and scratch storage are amortized.
++func (q Query) Matches(d Document) bool { return q.PrepareMatcher().Matches(d) }
+ 
+ // AppliedQuery is an internal visibility fence. It contains no JD text.
+ type AppliedQuery struct {
+--- a/internal/searchapi/matcher.go
++++ b/internal/searchapi/matcher.go
+@@ -0,0 +1,119 @@
++package searchapi
++
++import (
++	"bytes"
++	"strings"
++	"unicode"
++	"unicode/utf8"
++)
++
++type searchTerm struct {
++	text       []byte
++	technology string
++}
++
++// Matcher owns scratch space for one request's sequential catalog scan. It is
++// deliberately not shared between goroutines or users. Its matching semantics
++// remain strings.ToLower substring matching, including Unicode and exclusions.
++type Matcher struct {
++	query           Query
++	terms, excludes []searchTerm
++	scratch         []byte
++}
++
++func (q Query) PrepareMatcher() *Matcher {
++	prepare := func(text string) []searchTerm {
++		var terms []searchTerm
++		for _, word := range strings.Fields(text) {
++			terms = append(terms, searchTerm{text: []byte(strings.ToLower(word)), technology: Technology(word)})
++		}
++		return terms
++	}
++	return &Matcher{query: q, terms: prepare(q.Text), excludes: prepare(q.Exclude)}
++}
++
++// Append into request-owned storage instead of allocating a concatenated
++// document and a second full lowercase copy for every candidate. Decode invalid
++// UTF-8 as RuneError, just as strings.ToLower does on the original joined text.
++func appendLower(dst []byte, s string) []byte {
++	for len(s) > 0 {
++		if c := s[0]; c < utf8.RuneSelf {
++			if c >= 'A' && c <= 'Z' {
++				c += 'a' - 'A'
++			}
++			dst = append(dst, c)
++			s = s[1:]
++		} else {
++			r, n := utf8.DecodeRuneInString(s)
++			dst = utf8.AppendRune(dst, unicode.ToLower(r))
++			s = s[n:]
++		}
++	}
++	return dst
++}
++
++func (m *Matcher) Matches(d Document) bool {
++	q := m.query
++	if d.Deleted || q.Company != "" && !strings.EqualFold(q.Company, d.Company) || q.JobType != "" && q.JobType != d.JobType {
++		return false
++	}
++	if q.City != "" {
++		found := false
++		for _, city := range d.Locations {
++			if strings.EqualFold(city, q.City) {
++				found = true
++				break
++			}
++		}
++		if !found {
++			return false
++		}
++	}
++	textReady, techReady := false, false
++	var tech []string
++	has := func(term searchTerm) bool {
++		if term.technology != "" {
++			if !techReady {
++				tech = d.Technologies()
++				techReady = true
++			}
++			for _, t := range tech {
++				if t == term.technology {
++					return true
++				}
++			}
++			return false
++		}
++		if !textReady {
++			m.scratch = appendLower(m.scratch[:0], d.Title)
++			m.scratch = appendLower(append(m.scratch, ' '), d.Company)
++			m.scratch = append(m.scratch, ' ')
++			for i, city := range d.Locations {
++				if i > 0 {
++					m.scratch = append(m.scratch, ' ')
++				}
++				m.scratch = appendLower(m.scratch, city)
++			}
++			m.scratch = appendLower(append(m.scratch, ' '), d.Text)
++			textReady = true
++		}
++		return bytes.Contains(m.scratch, term.text)
++	}
++	matched := len(m.terms) == 0
++	for _, term := range m.terms {
++		if has(term) {
++			matched = true
++		} else if q.Mode != "ANY" {
++			return false
++		}
++	}
++	if !matched {
++		return false
++	}
++	for _, term := range m.excludes {
++		if has(term) {
++			return false
++		}
++	}
++	return true
++}
+--- a/internal/persistence/search_query.go
++++ b/internal/persistence/search_query.go
+@@ -204,24 +204,35 @@
+ 	defer span.End()
+ 	out := JobSearch{Jobs: []d.Job{}, IDs: []string{}, Mode: "basic"}
+ 	cursor := ""
++	matcher := q.PrepareMatcher()
+ 	// The fallback is deliberately bounded. More also signals an incomplete scan.
+ 	tx, err := s.DB.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true})
+ 	if err != nil {
+ 		return out, err
+ 	}
+ 	defer tx.Rollback()
+-	for scanned := 0; scanned < 10000; scanned += 100 {
++	for scanned := 0; scanned < 10000; {
++		// Keep common queries cheap; amortize round trips only after a full
++		// first page. The authoritative scan still reads at most 10,000 rows.
++		batchSize := 100
++		if scanned > 0 {
++			batchSize = 500
++		}
++		if left := 10000 - scanned; batchSize > left {
++			batchSize = left
++		}
+ 		pageCtx, page := observability.Start(ctx, "search.fallback.page")
+ 		rows, e := tx.QueryContext(pageCtx, `SELECT j.id,j.body,j.visibility,j.owner_id,
+    COALESCE((SELECT JSON_UNQUOTE(JSON_EXTRACT(o.body,'$.text')) FROM observations o WHERE o.job_id=j.id ORDER BY o.observed_at DESC,o.id DESC LIMIT 1),'')
+-   FROM jobs j WHERE j.id>? AND (j.visibility='GLOBAL' OR (j.visibility='PRIVATE' AND j.owner_id=?)) ORDER BY j.id LIMIT 100`, cursor, user)
++   FROM jobs j WHERE j.id>? AND (j.visibility='GLOBAL' OR (j.visibility='PRIVATE' AND j.owner_id=?)) ORDER BY j.id LIMIT ?`, cursor, user, batchSize)
+ 		if e != nil {
+ 			page.End()
+ 			return out, e
+ 		}
+ 		count := 0
+ 		for rows.Next() {
+-			var raw []byte
++			// Unmarshal consumes this row before Next invalidates RawBytes.
++			var raw sql.RawBytes
+ 			var id, visibility, owner, text string
+ 			if e = rows.Scan(&id, &raw, &visibility, &owner, &text); e != nil {
+ 				break
+@@ -233,7 +244,7 @@
+ 				break
+ 			}
+ 			doc := a.Document{ID: id, Company: job.Company, Title: job.Title, Locations: job.Locations, JobType: job.JobType, Text: text}
+-			if q.Matches(doc) {
++			if matcher.Matches(doc) {
+ 				if len(out.Jobs) == q.Limit {
+ 					out.More = true
+ 					break
+@@ -251,7 +262,8 @@
+ 		if e != nil {
+ 			return out, e
+ 		}
+-		if out.More || count < 100 {
++		scanned += count
++		if out.More || count < batchSize {
+ 			return out, tx.Commit()
+ 		}
+ 	}
+--- a/internal/persistence/search_guard.go
++++ b/internal/persistence/search_guard.go
+@@ -39,6 +39,32 @@
+ 		<-g.slots
+ 	}
+ }
++
++// The enclosing read gate admits at most eight callers, so with two active
++// fallback readers at most six can wait here. A short wait absorbs bursty
++// half-open probes; it never starts additional SQL or extends the caller budget.
++func (g *searchReads) admitFallback(ctx context.Context) (waited bool, err error) {
++	if err = ctx.Err(); err != nil {
++		return false, err
++	}
++	if g.enter(true) {
++		return false, nil
++	}
++	timer := time.NewTimer(50 * time.Millisecond)
++	defer timer.Stop()
++	select {
++	case g.fallback <- struct{}{}:
++		if err = ctx.Err(); err != nil {
++			g.leave(true)
++			return true, err
++		}
++		return true, nil
++	case <-ctx.Done():
++		return true, ctx.Err()
++	case <-timer.C:
++		return true, ErrSearchBusy
++	}
++}
+ func (s *Store) SearchReadStats() (active, limit, fallback, fallbackLimit int) {
+ 	s.searchReads.init()
+ 	return len(s.searchReads.slots), cap(s.searchReads.slots), len(s.searchReads.fallback), cap(s.searchReads.fallback)
+@@ -47,15 +73,24 @@
+ 	if e := ctx.Err(); e != nil {
+ 		return JobSearch{}, e
+ 	}
+-	if !s.searchReads.enter(true) {
++	// Admission time is included in the existing one-second fallback deadline.
++	child, cancel := context.WithTimeout(ctx, time.Second)
++	defer cancel()
++	admissionStarted := time.Now()
++	waited, admissionErr := s.searchReads.admitFallback(child)
++	if waited && s.Metrics != nil {
++		s.Metrics.Observe("search_fallback_admission_wait_seconds", time.Since(admissionStarted).Seconds())
++	}
++	if admissionErr != nil {
++		if ctx.Err() != nil {
++			return JobSearch{}, ctx.Err()
++		}
+ 		if s.Metrics != nil {
+ 			s.Metrics.Add("search_fallback_rejected_total", 1)
+ 		}
+ 		return JobSearch{}, ErrSearchBusy
+ 	}
+ 	defer s.searchReads.leave(true)
+-	child, cancel := context.WithTimeout(ctx, time.Second)
+-	defer cancel()
+ 	started := time.Now()
+ 	out, e := s.basicSearch(child, user, q)
+ 	if s.Metrics != nil {
+--- a/internal/persistence/search_admission_test.go
++++ b/internal/persistence/search_admission_test.go
+@@ -0,0 +1,69 @@
++package persistence
++
++import (
++	"context"
++	"errors"
++	"testing"
++	"time"
++)
++
++func occupiedFallback(t *testing.T) *searchReads {
++	t.Helper()
++	g := new(searchReads)
++	if !g.enter(true) || !g.enter(true) || g.enter(true) {
++		t.Fatal("fallback capacity changed")
++	}
++	return g
++}
++
++func TestFallbackAdmissionAbsorbsShortBurstWithoutExtraSQLCapacity(t *testing.T) {
++	g := occupiedFallback(t)
++	released := make(chan struct{})
++	go func() { time.Sleep(10 * time.Millisecond); g.leave(true); close(released) }()
++	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
++	defer cancel()
++	waited, err := g.admitFallback(ctx)
++	<-released
++	if err != nil || !waited || len(g.fallback) != 2 {
++		t.Fatal(waited, err, len(g.fallback))
++	}
++	g.leave(true)
++	g.leave(true)
++	if len(g.fallback) != 0 {
++		t.Fatal("permit leaked")
++	}
++}
++
++func TestFallbackAdmissionHasBoundedWaitAndHonorsCallerCancellation(t *testing.T) {
++	for _, cancelled := range []bool{false, true} {
++		g := occupiedFallback(t)
++		ctx, cancel := context.WithCancel(context.Background())
++		if cancelled {
++			time.AfterFunc(5*time.Millisecond, cancel)
++		}
++		started := time.Now()
++		waited, err := g.admitFallback(ctx)
++		cancel()
++		want := ErrSearchBusy
++		if cancelled {
++			want = context.Canceled
++		}
++		if !waited || !errors.Is(err, want) || len(g.fallback) != 2 || time.Since(started) > time.Second {
++			t.Fatal(waited, err, len(g.fallback))
++		}
++		g.leave(true)
++		g.leave(true)
++	}
++	// A cancelled caller must not acquire an otherwise free permit.
++	g := new(searchReads)
++	ctx, cancel := context.WithCancel(context.Background())
++	cancel()
++	_, err := g.admitFallback(ctx)
++	if !errors.Is(err, context.Canceled) {
++		t.Fatal(err)
++	}
++	g.init()
++	if len(g.fallback) != 0 {
++		t.Fatal("cancelled caller occupied a permit")
++	}
++}

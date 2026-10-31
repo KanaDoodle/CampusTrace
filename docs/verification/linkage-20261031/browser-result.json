@@ -1,0 +1,23 @@
+{
+  "status": "PASS",
+  "backend": "fixture-no-model",
+  "transport": "api",
+  "checks": [
+    "unknown-outcome-retry-requires-unchecked-explicit-acknowledgment",
+    "review-dismissal-has-no-provider-call",
+    "partial-visible-before-completion",
+    "reload-reattaches-without-generation",
+    "HTML-output-is-literal-text",
+    "UI-cancel-fences-task-and-cancels-upstream",
+    "dossier-prefills-owned-application-with-explicit-start",
+    "frozen-application-RAG-opens-complete-note",
+    "today-owns-reminders-and-inbox-history",
+    "preparation-and-navigation-use-no-chat-model",
+    "job-change-reminder-and-inbox-open-owned-application-without-marking-read",
+    "interview-and-today-prefill-frozen-preparation-without-running",
+    "review-preview-is-read-only-and-edited-note-keeps-server-origin",
+    "note-links-back-to-open-original-review",
+    "new-preparation-retrieves-review-derived-note-without-chat-calls"
+  ],
+  "page_errors": []
+}

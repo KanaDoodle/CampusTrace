@@ -1,0 +1,24 @@
+{
+  "status": "PASS",
+  "raw_files_hashed": 1209,
+  "source_files_hashed": 1231,
+  "selected_csv_rows_matched_to_raw_k6": 72,
+  "selected_timing_queries": 11535,
+  "all_timing_failures_including_baseline": 6,
+  "dropped": 0,
+  "all_candidate_stages_passed": true,
+  "data_and_index_generations_preserved": true,
+  "accepted_windows_have_no_observed_external_stress_or_compilation": true,
+  "scope": "Single-host synthetic data; no physical CPU exclusivity, production capacity or SLA claim",
+  "owned_containers_cleaned": true,
+  "existing_business_containers_preserved": true,
+  "other_containers_untouched": [
+    "campustrace-journey-redis-94185",
+    "campustrace-journey-mysql-94185"
+  ],
+  "native_go_checks": "PASS (1.27.1)",
+  "fixed_toolchain_race": "PASS (1.25.9; four packages)",
+  "sql_search_regression": "PASS (v2)",
+  "matcher_fuzz": "120489 executions, 30 seconds; finite test",
+  "performance_contracts": "16 Python, 6 Node; passed"
+}

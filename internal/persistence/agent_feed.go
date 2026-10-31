@@ -10,14 +10,15 @@ import (
 )
 
 type AgentTodo struct {
-	ID          string    `json:"id"`
-	Kind        string    `json:"kind"`
-	JobID       string    `json:"job_id,omitempty"`
-	Company     string    `json:"company,omitempty"`
-	Title       string    `json:"title"`
-	Explanation string    `json:"explanation"`
-	State       string    `json:"state"`
-	CreatedAt   time.Time `json:"created_at"`
+	ID           string              `json:"id"`
+	Kind         string              `json:"kind"`
+	JobID        string              `json:"job_id,omitempty"`
+	Company      string              `json:"company,omitempty"`
+	Title        string              `json:"title"`
+	Explanation  string              `json:"explanation"`
+	State        string              `json:"state"`
+	CreatedAt    time.Time           `json:"created_at"`
+	Applications []d.ApplicationLink `json:"related_applications,omitempty"`
 }
 type AgentFeed struct {
 	Enabled bool        `json:"enabled"`
@@ -59,7 +60,21 @@ func (s *Store) AgentTodos(ctx context.Context, user string) (AgentFeed, error) 
 		out.Items = out.Items[:50]
 		out.More = true
 	}
-	return out, e
+	if e != nil {
+		return out, e
+	}
+	jobs := []string{}
+	for _, item := range out.Items {
+		jobs = append(jobs, item.JobID)
+	}
+	links, e := s.applicationLinks(ctx, user, jobs)
+	if e != nil {
+		return out, e
+	}
+	for i := range out.Items {
+		out.Items[i].Applications = links[out.Items[i].JobID]
+	}
+	return out, nil
 }
 func (s *Store) DismissAgentTodo(ctx context.Context, user, id string) error {
 	r, e := s.DB.ExecContext(ctx, "UPDATE agent_todos SET state='DONE',body=JSON_SET(body,'$.state','DONE') WHERE id=? AND user_id=? AND state='OPEN'", id, user)

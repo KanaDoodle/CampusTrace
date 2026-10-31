@@ -222,4 +222,32 @@ Search 停机时的约 1.5 秒时延与现有远程查询预算同量级，不�
 
 新版 Search 重建保留活动索引。性能报告按实际操作返回的元数据区分 `replace` 和 `online`：旧替换场景仍要求看到基础回退；在线场景要求所有静态读保持全文模式，并确认注入任务达到 `DONE`、活动代次改变。两种模式的重建延迟不合并成同一种性能指标。全文/停机回退的稳定阶段仍沿用相同环境、工作负载和样本量的比较门槛。
 
-新旧提交对照应使用同一版实验脚本分别运行 `--revision <旧提交>` 和当前源码。脚本会记录真实重建模式与完成状态，回填可能在读负载结束后才完成。流程和边界见[在线重建](search-online-rebuild.md)。
+新旧提交对照应使用同一版实验脚本分别运行 `--revision <旧提交>` 和当前源码。脚本会记录真实重建模式与完成状态，回填可能在读负载结束后才完成。流程和边界见[在线重建](search-service.md)。
+
+### 岗位搜索性能诊断
+
+`diagnose.py` 与原来的四阶段 CI 回归互补：覆盖精确的 1,000 / 5,000 / 10,000 岗位规模、正常全文检索与 Search 停机后的 Core 回退。每类负载包含 50% 常见词、25% 单岗位命中、25% 无结果查询，两名账号交替查询。空结果、指定岗位、账号隔离分别校验，错误请求与 dropped iterations 保留在分母中。
+
+先冻结优化前代码，运行诊断，再根据证据修改并冻结候选代码：
+
+```sh
+python3 scripts/performance/freeze.py --output bin/search-diagnosis/baseline
+# 完成诊断与修改后再执行这一行
+python3 scripts/performance/freeze.py --output bin/search-diagnosis/candidate
+go build -o bin/perf-trace ./scripts/performance/tracecapture
+python3 scripts/performance/diagnose.py \
+  --source bin/search-diagnosis/baseline --candidate bin/search-diagnosis/candidate \
+  --jobs 10000 --seconds 30 --rate 8 --diagnostics \
+  --output bin/search-diagnosis/paired-10000
+python3 scripts/performance/diagnosis_report.py bin/search-diagnosis/paired-10000
+```
+
+分别把 `--jobs` 改为 `1000`、`5000`，使用新的输出目录；实验必须串行。省略 `--candidate` 可以先采集基线。前后代码在同一份已收敛的数据库和索引上按 A/B/B/A 运行，API、Search 各 1 CPU，负载生成器 1 CPU；MySQL 统一为 1 CPU / 1.5 GiB（tmpfs 数据文件也占其容器内存）。初始抽取任务不属于搜索负载，已在专属合成库中排除；索引追平后暂停 Worker，前后均保持相同条件。
+
+CPU profile、累计分配差分、堆快照及 100% 采样的 OTLP Trace 在单独的诊断阶段采集；正式计时禁用 Trace 导出且不采集 pprof。Trace 接收器只保存 span 关系、服务、固定操作名、时间与状态。EXPLAIN / EXPLAIN ANALYZE 从被冻结的实际回退 SQL 提取。每轮保存 k6 原始汇总、资源采样、应用指标、源码/负载/数据指纹，失败输出目录不会覆盖。`diagnosis_report.py` 不把失败请求剔除，也不把两轮 p95 合并冒充总体分位数。
+
+API / Search 的诊断监听器默认关闭。临时排查时设置 `PROFILE_ADDR` 与独立的 32 字节以上 `PROFILE_TOKEN`，使用 `Authorization: Bearer ...` 读取独立端口的 `/debug/pprof/profile?seconds=10`、`heap`、`allocs`、`goroutine`。业务路由不暴露这些入口；CPU / 差分采集最长 30 秒。Profile 可能含应用数据，应只在私有诊断网络保存与访问。实验自动发布到随机回环端口并使用合成令牌。
+
+本次三档诊断、逐轮结果和源码/原始证据归档见 [2026-10-31 岗位搜索性能诊断](verification/search-diagnosis-20261031/README.md)。
+
+后续针对周期性恢复探测等待的修改独立验收，保留上述历史数据，见 [Search 后台恢复探测](verification/search-recovery-20261031/README.md)。

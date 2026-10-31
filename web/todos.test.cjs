@@ -1,5 +1,10 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),Todos=require('./todos.js'),D=require('./display.js');
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+test('upcoming interview preparation points to its application snapshot, never a new job analysis',()=>{
+ const application='a'.repeat(32),item={id:'upcoming',kind:'INTERVIEW_UPCOMING',application_id:application,interview_id:'b'.repeat(32),at:'2099-01-01T00:00:00Z'};
+ const html=Todos.render({items:[item]},{esc,D});assert.ok(html.includes('data-todo-prepare="'+application+'"'));assert.ok(html.includes('按留档准备'));assert.ok(!html.includes('data-analyze'));
+ assert.ok(!Todos.render({items:[{...item,application_id:'bad-id'}]},{esc,D}).includes('data-todo-prepare'));
+});
 test('todo actions point to exact owned workflow records and viewing failures never starts analysis',()=>{
  assert.deepEqual(Todos.target({kind:'PLANNED_CLOSING',application_id:'a'}),['applications',{applicationID:'a'}]);
  assert.deepEqual(Todos.target({kind:'APPLICATION_FOLLOW_UP',application_id:'a'}),['applications',{applicationID:'a'}]);

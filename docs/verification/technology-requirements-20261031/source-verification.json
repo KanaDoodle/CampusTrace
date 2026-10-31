@@ -1,0 +1,20 @@
+{
+  "baseline_fingerprint": "786e24602941c1f8d2a77cffabac3a015609d58547a71df46aa2a43c7c5588d6",
+  "candidate_fingerprint": "b5a3a6b2f6690c7be7c7e4026a0695900fc5d3f003c1e87a59b4b90ea7791c43",
+  "runtime_delta": [
+    "internal/analysis/extract.go",
+    "internal/analysis/rpc.go",
+    "internal/analysis/technology.go",
+    "internal/analysis/technology_replay_test.go",
+    "internal/analysis/technology_test.go",
+    "internal/analysis/testdata/technology_cases.json",
+    "internal/analysis/version_test.go",
+    "internal/domain/model.go",
+    "internal/domain/technology.go",
+    "internal/domain/technology_test.go",
+    "internal/integration/technology_requirements_test.go",
+    "internal/rules/rules.go",
+    "internal/rules/technology_test.go"
+  ],
+  "unchanged_baseline_files": 616
+}

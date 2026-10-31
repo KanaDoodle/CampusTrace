@@ -22,6 +22,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=pathlib.Path)
     parser.add_argument('--race', action='store_true')
+    parser.add_argument('--search', action='store_true', help='also start exclusively owned OpenSearch')
     parser.add_argument('--count', type=int, default=2)
     parser.add_argument('--shuffle', default='60431')
     parser.add_argument('--run', help='optional Go test name expression')
@@ -38,7 +39,7 @@ def main():
                CAMPUS_ADVERSARIAL='1' if args.adversarial else '0', CAMPUS_ADVERSARIAL_EVIDENCE=str(work / 'processes.jsonl'),
                LLM_URL='', LLM_API_KEY='', LLM_MODEL='', SEARCH_URL='', SEARCH_QUERY_TOKEN='', SEARCH_WRITE_TOKEN='',
                NARRATION_BACKEND='api', INFERENCE_RPC_ADDRESS='', INFERENCE_MODEL='', INFERENCE_BACKEND_KIND='', JOB_EVENTS_MODE='direct', KAFKA_BROKERS='', OTEL_EXPORTER_OTLP_ENDPOINT='',
-               OTEL_EXPORTER_OTLP_TRACES_ENDPOINT='', OTEL_EXPORTER_OTLP_METRICS_ENDPOINT='')
+               OTEL_EXPORTER_OTLP_TRACES_ENDPOINT='', OTEL_EXPORTER_OTLP_METRICS_ENDPOINT='', OPENSEARCH_TEST_URL='', PROFILE_ADDR='', PROFILE_TOKEN='')
     containers = []
     run_id = uuid.uuid4().hex[:12]
     password = 'local-root-only'
@@ -78,6 +79,20 @@ def main():
                 return False
         wait(etcd_ready)
 
+        if args.search:
+            search, search_port = create('search', 'opensearchproject/opensearch:3.9.0', 9200,
+                ['--memory', '1536m', '--cpus', '1', '--tmpfs', '/usr/share/opensearch/data:uid=1000,gid=1000',
+                 '-e', 'discovery.type=single-node', '-e', 'DISABLE_SECURITY_PLUGIN=true',
+                 '-e', 'DISABLE_INSTALL_DEMO_CONFIG=true', '-e', 'OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m'], [])
+            env['OPENSEARCH_TEST_URL'] = 'http://127.0.0.1:' + search_port
+            def search_ready():
+                try:
+                    with urllib.request.urlopen(env['OPENSEARCH_TEST_URL']+'/_cluster/health?wait_for_status=yellow&timeout=1s', timeout=2) as response:
+                        return response.status == 200
+                except OSError:
+                    return False
+            wait(search_ready)
+
         def sql(query):
             return run(['docker', 'exec', mysql, 'mysql', '-uroot', '-p' + password, '-N', '-e', query])
 
@@ -100,7 +115,7 @@ def main():
         marker = sql('SELECT note FROM ct_template.ownership_guard WHERE id=1')
         table_count = int(sql("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='ct_template'"))
         report = {'status': 'PASS' if result.returncode == 0 and schema_count == account_count == 0 and marker == 'preserve-template' and table_count == 1 else 'FAIL',
-                  'go_exit': result.returncode, 'race': args.race, 'count': args.count, 'shuffle': args.shuffle,
+                  'go_exit': result.returncode, 'race': args.race, 'owned_opensearch': args.search, 'count': args.count, 'shuffle': args.shuffle,
                   'remaining_fixture_schemas': schema_count, 'remaining_fixture_accounts': account_count,
                   'template_guard_preserved': marker == 'preserve-template' and table_count == 1,
                   'backend': 'local-test-fixtures-no-model', 'real_vllm': 'NOT_VALIDATED'}

@@ -1,0 +1,22 @@
+{
+  "status": "PASS",
+  "raw_files": 239,
+  "source_files": 1238,
+  "csv_rows": 48,
+  "race_passed_packages": 25,
+  "search_regression_passed_top_level": 58,
+  "totals": {
+    "baseline": {
+      "attempts": 1447,
+      "failures": 0,
+      "dropped": 0
+    },
+    "candidate": {
+      "attempts": 1446,
+      "failures": 0,
+      "dropped": 0
+    }
+  },
+  "diagnostic_probe_spans": 2,
+  "worktree_matches_candidate": true
+}

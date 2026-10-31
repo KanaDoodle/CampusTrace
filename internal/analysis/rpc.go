@@ -16,21 +16,25 @@ import (
 
 const ServiceName = "CampusTraceAnalysis"
 
+var ErrSemanticVersion = errors.New("schema: incompatible analysis semantics")
+
 type Request struct {
-	TraceParent   string    `json:"traceparent,omitempty"`
-	TaskID        string    `json:"task_id"`
-	JobID         string    `json:"job_id"`
-	ObservationID string    `json:"observation_id"`
-	Text          string    `json:"text"`
-	Deadline      time.Time `json:"deadline"`
-	CorrelationID string    `json:"correlation_id"`
+	AnalysisVersion string    `json:"analysis_version,omitempty"`
+	TraceParent     string    `json:"traceparent,omitempty"`
+	TaskID          string    `json:"task_id"`
+	JobID           string    `json:"job_id"`
+	ObservationID   string    `json:"observation_id"`
+	Text            string    `json:"text"`
+	Deadline        time.Time `json:"deadline"`
+	CorrelationID   string    `json:"correlation_id"`
 }
 type Response struct {
-	Claims         []d.Claim `json:"claims"`
-	Instance       string    `json:"instance"`
-	Error          string    `json:"error,omitempty"`
-	Category       string    `json:"category,omitempty"`
-	RejectedStatus int       `json:"rejected_status,omitempty"`
+	AnalysisVersion string    `json:"analysis_version"`
+	Claims          []d.Claim `json:"claims"`
+	Instance        string    `json:"instance"`
+	Error           string    `json:"error,omitempty"`
+	Category        string    `json:"category,omitempty"`
+	RejectedStatus  int       `json:"rejected_status,omitempty"`
 }
 type Extractor interface {
 	Claims(context.Context, string) ([]d.Claim, error)
@@ -67,6 +71,11 @@ func (s *Service) AnalyzeObservation(req *Request, resp *Response) (err error) {
 	ctx = observability.With(ctx, observability.Fields{RequestID: req.CorrelationID, TaskID: req.TaskID, JobID: req.JobID})
 	span.SetAttributes(attribute.String("rpc.system", "kanarpc"), attribute.String("rpc.method", "AnalyzeObservation"), attribute.String("task.id", req.TaskID))
 	resp.Instance = s.Instance
+	resp.AnalysisVersion = d.AnalysisVersion
+	if req.AnalysisVersion != "" && req.AnalysisVersion != d.AnalysisVersion {
+		resp.Error, resp.Category = "analysis version mismatch", "SCHEMA"
+		return nil
+	}
 	if s.Delay > 0 {
 		timer := time.NewTimer(s.Delay)
 		defer timer.Stop()
@@ -142,6 +151,7 @@ func (c *RPCClient) Call(ctx context.Context, req Request) (out Response, err er
 		return out, ctx.Err()
 	}
 	req.Deadline, _ = ctx.Deadline()
+	req.AnalysisVersion = d.AnalysisVersion
 	req.TraceParent = observability.TraceParent(ctx)
 	err = c.client.Invoke(ctx, c.service, "AnalyzeObservation", &req, &out)
 	if err != nil {
@@ -156,12 +166,21 @@ func (c *RPCClient) Call(ctx context.Context, req Request) (out Response, err er
 		}
 		return out, errors.New("schema: analysis rejected")
 	}
-	for _, v := range out.Claims {
-		if err = v.Validate(req.Text); err != nil {
-			return out, err
+	return out, validateResponse(req, out)
+}
+
+func validateResponse(req Request, out Response) error {
+	// Missing versions include pre-upgrade servers. Do not stamp their claims
+	// with the caller's newer cache/receipt namespace during a rolling deploy.
+	if out.AnalysisVersion != d.AnalysisVersion {
+		return ErrSemanticVersion
+	}
+	for _, claim := range out.Claims {
+		if err := claim.Validate(req.Text); err != nil {
+			return err
 		}
 	}
-	return out, nil
+	return nil
 }
 func (c *RPCClient) Close() { c.client.Close(); c.reg.Close() }
 

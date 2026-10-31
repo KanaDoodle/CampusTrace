@@ -2,6 +2,8 @@
 """Isolated SQL/Redis and direct-model-API process acceptance. Uses only a local no-model HTTP fixture; no RPC SDK or model calls."""
 import argparse
 import concurrent.futures
+import datetime
+import hashlib
 import http.cookiejar
 import json
 import os
@@ -172,8 +174,19 @@ def main():
         # Seed before any parent identity is captured. Only synthetic local
         # materials are used; importing notes performs no embedding/model call.
         b.request('/api/profile', {'target_languages': ['Go'], 'degree': 'MASTER', 'graduation_year': 2027}, method='PUT')
+        b.request('/api/agent/todos/settings', {'enabled': True})
         job = b.request('/api/ingest', {'company': '合成准备公司', 'title': '后端工程师', 'external_id': uuid.uuid4().hex, 'job_type': 'FULL_TIME', 'text': 'Go 后端使用 Redis Streams，关注 PEL 和 XAUTOCLAIM 消费恢复。'})
         application = b.request('/api/applications', {'job_id': job['job_id'], 'submitted': True})
+        interview = b.request('/api/interviews', {'application_id': application['id'], 'round': 2, 'scheduled_at': (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=2)).isoformat(), 'result': 'PENDING'})
+        b.request('/api/reviews', {'interview_id': interview['id'], 'actual_questions': ['XAUTOCLAIM 如何恢复 Redis PEL？'], 'self_evaluation': '需要复习消息重领的边界', 'missed_points': ['Redis PEL 持久化后确认'], 'follow_up_notes': '整理恢复过程与失败边界', 'weak_topics': []})
+        b.request('/api/agent/todos')  # Materialize the optional feed before task identities are captured.
+        # A synthetic durable job notice exercises inbox read projection, not
+        # event delivery. Production notification generation is tested elsewhere.
+        notice_id = uuid.uuid4().hex
+        notice_owner = b.request('/api/profile/resume/capabilities')['user_id']
+        notice = {'id': notice_id, 'user_id': notice_owner, 'type': 'JD_CHANGED', 'entity_type': 'JOB', 'entity_id': job['job_id'], 'title': '合成岗位资料变化', 'body': '请核对关联申请留档', 'created_at': datetime.datetime.now(datetime.timezone.utc).isoformat()}
+        notice_hex = json.dumps(notice, ensure_ascii=False).encode().hex()
+        sql("INSERT INTO ct_m4.notifications(id,user_id,dedup_key,created_at,body) VALUES('" + notice_id + "','" + notice_owner + "','" + hashlib.sha256(notice_id.encode()).hexdigest() + "',UTC_TIMESTAMP(6),CONVERT(0x" + notice_hex + " USING utf8mb4))")
         document = b.request('/api/documents/import', {'title': 'Redis 消费恢复笔记', 'text': 'Redis Streams PEL 消息通过 XAUTOCLAIM 恢复，持久化后确认。COHESION_FULL_NOTE'})
         original = parent(a)
         preview = review(a, original)
@@ -239,7 +252,7 @@ def main():
             api.wait(timeout=15)
             api = api_start('api-browser-recovery')
             assert task(b, browser_paused['id'])['state'] == 'PAUSED'
-            browser_env = dict(env, M4_BROWSER_URL=base, M4_BROWSER_EMAIL=credentials_b['email'], M4_BROWSER_PASSWORD=password, M4_BROWSER_FIXTURE=fixture_url, M4_PLAYWRIGHT_MODULE=args.playwright_module, M4_BROWSER_OUTPUT=str(work), M4_CHROMIUM=args.chromium or '', M4_BROWSER_PAUSED_ID=browser_paused['id'], M4_BROWSER_TRANSPORT='api', M4_BROWSER_APPLICATION_ID=application['id'], M4_BROWSER_DOCUMENT_ID=document['id'])
+            browser_env = dict(env, M4_BROWSER_URL=base, M4_BROWSER_EMAIL=credentials_b['email'], M4_BROWSER_PASSWORD=password, M4_BROWSER_FIXTURE=fixture_url, M4_PLAYWRIGHT_MODULE=args.playwright_module, M4_BROWSER_OUTPUT=str(work), M4_CHROMIUM=args.chromium or '', M4_BROWSER_PAUSED_ID=browser_paused['id'], M4_BROWSER_TRANSPORT='api', M4_BROWSER_APPLICATION_ID=application['id'], M4_BROWSER_INTERVIEW_ID=interview['id'], M4_BROWSER_DOCUMENT_ID=document['id'])
             result = subprocess.run(['node', str(repo / 'scripts/agent-explanation-browser.cjs')], env=browser_env, capture_output=True, text=True, timeout=120)
             (work / 'browser.stdout').write_text(result.stdout)
             (work / 'browser.stderr').write_text(result.stderr)

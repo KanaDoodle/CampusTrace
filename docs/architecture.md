@@ -145,6 +145,8 @@ KeepAlive/lease 丢失会降低 readiness，并以有上限的指数退避和 ji
 
 RPC wire protocol 没有提前远程取消信号；CampusTrace 传递显式 deadline 和 IDs，服务端工作到 deadline 或服务关闭时停止。这些实现边界不构成对成熟生产级 RPC 框架的性能或能力优势声明。
 
+请求与响应携带 claims 语义版本。新客户端只接受当前语义版本的响应，旧服务缺少版本或返回旧版本时不将其 claims 写进新缓存。新服务在调用 Extractor 前拒绝显式不匹配的版本；旧调用方省略请求字段仍可被接收，但响应始终标识实际实现。升级时需要协调 Analysis 与 Worker；不匹配按现有失败/未知结果处理，不以自动重放潜在付费调用来修复部署差异。
+
 可选本地联合开发使用 `make dev-workspace` 生成 ignored `go.work`。`make verify-boundary` 在关闭 workspace 后验证已发布依赖边界，不能替代远程 clean clone 验收。
 
 ## Agent、检索与 MCP
@@ -209,7 +211,7 @@ UI/API 可导入公共 URL；验证码、登录要求和 403 如实记录，不�
 
 SQL receipt 与 Redis cache 使用完整 `ProcessingVersion`：semantic/model/prompt 配置、实现 parser、来源 adapter/parser 和 Observation parser 版本。更换模型或 prompt 时更新 `ANALYSIS_VERSION`；parser 变化自动使旧 receipt 失效。`BindAnalysis` 首次调度新身份时分配 numeric generation，设置 desired/active generation 并持久绑定任务；已知旧身份重放不会重新激活，也不按版本字符串排序。只有 active generation 可成为 current，旧结果仍保留历史；active receipt 重放会原子校正指针和派生 apply/deadline 字段。desired generation 等待期间，旧代 Evidence 不参与当前规则。
 
-部署需要显式调度目标实现，不能从版本名字自动推断发布先后；重做或回滚也需新的 processing configuration identity。`cache-v2`、`claims-v3-semantics`、完整 `processing-v3-*` 身份和精确文本摘要隔离旧缓存/receipt，即便旧环境仍设 `claims-v1` 也执行有效 semantic version；自定义模型/prompt 版本经命名空间与 hash 限制 SQL 长度。未触及的旧 Observation 需要显式 reanalysis 或新观察；没有全历史迁移或版本切换 UI。
+部署需要显式调度目标实现，不能从版本名字自动推断发布先后；重做或回滚也需新的 processing configuration identity。`cache-v2`、`claims-v4-tech-requirements`、完整 `processing-v3-*` 身份和精确文本摘要隔离旧缓存/receipt，即便旧环境仍设 `claims-v1` 也执行有效 semantic version；自定义模型/prompt 版本经命名空间与 hash 限制 SQL 长度。技术条件规则版本为 `rules-v7-tech-expressions`。未触及的旧 Observation 需要显式 reanalysis 或新观察；保留旧证据，不自动批量重做或调用模型，没有全历史迁移或版本切换 UI。
 
 ## 完整检查与复现
 
@@ -242,6 +244,6 @@ Scripted eval 不代表真实模型准确率，synthetic loadgen 不代表线上
 - **历史与时效**：历史 Evidence 保留，显式调度决定 active generation；旧结果不能覆盖 current，未重新处理的 legacy Observation 需要显式 reanalysis。没有全历史版本选择界面；旧官方矛盾保守产生核验/未知，freshness 状态缓存可能滞后一小时；只对已启用且适配器支持的关注源自动重抓。
 - **RPC**：KanaRPC 为教育性 v0.x 框架，API 稳定性及提前远程取消存在上述限制。
 - **Agent 与检索**：自由生成事实回答被刻意限制。可选 live provider 未完成效果评估；可选语义 Embedding 与重排序已接入协议，但未用真实账号材料和真实模型评估检索质量。弱点提取依赖经过验证的显式输入，非 LLM extractor。RAG 容量、重复导入和文档更新/删除限制见上文。
-- **会话与认证**：SSE 无 replay/reconnect；MCP 认证仅在启动时进行；没有邮箱验证、密码重置或撤销服务。Redis 故障可影响短期状态与 trace 保存。
+- **会话与认证**：SSE 无 replay/reconnect；MCP 认证仅在启动时进行；浏览器 Redis 会话支持注销撤销，JWT 尚无撤销服务；没有邮箱验证或密码重置。Redis 故障可影响会话、短期状态与 trace 保存。
 - **队列与运维**：没有自动队列/历史归档或 Redis Cluster 支持；DLQ 仅通过 operator CLI 管理。进程内计数重启重置；队列和共享池另提供实时聚合指标。API 与 Worker 保留 `/metrics` JSON 和 `/metrics/prometheus`，任务阶段事件保存在 MySQL；可选 OpenTelemetry / Prometheus / Grafana / Tempo 连接本地服务追踪并提供面板与本地告警，不包含外部告警投递或生产高可用，见[监控与排障](operations.md#可选的完整观测栈)。
 - **UI**：中文优先，使用结构化资料与复盘表单；岗位雷达最多 10,000 条、每页 50 条；独立普通搜索最多 100 条。没有使用前端框架。

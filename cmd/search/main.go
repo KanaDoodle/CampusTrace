@@ -71,6 +71,15 @@ func run() error {
 		return json.NewEncoder(os.Stdout).Encode(status)
 	}
 
+	stopProfile, err := observability.Profiling()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		stop, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		_ = stopProfile(stop)
+	}()
 	shutdown, err := observability.Setup(ctx, "campustrace-search")
 	if err != nil {
 		return err

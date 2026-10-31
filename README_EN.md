@@ -1,43 +1,41 @@
 # CampusTrace
 
-**A little radar for graduate job hunting: follow openings, compare roles, keep track (ง •̀_•́)ง**
+**A personal graduate job-search tool built in Go: track recruiting changes, compare roles, preserve applications, and turn interview reviews into preparation.**
 
-[中文](README.md) | **English**
-
-Too many careers tabs. Several roles at one company, but only one application allowed. A resume version here, an interview date there.
-
-CampusTrace is a personal job-search tool built in **Go**. It brings recruiting updates, candidate profiles, role matching, applications and interview notes into one workspace, so you have fewer things to remember.
-
-For the backend design and reproducible evidence, start with [three engineering problems](docs/engineering-evidence.md): reliable job events, bounded Search failure recovery, and shared paid-model execution control.
-
-Optional independent job search: `make search-stack` starts a separate Go Search image with OpenSearch. Core keeps authoritative data and authorization, with a bounded database fallback; existing Analysis services remain. See [Search service](docs/search-service.md) for synchronization, isolation, operations and synthetic acceptance limits.
-
-Optional Kafka job events: `make kafka-stack` runs independent Search and in-app notification consumer groups. A transactional SQL outbox, version checks and durable receipts support recovery and duplicate delivery; existing Redis task scheduling remains. See [job events](docs/job-events.md), `make kafka-test` and `make kafka-stack-test` for operations and disposable acceptance.
+[中文](README.md) | **English** · [Architecture](docs/architecture.md) · [Engineering evidence](docs/engineering-evidence.md) · [Release acceptance](docs/verification/release-20261031/README.md)
 
 ```text
-Follow recruiting sources → Screen locally → Analyze selected roles → Plan applications → Interview and review
+Sources / manual imports → Search and role selection → Application plans and frozen materials
+                                                               ↓
+Next interview preparation ← Local study notes ← Interview records and reviews
 ```
 
-## What it helps with
+Original text, extracted evidence and assessments remain separate. Whether a job is open, whether a candidate meets identified requirements, and overall relevance are different judgments. Model analysis reads complete reviewed materials; users inspect outbound text before starting it.
 
-| The everyday problem | What you can do |
-| --- | --- |
-| Checking careers pages over and over | Follow supported sources and let background checks record new postings and changes |
-| Hundreds of unrelated roles | Filter by target direction, company and city; bulk-ignore clearly unrelated jobs and restore them later |
-| Repeating your education and project details | Maintain one profile or import a reviewed resume draft |
-| Wondering whether your projects fit a role | Start with local screening, then request model analysis with job excerpts and project evidence |
-| Choosing among roles at the same company | Compare complete candidate experience and JDs, with first choices, alternatives and tradeoffs; individual analysis is optional |
-| Losing track after applying | Record application stages, resume versions, interviews and reviews; check the Today list for next steps |
+## Three backend problems
 
-**Missing evidence does not mean missing ability.** Deep analysis reads complete saved projects and JDs, explains overall relevance and key gaps, and compares roles within a company. It does not score by counting requirements or technology names; generic soft expectations do not affect the ordering.
+| Problem | Implementation | Evidence |
+|---|---|---|
+| A saved job must reach Search and notifications independently, including duplicate delivery | Transactional MySQL outbox, Kafka consumer groups, projection versions and durable notification receipts; Redis keeps task scheduling | [Job events](docs/job-events.md): lost acknowledgements, independent outages, replay and tombstones |
+| Search failure must preserve authorization and bound database load | Foreground and remote admission limits, one bounded background recovery probe, budgeted SQL fallback; Core revalidates ACL, versions, hashes and generations | [Failure isolation](docs/search-resilience.md), [Trace / EXPLAIN / pprof diagnosis](docs/verification/search-diagnosis-20261031/README.md) |
+| Multiple APIs share paid-model capacity; a crashed process cannot prove whether a request executed | Fair permits, atomic call budgets, invocation ledger, UNKNOWN reconciliation and late-result fencing | [Model execution control](docs/model-control.md): contention, process kills and recovery |
 
-![CampusTrace job radar, with a job list and an evidence and action pane](docs/images/job-radar.jpg)
+Applications freeze the materials used for that submission. Reviewed interview notes can become source-linked study documents and be retrieved for the same application's next preparation. Technical requirement parsing preserves literal C++, distinguishes required/preferred/alternative conditions, and fences old Analysis responses with semantic versions.
 
-*The screenshot uses fictional companies, roles and projects. Starting the app does not seed sample jobs.*
+## Architecture
 
-## Get it running
+- **Core API / Worker:** Go, MySQL and Redis. Owns authoritative records, authorization, task scheduling and the application workflow.
+- **Analysis:** separate Go processes, discovered through etcd and called through the public [KanaRPC-Go](https://github.com/KanaDoodle/KanaRPC-Go) facade. The module pins a published release; no sibling checkout is required. See [dependency provenance](docs/dependency-audit.md).
+- **Optional Search:** independent HTTP service owning only the derived OpenSearch index. Core retains permission and content checks.
+- **Optional Kafka / Notify:** independent Search and notification consumer groups. Notify remains in the Core business domain and shares its SQL database.
+- **Observability and regression:** OpenTelemetry, Prometheus/Grafana/Tempo, pprof, k6, race/fuzz checks and GitHub Actions.
+- **AI application backend:** persistent tasks, controlled tools, resumable reviewed workflows and MCP; local BM25 with optional Embedding/RRF/Reranker. Real model quality requires separate evaluation.
 
-You need **Go 1.25.9+, Git and a running Docker installation with Compose**. The first build downloads dependencies and images.
+The [Chinese README](README.md#架构与技术栈) includes the service diagram. Default deployment starts Core, MySQL, Redis, etcd and two Analysis instances. Search, Kafka and the full observation stack are opt-in.
+
+## Start
+
+Requirements: **Go 1.25.9+, Git and Docker with Compose**. The first build downloads modules and images.
 
 ```sh
 git clone https://github.com/KanaDoodle/CampusTrace.git
@@ -45,121 +43,60 @@ cd CampusTrace
 ./campustrace start --open
 ```
 
-Once startup finishes, open [http://127.0.0.1:8080](http://127.0.0.1:8080/) and register your account. The UI is currently in Chinese.
-
-The CLI starts the application, MySQL, Redis, etcd and two Analysis instances, then waits for them to become healthy. They keep running when you close the terminal.
+Open [127.0.0.1:8080](http://127.0.0.1:8080/) and register an account. The UI is in Chinese. Start with profile, source/manual import, job radar, applications, and interviews/reviews. Startup does not seed sample jobs.
 
 ```sh
-./campustrace status                # Check services
-./campustrace open                  # Open the UI
-./campustrace logs api --tail 100    # Inspect recent logs
-./campustrace doctor                # Check Docker and configuration
-./campustrace stop                  # Stop apps; keep dependencies and data
-./campustrace stop --all            # Stop dependencies too; keep volumes
-./campustrace start                 # Start again
-./campustrace restart --build       # Back up, rebuild and restart after changes
-./campustrace backup                # Write a local backup to bin/backups/
+./campustrace status
+./campustrace doctor
+./campustrace logs api --tail 100
+./campustrace backup
+./campustrace restart --build
+./campustrace stop                 # Stop apps; preserve dependencies and data
+./campustrace stop --all           # Stop dependencies too; preserve volumes
 ```
 
-The Compose project is always named `campustrace`. Put local settings in the ignored `.env` file. You can set `CAMPUS_HTTP_PORT`, `JWT_SECRET` and an optional server-default model. Use a separate JWT secret of at least 32 bytes outside local use. Backup and restore steps are in [the recovery guide](docs/recovery.md).
+The CLI uses the fixed Compose project `campustrace`. Local settings live in the ignored `.env`. Use a separate JWT secret of at least 32 bytes outside local use. See [backup and recovery](docs/recovery.md).
 
-## Your first session
-
-1. **Set up your profile — 求职资料.** Add education, graduation cohort, target roles, city preferences, languages and projects. Text-based PDF, DOCX and TXT resumes are read in the browser. Check the redacted preview before sending it for draft extraction. Draft items start selected; edit or uncheck them before saving. Bachelor’s and master’s records stay separate, and you choose which education applies to this recruiting round.
-2. **Follow companies — 招聘来源.** Choose a source with an automatic-import adapter, preview its scope and set keywords and a check interval. Or choose **一键导入全部岗位** for a one-time background import from all supported presets. Progress survives refreshes, failed sources can be retried, and existing watches remain unchanged. Full imports can start once every 30 minutes; importing does not trigger deep model analysis. A directory link alone does not mean automatic import works. See [the source inventory](docs/campus-source-inventory.md) for supported scopes and verification notes.
-3. **Screen before spending — 岗位雷达.** Start with relevant directions and filters. Local screening uses bounded rules and vocabulary without model calls. Select promising roles for deeper analysis, review the complete outbound material, then explicitly start. The default round contains up to 30 pending jobs; successful results are saved and failed items can be retried separately.
-4. **Turn analysis into action.** Compare saved results for the same company, add an application plan and work through the preparation checklist. Comparison and checklist reads do not trigger model calls. Maintain explicit application limits for the same company and recruiting round; actual submission still happens on the company’s website.
-5. **Keep the trail.** Record application stages, resume versions, interview dates and reviews. The Today list shows upcoming deadlines and interviews, missing reviews and recent analysis failures.
-
-Matching and exports use the same document assembled from reviewed education, skills, complete project paragraphs and confirmed facts. Removed extraction mistakes are not reintroduced from an original résumé.
-
-Local screening, whole-context relevance, eligibility and whether a role is open are separate judgments. Company comparisons use the complete candidate shortlist and explain first choices and tradeoffs; no item-count score predicts an offer.
-
-The directory has **银行** (banks) and **证券** (securities) filters. Bank presets cover CMB technology, CITIC IT, Bank of China software and IT operations, and Bank of Communications headquarters fintech roles. Securities presets cover China Merchants Securities, Huatai headquarters, CSC, Guosen, Galaxy and CICC. Each preset shows its actual scope; graduation dates, internship assessments and employment requirements remain in the original text. Other entries link to official sites and explain what still needs adaptation.
-
-## Models and privacy
-
-In **模型设置**, choose an OpenAI or DeepSeek preset and enter your API key. A server-default model is also supported.
-
-- Original resume files and original text are not uploaded. Resume extraction sends the redacted preview you approve. Automatic masking can miss details, so review it.
-- Saved profile fields and project facts are stored in CampusTrace’s MySQL database, which runs locally in the default Docker setup.
-- Browser-entered keys are stored per account in the current browser, without encryption. Calls pass them through CampusTrace to the selected provider; the app does not save them in its database.
-- API calls can incur provider charges. The matching-call allowance is a request-count limit, not a spending cap for your entire model account. Failed or timed-out calls can still cost money.
-
-You can use local screening and application tracking without an API key. You can also select jobs and use **导出到 ChatGPT** to review, download and manually upload analysis packages. Export itself makes no model calls. Return JSON through **导入聊天分析** to review the results locally. Confirm the valid jobs first; copy the repair checklist for the remaining jobs back into chat. New packages return whole-context assessments and optional company rankings; imports check their source bindings and key quotations.
-
-## What the Agent does
-
-Open **更多工具 → 求职问答** to ask about job evidence, project facts, preparation or analysis tasks. The Agent chooses from allowed business tools and reads data you can access.
-
-Querying a saved match does not start a new deep-analysis round. Allowed writes, such as proposing an application plan or changing a watch, first produce a preview and require your confirmation. With an external model, the question and relevant tool results are sent to that provider.
-
-Five built-in tasks cover frozen application preparation, current job preparation, company choices, review and today’s next steps. They save read checkpoints without starting paid job analysis; configured embedding and reranking may still be called. Ordinary model-backed questions can choose permitted tools; business answers come from successful tool results.
-
-Open an application dossier, choose preparation from its frozen materials, then explicitly start the prefilled task. It retrieves notes using that saved JD and the same application’s real questions and review points. Later profile/JD edits cannot replace historical materials. Recruiting changes and inbox history are reached from Today. See [assistant capabilities and limits](docs/agent-harness.md).
-
-Interview notes are under **更多工具 → 面试资料**, using local BM25 with optional semantic retrieval and reranking. Preparation results open complete source notes. API-based, reviewed streaming explanations remain available; Go execution practice and RPC/vLLM experiments moved to a reversible [archive](experiments/README.md). See [retrieval](docs/knowledge-retrieval.md) and [model integration](docs/model-backends.md).
-
-Without one, a limited offline router lets you inspect the tool flow. It is not a full chat model.
-
-## Under the hood
-
-This is also a Go backend practice project. Its main mechanisms address concrete problems:
-
-| Problem | Implementation |
-| --- | --- |
-| A saved update must reach background processing | MySQL transactions and Outbox, Redis Stream delivery, database idempotency for duplicate messages |
-| Closing a tab must not erase analysis progress | Durable task and item state in MySQL; reviewed continuation after interruption |
-| Old analyses must not masquerade as current results | Input-bound whole assessments and company reports, exact-scope cache identities and guarded commits |
-| Concurrent plans must not take the last slot twice | Transactional checks for explicit campaign limits and record versions |
-| Fetching and models need bounded work | Worker pools, independent concurrency limits, deadlines, rate limits, backoff and dead-letter handling |
-| Failures need an explanation | Request IDs, task-stage events, Prometheus metrics and reproducible performance measurements |
-| Analysis instances run independently | The public [KanaRPC-Go](https://github.com/KanaDoodle/KanaRPC-Go) facade and etcd discovery |
-
-Recruiting observations, source evidence and rule assessments are kept separate. An accessible page alone cannot establish that a job is open, and a closed job does not automatically end an existing application.
-
-## Development and checks
-
-To run application binaries on the host while keeping dependencies in Docker:
+## Synthetic demonstration
 
 ```sh
-./campustrace stop
-make deps
-make dev-run
-make dev-stop
+sh scripts/journey-local.sh demo
+# In another terminal, against the fresh unmodified demo:
+python3 scripts/smoke-journey.py
 ```
 
-Normal tests need no model key. Frontend tests need Node.js.
+Demo: `http://127.0.0.1:23380`, account `demo@campustrace.invalid`, password `Synthetic2026!`. It owns disposable SQL/Redis dependencies, uses fictional data and a pre-seeded comparison, and makes no external model/source calls. Exiting removes only its temporary dependencies.
+
+Alternatively, `sh scripts/journey-local.sh smoke` runs acceptance and exits. Set `JOURNEY_HTTP_PORT` for a different port. The HTTP scenario covers import/search, atomic application planning, frozen submissions, notice confirmation/rescheduling, review-to-note import, and retrieval for later preparation.
+
+![Job radar using fictional data](docs/images/job-radar.jpg)
+
+## Verification
 
 ```sh
 export GOWORK=off
 go build ./...
 go vet ./...
-go test -count=1 ./...
-go test -race -count=1 ./internal/...
+go test -race -count=1 ./...
 node --test web/*.test.cjs
 make verify-boundary
+make performance-test
 ```
 
-Use `RADAR_RACE=1 ./scripts/verify-radar.sh` for real-dependency integration tests in isolated databases. `make eval` defaults to synthetic questions and scripted models, without external charges. Performance figures describe the documented test scenarios; see [measurement conditions](docs/performance.md).
+- [Release acceptance](docs/verification/release-20261031/README.md): end-to-end scenario and verification entry points.
+- [Search diagnosis](docs/verification/search-diagnosis-20261031/README.md): 1,000/5,000/10,000 synthetic jobs, trace/SQL/profile evidence and frozen sources.
+- [Recovery probes](docs/verification/search-recovery-20261031/README.md): paired short runs, complete quantiles, failures and excluded host-interfered attempts.
+- [Technical requirements](docs/verification/technology-requirements-20261031/README.md): historical excerpts, synthetic controls, RPC semantics and cache/generation fencing.
+- [Workflow linkage](docs/verification/linkage-20261031/README.md) and [simplification](docs/verification/redundancy-fixes-20261031/README.md).
+
+Performance belongs to each report's archived source and local synthetic conditions, not a production SLA or maximum throughput. Some p95/p99 measurements remain worse or variable; all results are retained. Rule controls and offline Agent tests are not model-accuracy measurements.
 
 ## Further reading
 
-Detailed guides are currently in Chinese unless noted otherwise.
+[Application journey](docs/application-journey.md) · [Matching](docs/matching.md) · [Knowledge retrieval](docs/knowledge-retrieval.md) · [Agent](docs/agent-harness.md) · [Sources](docs/campus-source-inventory.md) · [Operations](docs/operations.md) · [API](docs/api.md) · [Archived experiments](experiments/README.md).
 
-- [Matching and profiles](docs/matching.md): resume import, local rules, whole-context analysis, company comparisons and cache behavior.
-- [Architecture](docs/architecture.md): observations, queues, RPC, Agent / RAG / MCP, versions and limits.
-- [Backend additions](docs/backend-upgrade.md): durable analysis tasks, transactional application limits and adaptive checks.
-- [Source inventory](docs/campus-source-inventory.md) and [adapter notes](docs/campus-sources.md): scopes, verification and access limitations.
-- [HTTP API](docs/api.md): endpoints and operator interfaces, with English technical descriptions.
-- [Operations](docs/operations.md), [recovery](docs/recovery.md) and [Agent evaluation](docs/agent-evaluation.md).
+Optional stacks: `make search-stack`, `make kafka-stack`, `make observability`. Disposable acceptance: `make resilience-test`, `make kafka-test`, `make performance`.
 
-## Still learning (´・ω・`)
+CampusTrace does not submit applications automatically. Notifications are mainly in-app. Scanned resumes have no OCR support; complex requirements need review. Production traffic, independent human-gold model quality and multi-node high availability have not been demonstrated. Keep personal resumes, API keys and database backups out of the public repository.
 
-Website changes, access restrictions and network conditions can break imports. Unsupported sources need manual browsing. Scanned resumes need OCR that is not implemented yet, and complex requirements still need human review.
-
-CampusTrace targets personal use. There is no automatic application submission, notifications are currently in-app, and preparation-checklist progress does not sync across devices. Authentication, capacity and operational limits are listed in [the architecture guide](docs/architecture.md#当前限制).
-
-Issues are welcome. Reproduction steps and a redacted error message help; keep real resumes, keys and database backups private.
-
-License: [AGPL v3](LICENSE). See [dependency and upstream notices](docs/dependency-audit.md); KanaRPC-Go retains its KamaRPC-Go source history and attribution.
+License: [AGPL-3.0](LICENSE).

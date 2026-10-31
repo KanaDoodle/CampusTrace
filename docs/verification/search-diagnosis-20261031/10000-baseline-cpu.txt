@@ -1,0 +1,39 @@
+File: api
+Build ID: d3e70a6c805732e4f5fab7b781f3aa4aae97f20e
+Type: cpu
+Time: 2026-10-31 19:46:34 CST
+Duration: 10.08s, Total samples = 4.20s (41.65%)
+Showing nodes accounting for 3.36s, 80.00% of 4.20s total
+Dropped 194 nodes (cum <= 0.02s)
+Showing top 30 nodes out of 165
+      flat  flat%   sum%        cum   cum%
+     0.60s 14.29% 14.29%      0.61s 14.52%  unicode.lookupCaseRange (inline)
+     0.36s  8.57% 22.86%      0.36s  8.57%  internal/runtime/syscall.Syscall6
+     0.26s  6.19% 29.05%      0.51s 12.14%  encoding/json.checkValid
+     0.21s  5.00% 34.05%      0.21s  5.00%  runtime.decoderune
+     0.20s  4.76% 38.81%      1.59s 37.86%  strings.Map
+     0.18s  4.29% 43.10%      0.18s  4.29%  encoding/json.stateInString
+     0.17s  4.05% 47.14%      0.32s  7.62%  runtime.scanobject
+     0.15s  3.57% 50.71%      0.15s  3.57%  unicode/utf8.appendRuneNonASCII
+     0.14s  3.33% 54.05%      0.14s  3.33%  runtime.futex
+     0.13s  3.10% 57.14%      0.13s  3.10%  encoding/json.(*decodeState).rescanLiteral
+     0.12s  2.86% 60.00%      0.82s 19.52%  unicode.ToLower
+     0.11s  2.62% 62.62%      0.31s  7.38%  strings.(*Builder).WriteRune
+     0.08s  1.90% 64.52%      0.60s 14.29%  encoding/json.(*decodeState).object
+     0.08s  1.90% 66.43%      0.09s  2.14%  runtime.greyobject
+     0.07s  1.67% 68.10%      0.28s  6.67%  runtime.mallocgc
+     0.07s  1.67% 69.76%      0.68s 16.19%  unicode.to
+     0.06s  1.43% 71.19%      0.07s  1.67%  runtime.findObject
+     0.06s  1.43% 72.62%      0.06s  1.43%  runtime.memclrNoHeapPointers
+     0.04s  0.95% 73.57%      0.06s  1.43%  encoding/json.stateBeginValue
+     0.04s  0.95% 74.52%      0.04s  0.95%  internal/bytealg.IndexByteString
+     0.03s  0.71% 75.24%      0.14s  3.33%  encoding/json.indirect
+     0.03s  0.71% 75.95%      0.05s  1.19%  reflect.(*rtype).Name
+     0.03s  0.71% 76.67%      0.08s  1.90%  runtime.slicebytetostring
+     0.02s  0.48% 77.14%      0.36s  8.57%  database/sql.withLock
+     0.02s  0.48% 77.62%      0.06s  1.43%  encoding/json.(*decodeState).array
+     0.02s  0.48% 78.10%      0.04s  0.95%  encoding/json.(*decodeState).scanWhile
+     0.02s  0.48% 78.57%      0.06s  1.43%  internal/stringslite.Index
+     0.02s  0.48% 79.05%      0.09s  2.14%  runtime.mallocgcSmallNoscan
+     0.02s  0.48% 79.52%      0.09s  2.14%  runtime.mallocgcSmallScanNoHeader
+     0.02s  0.48% 80.00%      0.04s  0.95%  time.parseRFC3339[go.shape.[]uint8]

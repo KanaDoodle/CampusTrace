@@ -17,6 +17,8 @@ name: Search HTTP performance regression
       - go.sum
       - compose.app.yml
       - cmd/api/**
+      - cmd/search/**
+      - internal/observability/**
       - cmd/worker/**
       - internal/bootstrap/**
       - internal/persistence/jobs.go

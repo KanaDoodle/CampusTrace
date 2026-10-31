@@ -60,10 +60,8 @@ func (v Dataset) Validate() error {
 func (v Dataset) Chunks() []Chunk {
 	chunks := []Chunk{}
 	for _, doc := range v.Documents {
-		rs := []rune(doc.Text)
-		for start, index := 0, 0; start < len(rs); start, index = start+700, index+1 {
-			end := min(start+900, len(rs))
-			chunks = append(chunks, Chunk{ID: doc.ID + ":" + strconv.Itoa(index), DocumentID: doc.ID, Title: doc.Title, Text: string(rs[start:end]), EmbeddingVersion: EmbeddingVersion, Index: index})
+		for index, text := range splitText(doc.Text) {
+			chunks = append(chunks, Chunk{ID: doc.ID + ":" + strconv.Itoa(index), DocumentID: doc.ID, Title: doc.Title, Text: text, EmbeddingVersion: EmbeddingVersion, Index: index})
 		}
 	}
 	return chunks

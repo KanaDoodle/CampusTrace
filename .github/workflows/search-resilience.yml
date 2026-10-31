@@ -35,7 +35,9 @@ jobs:
       - name: Download public pinned modules
         run: GOWORK=off go mod download
       - name: Real HTTP, SQL and OpenSearch faults with race detection
+        shell: bash
         run: |
+          set -o pipefail
           mkdir -p bin/verification/depth-20261031
           make resilience-test 2>&1 | tee bin/verification/depth-20261031/resilience-ci.log
       - name: Preserve synthetic evidence

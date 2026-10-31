@@ -1,0 +1,1779 @@
+{
+  "kind": "fixed-load-search-diagnosis",
+  "timing_queries": 11535,
+  "timing_failures": 6,
+  "dropped_iterations": 0,
+  "sources": {
+    "baseline": {
+      "selection": "frozen-directory",
+      "runtime_sha256": "11471b6a547c54d3d4858b76b4ca0e1fb190adc7b0d112543f942a9b641fcaaa"
+    },
+    "candidate": {
+      "selection": "frozen-directory",
+      "runtime_sha256": "26b9607c463608f29a2aadf823c946a67a6798e9a801914c57e54c772e7f36a5"
+    }
+  },
+  "scales": [
+    {
+      "jobs": 1000,
+      "run_id": "5fb819d17ddb",
+      "directory": "accepted-v2-1000",
+      "fixture_sha256": "9a3f562ae09221ed3a2a4b095e40a5c98c01a3e676c2fc5eefd2f459c8303281",
+      "generation": "campustrace-jobs-v1-initial:NVifSmvBTfK0twlIPw7zFg",
+      "trace": {
+        "operations": [
+          {
+            "instance": "5fb819d17ddb-baseline-d2",
+            "service": "campustrace-api",
+            "operation": "GET /metrics/prometheus",
+            "count": 4,
+            "p50_ms": 2.218604,
+            "p95_ms": 2.646,
+            "total_ms": 8.810583
+          },
+          {
+            "instance": "5fb819d17ddb-baseline-d2",
+            "service": "campustrace-api",
+            "operation": "GET /readyz",
+            "count": 5,
+            "p50_ms": 0.528834,
+            "p95_ms": 0.598334,
+            "total_ms": 2.453418
+          },
+          {
+            "instance": "5fb819d17ddb-baseline-d2",
+            "service": "campustrace-api",
+            "operation": "POST /api/jobs/search",
+            "count": 332,
+            "p50_ms": 9.151542,
+            "p95_ms": 21.872291,
+            "total_ms": 4380.01734
+          },
+          {
+            "instance": "5fb819d17ddb-baseline-d2",
+            "service": "campustrace-api",
+            "operation": "search.core",
+            "count": 332,
+            "p50_ms": 8.8929785,
+            "p95_ms": 21.573084,
+            "total_ms": 4290.494322
+          },
+          {
+            "instance": "5fb819d17ddb-baseline-d2",
+            "service": "campustrace-api",
+            "operation": "search.fallback",
+            "count": 165,
+            "p50_ms": 3.599375,
+            "p95_ms": 21.021625,
+            "total_ms": 1268.700253
+          },
+          {
+            "instance": "5fb819d17ddb-baseline-d2",
+            "service": "campustrace-api",
+            "operation": "search.fallback.page",
+            "count": 543,
+            "p50_ms": 2.278875,
+            "p95_ms": 3.571458,
+            "total_ms": 1205.846381
+          },
+          {
+            "instance": "5fb819d17ddb-baseline-d2",
+            "service": "campustrace-api",
+            "operation": "search.http",
+            "count": 172,
+            "p50_ms": 10.2726875,
+            "p95_ms": 14.283666,
+            "total_ms": 2559.962085
+          },
+          {
+            "instance": "5fb819d17ddb-baseline-d2",
+            "service": "campustrace-api",
+            "operation": "search.hydrate",
+            "count": 167,
+            "p50_ms": 1.389625,
+            "p95_ms": 2.346459,
+            "total_ms": 229.171877
+          },
+          {
+            "instance": "5fb819d17ddb-baseline-d2",
+            "service": "campustrace-api",
+            "operation": "search.watermark",
+            "count": 503,
+            "p50_ms": 0.499709,
+            "p95_ms": 0.960625,
+            "total_ms": 267.023206
+          },
+          {
+            "instance": "5fb819d17ddb-baseline-d2",
+            "service": "campustrace-search",
+            "operation": "POST /v1/query",
+            "count": 167,
+            "p50_ms": 9.475667,
+            "p95_ms": 13.165875,
+            "total_ms": 1456.147419
+          },
+          {
+            "instance": "5fb819d17ddb-baseline-d2",
+            "service": "campustrace-search",
+            "operation": "search.index",
+            "count": 504,
+            "p50_ms": 2.037813,
+            "p95_ms": 7.164583,
+            "total_ms": 1419.832757
+          },
+          {
+            "instance": "5fb819d17ddb-candidate-d1",
+            "service": "campustrace-api",
+            "operation": "GET /metrics/prometheus",
+            "count": 4,
+            "p50_ms": 2.9746045,
+            "p95_ms": 3.157917,
+            "total_ms": 11.981626
+          },
+          {
+            "instance": "5fb819d17ddb-candidate-d1",
+            "service": "campustrace-api",
+            "operation": "GET /readyz",
+            "count": 1,
+            "p50_ms": 0.282458,
+            "p95_ms": 0.282458,
+            "total_ms": 0.282458
+          },
+          {
+            "instance": "5fb819d17ddb-candidate-d1",
+            "service": "campustrace-api",
+            "operation": "POST /api/jobs/search",
+            "count": 330,
+            "p50_ms": 8.2905415,
+            "p95_ms": 17.382125,
+            "total_ms": 3976.025383
+          },
+          {
+            "instance": "5fb819d17ddb-candidate-d1",
+            "service": "campustrace-api",
+            "operation": "search.core",
+            "count": 330,
+            "p50_ms": 8.084396,
+            "p95_ms": 17.010709,
+            "total_ms": 3891.556676
+          },
+          {
+            "instance": "5fb819d17ddb-candidate-d1",
+            "service": "campustrace-api",
+            "operation": "search.fallback",
+            "count": 164,
+            "p50_ms": 3.5863745,
+            "p95_ms": 16.444708,
+            "total_ms": 1067.472211
+          },
+          {
+            "instance": "5fb819d17ddb-candidate-d1",
+            "service": "campustrace-api",
+            "operation": "search.fallback.page",
+            "count": 290,
+            "p50_ms": 2.8037085,
+            "p95_ms": 9.400208,
+            "total_ms": 1007.477878
+          },
+          {
+            "instance": "5fb819d17ddb-candidate-d1",
+            "service": "campustrace-api",
+            "operation": "search.http",
+            "count": 171,
+            "p50_ms": 9.110333,
+            "p95_ms": 13.205375,
+            "total_ms": 2365.267658
+          },
+          {
+            "instance": "5fb819d17ddb-candidate-d1",
+            "service": "campustrace-api",
+            "operation": "search.hydrate",
+            "count": 166,
+            "p50_ms": 1.3324375,
+            "p95_ms": 2.448792,
+            "total_ms": 234.321212
+          },
+          {
+            "instance": "5fb819d17ddb-candidate-d1",
+            "service": "campustrace-api",
+            "operation": "search.watermark",
+            "count": 500,
+            "p50_ms": 0.5111870000000001,
+            "p95_ms": 0.920167,
+            "total_ms": 261.350338
+          },
+          {
+            "instance": "5fb819d17ddb-candidate-d1",
+            "service": "campustrace-search",
+            "operation": "POST /v1/query",
+            "count": 166,
+            "p50_ms": 8.2936045,
+            "p95_ms": 12.090333,
+            "total_ms": 1263.764663
+          },
+          {
+            "instance": "5fb819d17ddb-candidate-d1",
+            "service": "campustrace-search",
+            "operation": "search.index",
+            "count": 501,
+            "p50_ms": 1.961875,
+            "p95_ms": 6.210666,
+            "total_ms": 1229.280425
+          }
+        ],
+        "fallback_pages": {
+          "5fb819d17ddb-baseline-d2": {
+            "count": 165,
+            "p50": 3,
+            "p95": 8,
+            "max": 8
+          },
+          "5fb819d17ddb-candidate-d1": {
+            "count": 164,
+            "p50": 2.0,
+            "p95": 3,
+            "max": 3
+          }
+        },
+        "remote_round_trips": [
+          {
+            "instance": "5fb819d17ddb-baseline-d2",
+            "operation": "check_generation",
+            "count": 167,
+            "p50": 1.402084,
+            "p95": 2.041792,
+            "max": 27.886792
+          },
+          {
+            "instance": "5fb819d17ddb-baseline-d2",
+            "operation": "query",
+            "count": 167,
+            "p50": 5.229459,
+            "p95": 7.935166,
+            "max": 33.975
+          },
+          {
+            "instance": "5fb819d17ddb-baseline-d2",
+            "operation": "resolve_alias",
+            "count": 167,
+            "p50": 2.169375,
+            "p95": 2.9395,
+            "max": 3.750084
+          },
+          {
+            "instance": "5fb819d17ddb-candidate-d1",
+            "operation": "check_generation",
+            "count": 166,
+            "p50": 1.2605629999999999,
+            "p95": 2.113042,
+            "max": 2.886375
+          },
+          {
+            "instance": "5fb819d17ddb-candidate-d1",
+            "operation": "query",
+            "count": 166,
+            "p50": 4.495979,
+            "p95": 6.905042,
+            "max": 8.430834
+          },
+          {
+            "instance": "5fb819d17ddb-candidate-d1",
+            "operation": "resolve_alias",
+            "count": 166,
+            "p50": 1.8675415,
+            "p95": 2.966958,
+            "max": 3.9825
+          }
+        ],
+        "cross_service_query_spans": 333,
+        "joined_to_core_http": 333
+      },
+      "allocation_profiles": {
+        "baseline": {
+          "alloc_space_delta_mib_estimate": 197.72,
+          "diagnostic_attempts": 145,
+          "estimated_mib_per_attempt": 1.3635862068965516
+        },
+        "candidate": {
+          "alloc_space_delta_mib_estimate": 87.6,
+          "diagnostic_attempts": 144,
+          "estimated_mib_per_attempt": 0.6083333333333333
+        }
+      }
+    },
+    {
+      "jobs": 5000,
+      "run_id": "0500e7b1e8bd",
+      "directory": "accepted-v2-5000",
+      "fixture_sha256": "0a8dcbdb997ba3babce9c655fc90cb2caa85c52a8a2dd19ef7bd7c103fb43fe4",
+      "generation": "campustrace-jobs-v1-initial:DD4dPTpCR_OnF4dgd6j3Ag",
+      "trace": {
+        "operations": [
+          {
+            "instance": "0500e7b1e8bd-baseline-d1",
+            "service": "campustrace-api",
+            "operation": "GET /metrics/prometheus",
+            "count": 4,
+            "p50_ms": 2.3414159999999997,
+            "p95_ms": 2.868166,
+            "total_ms": 9.616373
+          },
+          {
+            "instance": "0500e7b1e8bd-baseline-d1",
+            "service": "campustrace-api",
+            "operation": "GET /readyz",
+            "count": 3,
+            "p50_ms": 0.556667,
+            "p95_ms": 0.556667,
+            "total_ms": 1.432209
+          },
+          {
+            "instance": "0500e7b1e8bd-baseline-d1",
+            "service": "campustrace-api",
+            "operation": "POST /api/jobs/search",
+            "count": 331,
+            "p50_ms": 12.836917,
+            "p95_ms": 64.334917,
+            "total_ms": 6359.618588
+          },
+          {
+            "instance": "0500e7b1e8bd-baseline-d1",
+            "service": "campustrace-api",
+            "operation": "search.core",
+            "count": 331,
+            "p50_ms": 12.688625,
+            "p95_ms": 64.17575,
+            "total_ms": 6293.137923
+          },
+          {
+            "instance": "0500e7b1e8bd-baseline-d1",
+            "service": "campustrace-api",
+            "operation": "search.fallback",
+            "count": 164,
+            "p50_ms": 12.557187500000001,
+            "p95_ms": 65.821208,
+            "total_ms": 3130.368415
+          },
+          {
+            "instance": "0500e7b1e8bd-baseline-d1",
+            "service": "campustrace-api",
+            "operation": "search.fallback.page",
+            "count": 2222,
+            "p50_ms": 1.1934585,
+            "p95_ms": 2.52925,
+            "total_ms": 3081.522334
+          },
+          {
+            "instance": "0500e7b1e8bd-baseline-d1",
+            "service": "campustrace-api",
+            "operation": "search.http",
+            "count": 172,
+            "p50_ms": 10.602479500000001,
+            "p95_ms": 15.567083,
+            "total_ms": 2750.375995
+          },
+          {
+            "instance": "0500e7b1e8bd-baseline-d1",
+            "service": "campustrace-api",
+            "operation": "search.hydrate",
+            "count": 167,
+            "p50_ms": 1.436875,
+            "p95_ms": 2.30625,
+            "total_ms": 234.901625
+          },
+          {
+            "instance": "0500e7b1e8bd-baseline-d1",
+            "service": "campustrace-api",
+            "operation": "search.watermark",
+            "count": 502,
+            "p50_ms": 0.40231249999999996,
+            "p95_ms": 0.804834,
+            "total_ms": 218.734645
+          },
+          {
+            "instance": "0500e7b1e8bd-baseline-d1",
+            "service": "campustrace-search",
+            "operation": "POST /v1/query",
+            "count": 167,
+            "p50_ms": 9.854416,
+            "p95_ms": 13.804834,
+            "total_ms": 1642.997033
+          },
+          {
+            "instance": "0500e7b1e8bd-baseline-d1",
+            "service": "campustrace-search",
+            "operation": "search.index",
+            "count": 504,
+            "p50_ms": 2.0741875,
+            "p95_ms": 7.994333,
+            "total_ms": 1606.48781
+          },
+          {
+            "instance": "0500e7b1e8bd-candidate-d1",
+            "service": "campustrace-api",
+            "operation": "GET /metrics/prometheus",
+            "count": 4,
+            "p50_ms": 2.7425829999999998,
+            "p95_ms": 2.752125,
+            "total_ms": 10.658125
+          },
+          {
+            "instance": "0500e7b1e8bd-candidate-d1",
+            "service": "campustrace-api",
+            "operation": "GET /readyz",
+            "count": 1,
+            "p50_ms": 0.322209,
+            "p95_ms": 0.322209,
+            "total_ms": 0.322209
+          },
+          {
+            "instance": "0500e7b1e8bd-candidate-d1",
+            "service": "campustrace-api",
+            "operation": "POST /api/jobs/search",
+            "count": 331,
+            "p50_ms": 11.4305,
+            "p95_ms": 54.575709,
+            "total_ms": 5611.259298
+          },
+          {
+            "instance": "0500e7b1e8bd-candidate-d1",
+            "service": "campustrace-api",
+            "operation": "search.core",
+            "count": 331,
+            "p50_ms": 11.221125,
+            "p95_ms": 54.373834,
+            "total_ms": 5540.180953
+          },
+          {
+            "instance": "0500e7b1e8bd-candidate-d1",
+            "service": "campustrace-api",
+            "operation": "search.fallback",
+            "count": 164,
+            "p50_ms": 9.7155205,
+            "p95_ms": 54.698125,
+            "total_ms": 2677.226411
+          },
+          {
+            "instance": "0500e7b1e8bd-candidate-d1",
+            "service": "campustrace-api",
+            "operation": "search.fallback.page",
+            "count": 626,
+            "p50_ms": 3.949,
+            "p95_ms": 8.884083,
+            "total_ms": 2628.742337
+          },
+          {
+            "instance": "0500e7b1e8bd-candidate-d1",
+            "service": "campustrace-api",
+            "operation": "search.http",
+            "count": 172,
+            "p50_ms": 9.3678125,
+            "p95_ms": 13.450958,
+            "total_ms": 2438.743502
+          },
+          {
+            "instance": "0500e7b1e8bd-candidate-d1",
+            "service": "campustrace-api",
+            "operation": "search.hydrate",
+            "count": 167,
+            "p50_ms": 1.4165,
+            "p95_ms": 2.356958,
+            "total_ms": 231.771372
+          },
+          {
+            "instance": "0500e7b1e8bd-candidate-d1",
+            "service": "campustrace-api",
+            "operation": "search.watermark",
+            "count": 502,
+            "p50_ms": 0.430125,
+            "p95_ms": 0.937625,
+            "total_ms": 233.597309
+          },
+          {
+            "instance": "0500e7b1e8bd-candidate-d1",
+            "service": "campustrace-search",
+            "operation": "POST /v1/query",
+            "count": 167,
+            "p50_ms": 8.596417,
+            "p95_ms": 12.057667,
+            "total_ms": 1336.597708
+          },
+          {
+            "instance": "0500e7b1e8bd-candidate-d1",
+            "service": "campustrace-search",
+            "operation": "search.index",
+            "count": 504,
+            "p50_ms": 1.926354,
+            "p95_ms": 7.086,
+            "total_ms": 1300.085404
+          }
+        ],
+        "fallback_pages": {
+          "0500e7b1e8bd-baseline-d1": {
+            "count": 164,
+            "p50": 13.0,
+            "p95": 38,
+            "max": 38
+          },
+          "0500e7b1e8bd-candidate-d1": {
+            "count": 164,
+            "p50": 4.0,
+            "p95": 9,
+            "max": 9
+          }
+        },
+        "remote_round_trips": [
+          {
+            "instance": "0500e7b1e8bd-baseline-d1",
+            "operation": "check_generation",
+            "count": 167,
+            "p50": 1.29325,
+            "p95": 1.787417,
+            "max": 46.142292
+          },
+          {
+            "instance": "0500e7b1e8bd-baseline-d1",
+            "operation": "query",
+            "count": 167,
+            "p50": 5.920708,
+            "p95": 9.381458,
+            "max": 68.113625
+          },
+          {
+            "instance": "0500e7b1e8bd-baseline-d1",
+            "operation": "resolve_alias",
+            "count": 167,
+            "p50": 2.147333,
+            "p95": 2.744,
+            "max": 3.580417
+          },
+          {
+            "instance": "0500e7b1e8bd-candidate-d1",
+            "operation": "check_generation",
+            "count": 167,
+            "p50": 1.2795,
+            "p95": 1.870084,
+            "max": 3.600583
+          },
+          {
+            "instance": "0500e7b1e8bd-candidate-d1",
+            "operation": "query",
+            "count": 167,
+            "p50": 4.895084,
+            "p95": 7.65875,
+            "max": 10.416084
+          },
+          {
+            "instance": "0500e7b1e8bd-candidate-d1",
+            "operation": "resolve_alias",
+            "count": 167,
+            "p50": 2.057042,
+            "p95": 2.569625,
+            "max": 2.997125
+          }
+        ],
+        "cross_service_query_spans": 334,
+        "joined_to_core_http": 334
+      },
+      "allocation_profiles": {
+        "baseline": {
+          "alloc_space_delta_mib_estimate": 882.14,
+          "diagnostic_attempts": 144,
+          "estimated_mib_per_attempt": 6.125972222222222
+        },
+        "candidate": {
+          "alloc_space_delta_mib_estimate": 376.35,
+          "diagnostic_attempts": 144,
+          "estimated_mib_per_attempt": 2.613541666666667
+        }
+      }
+    },
+    {
+      "jobs": 10000,
+      "run_id": "355186b67746",
+      "directory": "accepted-v2-10000",
+      "fixture_sha256": "079c7cdee90ac425f20d6b2bc88db49adde6dc1c9dba288d672f6c7da5b14823",
+      "generation": "campustrace-jobs-v1-initial:mDK6HCB4Q1GY1Sl_ByQ8Cg",
+      "trace": {
+        "operations": [
+          {
+            "instance": "355186b67746-baseline-d1",
+            "service": "campustrace-api",
+            "operation": "GET /metrics/prometheus",
+            "count": 4,
+            "p50_ms": 2.9853125,
+            "p95_ms": 3.559125,
+            "total_ms": 11.878417
+          },
+          {
+            "instance": "355186b67746-baseline-d1",
+            "service": "campustrace-api",
+            "operation": "GET /readyz",
+            "count": 3,
+            "p50_ms": 0.286125,
+            "p95_ms": 0.286125,
+            "total_ms": 0.8389169999999999
+          },
+          {
+            "instance": "355186b67746-baseline-d1",
+            "service": "campustrace-api",
+            "operation": "POST /api/jobs/search",
+            "count": 332,
+            "p50_ms": 7.9293130000000005,
+            "p95_ms": 130.087875,
+            "total_ms": 9285.007623
+          },
+          {
+            "instance": "355186b67746-baseline-d1",
+            "service": "campustrace-api",
+            "operation": "search.core",
+            "count": 332,
+            "p50_ms": 7.7724995,
+            "p95_ms": 130.014792,
+            "total_ms": 9239.796121
+          },
+          {
+            "instance": "355186b67746-baseline-d1",
+            "service": "campustrace-api",
+            "operation": "search.fallback",
+            "count": 164,
+            "p50_ms": 34.4515205,
+            "p95_ms": 136.437458,
+            "total_ms": 6896.244511
+          },
+          {
+            "instance": "355186b67746-baseline-d1",
+            "service": "campustrace-api",
+            "operation": "search.fallback.page",
+            "count": 4364,
+            "p50_ms": 1.4094795,
+            "p95_ms": 2.157833,
+            "total_ms": 6835.243734
+          },
+          {
+            "instance": "355186b67746-baseline-d1",
+            "service": "campustrace-api",
+            "operation": "search.http",
+            "count": 172,
+            "p50_ms": 6.0362290000000005,
+            "p95_ms": 8.621,
+            "total_ms": 2023.761958
+          },
+          {
+            "instance": "355186b67746-baseline-d1",
+            "service": "campustrace-api",
+            "operation": "search.hydrate",
+            "count": 167,
+            "p50_ms": 1.213375,
+            "p95_ms": 1.638125,
+            "total_ms": 195.81117
+          },
+          {
+            "instance": "355186b67746-baseline-d1",
+            "service": "campustrace-api",
+            "operation": "search.watermark",
+            "count": 503,
+            "p50_ms": 0.297458,
+            "p95_ms": 0.417917,
+            "total_ms": 154.864294
+          },
+          {
+            "instance": "355186b67746-baseline-d1",
+            "service": "campustrace-search",
+            "operation": "POST /v1/query",
+            "count": 167,
+            "p50_ms": 5.533041,
+            "p95_ms": 7.900833,
+            "total_ms": 959.800617
+          },
+          {
+            "instance": "355186b67746-baseline-d1",
+            "service": "campustrace-search",
+            "operation": "search.index",
+            "count": 504,
+            "p50_ms": 0.957542,
+            "p95_ms": 4.975208,
+            "total_ms": 936.694294
+          },
+          {
+            "instance": "355186b67746-candidate-d2",
+            "service": "campustrace-api",
+            "operation": "GET /metrics/prometheus",
+            "count": 4,
+            "p50_ms": 3.433229,
+            "p95_ms": 4.669375,
+            "total_ms": 13.617208
+          },
+          {
+            "instance": "355186b67746-candidate-d2",
+            "service": "campustrace-api",
+            "operation": "GET /readyz",
+            "count": 1,
+            "p50_ms": 0.28575,
+            "p95_ms": 0.28575,
+            "total_ms": 0.28575
+          },
+          {
+            "instance": "355186b67746-candidate-d2",
+            "service": "campustrace-api",
+            "operation": "POST /api/jobs/search",
+            "count": 331,
+            "p50_ms": 7.406708,
+            "p95_ms": 86.301666,
+            "total_ms": 7191.3147420000005
+          },
+          {
+            "instance": "355186b67746-candidate-d2",
+            "service": "campustrace-api",
+            "operation": "search.core",
+            "count": 331,
+            "p50_ms": 7.28325,
+            "p95_ms": 86.195875,
+            "total_ms": 7143.489797
+          },
+          {
+            "instance": "355186b67746-candidate-d2",
+            "service": "campustrace-api",
+            "operation": "search.fallback",
+            "count": 164,
+            "p50_ms": 23.0026665,
+            "p95_ms": 88.630708,
+            "total_ms": 4841.617284
+          },
+          {
+            "instance": "355186b67746-candidate-d2",
+            "service": "campustrace-api",
+            "operation": "search.fallback.page",
+            "count": 1004,
+            "p50_ms": 4.8943125,
+            "p95_ms": 7.138209,
+            "total_ms": 4771.888607
+          },
+          {
+            "instance": "355186b67746-candidate-d2",
+            "service": "campustrace-api",
+            "operation": "search.http",
+            "count": 172,
+            "p50_ms": 5.6073129999999995,
+            "p95_ms": 8.372917,
+            "total_ms": 1962.727546
+          },
+          {
+            "instance": "355186b67746-candidate-d2",
+            "service": "campustrace-api",
+            "operation": "search.hydrate",
+            "count": 167,
+            "p50_ms": 1.252292,
+            "p95_ms": 1.663084,
+            "total_ms": 203.204708
+          },
+          {
+            "instance": "355186b67746-candidate-d2",
+            "service": "campustrace-api",
+            "operation": "search.watermark",
+            "count": 502,
+            "p50_ms": 0.325146,
+            "p95_ms": 0.47275,
+            "total_ms": 169.50463
+          },
+          {
+            "instance": "355186b67746-candidate-d2",
+            "service": "campustrace-search",
+            "operation": "POST /v1/query",
+            "count": 167,
+            "p50_ms": 5.209166,
+            "p95_ms": 6.75025,
+            "total_ms": 898.73062
+          },
+          {
+            "instance": "355186b67746-candidate-d2",
+            "service": "campustrace-search",
+            "operation": "search.index",
+            "count": 504,
+            "p50_ms": 0.936896,
+            "p95_ms": 4.414417,
+            "total_ms": 875.472373
+          }
+        ],
+        "fallback_pages": {
+          "355186b67746-baseline-d1": {
+            "count": 164,
+            "p50": 26.0,
+            "p95": 76,
+            "max": 76
+          },
+          "355186b67746-candidate-d2": {
+            "count": 164,
+            "p50": 6.0,
+            "p95": 16,
+            "max": 16
+          }
+        },
+        "remote_round_trips": [
+          {
+            "instance": "355186b67746-baseline-d1",
+            "operation": "check_generation",
+            "count": 167,
+            "p50": 0.702042,
+            "p95": 0.840333,
+            "max": 1.290791
+          },
+          {
+            "instance": "355186b67746-baseline-d1",
+            "operation": "query",
+            "count": 167,
+            "p50": 3.871875,
+            "p95": 5.777083,
+            "max": 24.849375
+          },
+          {
+            "instance": "355186b67746-baseline-d1",
+            "operation": "resolve_alias",
+            "count": 167,
+            "p50": 0.957334,
+            "p95": 1.0915,
+            "max": 1.89725
+          },
+          {
+            "instance": "355186b67746-candidate-d2",
+            "operation": "check_generation",
+            "count": 167,
+            "p50": 0.702834,
+            "p95": 0.905208,
+            "max": 1.703
+          },
+          {
+            "instance": "355186b67746-candidate-d2",
+            "operation": "query",
+            "count": 167,
+            "p50": 3.321541,
+            "p95": 4.722875,
+            "max": 6.1235
+          },
+          {
+            "instance": "355186b67746-candidate-d2",
+            "operation": "resolve_alias",
+            "count": 167,
+            "p50": 0.930792,
+            "p95": 1.096916,
+            "max": 22.272333
+          }
+        ],
+        "cross_service_query_spans": 334,
+        "joined_to_core_http": 334
+      },
+      "allocation_profiles": {
+        "baseline": {
+          "alloc_space_delta_mib_estimate": 1761.78,
+          "diagnostic_attempts": 145,
+          "estimated_mib_per_attempt": 12.150206896551724
+        },
+        "candidate": {
+          "alloc_space_delta_mib_estimate": 734.49,
+          "diagnostic_attempts": 144,
+          "estimated_mib_per_attempt": 5.100625
+        }
+      }
+    }
+  ],
+  "host_load_guard": {
+    "accepted_windows": [
+      {
+        "label": "diagnostic-baseline",
+        "start": 1793447177.425646,
+        "end": 1793447209.064399,
+        "observed_interference": false
+      },
+      {
+        "label": "diagnostic-candidate",
+        "start": 1793447364.103911,
+        "end": 1793447396.082315,
+        "observed_interference": false
+      },
+      {
+        "label": "1-baseline-fulltext",
+        "start": 1793447489.337336,
+        "end": 1793447531.806921,
+        "source_directory": "1-baseline-fulltext-attempt1",
+        "observed_interference": false
+      },
+      {
+        "label": "1-baseline-basic",
+        "start": 1793447595.4141178,
+        "end": 1793447638.471937,
+        "source_directory": "1-baseline-basic-attempt1",
+        "observed_interference": false
+      },
+      {
+        "label": "2-candidate-fulltext",
+        "start": 1793447701.913652,
+        "end": 1793447744.344537,
+        "source_directory": "2-candidate-fulltext-attempt1",
+        "observed_interference": false
+      },
+      {
+        "label": "2-candidate-basic",
+        "start": 1793447807.690374,
+        "end": 1793447850.714411,
+        "source_directory": "2-candidate-basic-attempt1",
+        "observed_interference": false
+      },
+      {
+        "label": "3-candidate-fulltext",
+        "start": 1793447914.15054,
+        "end": 1793447956.505784,
+        "source_directory": "3-candidate-fulltext-attempt1",
+        "observed_interference": false
+      },
+      {
+        "label": "3-candidate-basic",
+        "start": 1793448019.7953641,
+        "end": 1793448062.71024,
+        "source_directory": "3-candidate-basic-attempt1",
+        "observed_interference": false
+      },
+      {
+        "label": "4-baseline-fulltext",
+        "start": 1793448126.053174,
+        "end": 1793448168.442024,
+        "source_directory": "4-baseline-fulltext-attempt1",
+        "observed_interference": false
+      },
+      {
+        "label": "4-baseline-basic",
+        "start": 1793448231.945518,
+        "end": 1793448275.070951,
+        "source_directory": "4-baseline-basic-attempt1",
+        "observed_interference": false
+      }
+    ],
+    "overlap_during_accepted_measurements": [],
+    "scope": "Observed native resource/network/transport verification and build/test processes; no physical CPU exclusivity claim"
+  },
+  "environment": {
+    "host_arch": "arm64",
+    "host_identity_hash": "bc6812ae89d9388a257968647275b58746cd71182f7c520bb44b30efb03575d6",
+    "docker_arch": "aarch64",
+    "docker_cpus": 10,
+    "docker_memory": 8319504384,
+    "docker_version": "29.8.0",
+    "container_limits": {
+      "api": [
+        1,
+        "512m"
+      ],
+      "worker": [
+        1,
+        "512m"
+      ],
+      "analysis-1": [
+        0.5,
+        "256m"
+      ],
+      "analysis-2": [
+        0.5,
+        "256m"
+      ],
+      "search": [
+        1,
+        "256m"
+      ],
+      "mysql": [
+        1,
+        "1536m"
+      ],
+      "redis": [
+        0.5,
+        "128m"
+      ],
+      "etcd": [
+        0.5,
+        "256m"
+      ],
+      "opensearch": [
+        1,
+        "1536m"
+      ]
+    },
+    "k6_image": "grafana/k6:1.8.2",
+    "k6_image_id": "sha256:00fdcebafbc86cb0137d429529b1caa401a02e09025f02fc74866fa6e2b004d8",
+    "tracing": "disabled",
+    "transport": "HTTP inside Docker network",
+    "lab_topology_version": 1
+  },
+  "workload": {
+    "seconds": 40,
+    "query_rate": 12,
+    "write_rate": 1,
+    "reader_vus": 16,
+    "query_limit": 10,
+    "read_accounts": 2,
+    "jd_template_version": 1,
+    "seed_analysis": "suppressed_in_owned_fixture",
+    "jd_utf8_bytes": 1032,
+    "load_script_sha256": "07079a2e170c3c061f1f5e15a3caba9b3a586a2ce08abb1b37f15a34f02968dd",
+    "mix": {
+      "common": 0.5,
+      "sparse": 0.25,
+      "miss": 0.25
+    }
+  },
+  "comparisons": [
+    {
+      "jobs": 1000,
+      "mode": "fulltext",
+      "class": "common",
+      "baseline": {
+        "p50_range_ms": [
+          9.86225,
+          10.982083
+        ],
+        "p95_range_ms": [
+          11.614667,
+          12.795084
+        ],
+        "p99_range_ms": [
+          12.6166088,
+          14.753041599999996
+        ],
+        "p95_median_of_two_runs_ms": 12.2048755,
+        "attempts": 482,
+        "failures": 0,
+        "dropped": 0
+      },
+      "candidate": {
+        "p50_range_ms": [
+          5.8795205,
+          10.689167
+        ],
+        "p95_range_ms": [
+          6.5900285499999995,
+          13.1385
+        ],
+        "p99_range_ms": [
+          8.422020749999998,
+          15.468767
+        ],
+        "p95_median_of_two_runs_ms": 9.864264275,
+        "attempts": 481,
+        "failures": 0,
+        "dropped": 0
+      },
+      "valid_latency_comparison": true
+    },
+    {
+      "jobs": 1000,
+      "mode": "fulltext",
+      "class": "sparse",
+      "baseline": {
+        "p50_range_ms": [
+          8.2829375,
+          10.1512915
+        ],
+        "p95_range_ms": [
+          10.49724345,
+          11.428906549999999
+        ],
+        "p99_range_ms": [
+          12.41723952,
+          12.67642944
+        ],
+        "p95_median_of_two_runs_ms": 10.963075,
+        "attempts": 240,
+        "failures": 0,
+        "dropped": 0
+      },
+      "candidate": {
+        "p50_range_ms": [
+          4.847250000000001,
+          9.312999999999999
+        ],
+        "p95_range_ms": [
+          5.36642085,
+          10.838745849999999
+        ],
+        "p99_range_ms": [
+          7.0814345199999975,
+          11.81566023
+        ],
+        "p95_median_of_two_runs_ms": 8.10258335,
+        "attempts": 240,
+        "failures": 0,
+        "dropped": 0
+      },
+      "valid_latency_comparison": true
+    },
+    {
+      "jobs": 1000,
+      "mode": "fulltext",
+      "class": "miss",
+      "baseline": {
+        "p50_range_ms": [
+          7.3836455,
+          8.62575
+        ],
+        "p95_range_ms": [
+          9.399662499999998,
+          9.9519003
+        ],
+        "p99_range_ms": [
+          11.01212148,
+          14.203332519999998
+        ],
+        "p95_median_of_two_runs_ms": 9.675781399999998,
+        "attempts": 240,
+        "failures": 0,
+        "dropped": 0
+      },
+      "candidate": {
+        "p50_range_ms": [
+          4.1007085,
+          8.0635625
+        ],
+        "p95_range_ms": [
+          4.560599999999999,
+          9.46529345
+        ],
+        "p99_range_ms": [
+          4.84664125,
+          9.71834902
+        ],
+        "p95_median_of_two_runs_ms": 7.012946725,
+        "attempts": 240,
+        "failures": 0,
+        "dropped": 0
+      },
+      "valid_latency_comparison": true
+    },
+    {
+      "jobs": 1000,
+      "mode": "basic",
+      "class": "common",
+      "baseline": {
+        "p50_range_ms": [
+          2.783167,
+          4.195437999999999
+        ],
+        "p95_range_ms": [
+          3.466333,
+          5.506024999999999
+        ],
+        "p99_range_ms": [
+          4.014683799999999,
+          127.76453025999959
+        ],
+        "p95_median_of_two_runs_ms": 4.486179,
+        "attempts": 481,
+        "failures": 0,
+        "dropped": 0
+      },
+      "candidate": {
+        "p50_range_ms": [
+          4.358625,
+          4.423166999999999
+        ],
+        "p95_range_ms": [
+          5.426833,
+          5.4396327
+        ],
+        "p99_range_ms": [
+          127.38356679999957,
+          127.94884798999958
+        ],
+        "p95_median_of_two_runs_ms": 5.43323285,
+        "attempts": 481,
+        "failures": 0,
+        "dropped": 0
+      },
+      "valid_latency_comparison": true
+    },
+    {
+      "jobs": 1000,
+      "mode": "basic",
+      "class": "sparse",
+      "baseline": {
+        "p50_range_ms": [
+          12.789187,
+          16.0884165
+        ],
+        "p95_range_ms": [
+          19.088439599999997,
+          24.05121105
+        ],
+        "p99_range_ms": [
+          25.907477789999998,
+          173.3236540199998
+        ],
+        "p95_median_of_two_runs_ms": 21.569825324999996,
+        "attempts": 240,
+        "failures": 0,
+        "dropped": 0
+      },
+      "candidate": {
+        "p50_range_ms": [
+          10.140458,
+          10.251833000000001
+        ],
+        "p95_range_ms": [
+          18.9181024,
+          19.112114249999998
+        ],
+        "p99_range_ms": [
+          21.21045902,
+          21.755888
+        ],
+        "p95_median_of_two_runs_ms": 19.015108325,
+        "attempts": 240,
+        "failures": 0,
+        "dropped": 0
+      },
+      "valid_latency_comparison": true
+    },
+    {
+      "jobs": 1000,
+      "mode": "basic",
+      "class": "miss",
+      "baseline": {
+        "p50_range_ms": [
+          12.157895499999999,
+          15.5935
+        ],
+        "p95_range_ms": [
+          19.14407675,
+          23.45161315
+        ],
+        "p99_range_ms": [
+          172.6554052299998,
+          179.30290719999982
+        ],
+        "p95_median_of_two_runs_ms": 21.297844949999998,
+        "attempts": 240,
+        "failures": 0,
+        "dropped": 0
+      },
+      "candidate": {
+        "p50_range_ms": [
+          10.69075,
+          11.3085205
+        ],
+        "p95_range_ms": [
+          18.37848365,
+          18.561025649999998
+        ],
+        "p99_range_ms": [
+          173.0726872299998,
+          174.2837127099998
+        ],
+        "p95_median_of_two_runs_ms": 18.46975465,
+        "attempts": 240,
+        "failures": 0,
+        "dropped": 0
+      },
+      "valid_latency_comparison": true
+    },
+    {
+      "jobs": 5000,
+      "mode": "fulltext",
+      "class": "common",
+      "baseline": {
+        "p50_range_ms": [
+          10.497959,
+          12.8605
+        ],
+        "p95_range_ms": [
+          12.391042,
+          14.417167
+        ],
+        "p99_range_ms": [
+          13.356974999999998,
+          14.9414666
+        ],
+        "p95_median_of_two_runs_ms": 13.404104499999999,
+        "attempts": 482,
+        "failures": 0,
+        "dropped": 0
+      },
+      "candidate": {
+        "p50_range_ms": [
+          11.173916,
+          11.6905205
+        ],
+        "p95_range_ms": [
+          12.75525,
+          15.031363149999999
+        ],
+        "p99_range_ms": [
+          15.223432999999996,
+          19.52575925
+        ],
+        "p95_median_of_two_runs_ms": 13.893306575,
+        "attempts": 481,
+        "failures": 0,
+        "dropped": 0
+      },
+      "valid_latency_comparison": true
+    },
+    {
+      "jobs": 5000,
+      "mode": "fulltext",
+      "class": "sparse",
+      "baseline": {
+        "p50_range_ms": [
+          9.368916500000001,
+          11.704083
+        ],
+        "p95_range_ms": [
+          10.55654615,
+          12.77485145
+        ],
+        "p99_range_ms": [
+          11.84390846,
+          14.69614223
+        ],
+        "p95_median_of_two_runs_ms": 11.665698800000001,
+        "attempts": 240,
+        "failures": 0,
+        "dropped": 0
+      },
+      "candidate": {
+        "p50_range_ms": [
+          9.645291499999999,
+          10.570708
+        ],
+        "p95_range_ms": [
+          11.281771149999999,
+          13.0511747
+        ],
+        "p99_range_ms": [
+          12.3961475,
+          28.88598249999998
+        ],
+        "p95_median_of_two_runs_ms": 12.166472925,
+        "attempts": 240,
+        "failures": 0,
+        "dropped": 0
+      },
+      "valid_latency_comparison": true
+    },
+    {
+      "jobs": 5000,
+      "mode": "fulltext",
+      "class": "miss",
+      "baseline": {
+        "p50_range_ms": [
+          8.465,
+          10.2635
+        ],
+        "p95_range_ms": [
+          10.275130949999998,
+          11.61662645
+        ],
+        "p99_range_ms": [
+          11.651860000000001,
+          11.93961925
+        ],
+        "p95_median_of_two_runs_ms": 10.945878699999998,
+        "attempts": 240,
+        "failures": 0,
+        "dropped": 0
+      },
+      "candidate": {
+        "p50_range_ms": [
+          8.613624999999999,
+          8.981521
+        ],
+        "p95_range_ms": [
+          10.7371351,
+          10.88819585
+        ],
+        "p99_range_ms": [
+          12.191267769999998,
+          13.111320499999998
+        ],
+        "p95_median_of_two_runs_ms": 10.812665475,
+        "attempts": 240,
+        "failures": 0,
+        "dropped": 0
+      },
+      "valid_latency_comparison": true
+    },
+    {
+      "jobs": 5000,
+      "mode": "basic",
+      "class": "common",
+      "baseline": {
+        "p50_range_ms": [
+          2.338375,
+          2.409958
+        ],
+        "p95_range_ms": [
+          4.556583,
+          4.736709
+        ],
+        "p99_range_ms": [
+          202.9013418,
+          202.9234664
+        ],
+        "p95_median_of_two_runs_ms": 4.6466460000000005,
+        "attempts": 482,
+        "failures": 0,
+        "dropped": 0
+      },
+      "candidate": {
+        "p50_range_ms": [
+          2.830875,
+          2.8538125
+        ],
+        "p95_range_ms": [
+          4.841917,
+          5.236773549999999
+        ],
+        "p99_range_ms": [
+          124.88523359999958,
+          137.67553588999965
+        ],
+        "p95_median_of_two_runs_ms": 5.039345274999999,
+        "attempts": 481,
+        "failures": 0,
+        "dropped": 0
+      },
+      "valid_latency_comparison": true
+    },
+    {
+      "jobs": 5000,
+      "mode": "basic",
+      "class": "sparse",
+      "baseline": {
+        "p50_range_ms": [
+          36.805,
+          37.907375
+        ],
+        "p95_range_ms": [
+          68.82452855000001,
+          68.97875174999999
+        ],
+        "p99_range_ms": [
+          69.99449971,
+          71.8365195
+        ],
+        "p95_median_of_two_runs_ms": 68.90164014999999,
+        "attempts": 240,
+        "failures": 0,
+        "dropped": 0
+      },
+      "candidate": {
+        "p50_range_ms": [
+          34.239354,
+          36.3041665
+        ],
+        "p95_range_ms": [
+          57.9461875,
+          61.13282675
+        ],
+        "p99_range_ms": [
+          196.17169951999983,
+          202.8749129799999
+        ],
+        "p95_median_of_two_runs_ms": 59.539507125,
+        "attempts": 240,
+        "failures": 0,
+        "dropped": 0
+      },
+      "valid_latency_comparison": true
+    },
+    {
+      "jobs": 5000,
+      "mode": "basic",
+      "class": "miss",
+      "baseline": {
+        "p50_range_ms": [
+          37.6341245,
+          38.8476665
+        ],
+        "p95_range_ms": [
+          41.3855479,
+          41.433050599999994
+        ],
+        "p99_range_ms": [
+          54.69466922999999,
+          64.17256351999997
+        ],
+        "p95_median_of_two_runs_ms": 41.40929925,
+        "attempts": 240,
+        "failures": 0,
+        "dropped": 0
+      },
+      "candidate": {
+        "p50_range_ms": [
+          29.151167,
+          30.176375
+        ],
+        "p95_range_ms": [
+          36.71579585,
+          39.958849699999995
+        ],
+        "p99_range_ms": [
+          55.06910053999998,
+          59.8690255
+        ],
+        "p95_median_of_two_runs_ms": 38.337322775,
+        "attempts": 240,
+        "failures": 0,
+        "dropped": 0
+      },
+      "valid_latency_comparison": true
+    },
+    {
+      "jobs": 10000,
+      "mode": "fulltext",
+      "class": "common",
+      "baseline": {
+        "p50_range_ms": [
+          8.602875000000001,
+          11.646209
+        ],
+        "p95_range_ms": [
+          11.02033895,
+          13.403542
+        ],
+        "p99_range_ms": [
+          14.364745759999996,
+          14.938583
+        ],
+        "p95_median_of_two_runs_ms": 12.211940474999999,
+        "attempts": 481,
+        "failures": 0,
+        "dropped": 0
+      },
+      "candidate": {
+        "p50_range_ms": [
+          11.431333,
+          12.684
+        ],
+        "p95_range_ms": [
+          13.1610771,
+          14.139791
+        ],
+        "p99_range_ms": [
+          14.02717139,
+          15.9152084
+        ],
+        "p95_median_of_two_runs_ms": 13.650434050000001,
+        "attempts": 481,
+        "failures": 0,
+        "dropped": 0
+      },
+      "valid_latency_comparison": true
+    },
+    {
+      "jobs": 10000,
+      "mode": "fulltext",
+      "class": "sparse",
+      "baseline": {
+        "p50_range_ms": [
+          7.279438000000001,
+          9.9370835
+        ],
+        "p95_range_ms": [
+          9.1408535,
+          11.784816999999999
+        ],
+        "p99_range_ms": [
+          12.91264271,
+          32.649832439999976
+        ],
+        "p95_median_of_two_runs_ms": 10.46283525,
+        "attempts": 240,
+        "failures": 0,
+        "dropped": 0
+      },
+      "candidate": {
+        "p50_range_ms": [
+          10.0467495,
+          11.0995205
+        ],
+        "p95_range_ms": [
+          11.690014549999999,
+          12.4302827
+        ],
+        "p99_range_ms": [
+          12.72006446,
+          12.894995
+        ],
+        "p95_median_of_two_runs_ms": 12.060148625,
+        "attempts": 240,
+        "failures": 0,
+        "dropped": 0
+      },
+      "valid_latency_comparison": true
+    },
+    {
+      "jobs": 10000,
+      "mode": "fulltext",
+      "class": "miss",
+      "baseline": {
+        "p50_range_ms": [
+          6.2214375,
+          8.977604
+        ],
+        "p95_range_ms": [
+          7.45922675,
+          10.790237499999998
+        ],
+        "p99_range_ms": [
+          10.22910229,
+          15.577004499999997
+        ],
+        "p95_median_of_two_runs_ms": 9.124732125,
+        "attempts": 240,
+        "failures": 0,
+        "dropped": 0
+      },
+      "candidate": {
+        "p50_range_ms": [
+          9.000062499999999,
+          9.699729
+        ],
+        "p95_range_ms": [
+          10.2957673,
+          11.19635035
+        ],
+        "p99_range_ms": [
+          11.23159277,
+          11.6451755
+        ],
+        "p95_median_of_two_runs_ms": 10.746058824999999,
+        "attempts": 240,
+        "failures": 0,
+        "dropped": 0
+      },
+      "valid_latency_comparison": true
+    },
+    {
+      "jobs": 10000,
+      "mode": "basic",
+      "class": "common",
+      "baseline": {
+        "p50_range_ms": [
+          1.5415415000000001,
+          1.649875
+        ],
+        "p95_range_ms": [
+          4.86925,
+          5.735066649999997
+        ],
+        "p99_range_ms": [
+          124.7967579999996,
+          202.10822849
+        ],
+        "p95_median_of_two_runs_ms": 5.302158324999999,
+        "attempts": 481,
+        "failures": 5,
+        "dropped": 0
+      },
+      "candidate": {
+        "p50_range_ms": [
+          1.7620625,
+          1.802541
+        ],
+        "p95_range_ms": [
+          3.8308062499999984,
+          4.087334
+        ],
+        "p99_range_ms": [
+          6.789408399999996,
+          135.74888950999963
+        ],
+        "p95_median_of_two_runs_ms": 3.9590701249999993,
+        "attempts": 481,
+        "failures": 0,
+        "dropped": 0
+      },
+      "valid_latency_comparison": false
+    },
+    {
+      "jobs": 10000,
+      "mode": "basic",
+      "class": "sparse",
+      "baseline": {
+        "p50_range_ms": [
+          76.466896,
+          79.7295625
+        ],
+        "p95_range_ms": [
+          121.16424165,
+          129.6998854
+        ],
+        "p99_range_ms": [
+          215.12036845999987,
+          227.12524618999996
+        ],
+        "p95_median_of_two_runs_ms": 125.43206352499999,
+        "attempts": 240,
+        "failures": 1,
+        "dropped": 0
+      },
+      "candidate": {
+        "p50_range_ms": [
+          61.262187499999996,
+          64.207292
+        ],
+        "p95_range_ms": [
+          91.5397646,
+          93.17894584999999
+        ],
+        "p99_range_ms": [
+          209.01452103999986,
+          225.78096999999997
+        ],
+        "p95_median_of_two_runs_ms": 92.359355225,
+        "attempts": 240,
+        "failures": 0,
+        "dropped": 0
+      },
+      "valid_latency_comparison": false
+    },
+    {
+      "jobs": 10000,
+      "mode": "basic",
+      "class": "miss",
+      "baseline": {
+        "p50_range_ms": [
+          71.1623335,
+          71.60137449999999
+        ],
+        "p95_range_ms": [
+          102.36837225,
+          123.46024824999994
+        ],
+        "p99_range_ms": [
+          114.18332473,
+          301.20555854
+        ],
+        "p95_median_of_two_runs_ms": 112.91431024999997,
+        "attempts": 240,
+        "failures": 0,
+        "dropped": 0
+      },
+      "candidate": {
+        "p50_range_ms": [
+          55.440604,
+          57.034875
+        ],
+        "p95_range_ms": [
+          71.826825,
+          74.39418394999998
+        ],
+        "p99_range_ms": [
+          113.72007005999997,
+          215.63516166999983
+        ],
+        "p95_median_of_two_runs_ms": 73.110504475,
+        "attempts": 240,
+        "failures": 0,
+        "dropped": 0
+      },
+      "valid_latency_comparison": true
+    }
+  ]
+}

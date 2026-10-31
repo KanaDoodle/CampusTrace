@@ -124,18 +124,38 @@ func (c *Client) QueryState() QueryState {
 	}
 	return c.guard.snapshot()
 }
+
+// Close cancels and joins this client's bounded recovery probe. Owners must
+// stop admitting foreground work before closing their other dependencies.
+func (c *Client) Close() {
+	if c.guard != nil {
+		c.guard.close()
+	}
+}
+
+func (c *Client) query(ctx context.Context, q Query) (out Result, err error) {
+	err = c.call(ctx, "/v1/query", c.QueryToken, q, &out)
+	if err == nil && (out.Protocol != Protocol || out.Generation != q.Generation || len(out.Hits) > q.Limit) {
+		err = ErrConflict
+	}
+	return
+}
+
 func (c *Client) Query(ctx context.Context, q Query) (out Result, err error) {
 	call := func(ctx context.Context) error {
-		e := c.call(ctx, "/v1/query", c.QueryToken, q, &out)
-		if e == nil && (out.Protocol != Protocol || out.Generation != q.Generation || len(out.Hits) > q.Limit) {
-			return ErrConflict
-		}
+		var e error
+		out, e = c.query(ctx, q)
 		return e
 	}
 	if c.guard == nil {
 		err = call(ctx)
 	} else {
-		err = c.guard.run(ctx, call)
+		err = c.guard.runWithProbe(ctx, call, func(ctx context.Context) error {
+			// Probe results are health evidence only. Never share them with the
+			// foreground response or later users; Core revalidates every real read.
+			_, e := c.query(ctx, q)
+			return e
+		})
 	}
 	return
 }

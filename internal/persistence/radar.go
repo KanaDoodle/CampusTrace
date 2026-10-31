@@ -435,7 +435,26 @@ func (s *Store) Notifications(ctx context.Context, user string) ([]d.Notificatio
 	if user == "" {
 		return nil, ErrNotFound
 	}
-	return Many[d.Notification](ctx, s.DB, "SELECT body FROM notifications WHERE user_id=? ORDER BY created_at DESC,id LIMIT 100", user)
+	out, err := Many[d.Notification](ctx, s.DB, "SELECT body FROM notifications WHERE user_id=? ORDER BY created_at DESC,id LIMIT 100", user)
+	if err != nil {
+		return nil, err
+	}
+	jobs := []string{}
+	for _, item := range out {
+		if item.EntityType == "JOB" {
+			jobs = append(jobs, item.EntityID)
+		}
+	}
+	links, err := s.applicationLinks(ctx, user, jobs)
+	if err != nil {
+		return nil, err
+	}
+	for i := range out {
+		if out[i].EntityType == "JOB" {
+			out[i].Applications = links[out[i].EntityID]
+		}
+	}
+	return out, nil
 }
 func (s *Store) ReadNotification(ctx context.Context, user, id string) error {
 	return s.Tx(ctx, func(tx *sql.Tx) error {

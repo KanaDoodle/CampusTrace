@@ -31,6 +31,15 @@ func main() {
 func run() error {
 	ctx, cancel := bootstrap.Root()
 	defer cancel()
+	stopProfile, err := observability.Profiling()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		stop, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		_ = stopProfile(stop)
+	}()
 	shutdown, err := observability.Setup(ctx, "campustrace-api")
 	if err != nil {
 		return err

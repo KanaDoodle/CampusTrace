@@ -68,6 +68,9 @@ type queryGuard struct {
 	epoch            uint64
 	until            time.Time
 	cooldown         time.Duration
+	stopped          bool
+	probeCancel      context.CancelFunc
+	probeDone        chan struct{}
 }
 
 func newQueryGuard(p QueryPolicy, m *observability.Metrics) *queryGuard {
@@ -90,7 +93,7 @@ func (g *queryGuard) add(name string) {
 func (g *queryGuard) admit() (queryTicket, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	if g.state == "half_open" || g.state == "open" && g.now().Before(g.until) {
+	if g.stopped || g.state == "half_open" || g.state == "open" && g.now().Before(g.until) {
 		return queryTicket{}, ErrCircuitOpen
 	}
 	if g.active >= g.policy.MaxConcurrent {
@@ -148,6 +151,12 @@ func (g *queryGuard) finish(t queryTicket, outcome int) {
 	}
 }
 func (g *queryGuard) run(ctx context.Context, call func(context.Context) error) error {
+	return g.runWithProbe(ctx, call, nil)
+}
+
+// probe must own its response storage: it may finish after this method returns.
+// Only half-open recovery is detached; ordinary queries retain caller cancellation.
+func (g *queryGuard) runWithProbe(ctx context.Context, call, probe func(context.Context) error) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -179,10 +188,20 @@ func (g *queryGuard) run(ctx context.Context, call func(context.Context) error) 
 		g.add("search_query_budget_rejected_total")
 		return ErrQueryBudget
 	}
+	if ticket.probe && probe != nil {
+		g.startProbe(ctx, ticket, queryDeadline, parentLimited, probe)
+		g.add("search_query_probe_fallback_total")
+		g.add("search_query_circuit_rejected_total")
+		return ErrCircuitOpen
+	}
+	return g.perform(ctx, ticket, queryDeadline, parentLimited, call)
+}
+
+func (g *queryGuard) perform(ctx context.Context, ticket queryTicket, queryDeadline time.Time, parentLimited bool, call func(context.Context) error) error {
 	child, cancel := context.WithDeadline(ctx, queryDeadline)
 	started := time.Now()
 	g.add("search_query_attempts_total")
-	err = call(child)
+	err := call(child)
 	childErr, parentErr := child.Err(), ctx.Err()
 	cancel()
 	outcome := 1
@@ -210,4 +229,41 @@ func (g *queryGuard) run(ctx context.Context, call func(context.Context) error) 
 		g.metrics.Observe("search_query_remote_seconds", time.Since(started).Seconds())
 	}
 	return err
+}
+
+func (g *queryGuard) startProbe(parent context.Context, ticket queryTicket, deadline time.Time, parentLimited bool, call func(context.Context) error) {
+	// Retain only trace correlation, not caller credentials or arbitrary context
+	// values. The original absolute remote deadline still bounds detached work.
+	ctx, cancel := context.WithCancel(observability.Extract(context.Background(), observability.TraceParent(parent)))
+	done := make(chan struct{})
+	g.mu.Lock()
+	if g.stopped {
+		g.mu.Unlock()
+		cancel()
+		g.finish(ticket, 0)
+		return
+	}
+	g.probeCancel, g.probeDone = cancel, done
+	go func() {
+		defer close(done)
+		defer cancel()
+		ctx, span := observability.Start(ctx, "search.query.probe")
+		err := g.perform(ctx, ticket, deadline, parentLimited, call)
+		observability.End(span, err)
+	}()
+	g.mu.Unlock()
+}
+
+// close prevents new admissions, cancels the one owned recovery probe and joins
+// it. Admission and publication of probeDone share the mutex, avoiding Add/Wait
+// races and allowing concurrent, repeated shutdown calls.
+func (g *queryGuard) close() {
+	g.mu.Lock()
+	g.stopped = true
+	cancel, done := g.probeCancel, g.probeDone
+	g.mu.Unlock()
+	if cancel != nil {
+		cancel()
+		<-done
+	}
 }

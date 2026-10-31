@@ -1,0 +1,37 @@
+File: api
+Build ID: d3e70a6c805732e4f5fab7b781f3aa4aae97f20e
+Type: alloc_space
+Time: 2026-10-31 19:46:34 CST
+Showing nodes accounting for 1724.44MB, 97.88% of 1761.78MB total
+Dropped 101 nodes (cum <= 8.81MB)
+      flat  flat%   sum%        cum   cum%
+  429.95MB 24.40% 24.40%   626.06MB 35.54%  database/sql.convertAssignRows
+  396.94MB 22.53% 46.93%   784.36MB 44.52%  github.com/KanaDoodle/CampusTrace/internal/searchapi.Query.Matches
+  383.92MB 21.79% 68.73%   383.92MB 21.79%  strings.(*Builder).grow
+  196.11MB 11.13% 79.86%   196.11MB 11.13%  bytes.Clone (inline)
+  115.52MB  6.56% 86.41%  1747.45MB 99.19%  github.com/KanaDoodle/CampusTrace/internal/persistence.(*Store).basicSearch
+      90MB  5.11% 91.52%       90MB  5.11%  encoding/json.(*decodeState).literalStore
+   55.51MB  3.15% 94.67%   177.51MB 10.08%  encoding/json.Unmarshal
+      35MB  1.99% 96.66%       35MB  1.99%  github.com/go-sql-driver/mysql.(*binaryRows).readRow
+      21MB  1.19% 97.85%      115MB  6.53%  encoding/json.(*decodeState).object
+    0.50MB 0.028% 97.88%    35.50MB  2.02%  database/sql.(*Rows).nextLocked
+         0     0% 97.88%    35.50MB  2.02%  database/sql.(*Rows).Next
+         0     0% 97.88%    35.50MB  2.02%  database/sql.(*Rows).Next.func1
+         0     0% 97.88%   626.06MB 35.54%  database/sql.(*Rows).Scan
+         0     0% 97.88%   626.06MB 35.54%  database/sql.(*Rows).scanLocked
+         0     0% 97.88%       36MB  2.04%  database/sql.withLock
+         0     0% 97.88%      115MB  6.53%  encoding/json.(*decodeState).unmarshal
+         0     0% 97.88%      115MB  6.53%  encoding/json.(*decodeState).value
+         0     0% 97.88%  1747.95MB 99.21%  github.com/KanaDoodle/CampusTrace/internal/persistence.(*Store).SearchJobs
+         0     0% 97.88%  1747.45MB 99.19%  github.com/KanaDoodle/CampusTrace/internal/persistence.(*Store).guardedBasicSearch
+         0     0% 97.88%  1749.45MB 99.30%  github.com/KanaDoodle/CampusTrace/internal/transport.(*API).Handler.(*API).Handler.func4.(*API).protected.func41
+         0     0% 97.88%  1750.45MB 99.36%  github.com/KanaDoodle/CampusTrace/internal/transport.(*API).Handler.func40
+         0     0% 97.88%  1749.45MB 99.30%  github.com/KanaDoodle/CampusTrace/internal/transport.(*API).searchJobs
+         0     0% 97.88%       35MB  1.99%  github.com/go-sql-driver/mysql.(*binaryRows).Next
+         0     0% 97.88%  1752.69MB 99.48%  net/http.(*ServeMux).ServeHTTP
+         0     0% 97.88%  1755.20MB 99.63%  net/http.(*conn).serve
+         0     0% 97.88%  1753.69MB 99.54%  net/http.HandlerFunc.ServeHTTP
+         0     0% 97.88%  1753.69MB 99.54%  net/http.serverHandler.ServeHTTP
+         0     0% 97.88%   383.92MB 21.79%  strings.(*Builder).Grow
+         0     0% 97.88%   383.92MB 21.79%  strings.Map
+         0     0% 97.88%   383.92MB 21.79%  strings.ToLower

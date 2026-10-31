@@ -93,6 +93,7 @@ func TestSearchReadCircuitPreservesACLAndProjectionRecovery(t *testing.T) {
 	t.Cleanup(fault.Close)
 	client, e := a.NewClient(fault.URL, searchQueryToken, searchWriteToken)
 	must(t, e)
+	t.Cleanup(client.Close)
 	policy := a.DefaultQueryPolicy()
 	policy.Timeout = 40 * time.Millisecond
 	policy.FailureThreshold = 2

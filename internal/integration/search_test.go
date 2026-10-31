@@ -47,6 +47,7 @@ func searchFixture(t *testing.T, s *p.Store) *a.Client {
 	})
 	client, err := a.NewClient(httpServer.URL, searchQueryToken, searchWriteToken)
 	must(t, err)
+	t.Cleanup(client.Close)
 	s.Search = client
 	return client
 }

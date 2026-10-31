@@ -1,0 +1,39 @@
+File: api
+Build ID: a0256410a325b188e722d49dc948fc3eaf26cf81
+Type: cpu
+Time: 2026-10-31 19:49:41 CST
+Duration: 10.05s, Total samples = 3.41s (33.94%)
+Showing nodes accounting for 2.72s, 79.77% of 3.41s total
+Dropped 116 nodes (cum <= 0.02s)
+Showing top 30 nodes out of 158
+      flat  flat%   sum%        cum   cum%
+     0.55s 16.13% 16.13%      0.55s 16.13%  unicode.lookupCaseRange (inline)
+     0.35s 10.26% 26.39%      0.35s 10.26%  internal/runtime/syscall.Syscall6
+     0.25s  7.33% 33.72%      0.26s  7.62%  unicode/utf8.DecodeRuneInString
+     0.22s  6.45% 40.18%      0.44s 12.90%  encoding/json.checkValid
+     0.19s  5.57% 45.75%      1.24s 36.36%  github.com/KanaDoodle/CampusTrace/internal/searchapi.appendLower
+     0.16s  4.69% 50.44%      0.16s  4.69%  encoding/json.stateInString
+     0.10s  2.93% 53.37%      0.65s 19.06%  unicode.to
+     0.08s  2.35% 55.72%      0.08s  2.35%  encoding/json.unquoteBytes
+     0.08s  2.35% 58.06%      0.08s  2.35%  unicode/utf8.appendRuneNonASCII
+     0.07s  2.05% 60.12%      0.11s  3.23%  encoding/json.(*decodeState).rescanLiteral
+     0.07s  2.05% 62.17%      0.13s  3.81%  runtime.scanobject
+     0.05s  1.47% 63.64%      0.05s  1.47%  encoding/json.stateEndValue
+     0.05s  1.47% 65.10%      0.05s  1.47%  internal/bytealg.IndexByteString
+     0.05s  1.47% 66.57%      0.05s  1.47%  runtime.futex
+     0.05s  1.47% 68.04%      0.10s  2.93%  runtime.mallocgcSmallScanNoHeader
+     0.04s  1.17% 69.21%      0.05s  1.47%  runtime.mallocgcTiny
+     0.03s  0.88% 70.09%      0.05s  1.47%  encoding/json.(*decodeState).scanWhile
+     0.03s  0.88% 70.97%      0.08s  2.35%  encoding/json.indirect
+     0.03s  0.88% 71.85%      0.03s  0.88%  encoding/json.stateBeginString
+     0.03s  0.88% 72.73%      0.33s  9.68%  github.com/go-sql-driver/mysql.(*binaryRows).readRow
+     0.03s  0.88% 73.61%      0.05s  1.47%  reflect.(*rtype).Name
+     0.03s  0.88% 74.49%      0.03s  0.88%  runtime.memmove
+     0.03s  0.88% 75.37%      0.68s 19.94%  unicode.ToLower
+     0.03s  0.88% 76.25%      0.11s  3.23%  unicode/utf8.AppendRune (inline)
+     0.02s  0.59% 76.83%      0.55s 16.13%  encoding/json.(*decodeState).object
+     0.02s  0.59% 77.42%      0.27s  7.92%  github.com/go-sql-driver/mysql.(*mysqlConn).readPacket
+     0.02s  0.59% 78.01%      0.02s  0.59%  reflect.(*rtype).String
+     0.02s  0.59% 78.59%      0.02s  0.59%  reflect.Value.Field
+     0.02s  0.59% 79.18%      0.02s  0.59%  runtime.acquirem (inline)
+     0.02s  0.59% 79.77%      0.02s  0.59%  runtime.duffcopy

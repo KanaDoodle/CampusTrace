@@ -51,6 +51,12 @@ __pycache__/
 !/docs/verification/
 /docs/verification/*
 !/docs/verification/cohesion-20261031/
+!/docs/verification/linkage-20261031/
+!/docs/verification/redundancy-fixes-20261031/
+!/docs/verification/search-diagnosis-20261031/
+!/docs/verification/search-recovery-20261031/
+!/docs/verification/technology-requirements-20261031/
+!/docs/verification/release-20261031/
 !/docs/verification/job-events-20261031/
 !/docs/verification/depth-20261031/
 !/docs/images/

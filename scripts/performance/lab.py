@@ -134,7 +134,7 @@ class Lab:
     def boot(self):
         source = self.temporary / 'source'
         source.mkdir()
-        self.report['source'] = snapshot(source, self.args.revision)
+        self.report['source'] = self.prepare_source(source)
         self.image = 'campustrace-perf:' + self.id
         self.search_image = 'campustrace-perf:' + self.id + '-search'
         if subprocess.run(['docker','image','inspect',K6_IMAGE],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL).returncode:
@@ -189,6 +189,7 @@ class Lab:
             network.pop('name', None)
         for volume in config.get('volumes', {}).values():
             volume.pop('name', None)
+        self.configure(config)
         self.compose_file.write_text(json.dumps(config))
         print('Starting exclusively owned containers', flush=True)
         self.compose_run('up','-d','--wait','--wait-timeout','180', timeout=220, log='startup.log')
@@ -201,6 +202,13 @@ class Lab:
                                       'docker_memory':info['MemTotal'],'docker_version':info['ServerVersion'],
                                       'container_limits':json.loads(json.dumps(LIMITS)),'k6_image':K6_IMAGE,'k6_image_id':image_info['Id'],
                                       'tracing':'disabled','transport':'HTTP inside Docker network','lab_topology_version':1}
+
+    def prepare_source(self, destination):
+        return snapshot(destination, self.args.revision)
+
+    def configure(self, config):
+        """Extension point for the separate diagnostic lab; normal CI is unchanged."""
+        pass
 
     def refresh_address(self,service,port):
         address=subprocess.check_output(self.compose+['port',service,str(port)],text=True).strip()
@@ -227,7 +235,8 @@ class Lab:
             return self.request('api','/api/ingest',body,user['token'])
         print(f'Seeding {self.args.jobs} synthetic jobs through the real API', flush=True)
         with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
-            for i, _ in enumerate(executor.map(ingest, range(self.args.jobs)), 1):
+            for i, observation in enumerate(executor.map(ingest, range(self.args.jobs)), 1):
+                self.seeded_job(i - 1, observation)
                 if i % 250 == 0:
                     print(f'Seeded {i}/{self.args.jobs}', flush=True)
         self.writer_input = {'company':self.company,'title':'合成并发更新岗位','job_type':'FULL_TIME','locations':['上海'],
@@ -274,6 +283,10 @@ class Lab:
         print('Waiting for the search projection to settle (initial extraction excluded)', flush=True)
         self.wait('background queue drain', self.drained, max(180, self.args.jobs / 10))
         self.wait('initial search catchup', self.fulltext_ready, max(180, self.args.jobs / 20))
+
+    def seeded_job(self, index, observation):
+        """Optional diagnostic fixture metadata from the authoritative API result."""
+        pass
 
     def query(self, user, topic):
         return self.request('api','/api/jobs/search',{'text':topic,'company':self.company,'limit':10},user['token'])

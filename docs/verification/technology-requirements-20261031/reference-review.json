@@ -1,0 +1,8 @@
+{
+  "corrected_case": "s09-historical-fragment",
+  "reason": "Initial reference omitted Visual Studio environment in the same source sentence; conservative qualification is UNKNOWN, not language-only PASS/FAIL.",
+  "source_text_unchanged": true,
+  "initial_candidate_controls_passed": 79,
+  "initial_candidate_controls_total": 85,
+  "label_source": "assistant-reviewed; not an independent human gold standard"
+}

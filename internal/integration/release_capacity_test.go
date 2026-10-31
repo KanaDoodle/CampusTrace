@@ -160,7 +160,7 @@ func TestReleaseRAGBoundaryAndIndex(t *testing.T) {
 		if i == 10000 {
 			word = "needleunique"
 		}
-		c := rag.Chunk{ID: fmt.Sprintf("%s%020d", prefix, i), DocumentID: doc.ID, Title: "fixture", Text: word, Vector: rag.Embed(word), EmbeddingVersion: rag.EmbeddingVersion, Index: i}
+		c := rag.Chunk{ID: fmt.Sprintf("%s%020d", prefix, i), DocumentID: doc.ID, Title: "fixture", Text: word, EmbeddingVersion: rag.EmbeddingVersion, Index: i}
 		_, e = stmt.ExecContext(ctx, c.ID, u, doc.ID, d.JSON(c))
 		must(t, e)
 	}
@@ -191,7 +191,10 @@ func TestReleaseRAGBoundaryAndIndex(t *testing.T) {
 	if !errors.Is(e, rag.ErrCapacity) {
 		t.Fatal(e)
 	}
-	t.Logf("duplicate document IDs different=%v duplicate hits=%d cross-owner hits=%d", a.ID != b.ID, len(dups), len(ownerHits))
+	if a.ID != b.ID || len(dups) != 1 {
+		t.Fatal("identical document retry was not deduplicated", a.ID, b.ID, len(dups))
+	}
+	t.Logf("duplicate document IDs identical=%v duplicate hits=%d cross-owner hits=%d", a.ID == b.ID, len(dups), len(ownerHits))
 	if len(ownerHits) != 0 {
 		t.Error("owner filter violated")
 	}

@@ -1,0 +1,93 @@
+FIRST PAGE (100)
+{
+  "query_block": {
+    "select_id": 1,
+    "cost_info": {
+      "query_cost": "91.00"
+    },
+    "ordering_operation": {
+      "using_filesort": false,
+      "table": {
+        "table_name": "j",
+        "access_type": "range",
+        "possible_keys": [
+          "PRIMARY"
+        ],
+        "key": "PRIMARY",
+        "used_key_parts": [
+          "id"
+        ],
+        "key_length": "130",
+        "rows_examined_per_scan": 453,
+        "rows_produced_per_join": 49,
+        "filtered": "10.90",
+        "cost_info": {
+          "read_cost": "86.07",
+          "eval_cost": "4.94",
+          "prefix_cost": "91.00",
+          "data_read_per_join": "73K"
+        },
+        "used_columns": [
+          "id",
+          "body",
+          "visibility",
+          "owner_id"
+        ],
+        "attached_condition": "((`campustrace_perf_5fb819d17ddb`.`j`.`id` > '') and ((`campustrace_perf_5fb819d17ddb`.`j`.`visibility` = 'GLOBAL') or ((`campustrace_perf_5fb819d17ddb`.`j`.`owner_id` = 'b19c0aa1f85d0e3fd578f986db04dd2c') and (`campustrace_perf_5fb819d17ddb`.`j`.`visibility` = 'PRIVATE'))))"
+      },
+      "select_list_subqueries": [
+        {
+          "dependent": true,
+          "cacheable": false,
+          "query_block": {
+            "select_id": 2,
+            "cost_info": {
+              "query_cost": "0.35"
+            },
+            "ordering_operation": {
+              "using_filesort": true,
+              "table": {
+                "table_name": "o",
+                "access_type": "ref",
+                "possible_keys": [
+                  "job_id"
+                ],
+                "key": "job_id",
+                "used_key_parts": [
+                  "job_id"
+                ],
+                "key_length": "130",
+                "ref": [
+                  "campustrace_perf_5fb819d17ddb.j.id"
+                ],
+                "rows_examined_per_scan": 1,
+                "rows_produced_per_join": 1,
+                "filtered": "100.00",
+                "cost_info": {
+                  "read_cost": "0.25",
+                  "eval_cost": "0.10",
+                  "prefix_cost": "0.35",
+                  "data_read_per_join": "408"
+                },
+                "used_columns": [
+                  "id",
+                  "job_id",
+                  "observed_at",
+                  "body"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
+-> Limit: 100 row(s)  (cost=91 rows=49.4) (actual time=0.0217..0.0721 rows=100 loops=1)
+    -> Filter: ((j.id > '') and ((j.visibility = 'GLOBAL') or ((j.owner_id = 'b19c0aa1f85d0e3fd578f986db04dd2c') and (j.visibility = 'PRIVATE'))))  (cost=91 rows=49.4) (actual time=0.0185..0.0657 rows=100 loops=1)
+        -> Index range scan on j using PRIMARY over ('' < id)  (cost=91 rows=453) (actual time=0.0122..0.0385 rows=134 loops=1)
+-> Select #2 (subquery in projection; dependent)
+    -> Limit: 1 row(s)  (cost=0.35 rows=1) (actual time=0.00261..0.00263 rows=1 loops=100)
+        -> Sort: o.observed_at DESC, o.id DESC, limit input to 1 row(s) per chunk  (cost=0.35 rows=1) (actual time=0.00251..0.00251 rows=1 loops=100)
+            -> Index lookup on o using job_id (job_id=j.id)  (cost=0.35 rows=1) (actual time=0.00196..0.00208 rows=1 loops=100)
+
