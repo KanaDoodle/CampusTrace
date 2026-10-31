@@ -1,0 +1,8 @@
+{
+  "integration_top_level_passed": 181,
+  "integration_top_level_skipped": 17,
+  "all_packages_top_level_passed": 205,
+  "race": true,
+  "external_model_calls": 0,
+  "scope": "owned synthetic MySQL/Redis/etcd; Kafka/OpenSearch cases separately exercised in dedicated runs"
+}

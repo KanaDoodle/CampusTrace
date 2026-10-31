@@ -26,7 +26,8 @@ const thresholds = {
 };
 if (phase === 'fulltext') { thresholds.mode_fulltext = [`count>=${minimum}`]; thresholds.mode_basic = ['count==0']; }
 if (phase === 'fallback') { thresholds.mode_basic = [`count>=${minimum}`]; thresholds.mode_fulltext = ['count==0']; }
-if (phase === 'rebuild') thresholds.mode_basic = ['count>0'];
+// Rebuild mode is validated by the lab from the actual operator response.
+// Historical replacement and online rebuilding have different mode contracts.
 if (phase === 'mixed') { thresholds.write_requests = [`count>=${Math.floor(writeRate * seconds * 0.9)}`]; thresholds.write_failures = ['count==0']; }
 const reader = {executor:'constant-arrival-rate', exec:'query', rate, timeUnit:'1s', duration:`${seconds}s`, preAllocatedVUs:maxVUs, maxVUs, gracefulStop:'10s'};
 export const options = {

@@ -9,24 +9,37 @@ import (
 // Kafka and the operator HTTP path share this process's rebuild lock. Across
 // replicas, generation checks and external document versions retain safety.
 func (s *Server) ConsumeEvents(ctx context.Context, events []jobevent.Event) error {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
 	status, err := s.Engine.Status(ctx)
 	if err != nil {
 		return err
 	}
-	docs := []a.Document{}
+
+	batches := map[string][]a.Document{}
+	order := []string{}
 	for _, event := range events {
 		if !event.Valid() {
 			return a.ErrInvalid
 		}
-		if event.Kind == "snapshot" && event.Generation != status.Generation {
-			continue
+		generation := status.Generation
+		if event.Kind == "snapshot" {
+			generation = event.Generation
+			allowed := generation == status.Generation
+			if plan := status.Rebuild; plan != nil && (plan.Phase == "BUILDING" || plan.Phase == "CUTTING" || plan.Phase == "COMMITTED") {
+				allowed = allowed || generation == plan.Source || generation == plan.Target
+			}
+			if !allowed {
+				continue
+			}
 		}
-		docs = append(docs, event.Document)
+		if _, ok := batches[generation]; !ok {
+			order = append(order, generation)
+		}
+		batches[generation] = append(batches[generation], event.Document)
 	}
-	if len(docs) == 0 {
-		return nil
+	for _, generation := range order {
+		if err := s.Engine.Apply(ctx, a.Batch{Protocol: a.Protocol, Generation: generation, Documents: batches[generation]}); err != nil {
+			return err
+		}
 	}
-	return s.Engine.Apply(ctx, a.Batch{Protocol: a.Protocol, Generation: status.Generation, Documents: docs})
+	return nil
 }

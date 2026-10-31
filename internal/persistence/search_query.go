@@ -124,7 +124,7 @@ func (s *Store) hydrateSearch(ctx context.Context, user string, before searchWat
 	}
 	defer tx.Rollback()
 	after, err := readSearchWatermark(ctx, tx)
-	if err != nil || after != before {
+	if err != nil || !sameSearchReadSnapshot(ctx, tx, before, after) {
 		return out, a.ErrConflict
 	}
 	seen := map[string]bool{}
@@ -255,4 +255,22 @@ func (s *Store) SearchSyncStats(ctx context.Context) (pending int64, ready bool,
 	}
 	err = s.DB.QueryRowContext(ctx, "SELECT COUNT(*) FROM search_outbox").Scan(&pending)
 	return pending, w.usable(), err
+}
+
+// A completed online handoff preserves the dataset and authoritative revision.
+// In-flight readers may finish against its retained source. A real data/ACL
+// mutation still invalidates the read and uses the authoritative fallback.
+func sameSearchReadSnapshot(ctx context.Context, q Queryer, before, after searchWatermark) bool {
+	if before == after {
+		return true
+	}
+	left, right := before, after
+	left.generation = ""
+	right.generation = ""
+	if left != right || !before.usable() || !after.usable() {
+		return false
+	}
+	var matching bool
+	e := q.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM search_rebuild_state WHERE id='jobs' AND phase='DONE' AND dataset=? AND source_generation=? AND target_generation=? AND cutover_version=?)`, before.dataset, before.generation, after.generation, before.version).Scan(&matching)
+	return e == nil && matching
 }

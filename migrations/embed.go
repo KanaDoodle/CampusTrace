@@ -58,3 +58,6 @@ var JobEventsSQL string
 
 //go:embed 019_job_dataset_recovery.sql
 var JobDatasetRecoverySQL string
+
+//go:embed 020_search_rebuild.sql
+var SearchRebuildSQL string

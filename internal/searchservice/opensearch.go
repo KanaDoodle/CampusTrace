@@ -5,8 +5,6 @@ package searchservice
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -71,12 +69,15 @@ func (b *Backend) current(ctx context.Context) (index, generation string, err er
 		if e != nil || status != 200 && status != 400 {
 			return "", "", a.ErrUnavailable
 		}
-		if status == 400 {
-			if _, e = b.Rebuild(ctx); e != nil {
-				return "", "", e
-			}
-		}
+
 		status, raw, e = b.request(ctx, "GET", "/_alias/"+b.Alias, nil)
+		if e == nil && status == 404 {
+			body, _ := json.Marshal(map[string]any{"actions": []any{map[string]any{"add": map[string]any{"index": b.Alias + "-initial", "alias": b.Alias}}}})
+			if code, _, err := b.request(ctx, "POST", "/_aliases", body); err != nil || code != 200 {
+				return "", "", a.ErrUnavailable
+			}
+			status, raw, e = b.request(ctx, "GET", "/_alias/"+b.Alias, nil)
+		}
 	}
 	if e != nil || status != 200 {
 		return "", "", a.ErrUnavailable
@@ -106,8 +107,21 @@ func (b *Backend) current(ctx context.Context) (index, generation string, err er
 }
 func (b *Backend) Status(ctx context.Context) (a.Status, error) {
 	_, generation, e := b.current(ctx)
-	return a.Status{Protocol: a.Protocol, Generation: generation}, e
+	if e != nil {
+		return a.Status{}, e
+	}
+	record, e := b.rebuildRecord(ctx)
+	out := a.Status{Protocol: a.Protocol, Generation: generation}
+	if record != nil {
+		if record.Plan.Phase == "BUILDING" && record.Plan.Target == "" {
+			return b.prepareCandidate(ctx, record)
+		}
+		plan := record.Plan
+		out.Rebuild = &plan
+	}
+	return out, e
 }
+
 func (b *Backend) Apply(ctx context.Context, batch a.Batch) error {
 	if batch.Protocol != a.Protocol || len(batch.Documents) < 1 || len(batch.Documents) > a.MaxBatch {
 		return a.ErrInvalid
@@ -117,12 +131,9 @@ func (b *Backend) Apply(ctx context.Context, batch a.Batch) error {
 			return a.ErrInvalid
 		}
 	}
-	index, generation, e := b.current(ctx)
+	index, e := b.resolveGeneration(ctx, batch.Generation, true)
 	if e != nil {
 		return e
-	}
-	if generation != batch.Generation {
-		return a.ErrConflict
 	}
 	var body bytes.Buffer
 	for _, doc := range batch.Documents {
@@ -180,14 +191,11 @@ func (b *Backend) Query(ctx context.Context, q a.Query) (a.Result, error) {
 	if q.Normalize() != nil || !a.ID(q.User) || !a.ID(q.Dataset) {
 		return out, a.ErrInvalid
 	}
-	index, generation, e := b.current(ctx)
+	index, e := b.resolveGeneration(ctx, q.Generation, false)
 	if e != nil {
 		return out, e
 	}
-	if generation != q.Generation {
-		return out, a.ErrConflict
-	}
-	out.Generation = generation
+	out.Generation = q.Generation
 	acl := map[string]any{"bool": map[string]any{"should": []any{term("visibility", "GLOBAL"), map[string]any{"bool": map[string]any{"filter": []any{term("visibility", "PRIVATE"), term("owner", q.User)}}}}, "minimum_should_match": 1}}
 	filters := []any{term("dataset", q.Dataset), term("deleted", false), acl}
 	if q.Company != "" {
@@ -257,23 +265,6 @@ func (b *Backend) Query(ctx context.Context, q a.Query) (a.Result, error) {
 	}
 	return out, nil
 }
-func (b *Backend) Rebuild(ctx context.Context) (a.Status, error) {
-	bytes := make([]byte, 8)
-	if _, e := rand.Read(bytes); e != nil {
-		return a.Status{}, a.ErrUnavailable
-	}
-	index := b.Alias + "-" + hex.EncodeToString(bytes)
-	status, _, e := b.request(ctx, "PUT", "/"+index, mapping(""))
-	if e != nil || status != 200 {
-		return a.Status{}, a.ErrUnavailable
-	}
-	body, _ := json.Marshal(map[string]any{"actions": []any{map[string]any{"remove": map[string]any{"index": "*", "alias": b.Alias, "must_exist": false}}, map[string]any{"add": map[string]any{"index": index, "alias": b.Alias}}}})
-	status, _, e = b.request(ctx, "POST", "/_aliases", body)
-	if e != nil || status != 200 {
-		return a.Status{}, a.ErrUnavailable
-	}
-	return b.Status(ctx)
-}
 
 // Applied uses search rather than realtime GET: acknowledgement must observe
 // refreshed documents, otherwise Core could clear its journal before search sees them.
@@ -294,12 +285,9 @@ func (b *Backend) Applied(ctx context.Context, q a.AppliedQuery) (a.AppliedResul
 		expected[hit.ID] = hit
 		ids = append(ids, q.Dataset+"-"+hit.ID)
 	}
-	index, generation, err := b.current(ctx)
+	index, err := b.resolveGeneration(ctx, q.Generation, true)
 	if err != nil {
 		return out, err
-	}
-	if generation != q.Generation {
-		return out, a.ErrConflict
 	}
 	body, _ := json.Marshal(map[string]any{"size": len(ids), "query": map[string]any{"ids": map[string]any{"values": ids}}, "_source": []string{"id", "version", "hash"}})
 	status, raw, err := b.request(ctx, "POST", "/"+index+"/_search", body)
@@ -325,7 +313,7 @@ func (b *Backend) Applied(ctx context.Context, q a.AppliedQuery) (a.AppliedResul
 	}
 	for _, hit := range result.Hits.Hits {
 		want, ok := expected[hit.Source.ID]
-		if !ok || hit.Source.Version < want.Version || hit.Source.Version == want.Version && hit.Source.Hash != want.Hash {
+		if !ok || hit.Source.Version < want.Version || hit.Source.Version == want.Version && hit.Source.Hash != want.Hash || q.Exact && (hit.Source.Version != want.Version || hit.Source.Hash != want.Hash) {
 			return out, nil
 		}
 		delete(expected, hit.Source.ID)

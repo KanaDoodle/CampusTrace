@@ -7,6 +7,7 @@ import (
 	"errors"
 	"log/slog"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -118,6 +119,14 @@ func (s *Store) writeSearchProjection(ctx context.Context, tx *sql.Tx, id string
 	if err != nil {
 		return err
 	}
+
+	// The revision lock serializes operation start/finish with business writes.
+	// A coalesced delta never grows with the number of updates to the same job.
+	if _, err = tx.ExecContext(ctx, `INSERT INTO search_rebuild_deltas(job_id,version)
+ SELECT ?,? FROM search_rebuild_state WHERE id='jobs' AND dataset=? AND phase IN ('BACKFILL','VERIFY','CATCHUP')
+ ON DUPLICATE KEY UPDATE version=VALUES(version)`, id, doc.Version, doc.Dataset); err != nil {
+		return err
+	}
 	if events {
 		var old *a.Document
 		if len(previousBody) > 0 {
@@ -207,7 +216,14 @@ func (s *Store) reconcileSearch(ctx context.Context) error {
 
 // The connection-owned MySQL lock prevents competing worker replicas from
 // interleaving rebuild cursors. Ownership is checked again before acknowledgement.
-func (s *Store) SyncSearchOnce(ctx context.Context) (err error) {
+func (s *Store) SyncSearchOnce(ctx context.Context) error {
+	if e := s.syncSearchForeground(ctx); e != nil {
+		return e
+	}
+	s.observeOnlineRebuild(ctx, s.SyncSearchRebuildOnce(ctx))
+	return nil
+}
+func (s *Store) syncSearchForeground(ctx context.Context) (err error) {
 	if s.Search == nil {
 		return nil
 	}
@@ -246,6 +262,7 @@ func (s *Store) SyncSearchOnce(ctx context.Context) (err error) {
 	if err != nil {
 		return err
 	}
+
 	if err = s.reconcileSearch(ctx); err != nil {
 		return err
 	}
@@ -254,7 +271,7 @@ func (s *Store) SyncSearchOnce(ctx context.Context) (err error) {
 	if err = s.DB.QueryRowContext(ctx, "SELECT generation,ready,bootstrap_cursor FROM search_sync_state WHERE id='jobs'").Scan(&generation, &ready, &cursor); err != nil {
 		return err
 	}
-	if generation != status.Generation {
+	if generation != status.Generation && !s.rebuildHandoff(ctx, status, generation) {
 		if err = owned(); err != nil {
 			return err
 		}
@@ -338,8 +355,12 @@ func (s *Store) SyncSearchOnce(ctx context.Context) (err error) {
 	return nil
 }
 func (s *Store) RunSearchSync(ctx context.Context) {
+	var rebuild sync.WaitGroup
+	rebuild.Add(1)
+	go func() { defer rebuild.Done(); s.runOnlineRebuild(ctx) }()
+	defer rebuild.Wait()
 	for ctx.Err() == nil {
-		err := s.SyncSearchOnce(ctx)
+		err := s.syncSearchForeground(ctx)
 		delay := 250 * time.Millisecond
 		if err != nil && !errors.Is(err, a.ErrPending) {
 			delay = 3 * time.Second

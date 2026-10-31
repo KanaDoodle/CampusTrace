@@ -26,6 +26,7 @@ name: Kafka job event acceptance
       - internal/searchservice/**
       - internal/persistence/job*.go
       - internal/persistence/search*.go
+      - internal/integration/search_online_test.go
       - internal/persistence/radar.go
       - internal/persistence/store.go
       - internal/persistence/visibility.go
@@ -73,5 +74,6 @@ jobs:
           path: |
             bin/verification/kafka-20261031/
             bin/verification/recovery-epoch-20261031/
+            bin/verification/online-rebuild-20261031/
           if-no-files-found: ignore
           retention-days: 14

@@ -1,0 +1,24 @@
+{
+  "separate_search_image": true,
+  "independent_search_replacement": true,
+  "core_and_analysis_kept_running": true,
+  "outage_fallback_and_write": true,
+  "recovered_outbox": true,
+  "rebuild_replay": true,
+  "online_rebuild": true,
+  "online_rebuild_reads": 5,
+  "online_rebuild_basic": 0,
+  "index_outage_and_loss_recovered": true,
+  "database_network_isolated": true,
+  "search_dashboard_panels": 9,
+  "resilience_dashboard_panels": 6,
+  "rebuild_dashboard_panels": 8,
+  "query_trace": {
+    "trace_id": "4704e5a2d4c6d87254d2813676b72efc",
+    "spans": 6,
+    "services": [
+      "campustrace-api",
+      "campustrace-search"
+    ]
+  }
+}

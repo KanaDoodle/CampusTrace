@@ -91,7 +91,7 @@ class Lab:
         self.containers = []
         self.urls = {}
         self.environment = os.environ.copy()
-        self.environment.update(LLM_URL='', LLM_API_KEY='', LLM_MODEL='', JWT_SECRET='synthetic-perf-jwt-secret-at-least-32',
+        self.environment.update(SEARCH_QUERY_TOKEN='synthetic-perf-query-token-at-least-32', SEARCH_WRITE_TOKEN='synthetic-perf-write-token-at-least-32', LLM_URL='', LLM_API_KEY='', LLM_MODEL='', JWT_SECRET='synthetic-perf-jwt-secret-at-least-32',
                                 OTEL_TRACES_EXPORTER='none', OTEL_EXPORTER_OTLP_TRACES_ENDPOINT='',
                                 CAMPUS_DATABASE='campustrace_perf_' + self.id, CAMPUS_REDIS_PREFIX='perf:' + self.id + ':')
         self.report = {'schema_version':1,'kind':'isolated-synthetic-http-performance','run_id':self.id,
@@ -353,12 +353,17 @@ class Lab:
             reader = threading.Thread(target=copy_log,daemon=True)
             reader.start()
             injected = False
+            rebuild_source = None
+            rebuild_plan = None
             try:
                 if not started.wait(20):
                     raise RuntimeError('Load script did not start; inspect k6.log')
                 if name == 'rebuild':
                     time.sleep(2)
+                    rebuild_source = self.request('search','/v1/status',token=self.environment['SEARCH_QUERY_TOKEN'])
                     self.compose_run('exec','-T','search','/app/search','rebuild',timeout=15,log='rebuild-inject.log')
+                    rebuild_status = self.request('search','/v1/status',token=self.environment['SEARCH_QUERY_TOKEN'])
+                    rebuild_plan = rebuild_status.get('rebuild')
                     injected = True
                 code = process.wait(timeout=self.args.seconds + 40)
             finally:
@@ -369,6 +374,18 @@ class Lab:
         summary = json.loads((output/'summary.json').read_text())
         summary.update(exit_code=code,rebuild_injected=injected,metrics_before=before)
         self.report['phases'][name] = summary
+        if name == 'rebuild':
+            summary['rebuild_mode'] = 'online' if rebuild_plan else 'replace'
+            if rebuild_plan:
+                summary['rebuild_source_generation'] = rebuild_source['generation']
+                summary['rebuild_target_generation'] = rebuild_plan['target_generation']
+                def rebuilt():
+                    status = self.request('search','/v1/status',token=self.environment['SEARCH_QUERY_TOKEN'])
+                    plan = status.get('rebuild',{})
+                    return (plan.get('operation') == rebuild_plan['operation'] and plan.get('phase') == 'DONE'
+                            and status['generation'] == rebuild_plan['target_generation'])
+                self.wait('online rebuild reaches acknowledged cutover',rebuilt,max(90,self.args.jobs / 20))
+                summary['rebuild_completed'] = True
         recovery_start = time.monotonic()
         if name == 'fallback':
             self.compose_run('start','search',log='fallback-restart.log')

@@ -9,7 +9,6 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/KanaDoodle/CampusTrace/internal/observability"
@@ -24,7 +23,6 @@ type Server struct {
 	Engine                 Engine
 	QueryToken, WriteToken string
 	Metrics                *observability.Metrics
-	mu                     sync.RWMutex
 	slots                  chan struct{}
 }
 
@@ -91,15 +89,7 @@ func (s *Server) Handler() http.Handler {
 			started := time.Now()
 			var out any
 			var e error
-			if pattern == "POST /v1/rebuild" {
-				s.mu.Lock()
-				out, e = fn(ctx, r)
-				s.mu.Unlock()
-			} else {
-				s.mu.RLock()
-				out, e = fn(ctx, r)
-				s.mu.RUnlock()
-			}
+			out, e = fn(ctx, r)
 			observability.End(span, e)
 			s.Metrics.Observe("search_request_seconds", time.Since(started).Seconds())
 			s.Metrics.Add("search_requests_total", 1)
@@ -158,6 +148,66 @@ func (s *Server) Handler() http.Handler {
 			return nil, a.ErrInvalid
 		}
 		return s.Engine.Rebuild(ctx)
+	})
+
+	on("POST /v1/rebuild/claim", true, func(ctx context.Context, r *http.Request) (any, error) {
+		var in a.RebuildRef
+		if decode(r, &in) != nil {
+			return nil, a.ErrInvalid
+		}
+		engine, ok := s.Engine.(a.OnlineRebuilder)
+		if !ok {
+			return nil, a.ErrUnavailable
+		}
+		return engine.ClaimRebuild(ctx, in)
+	})
+	on("POST /v1/rebuild/commit", true, func(ctx context.Context, r *http.Request) (any, error) {
+		var in a.RebuildCommit
+		if decode(r, &in) != nil {
+			return nil, a.ErrInvalid
+		}
+		engine, ok := s.Engine.(a.OnlineRebuilder)
+		if !ok {
+			return nil, a.ErrUnavailable
+		}
+		return engine.CommitRebuild(ctx, in)
+	})
+	on("POST /v1/rebuild/ack", true, func(ctx context.Context, r *http.Request) (any, error) {
+		var in a.RebuildRef
+		if decode(r, &in) != nil {
+			return nil, a.ErrInvalid
+		}
+		engine, ok := s.Engine.(a.OnlineRebuilder)
+		if !ok {
+			return nil, a.ErrUnavailable
+		}
+		return engine.AckRebuild(ctx, in)
+	})
+	on("POST /v1/rebuild/abort", true, func(ctx context.Context, r *http.Request) (any, error) {
+		var in a.RebuildRef
+		if decode(r, &in) != nil {
+			return nil, a.ErrInvalid
+		}
+		engine, ok := s.Engine.(interface {
+			AbortRebuild(context.Context, a.RebuildRef) (a.Status, error)
+		})
+		if !ok {
+			return nil, a.ErrUnavailable
+		}
+		return engine.AbortRebuild(ctx, in)
+	})
+	on("POST /v1/rebuild/rollback", true, func(ctx context.Context, r *http.Request) (any, error) {
+		var in struct{}
+		if decode(r, &in) != nil {
+			return nil, a.ErrInvalid
+		}
+		engine, ok := s.Engine.(interface {
+			Rollback(context.Context) (a.Status, error)
+		})
+		if !ok {
+			return nil, a.ErrUnavailable
+		}
+		return engine.Rollback(ctx)
 	})
 	return mux
 }

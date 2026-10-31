@@ -45,8 +45,22 @@ def validate(report):
             errors.append(name + ': unexpected fallback')
         if name == 'fallback' and (metric(phase, 'mode_basic', 'count', 0) != queries or metric(phase, 'mode_fulltext', 'count', 0) != 0):
             errors.append(name + ': wrong query mode')
-        if name == 'rebuild' and (metric(phase, 'mode_basic', 'count', 0) < 1 or not phase.get('rebuild_injected')):
-            errors.append(name + ': rebuild fallback was not observed')
+        if name == 'rebuild':
+            mode = phase.get('rebuild_mode', 'replace')  # Historical v1 reports.
+            if not phase.get('rebuild_injected'):
+                errors.append(name + ': rebuild was not injected')
+            if mode == 'replace':
+                if metric(phase, 'mode_basic', 'count', 0) < 1:
+                    errors.append(name + ': replacement fallback was not observed')
+            elif mode == 'online':
+                if metric(phase, 'mode_basic', 'count', 0) != 0 or metric(phase, 'mode_fulltext', 'count', 0) != queries:
+                    errors.append(name + ': online rebuild did not retain fulltext service')
+                if (not phase.get('rebuild_completed') or not phase.get('rebuild_source_generation')
+                        or not phase.get('rebuild_target_generation')
+                        or phase['rebuild_source_generation'] == phase['rebuild_target_generation']):
+                    errors.append(name + ': online cutover was not verified')
+            else:
+                errors.append(name + ': unknown rebuild mode')
         if name == 'mixed':
             if metric(phase, 'write_requests', 'count', 0) < math.floor(workload['write_rate'] * workload['seconds'] * .9):
                 errors.append(name + ': missing concurrent writes')

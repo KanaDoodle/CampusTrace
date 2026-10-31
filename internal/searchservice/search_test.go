@@ -41,7 +41,7 @@ func TestHTTPBoundary(t *testing.T) {
 	for _, c := range []struct {
 		method, path, token, body string
 		status                    int
-	}{{"GET", "/v1/status", "", "", 401}, {"POST", "/v1/batch", queryToken, `{}`, 401}, {"POST", "/v1/query", writeToken, `{}`, 401}, {"POST", "/v1/query", queryToken, `{"user":"x","unexpected":true}`, 400}, {"POST", "/v1/query", queryToken, `{} {}`, 400}, {"GET", "/v1/status", queryToken, "", 503}, {"GET", "/healthz", "", "", 200}} {
+	}{{"GET", "/v1/status", "", "", 401}, {"POST", "/v1/batch", queryToken, `{}`, 401}, {"POST", "/v1/rebuild/commit", queryToken, `{}`, 401}, {"POST", "/v1/rebuild/abort", queryToken, `{}`, 401}, {"POST", "/v1/rebuild/rollback", queryToken, `{}`, 401}, {"POST", "/v1/query", writeToken, `{}`, 401}, {"POST", "/v1/query", queryToken, `{"user":"x","unexpected":true}`, 400}, {"POST", "/v1/query", queryToken, `{} {}`, 400}, {"GET", "/v1/status", queryToken, "", 503}, {"GET", "/healthz", "", "", 200}} {
 		r := httptest.NewRequest(c.method, c.path, strings.NewReader(c.body))
 		r.Header.Set("Authorization", "Bearer "+c.token)
 		w := httptest.NewRecorder()
@@ -128,20 +128,47 @@ func TestOpenSearchContract(t *testing.T) {
 	if e != nil || len(r.Hits) != 0 {
 		t.Fatal("deleted job resurrected", r, e)
 	}
+
 	old := status
 	status, e = client.Rebuild(ctx)
-	if e != nil || status.Generation == old.Generation {
-		t.Fatal("rebuild", status, e)
+	if e != nil || status.Generation != old.Generation || status.Rebuild == nil || status.Rebuild.Target == "" {
+		t.Fatal("online rebuild must retain active generation", status, e)
+	}
+	plan := status.Rebuild
+	_, e = client.ClaimRebuild(ctx, a.RebuildRef{Operation: plan.Operation, Dataset: dataset})
+	if e != nil {
+		t.Fatal(e)
+	}
+	// A candidate is filled using fenced snapshots, including retained tombstones.
+	if e = client.Apply(ctx, a.Batch{Protocol: a.Protocol, Generation: plan.Target, Documents: docs}); e != nil {
+		t.Fatal(e)
+	}
+	if e = client.Apply(ctx, a.Batch{Protocol: a.Protocol, Generation: plan.Target, Documents: []a.Document{changed, tombstone}}); e != nil {
+		t.Fatal(e)
+	}
+	_, e = client.CommitRebuild(ctx, a.RebuildCommit{RebuildRef: a.RebuildRef{Operation: plan.Operation, Dataset: dataset}, Version: 3, Documents: int64(len(docs) + 1)})
+	if !errors.Is(e, a.ErrConflict) {
+		t.Fatal("accepted incomplete count fence", e)
+	}
+	status, e = client.CommitRebuild(ctx, a.RebuildCommit{RebuildRef: a.RebuildRef{Operation: plan.Operation, Dataset: dataset}, Version: 3, Documents: int64(len(docs))})
+	if e != nil || status.Generation != plan.Target {
+		t.Fatal("cutover", status, e)
+	}
+	// Old in-flight readers can finish against the retained physical source.
+	_, e = client.Query(ctx, a.Query{Dataset: dataset, Generation: old.Generation, User: alice, Text: "Python", Limit: 100})
+	if e != nil {
+		t.Fatal("old-generation read during handoff", e)
+	}
+	_, e = client.AckRebuild(ctx, a.RebuildRef{Operation: plan.Operation, Dataset: dataset})
+	if e != nil {
+		t.Fatal(e)
 	}
 	if e = client.Apply(ctx, a.Batch{Protocol: a.Protocol, Generation: old.Generation, Documents: docs}); !errors.Is(e, a.ErrConflict) {
-		t.Fatal("old generation accepted", e)
+		t.Fatal("retired generation accepted writes", e)
 	}
-	r, e = query(alice, "")
+	r, e = query(alice, "Python")
 	if e != nil || len(r.Hits) != 0 {
-		t.Fatal("rebuild not empty", r, e)
-	}
-	if e = apply(docs...); e != nil {
-		t.Fatal("replay", e)
+		t.Fatal("rebuild resurrected deleted document", r, e)
 	}
 	// Losing the concrete index must change generation even with the same alias.
 	before := status.Generation

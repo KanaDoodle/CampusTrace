@@ -76,9 +76,24 @@ subprocess.run(compose+['start','opensearch'],check=True,stdout=subprocess.DEVNU
 eventually('index restart and loss recovery',lambda:len(search('Redis','fulltext')[0]['job_ids'])==3,seconds=100)
 assert started('search')==search_started
 assert {name:started(name) for name in unchanged}==unchanged
-# Admin index replacement is followed by Core replay, without business writes.
+# Online rebuilding keeps the old source readable and completes the durable
+# operation before acceptance; a successful old-index query alone is insufficient.
+def search_status():
+ return json.loads(subprocess.check_output(compose+['exec','-T','search','/app/search','status'],text=True))
+old_generation=search_status()['generation']
 subprocess.run(compose+['exec','-T','search','/app/search','rebuild'],check=True,stdout=subprocess.DEVNULL)
-eventually('rebuild catches up',lambda:len(search('Redis','fulltext')[0]['job_ids'])==3)
+rebuild_reads=0
+rebuild_basic=0
+def online_rebuilt():
+ global rebuild_reads,rebuild_basic
+ out,_=search('Redis')
+ assert len(out['job_ids'])==3, 'online rebuild exposed incomplete results'
+ rebuild_reads+=1
+ rebuild_basic+=int(out['mode']!='fulltext')
+ state=search_status()
+ return state['generation']!=old_generation and state.get('rebuild',{}).get('phase')=='DONE'
+eventually('online rebuild completes',online_rebuilt)
+assert rebuild_basic==0, 'planned rebuild fell back despite quiescent complete source'
 # The separate Search image has neither database credentials nor Core's network.
 config=json.loads((work/'compose.json').read_text());search_config=config['services']['search']
 assert not any(key.startswith(('MYSQL','REDIS','LLM','JWT','ETCD')) for key in search_config['environment'])
@@ -107,6 +122,7 @@ eventually('Search scrape',lambda:any(row['value'][1]=='1' for row in prometheus
 eventually('backlog metric',lambda:any(row['value'][1]=='0' for row in prometheus_query('campustrace_search_pending')))
 dashboard,_=request('grafana','/api/dashboards/uid/campustrace-search');assert len(dashboard['dashboard']['panels'])==9
 resilience,_=request('grafana','/api/dashboards/uid/campustrace-search-resilience');assert len(resilience['dashboard']['panels'])==6
+rebuild_board,_=request('grafana','/api/dashboards/uid/campustrace-search-rebuild');assert len(rebuild_board['dashboard']['panels'])==8
 eventually('read admission metrics',lambda:bool(prometheus_query('campustrace_search_read_limit{job="campustrace-api"}')))
-result={'separate_search_image':True,'independent_search_replacement':True,'core_and_analysis_kept_running':True,'outage_fallback_and_write':True,'recovered_outbox':True,'rebuild_replay':True,'index_outage_and_loss_recovered':True,'database_network_isolated':True,'search_dashboard_panels':9,'resilience_dashboard_panels':6,'query_trace':trace}
+result={'separate_search_image':True,'independent_search_replacement':True,'core_and_analysis_kept_running':True,'outage_fallback_and_write':True,'recovered_outbox':True,'rebuild_replay':True,'online_rebuild':True,'online_rebuild_reads':rebuild_reads,'online_rebuild_basic':rebuild_basic,'index_outage_and_loss_recovered':True,'database_network_isolated':True,'search_dashboard_panels':9,'resilience_dashboard_panels':6,'rebuild_dashboard_panels':8,'query_trace':trace}
 (evidence/'search-acceptance.json').write_text(json.dumps(result,indent=2));print(json.dumps(result,ensure_ascii=False))

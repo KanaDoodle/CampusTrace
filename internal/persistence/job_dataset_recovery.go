@@ -42,12 +42,12 @@ func lockRecoveryProjection(ctx context.Context, db *sql.DB) (*sql.Conn, func(),
 		}
 		conn.Close()
 	}
-	var publisher, syncer string
-	if err = conn.QueryRowContext(ctx, "SELECT CONCAT('ct-event:',LEFT(SHA2(DATABASE(),256),32)),CONCAT('ct-search-sync:',LEFT(SHA2(DATABASE(),256),32))").Scan(&publisher, &syncer); err != nil {
+	var publisher, builder, syncer string
+	if err = conn.QueryRowContext(ctx, "SELECT CONCAT('ct-event:',LEFT(SHA2(DATABASE(),256),32)),CONCAT('ct-search-build:',LEFT(SHA2(DATABASE(),256),32)),CONCAT('ct-search-sync:',LEFT(SHA2(DATABASE(),256),32))").Scan(&publisher, &builder, &syncer); err != nil {
 		cleanup()
 		return nil, nil, err
 	}
-	for _, name := range []string{publisher, syncer} {
+	for _, name := range []string{publisher, builder, syncer} {
 		var held int
 		if err = conn.QueryRowContext(ctx, "SELECT GET_LOCK(?,0)", name).Scan(&held); err != nil {
 			cleanup()
@@ -65,6 +65,7 @@ func verifyRecoveryProjectionLocks(ctx context.Context, conn *sql.Conn) error {
 	var held int
 	err := conn.QueryRowContext(ctx, `SELECT
  IS_USED_LOCK(CONCAT('ct-event:',LEFT(SHA2(DATABASE(),256),32)))=CONNECTION_ID()
+ AND IS_USED_LOCK(CONCAT('ct-search-build:',LEFT(SHA2(DATABASE(),256),32)))=CONNECTION_ID()
  AND IS_USED_LOCK(CONCAT('ct-search-sync:',LEFT(SHA2(DATABASE(),256),32)))=CONNECTION_ID()`).Scan(&held)
 	if err != nil {
 		return err
@@ -97,7 +98,7 @@ func prepareJobDataset(ctx context.Context, tx *sql.Tx, schema string, counts ma
 	}
 	// These are rebuildable projections only. Original jobs, observations,
 	// applications, notification history and idempotency receipts are untouched.
-	for _, query := range []string{"DELETE FROM search_outbox", "DELETE FROM search_documents"} {
+	for _, query := range []string{"DELETE FROM search_outbox", "DELETE FROM search_documents", "DELETE FROM search_rebuild_deltas", "UPDATE search_rebuild_state SET operation='',dataset='',source_generation='',target_generation='',phase='IDLE',bootstrap_cursor='',copied=0,verified=0,started_version=0,cutover_version=0,updated_at=UTC_TIMESTAMP(6) WHERE id='jobs'"} {
 		if _, err = tx.ExecContext(ctx, query); err != nil {
 			return err
 		}

@@ -71,7 +71,7 @@ func dataset(t *testing.T, ctx context.Context, s *p.Store) string {
 }
 func recoveryDerived(name string) bool {
 	switch name {
-	case "search_documents", "search_outbox", "search_revision_state", "search_sync_state", "job_dataset_recovery":
+	case "search_rebuild_state", "search_rebuild_deltas", "search_documents", "search_outbox", "search_revision_state", "search_sync_state", "job_dataset_recovery":
 		return true
 	}
 	return false

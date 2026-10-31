@@ -81,3 +81,17 @@ func (s *SearchTransport) Apply(ctx context.Context, b a.Batch) error {
 		}
 	}
 }
+
+func (s *SearchTransport) ClaimRebuild(ctx context.Context, in a.RebuildRef) (a.Status, error) {
+	return s.HTTP.ClaimRebuild(ctx, in)
+}
+func (s *SearchTransport) CommitRebuild(ctx context.Context, in a.RebuildCommit) (a.Status, error) {
+	return s.HTTP.CommitRebuild(ctx, in)
+}
+func (s *SearchTransport) AckRebuild(ctx context.Context, in a.RebuildRef) (a.Status, error) {
+	return s.HTTP.AckRebuild(ctx, in)
+}
+
+func (s *SearchTransport) Applied(ctx context.Context, q a.AppliedQuery) (a.AppliedResult, error) {
+	return s.HTTP.Applied(ctx, q)
+}

@@ -34,6 +34,24 @@ class GateTests(unittest.TestCase):
         self.assertEqual(errors,[])
         self.assertEqual(len(comparisons),4)
 
+    def test_online_rebuild_requires_fulltext_and_real_cutover(self):
+        online = sample()
+        phase = online['phases']['rebuild']
+        phase.update(rebuild_mode='online',rebuild_completed=True,rebuild_source_generation='old:uuid',rebuild_target_generation='new:uuid')
+        phase['metrics']['mode_basic']['values']['count'] = 0
+        phase['metrics']['mode_fulltext']['values']['count'] = 150
+        self.assertEqual(validate(online), [])
+        self.assertEqual(compare(online,sample())[0], [])
+        for change in ('fallback','unfinished','same_generation','missing_injection','unknown'):
+            with self.subTest(change=change):
+                bad=copy.deepcopy(online);phase=bad['phases']['rebuild']
+                if change=='fallback':phase['metrics']['mode_basic']['values']['count']=1
+                if change=='unfinished':phase['rebuild_completed']=False
+                if change=='same_generation':phase['rebuild_target_generation']='old:uuid'
+                if change=='missing_injection':phase['rebuild_injected']=False
+                if change=='unknown':phase['rebuild_mode']='unsupported'
+                self.assertTrue(validate(bad))
+
     def test_zero_samples_missing_phases_and_wrong_modes_fail(self):
         for mutation in ('missing','zero','mode','recovery','metric','interrupted'):
             with self.subTest(mutation=mutation):

@@ -6,7 +6,7 @@ CampusTrace 把招聘观察、个人材料、岗位取舍和投递跟进连成�
 
 | 业务问题 | 实现边界 | 证据与入口 |
 | --- | --- | --- |
-| 岗位写入成功，搜索或通知未处理；重复投递也不能重复提醒 | MySQL 事务 Outbox、Kafka 独立消费组、通知事务回执、OpenSearch 外部版本；broker 确认与索引可见性确认分开 | [岗位事件](job-events.md)，`make kafka-test` / `make kafka-stack-test`；包含确认丢失、独立暂停/恢复、重建及墓碑；[真实快照恢复演练](verification/recovery-epoch-20261031/README.md) 验证恢复代次与保留旧消息隔离 |
+| 岗位写入成功，搜索或通知未处理；重复投递也不能重复提醒 | MySQL 事务 Outbox、Kafka 独立消费组、通知事务回执、OpenSearch 外部版本；broker 确认与索引可见性确认分开 | [岗位事件](job-events.md)，`make kafka-test` / `make kafka-stack-test`；包含确认丢失、独立暂停/恢复、重建及墓碑；[在线索引重建](search-online-rebuild.md) 扩展为旧索引服务、回填校验、增量追平和确认交接；[真实快照恢复演练](verification/recovery-epoch-20261031/README.md) 验证恢复代次与保留旧消息隔离 |
 | Search 不可用时，查询仍需要权限正确且及时返回，不能把压力无界转移给数据库 | 查询预算、无等待队列的并发隔离、单探测熔断、epoch、Core 回退预算及原有 ACL/版本复核 | [搜索故障隔离](search-resilience.md)，`make resilience-test`；同机前后 k6 对照及 100 并发读/写入验证 |
 | 多 API 竞争付费模型名额，进程被杀后不能盲目重试 | SQL 公平许可、调用次数原子预留、调用账本、UNKNOWN、人工核对、心跳及迟到结果 fencing | [模型执行控制](model-control.md)，`sh scripts/model-control-local.sh`；真实多进程/强杀，本地无模型提供商 fixture |
 
@@ -25,6 +25,7 @@ CampusTrace 把招聘观察、个人材料、岗位取舍和投递跟进连成�
 ## 面试时应能现场推导的细节
 
 - MySQL 恢复了旧快照，Kafka 和索引却保留“未来”状态，如何隔离？为什么不能只回退版本或重置消费位点？
+- 为什么别名原子切换还不够？回填期间的新变更、切换回复丢失和跨切换的在途查询如何处理？
 - Redis 任务和 Kafka 事件各自解决什么问题？默认轻量部署为什么仍保留？
 - 业务写入、消息发布、索引刷新、通知回执分别在哪个事务/确认边界？
 - 查询熔断关闭为什么仍不能跳过 Core 的 ACL 和版本检查？

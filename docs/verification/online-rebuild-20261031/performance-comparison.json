@@ -1,0 +1,232 @@
+{
+  "kind": "same-host controlled synthetic HTTP comparison",
+  "baseline": {
+    "revision": "c3a630f616d1d1c103f783dfdc57150c359653ae",
+    "selection": "c3a630f",
+    "runtime_sha256": "3393311e2a48a42b4569f58af582149df638e9c372c29be345884d7cb651ade1"
+  },
+  "candidate": {
+    "revision": "c3a630f616d1d1c103f783dfdc57150c359653ae",
+    "selection": "worktree",
+    "runtime_sha256": "4f287e5ac13bc439606c858432a75553e1606436068ca57018796f07523ea5b7"
+  },
+  "workload": {
+    "jobs": 1000,
+    "seconds": 15,
+    "query_rate": 10,
+    "write_rate": 1,
+    "reader_vus": 32,
+    "query_limit": 10,
+    "read_accounts": 2,
+    "jd_template_version": 1,
+    "seed_analysis": "suppressed_in_owned_fixture",
+    "jd_utf8_bytes": 1032,
+    "load_script_sha256": "1e57f6cb991a22e3efd52c96fb466bcc7703db7f31baa9b234239f2a0a6fe639"
+  },
+  "environment": {
+    "host_arch": "arm64",
+    "host_identity_hash": "bc6812ae89d9388a257968647275b58746cd71182f7c520bb44b30efb03575d6",
+    "docker_arch": "aarch64",
+    "docker_cpus": 10,
+    "docker_memory": 8319504384,
+    "docker_version": "29.8.0",
+    "container_limits": {
+      "api": [
+        1,
+        "512m"
+      ],
+      "worker": [
+        1,
+        "512m"
+      ],
+      "analysis-1": [
+        0.5,
+        "256m"
+      ],
+      "analysis-2": [
+        0.5,
+        "256m"
+      ],
+      "search": [
+        1,
+        "256m"
+      ],
+      "mysql": [
+        1,
+        "512m"
+      ],
+      "redis": [
+        0.5,
+        "128m"
+      ],
+      "etcd": [
+        0.5,
+        "256m"
+      ],
+      "opensearch": [
+        1,
+        "1536m"
+      ]
+    },
+    "k6_image": "grafana/k6:1.8.2",
+    "k6_image_id": "sha256:00fdcebafbc86cb0137d429529b1caa401a02e09025f02fc74866fa6e2b004d8",
+    "tracing": "disabled",
+    "transport": "HTTP inside Docker network",
+    "lab_topology_version": 1
+  },
+  "validation": {
+    "passed": true,
+    "errors": []
+  },
+  "comparison": {
+    "performed": true,
+    "ratio": 1.5,
+    "allowance_ms": 25,
+    "quantiles": [
+      {
+        "phase": "fulltext",
+        "quantile": "p(95)",
+        "baseline_ms": 14.301604,
+        "candidate_ms": 13.716062499999998,
+        "limit_ms": 46.452405999999996,
+        "passed": true
+      },
+      {
+        "phase": "fulltext",
+        "quantile": "p(99)",
+        "baseline_ms": 15.494895999999999,
+        "candidate_ms": 14.382125,
+        "limit_ms": 48.242344,
+        "passed": true
+      },
+      {
+        "phase": "fallback",
+        "quantile": "p(95)",
+        "baseline_ms": 7.428,
+        "candidate_ms": 5.9562105999999995,
+        "limit_ms": 36.141999999999996,
+        "passed": true
+      },
+      {
+        "phase": "fallback",
+        "quantile": "p(99)",
+        "baseline_ms": 202.8210625,
+        "candidate_ms": 203.36085308,
+        "limit_ms": 329.23159375,
+        "passed": true
+      }
+    ]
+  },
+  "phases": {
+    "fulltext": {
+      "baseline": {
+        "queries": 151,
+        "fulltext": 151,
+        "basic": 0,
+        "p95_ms": 14.301604,
+        "p99_ms": 15.494895999999999,
+        "query_failures": 0,
+        "dropped_iterations": 0,
+        "writes": 0,
+        "rebuild_mode": null,
+        "rebuild_completed": null
+      },
+      "candidate": {
+        "queries": 151,
+        "fulltext": 151,
+        "basic": 0,
+        "p95_ms": 13.716062499999998,
+        "p99_ms": 14.382125,
+        "query_failures": 0,
+        "dropped_iterations": 0,
+        "writes": 0,
+        "rebuild_mode": null,
+        "rebuild_completed": null
+      }
+    },
+    "fallback": {
+      "baseline": {
+        "queries": 151,
+        "fulltext": 0,
+        "basic": 151,
+        "p95_ms": 7.428,
+        "p99_ms": 202.8210625,
+        "query_failures": 0,
+        "dropped_iterations": 0,
+        "writes": 0,
+        "rebuild_mode": null,
+        "rebuild_completed": null
+      },
+      "candidate": {
+        "queries": 150,
+        "fulltext": 0,
+        "basic": 150,
+        "p95_ms": 5.9562105999999995,
+        "p99_ms": 203.36085308,
+        "query_failures": 0,
+        "dropped_iterations": 0,
+        "writes": 0,
+        "rebuild_mode": null,
+        "rebuild_completed": null
+      }
+    },
+    "rebuild": {
+      "baseline": {
+        "queries": 150,
+        "fulltext": 65,
+        "basic": 85,
+        "p95_ms": 12.59297675,
+        "p99_ms": 13.661071249999999,
+        "query_failures": 0,
+        "dropped_iterations": 0,
+        "writes": 0,
+        "rebuild_mode": "replace",
+        "rebuild_completed": null
+      },
+      "candidate": {
+        "queries": 151,
+        "fulltext": 151,
+        "basic": 0,
+        "p95_ms": 11.501597,
+        "p99_ms": 13.552103999999998,
+        "query_failures": 0,
+        "dropped_iterations": 0,
+        "writes": 0,
+        "rebuild_mode": "online",
+        "rebuild_completed": true
+      }
+    },
+    "mixed": {
+      "baseline": {
+        "queries": 151,
+        "fulltext": 56,
+        "basic": 95,
+        "p95_ms": 11.3040205,
+        "p99_ms": 12.8944165,
+        "query_failures": 0,
+        "dropped_iterations": 0,
+        "writes": 16,
+        "rebuild_mode": null,
+        "rebuild_completed": null
+      },
+      "candidate": {
+        "queries": 150,
+        "fulltext": 81,
+        "basic": 69,
+        "p95_ms": 10.3022978,
+        "p99_ms": 11.27059899,
+        "query_failures": 0,
+        "dropped_iterations": 0,
+        "writes": 16,
+        "rebuild_mode": null,
+        "rebuild_completed": null
+      }
+    }
+  },
+  "limits": [
+    "1,000 catalog jobs plus one writer fixture; 10 queries/s; 15s per phase; single host",
+    "Rebuild modes differ: compare mode counts and completion, not mixed-mode latency speedup",
+    "Reported recovery_wait_seconds_after_load for online mode measures final fulltext check after acknowledged cutover; not total rebuild time",
+    "No production throughput, HA or search-quality claim"
+  ]
+}

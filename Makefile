@@ -107,3 +107,13 @@ resilience-test:
 .PHONY: recovery-test
 recovery-test:
 	sh scripts/recovery-local.sh
+
+.PHONY: online-rebuild-test search-rebuild-progress search-rebuild-abort search-rollback
+online-rebuild-test:
+	SEARCH_TESTS='^TestSearchOnline' sh scripts/search-local.sh
+search-rebuild-progress:
+	docker compose --file docker-compose.yml --file compose.app.yml --file compose.search.yml exec -T search /app/search status
+search-rebuild-abort:
+	docker compose --file docker-compose.yml --file compose.app.yml --file compose.search.yml exec -T search /app/search abort
+search-rollback:
+	docker compose --file docker-compose.yml --file compose.app.yml --file compose.search.yml exec -T search /app/search rollback

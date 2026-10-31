@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -39,20 +40,37 @@ func run() error {
 	}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
-	if len(os.Args) > 1 && os.Args[1] == "rebuild" {
+
+	if len(os.Args) > 1 {
 		client, e := searchapi.NewClient(env("SEARCH_URL", "http://127.0.0.1:18083"), os.Getenv("SEARCH_QUERY_TOKEN"), os.Getenv("SEARCH_WRITE_TOKEN"))
 		if e != nil {
 			return e
 		}
-		status, e := client.Rebuild(ctx)
-		if e == nil {
-			fmt.Println("Search index replaced; Core will replay job documents:", status.Generation)
+		var status searchapi.Status
+		switch os.Args[1] {
+		case "status":
+			status, e = client.Status(ctx)
+		case "rebuild":
+			status, e = client.Rebuild(ctx)
+		case "rollback":
+			status, e = client.Rollback(ctx)
+		case "abort":
+			status, e = client.Status(ctx)
+			if e == nil {
+				if status.Rebuild == nil {
+					return fmt.Errorf("no online rebuild")
+				}
+				status, e = client.AbortRebuild(ctx, searchapi.RebuildRef{Operation: status.Rebuild.Operation})
+			}
+		default:
+			return fmt.Errorf("usage: search [probe|status|rebuild|rollback|abort]")
 		}
-		return e
+		if e != nil {
+			return e
+		}
+		return json.NewEncoder(os.Stdout).Encode(status)
 	}
-	if len(os.Args) > 1 {
-		return fmt.Errorf("usage: search [probe|rebuild]")
-	}
+
 	shutdown, err := observability.Setup(ctx, "campustrace-search")
 	if err != nil {
 		return err

@@ -195,9 +195,16 @@ func TestKafkaSearchAndNotificationsIndependentRecovery(t *testing.T) {
 		t.Fatal("private job notification leaked")
 	}
 	// A new index generation replays snapshots, which are not business changes.
+	beforeRebuild, e := client.Status(ctx)
+	must(t, e)
 	_, e = client.Rebuild(ctx)
 	must(t, e)
-	kafkaWait(t, ctx, "rebuild failed", func() bool { return syncIndex("secondmarker") })
+	kafkaWait(t, ctx, "online rebuild failed", func() bool {
+		ok := syncIndex("secondmarker")
+		now, e := client.Status(ctx)
+		must(t, e)
+		return ok && now.Generation != beforeRebuild.Generation && now.Rebuild != nil && now.Rebuild.Phase == "DONE"
+	})
 	rows, e = s.Notifications(ctx, owner)
 	must(t, e)
 	if len(rows) != 2 {

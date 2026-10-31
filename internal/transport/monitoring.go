@@ -47,6 +47,13 @@ func (a *API) prometheus(w http.ResponseWriter, r *http.Request) {
 			gauges = append(gauges, observability.Gauge{Name: "search_pending", Value: float64(pending)}, observability.Gauge{Name: "search_ready", Value: v})
 		}
 	}
+
+	if a.Store.Search != nil {
+		phase, copied, total, pending, e := a.Store.SearchRebuildStats(ctx)
+		if e == nil {
+			gauges = append(gauges, observability.Gauge{Name: "search_rebuild_phase", Value: float64(phase)}, observability.Gauge{Name: "search_rebuild_copied", Value: float64(copied)}, observability.Gauge{Name: "search_rebuild_documents", Value: float64(total)}, observability.Gauge{Name: "search_rebuild_pending", Value: float64(pending)})
+		}
+	}
 	if a.Store.JobEvents {
 		var pending int64
 		var age float64

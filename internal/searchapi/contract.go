@@ -113,8 +113,9 @@ type Result struct {
 	More       bool   `json:"more"`
 }
 type Status struct {
-	Protocol   string `json:"protocol"`
-	Generation string `json:"generation"`
+	Rebuild    *Rebuild `json:"rebuild,omitempty"`
+	Protocol   string   `json:"protocol"`
+	Generation string   `json:"generation"`
 }
 type Batch struct {
 	Protocol   string     `json:"protocol"`
@@ -202,6 +203,7 @@ func (q Query) Matches(d Document) bool {
 
 // AppliedQuery is an internal visibility fence. It contains no JD text.
 type AppliedQuery struct {
+	Exact      bool   `json:"exact,omitempty"`
 	Protocol   string `json:"protocol"`
 	Generation string `json:"generation"`
 	Dataset    string `json:"dataset"`

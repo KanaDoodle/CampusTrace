@@ -33,6 +33,8 @@ make cli
 
 这会验证并保留新的 `campustrace_restore_<随机编号>` 数据库，当前运行数据库保持原样。一次性导入账号删除，现有 Compose 的 `campus` 账号获得恢复库的权限。恢复库的所有启用关注先暂停并增加调度版本；进行中的个人匹配任务转为 `WAITING_AUTH`，执行令牌与租约清除。个人资料、项目事实、匹配结果、投递历史保留。验证报告的逐表摘要记录的是这些恢复状态调整之前的数据，`recovery_changes` 单独记录状态调整数量；`job_dataset` 记录恢复前后的岗位数据集标识。
 
+切换数据库前应先完成或取消 [Search 在线重建](search-online-rebuild.md)；不要在远端 `CUTTING/COMMITTED` 阶段换库。新副本清空自己的派生重建状态，不接管旧数据集未完成的远端操作。
+
 确认副本后再切换：
 
 1. 保管旧库最新备份；停止应用：`./bin/campustrace stop`。依赖和旧库保留。

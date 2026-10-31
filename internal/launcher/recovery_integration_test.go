@@ -235,7 +235,7 @@ func TestRecoveryRoundTripAndImportIsolation(t *testing.T) {
 		t.Fatal(err)
 	}
 	for name, want := range baseline.Tables {
-		if name != "watch_targets" && name != "match_runs" && name != "source_import_items" && name != "search_documents" && name != "search_outbox" && name != "search_revision_state" && name != "search_sync_state" && name != "job_dataset_recovery" && proof.Tables[name] != want {
+		if name != "watch_targets" && name != "match_runs" && name != "source_import_items" && name != "search_documents" && name != "search_outbox" && name != "search_revision_state" && name != "search_sync_state" && name != "job_dataset_recovery" && name != "search_rebuild_state" && name != "search_rebuild_deltas" && proof.Tables[name] != want {
 			t.Fatal("kept data changed", name)
 		}
 	}

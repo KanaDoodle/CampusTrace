@@ -142,14 +142,15 @@ func TestSearchProjectionIsolationRecovery(t *testing.T) {
 	if out.Mode != "fulltext" || len(out.IDs) != 0 {
 		t.Fatal("ACL not synchronized", out)
 	}
-	// Empty replacement is never treated as a legitimate zero-result inventory.
+	// Online preparation keeps the old generation serving complete reads.
 	_, e = client.Rebuild(ctx)
 	must(t, e)
 	out, e = s.SearchJobs(ctx, alice, a.Query{Company: in.Company, Text: "Go"})
 	must(t, e)
-	if out.Mode != "basic" || len(out.IDs) != 1 {
-		t.Fatal("rebuild zero-result gap", out)
+	if out.Mode != "fulltext" || len(out.IDs) != 1 {
+		t.Fatal("online rebuild interrupted reads", out)
 	}
+	finishSearchRebuild(t, ctx, s, client)
 	drainSearch(t, ctx, s, alice, "Go")
 }
 
@@ -340,4 +341,20 @@ func TestSearchHTTPAuthoritativeIdentity(t *testing.T) {
 			}
 		}
 	}
+}
+
+func finishSearchRebuild(t *testing.T, ctx context.Context, s *p.Store, client *a.Client) {
+	t.Helper()
+	for i := 0; i < 80; i++ {
+		e := s.SyncSearchOnce(ctx)
+		if e != nil && !errors.Is(e, a.ErrPending) && !errors.Is(e, a.ErrConflict) {
+			t.Fatal(e)
+		}
+		status, e := client.Status(ctx)
+		must(t, e)
+		if status.Rebuild != nil && status.Rebuild.Phase == "DONE" {
+			return
+		}
+	}
+	t.Fatal("online rebuild did not finish")
 }
