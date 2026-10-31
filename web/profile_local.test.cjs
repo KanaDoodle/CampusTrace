@@ -36,7 +36,7 @@ test('TXT extraction stays local and rejects unsupported or empty files',async()
   const file=new File(['姓名：李四\n项目使用 Go'],'resume.txt',{type:'text/plain'});
   assert.equal(await P.readFile(file),'[已移除姓名]\n项目使用 Go');
   await assert.rejects(P.readFile(new File(['hello'],'resume.doc')),/支持 PDF、DOCX 和 TXT/);
-  await assert.rejects(P.readFile(new File([''],'resume.txt')),/没有读到可用文字/);
+  await assert.rejects(P.readFile(new File([''],'resume.txt')),/未读取到文字/);
 });
 
 test('reviewed text length follows the backend UTF-8 byte limit',()=>{

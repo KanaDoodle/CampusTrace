@@ -60,7 +60,7 @@
     else if(name.endsWith('.pdf')) text=await readPdf(file);
     else throw new Error('支持 PDF、DOCX 和 TXT 简历。');
     text=text.replace(/\r\n?/g,'\n').trim();
-    if(!text) throw new Error('没有读到可用文字。扫描版 PDF 暂不支持，请使用文字版简历。');
+    if(!text) throw new Error('未读取到文字，请使用文字版 PDF、DOCX 或 TXT；扫描件请先转换为文字。');
     if(text.length>100000) throw new Error('简历正文过长，请先精简文件。');
     return redact(text);
   }

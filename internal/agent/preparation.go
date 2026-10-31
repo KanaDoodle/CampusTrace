@@ -167,9 +167,9 @@ func applicationPreparationAnswer(raw json.RawMessage) []string {
 		}
 	}
 	if len(v.Knowledge) == 0 {
-		return append(lines, "尚未检索到相关面试资料，可以先记录复盘或补充笔记；这不代表缺少相关能力。")
+		return append(lines, "尚未找到相关面试资料。可记录复盘或补充笔记，再重新准备。")
 	}
-	lines = append(lines, fmt.Sprintf("检索到 %d 段学习参考，可从阅读入口核对完整材料；笔记不是个人能力证明，也不保证面试会考。", len(v.Knowledge)))
+	lines = append(lines, fmt.Sprintf("检索到 %d 段相关学习资料，可打开完整材料复习，并结合项目经历准备回答。", len(v.Knowledge)))
 	for _, hit := range v.Knowledge[:min(len(v.Knowledge), 3)] {
 		lines = append(lines, "学习参考 · "+hit.Title+"："+prefixUTF8(hit.Text, 240))
 	}

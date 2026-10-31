@@ -261,7 +261,7 @@ func (s *LocalScreener) screen(j d.Job, text string, citations bool) LocalScreen
 		v.Warnings = append(v.Warnings, "未提取到词表内的明确技术要求，当前优先级主要依据意向偏好，需要阅读原文或深度分析。")
 	}
 	if requiredMissing > 0 {
-		v.Warnings = append(v.Warnings, "部分必需项在资料中暂无完整依据；这不代表你不具备该能力。")
+		v.Warnings = append(v.Warnings, "部分必需项待补充项目或经历依据，可完善资料后重新核对。")
 	}
 	if parsed.Incomplete {
 		v.Warnings = append(v.Warnings, "部分文字无法可靠归类或超出本地解析范围，初筛可能遗漏要求。")

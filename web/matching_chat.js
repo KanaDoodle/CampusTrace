@@ -53,7 +53,7 @@ ${JSON.stringify(resultExample,null,2)}
     if(group.length)groups.push(group);
     return groups.map((jobs,i)=>({name:'CampusTrace-分析包-'+String(i+1).padStart(3,'0')+'.md',text:content(payload,jobs),jobCount:jobs.length,oversized:bytes(jobs)>maxBytes}));
   }
-  function instructions(files){return `CampusTrace ChatGPT 分析包\n\n1. 解压后，把一个“分析包”文件上传给 ChatGPT，或复制文件中的全部文字。每包都带有相同的脱敏资料和分析标准，指令版本为 ${promptRevision}。逐包完成语义分析，不一次要求聊天处理全部岗位；格式校验或规则辅助底稿不代表分析已完成。\n2. 请保存每包返回的 JSON 文件（保留 version、candidate_hash 和各岗位 input_key）；多包时再上传所有结果，用“汇总指令.txt”请求统一比较。建议每家公司少量候选岗位尽量在同一包。\n3. 导出时间是数据快照时间；资料或岗位变化后应重新导出。\n4. 这些文件是在本机下载供你手动上传，未自动调用模型，不需要 API 密钥。ChatGPT 返回 JSON 后，回到岗位雷达点击“导入聊天分析”，支持一次选取多个结果文件。预览一次列出各岗位的核对问题，通过的岗位可先确认保存；未通过的岗位保留原有分析，可复制修正清单回到聊天修改后再导入。原文或资料已变化时须重新导出。导入会替换对应岗位已有分析，不增加 API 调用。\n\n共 ${files.length} 包、${files.reduce((n,f)=>n+f.jobCount,0)} 个岗位。按每包最多8个岗位、约48 KB文字分包（UTF-8）。特别长的单个岗位保留完整文字、独立成包，没有截断。\n`;}
+  function instructions(files){return `CampusTrace ChatGPT 分析包\n\n1. 解压后，把一个“分析包”文件上传给 ChatGPT，或复制文件中的全部文字。每包都带有相同的脱敏资料和分析标准，指令版本为 ${promptRevision}。按包完成岗位语义分析，再保存每包返回的结果。\n2. 请保存每包返回的 JSON 文件（保留 version、candidate_hash 和各岗位 input_key）；多包时再上传所有结果，用“汇总指令.txt”请求统一比较。建议每家公司少量候选岗位尽量在同一包。\n3. 导出时间是数据快照时间；资料或岗位变化后应重新导出。\n4. 这些文件是在本机下载供你手动上传，未自动调用模型，不需要 API 密钥。ChatGPT 返回 JSON 后，回到岗位雷达点击“导入聊天分析”，支持一次选取多个结果文件。预览一次列出各岗位的核对问题，通过的岗位可先确认保存；未通过的岗位保留原有分析，可复制修正清单回到聊天修改后再导入。原文或资料已变化时须重新导出。导入会替换对应岗位已有分析，不增加 API 调用。\n\n共 ${files.length} 包、${files.reduce((n,f)=>n+f.jobCount,0)} 个岗位。按每包最多8个岗位、约48 KB文字分包（UTF-8）。特别长的单个岗位保留完整文字、独立成包，没有截断。\n`;}
   async function download(files){
     if(!files.length)return;
     let blob,name;

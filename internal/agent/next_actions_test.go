@@ -63,7 +63,7 @@ func TestReviewPrioritiesRequireEvidenceAndKeepHistorySeparate(t *testing.T) {
 		t.Fatal("input slice mutated")
 	}
 	answer := GroundedAnswer([]any{map[string]any{"tool": "get_weak_topics", "data": rows}})
-	if !strings.Contains(answer, "1. Redis PEL") || strings.Contains(answer, "没有依据") || !strings.Contains(answer, "不是对本岗位能力的判定") {
+	if !strings.Contains(answer, "1. Redis PEL") || strings.Contains(answer, "没有依据") || !strings.Contains(answer, "结合历史复盘") {
 		t.Fatal(answer)
 	}
 	if len(PrioritizeTopics(rows, 0)) != 0 || len(PrioritizeTopics(rows, -1)) != 0 {

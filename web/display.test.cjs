@@ -138,7 +138,7 @@ test('匹配诊断按固定原因说明漏项、引用及能力错误，不显�
  assert.match(D.matchingDiagnostic({validation_reason:'EXCERPT_ID_UNKNOWN',job_index:1,item_index:2}),/结果第 2 项.*片段编号.*对应资料/);
  assert.match(D.matchingDiagnostic({validation_reason:'EXCERPT_REFERENCE_CONFLICT'}),/同时返回/);
  assert.match(D.matchingDiagnostic({validation_reason:'EXCERPT_AMBIGUOUS'}),/多处原文/);
- assert.match(D.matchingDiagnostic({validation_reason:'FACT_NOT_ABILITY'}),/当成能力证明/);
+ assert.match(D.matchingDiagnostic({validation_reason:'FACT_NOT_ABILITY'}),/该引用属于/);
  assert.match(D.matchingDiagnostic({validation_reason:'CHAT_REQUIREMENT_ID_DUPLICATE',job_index:4,item_index:2,related_item_index:1}),/第 4 个岗位.*第 2 项.*编号重复.*第 1 项重复/);
  assert.match(D.matchingDiagnostic({validation_reason:'CHAT_REQUIREMENT_CONTENT_DUPLICATE',item_index:2,related_item_index:1}),/同一种岗位条件.*第 1 项重复/);
  assert.match(D.matchingDiagnostic({validation_reason:'CHAT_REQUIREMENT_ID_INVALID'}),/编号为空或过长/);

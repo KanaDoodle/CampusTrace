@@ -33,7 +33,7 @@ func TestPreparationRetrievalUsesActualQuestionsAndLateJDRequirements(t *testing
 func TestApplicationPreparationAnswerSeparatesActualReviewFromLearningReference(t *testing.T) {
 	data := map[string]any{"application_id": "a", "job": d.Job{Title: "后端"}, "review_count": 1, "retrieval_context": PreparationQuery{Version: "v1", Signals: []PreparationSignal{{Source: "interview_question", Text: "PEL 如何重领？"}}}, "knowledge": []rag.Hit{{Chunk: rag.Chunk{Title: "Redis 笔记", Text: "XAUTOCLAIM 重领消息。"}}}}
 	answer := strings.Join(applicationPreparationAnswer(json.RawMessage(d.JSON(data))), "\n")
-	for _, want := range []string{"本申请的 1 份复盘", "PEL 如何重领", "Redis 笔记", "XAUTOCLAIM", "不是个人能力证明"} {
+	for _, want := range []string{"本申请的 1 份复盘", "PEL 如何重领", "Redis 笔记", "XAUTOCLAIM", "结合项目经历准备回答"} {
 		if !strings.Contains(answer, want) {
 			t.Fatal(answer)
 		}

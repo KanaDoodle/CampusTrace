@@ -65,7 +65,7 @@ func (s *Service) ReviewMaterialDraft(ctx context.Context, user, id string) (Rev
 
 func reviewMaterialText(review d.Review) string {
 	var text strings.Builder
-	text.WriteString("面试复盘学习笔记（可编辑，不代表个人能力证明）\n\n实际被问到的问题\n")
+	text.WriteString("面试复盘学习笔记\n\n实际被问到的问题\n")
 	for _, question := range review.Questions {
 		text.WriteString("- " + question + "\n")
 	}

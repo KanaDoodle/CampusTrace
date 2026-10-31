@@ -83,7 +83,7 @@ func withdrawInvalidAbilityEvidence(c Candidate, reqs []Requirement, matches []M
 			}
 			if !abilityCitation(facts[citation.ID], requirements[m.RequirementID]) {
 				matches[i].Result = "NO_EVIDENCE"
-				matches[i].Explanation = "模型引用了求职偏好或项目局限来证明能力，原结论已撤销。此项暂无足够的有效依据，请核对真实经历并补充资料；不代表你不会。"
+				matches[i].Explanation = "该引用属于求职偏好或实现约束，原结论已撤销。补充相关项目或经历后，可重新核对此项。"
 				matches[i].Evidence = []Citation{}
 				matches[i].ReviewNote = InvalidAbilityEvidence
 				break

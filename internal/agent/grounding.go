@@ -91,7 +91,7 @@ func GroundedAnswer(facts []any) string {
 				lines = append(lines, "还没有面试复盘；可先记录实际问题与回答情况，再整理需要复习的地方。")
 			}
 		case "get_practice_runs":
-			lines = append(lines, "已读取实际执行的练习记录；练习通过不代表有生产项目经验。")
+			lines = append(lines, "已读取归档练习记录，可查看执行结果和复习要点。")
 			var rows []struct {
 				State string `json:"state"`
 			}
@@ -117,7 +117,7 @@ func GroundedAnswer(facts []any) string {
 			if len(rows) == 0 {
 				lines = append(lines, "目前还没有可核对的复盘薄弱点。")
 			} else {
-				lines = append(lines, "优先复习这些历史薄弱点（不是对本岗位能力的判定）：")
+				lines = append(lines, "结合历史复盘，建议优先复习：")
 				for i, v := range rows {
 					lines = append(lines, fmt.Sprintf("%d. %s：加强程度 %d，出现 %d 次，有 %d 条复盘依据。", i+1, v.Topic, v.Weight, v.Count, len(v.Evidence)))
 				}
@@ -370,9 +370,7 @@ func GroundedAnswer(facts []any) string {
 		case "remember_memory":
 			lines = append(lines, "已生成一条记忆预览，尚未保存。请核对记忆内容、类型和有效期后确认。")
 		case "create_application", "transition_application", "record_interview_review", "watch_source", "unwatch_source":
-			var pending Pending
-			json.Unmarshal(item.Data, &pending)
-			lines = append(lines, fmt.Sprintf("仅生成待确认操作 %s（%s），尚未写入业务状态。请检查预览后显式确认。", pending.ID, item.Tool))
+			lines = append(lines, "操作预览已生成，核对内容后确认保存。")
 		case "get_preparation_context":
 			var v struct {
 				Job       d.Job     `json:"job"`
@@ -384,7 +382,7 @@ func GroundedAnswer(facts []any) string {
 					lines = append(lines, "可参考学习材料："+h.Title+"。")
 				}
 			}
-			lines = append(lines, "历史薄弱点来自过去的面试复盘，不等于本岗位必考或个人能力不足；学习材料不作为项目实现的证明。不虚构个人经历或面试答案。")
+			lines = append(lines, "结合岗位要求、面试复盘和相关学习资料，按以上清单准备；回答事例可从已确认的项目经历中选择。")
 		case "search_knowledge":
 			lines = append(lines, "已检索学习材料，结果与出处见下方。")
 			var result rag.SearchResult

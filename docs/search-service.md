@@ -89,7 +89,7 @@ docker compose -f docker-compose.yml -f compose.app.yml -f compose.search.yml \
 
 Grafana 包含 Search 面板（9 项）、查询故障隔离面板（6 项）及在线重建面板（8 项），原概览保留。新增请求量、P95、错误、待同步数、投影就绪、基础/完整搜索次数和同步指标。W3C traceparent 同时覆盖 Core → Search → OpenSearch 以及持久化 outbox 发布；合并批次跟随首条记录的 trace，没有为批内每个岗位建立独立链接。Search 内部操作不输出 JD、关键词、用户 ID 或凭据到 trace 属性。
 
-Compose 使用本地演示凭据且关闭 OpenSearch 安全插件，只适用于当前隔离的单机演示。对外部署需另行配置 TLS、独立强凭据、索引认证、容量及备份策略；不应把这套默认配置直接暴露公网。OpenSearch 配置 512 MiB JVM 堆、1.5 GiB 容器内存上限；不是轻量默认依赖。未修改宿主机内核设置。
+Compose 使用本地演示凭据且关闭 OpenSearch 安全插件，只适用于当前隔离的单机演示。对外部署需另行配置 TLS、独立强凭据、索引认证、容量及备份策略；不应把这套默认配置直接暴露公网。OpenSearch 配置 512 MiB JVM 堆、1.5 GiB 容器内存上限，作为可选依赖按需启用。未修改宿主机内核设置。
 
 主机调试的环境变量：
 
@@ -112,4 +112,4 @@ go vet ./...
 
 验收覆盖多页历史回填、私有隔离、JD 搜索、中文和技术词、重复/乱序/冲突、成功后丢响应、更新期间确认、删除墓碑、索引丢失/重建、Search 停机时 Core 写入及 Analysis 继续处理、独立替换 Search 后补齐积压、真实 Tempo trace 和 Prometheus/Grafana。
 
-本地证据保存在忽略提交的 `bin/verification/search-20261030/`。这些是单机、合成输入与局部故障验收，不是生产 HA、吞吐、搜索质量或用户效果证明；没有调用付费模型、导入真实求职资料或修改现有运行数据。
+本地证据保存在忽略提交的 `bin/verification/search-20261030/`。验收在隔离单机环境使用合成岗位，覆盖实际 HTTP、SQL、OpenSearch 与局部进程故障，记录查询一致性、独立运行和恢复结果。

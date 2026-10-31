@@ -127,7 +127,7 @@ func BuildPreparation(in DecisionInput, p d.Profile, now time.Time) PreparationP
 	plan.Score, plan.Coverage = Score(r.Requirements, r.Matches)
 	plan.Eligibility = Qualification(in.Job, p, r.Requirements, now)
 	if in.ExcludedReason != "" {
-		plan.Notice = in.ExcludedReason + "。清单仅供核对和复习，不代表可以投递。"
+		plan.Notice = in.ExcludedReason + "。可继续查看要求与准备清单，投递前请处理上述条件。"
 	}
 	byID := map[string]Match{}
 	for _, m := range r.Matches {
@@ -144,7 +144,7 @@ func BuildPreparation(in DecisionInput, p d.Profile, now time.Time) PreparationP
 				reqs = append(reqs, req)
 			}
 		}
-		plan.Tasks = append(plan.Tasks, PreparationTask{ID: "verify-qualification", Kind: "VERIFY", Category: "QUALIFICATION", Priority: 1, Title: "核对投递资格与招聘状态", Action: "对照官网和资格核对表，确认毕业届别、学历等未明确条件；明确不符合的条件不会通过技术复习消除。", Result: plan.Eligibility.Status, Requirements: reqs, Evidence: []PreparationEvidence{}})
+		plan.Tasks = append(plan.Tasks, PreparationTask{ID: "verify-qualification", Kind: "VERIFY", Category: "QUALIFICATION", Priority: 1, Title: "核对投递资格与招聘状态", Action: "对照官网与资格核对表，确认毕业届别、学历等条件，处理待核对项。", Result: plan.Eligibility.Status, Requirements: reqs, Evidence: []PreparationEvidence{}})
 	}
 	for _, category := range []string{"REQUIRED", "RESPONSIBILITY", "BONUS", "SOFT"} {
 		for _, unit := range requirementUnits(r.Requirements, category) {
@@ -153,19 +153,19 @@ func BuildPreparation(in DecisionInput, p d.Profile, now time.Time) PreparationP
 			switch status {
 			case "DIRECT":
 				task.Kind = "REHEARSE"
-				task.Action = "准备原理与实现说明。只用下面已核对的事实介绍实际经历，没有做过的取舍、测试或测量明确说明。"
+				task.Action = "围绕已确认的项目经历，准备原理、实现细节、技术取舍与验证结果。"
 			case "PARTIAL", "TRANSFERABLE":
 				task.Kind = "DEEPEN"
-				task.Action = "先说明已有经验适用的部分，再核对岗位额外要求和适用边界；相近机制不能直接说成掌握了指定组件。"
+				task.Action = "说明已有经验与岗位要求的对应关系，再准备指定组件的实现细节和差异。"
 			case "MISMATCH":
 				task.Kind = "LEARN"
-				task.Action = "结合明确不符合的依据评估差距，安排相关学习或练习；练习完成前不要写成已掌握或已实现。"
+				task.Action = "结合岗位要求与已有依据确定差距，制定学习任务，准备练习成果和复盘。"
 			default:
 				task.Kind = "EVIDENCE"
 				if len(unit) > 1 {
 					task.Explanation = "本组选项仍有待核对的方向，暂无足够依据形成匹配或整体不符合的结论。"
 				}
-				task.Action = "先核对自己是否实际做过：有真实经历就补充并确认项目事实；没有则安排学习。暂无依据不等于不会。"
+				task.Action = "补充相关项目经历和具体实现，核对已有实践；需要加强的部分加入复习计划。"
 				if selected.Confidence < .8 {
 					task.Action = "这项要求的解释置信度较低，先核对岗位原文与含义，再决定补充资料或安排学习。"
 				}
@@ -209,7 +209,7 @@ func BuildPreparation(in DecisionInput, p d.Profile, now time.Time) PreparationP
 	}
 	sort.SliceStable(plan.Tasks, func(i, j int) bool { return plan.Tasks[i].Priority < plan.Tasks[j].Priority })
 	if len(plan.Tasks) == 0 {
-		plan.Notice = "没有提取到可核对的要求，暂不能生成针对性的准备项。请先查看岗位原文。"
+		plan.Notice = "请先核对岗位原文中的职责与要求，再生成准备清单。"
 	}
 	return plan
 }
@@ -423,7 +423,7 @@ func BuildCompanyComparison(company, scope string, inputs []DecisionInput, p d.P
 		}
 	}
 	if len(candidates) == 0 {
-		out.Reasons = append(out.Reasons, "当前范围没有具备核心技术相关依据且未被排除的意向岗位。没有写到不等于不会，可查看原文后考虑投递或补充资料。")
+		out.Reasons = append(out.Reasons, "当前范围未找到符合推荐条件的岗位。可查看岗位原文、调整筛选范围或补充相关项目资料。")
 		return out
 	}
 	top := out.Jobs[candidates[0]]
@@ -441,19 +441,19 @@ func BuildCompanyComparison(company, scope string, inputs []DecisionInput, p d.P
 	if len(out.RecommendedIDs) > 1 {
 		out.Recommendation = "TIED"
 	}
-	out.Reasons = append(out.Reasons, "先看意向方向，再按投递优先度、依据覆盖、城市与类型偏好、加分项排序；资格未知不阻止比较。未知技术项按中性值计入排序，参考区间展示未知项的影响，不把没写到当作不会。相同条件保留并列。")
+	out.Reasons = append(out.Reasons, "先看意向方向，再按投递优先度、依据覆盖、城市与类型偏好、加分项排序；资格未知不阻止比较。未知技术项按中性值计入排序，参考区间展示补充资料对排序的影响。相同条件保留并列。")
 	out.Reasons = append(out.Reasons, fmt.Sprintf("优先候选的投递优先度 %.1f，参考区间 %.1f–%.1f，依据覆盖 %.1f%%；%s，%s。", top.Priority.Score, top.Priority.Lower, top.Priority.Upper, top.Coverage, top.Direction, top.City))
 	if top.Coverage < 60 {
 		out.Reasons = append(out.Reasons, "优先候选的已知资料较少，这个排序可用于选择先投的岗位，补充经历后顺序可能改变。")
 	}
 	if top.Eligibility != "ELIGIBLE" {
-		out.Reasons = append(out.Reasons, "优先候选的投递资格仍需核对，不能直接视为可投递。")
+		out.Reasons = append(out.Reasons, "投递前请核对优先候选的资格条件。")
 	}
 	if top.Job.CurrentStatus != "OPEN" {
 		out.Reasons = append(out.Reasons, "优先候选的招聘状态尚未确认开放，请核验官网。")
 	}
 	if out.Pending+out.Stale > 0 {
-		out.Reasons = append(out.Reasons, fmt.Sprintf("另有 %d 个未分析、%d 个待更新岗位，暂不参与推荐；结论不代表整家公司所有岗位中的最优选择。", out.Pending, out.Stale))
+		out.Reasons = append(out.Reasons, fmt.Sprintf("本次推荐基于已完成分析的岗位；另有 %d 个待分析、%d 个待更新岗位，可补充分析后重新比较。", out.Pending, out.Stale))
 	}
 	return out
 }

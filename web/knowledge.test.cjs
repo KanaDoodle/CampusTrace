@@ -30,5 +30,5 @@ test('changing provider origin requires a freshly entered key',()=>{
 test('retrieval output escapes source text and describes fallback without suitability percentages',()=>{
  const esc=v=>String(v??'').replaceAll('<','&lt;').replaceAll('>','&gt;');
  const html=K.resultMarkup({hits:[{title:'<script>',text:'<img onerror=x>',document_id:'doc',index:0,keyword:1,cosine:.82,rerank_score:.9}],retrieval:{mode:'hybrid+rerank',milliseconds:12,warnings:['RETRIEVAL_INDEX_PARTIAL'],candidates:20}},esc);
- assert.equal(html.includes('<script>'),false);assert.equal(html.includes('<img'),false);assert.match(html,/部分材料/);assert.match(html,/不代表岗位匹配度/);assert.equal(html.includes('82%'),false);
+ assert.equal(html.includes('<script>'),false);assert.equal(html.includes('<img'),false);assert.match(html,/部分材料/);assert.match(html,/排列相关资料/);assert.equal(html.includes('82%'),false);
 });

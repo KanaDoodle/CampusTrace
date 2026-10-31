@@ -308,7 +308,7 @@ test('company comparison is an explicit local read without keys, outbound consen
   assert.equal(h.decisionRequests[0].scope,'FILTERED');assert.equal(h.decisionRequests[0].job_ids.length,4);assert.equal(h.decisionRequests[0].api_key,undefined);
   assert.equal(JSON.stringify(h.decisionRequests).includes('synthetic-test-key'),false);
   assert.deepEqual(h.requests,[]);assert.deepEqual(h.exports,[]);
-  assert.ok(h.html().includes('暂不能可靠推荐'));
+  assert.ok(h.html().includes('待确定候选岗位'));
 });
 
 test('a delayed comparison cannot reopen a canceled dialog or replace a newly chosen scope',async()=>{
@@ -753,5 +753,5 @@ test('confirmed analysis closes the reviewed dialog and preserves authorization 
 
 test('JD search results survive the local title filter and show bounded fallback status',async()=>{
  const h=harness({pending:['jd-only'],failed:[],searchRequest:async body=>{assert.equal(body.text,'Redis');return {job_ids:['jd-only'],mode:'basic',more:true};}});
- await h.start({initialQuery:'Redis'});await new Promise(setImmediate);assert.match(h.html(),/当前使用基础搜索/);assert.match(h.html(),/结果较多/);assert.match(h.html(),/data-match-job="jd-only"/);
+ await h.start({initialQuery:'Redis'});await new Promise(setImmediate);assert.match(h.html(),/已按关键词搜索岗位内容/);assert.match(h.html(),/结果较多/);assert.match(h.html(),/data-match-job="jd-only"/);
 });

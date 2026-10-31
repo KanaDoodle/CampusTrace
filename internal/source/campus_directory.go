@@ -164,7 +164,7 @@ func CampusDirectory() []CampusDirectoryEntry {
 		case "字节跳动", "携程/Trip.com", "滴滴", "华为", "小米", "爱立信":
 			checked = "2026-10-06"
 		}
-		out = append(out, CampusDirectoryEntry{CampusSite: CampusSite{Company: s.company, URL: s.url, Scope: "仅官网入口，暂不支持自动导入"}, Category: s.category, Status: s.status, Note: s.note, CheckedAt: checked})
+		out = append(out, CampusDirectoryEntry{CampusSite: CampusSite{Company: s.company, URL: s.url, Scope: "官网招聘入口"}, Category: s.category, Status: s.status, Note: s.note, CheckedAt: checked})
 	}
 	sectors := []struct{ company, category, url, status, note string }{
 		{"巨人网络", "游戏", "https://hr.ztgame.com/campus/", "访问受限", "官方校招列表可读；官网链接的 Moka 岗位入口在本机出现重定向循环，尚未接通独立岗位详情。"},
@@ -187,7 +187,7 @@ func CampusDirectory() []CampusDirectoryEntry {
 		{"中国电子", "国央企", "https://campus.cec.com.cn/", "需按单位接入", "已支持麒麟软件、中电云两单位；集团校招列表超过单来源容量，其他单位需分别核验后接入。"},
 	}
 	for _, s := range sectors {
-		out = append(out, CampusDirectoryEntry{CampusSite: CampusSite{Company: s.company, URL: s.url, Scope: "仅官网入口，暂不支持自动导入"}, Category: s.category, Status: s.status, Note: s.note, CheckedAt: "2026-10-06"})
+		out = append(out, CampusDirectoryEntry{CampusSite: CampusSite{Company: s.company, URL: s.url, Scope: "官网招聘入口"}, Category: s.category, Status: s.status, Note: s.note, CheckedAt: "2026-10-06"})
 	}
 
 	banks := []struct{ company, url, status, note string }{
@@ -200,7 +200,7 @@ func CampusDirectory() []CampusDirectoryEntry {
 		{"浦发银行", "https://job.spdb.com.cn/", "岗位渠道待核验", "招聘官网可读；本次未读到可核对的公开校招岗位列表，后续需确认当前投递渠道及详情协议。"},
 	}
 	for _, b := range banks {
-		out = append(out, CampusDirectoryEntry{CampusSite: CampusSite{Company: b.company, URL: b.url, Scope: "仅官网入口，暂不支持自动导入"}, Category: "银行", Status: b.status, Note: b.note, CheckedAt: "2026-10-08"})
+		out = append(out, CampusDirectoryEntry{CampusSite: CampusSite{Company: b.company, URL: b.url, Scope: "官网招聘入口"}, Category: "银行", Status: b.status, Note: b.note, CheckedAt: "2026-10-08"})
 	}
 	securities := []struct{ company, url, status, note string }{
 		{"中信证券", "https://careers.citics.com/", "公开协议待适配", "官网可读；公开客户端使用独立招聘网关，总部与分支项目、完整分页及详情尚未完成适配。"},
@@ -208,7 +208,7 @@ func CampusDirectory() []CampusDirectoryEntry {
 		{"国泰海通证券", "https://hr.gtht.com/", "岗位协议待适配", "新版招聘官网可读；校招项目、完整岗位列表及独立详情协议仍待适配，不沿用旧海通或国泰君安渠道冒充当前范围。"},
 	}
 	for _, s := range securities {
-		out = append(out, CampusDirectoryEntry{CampusSite: CampusSite{Company: s.company, URL: s.url, Scope: "仅官网入口，暂不支持自动导入"}, Category: "证券", Status: s.status, Note: s.note, CheckedAt: "2026-10-08"})
+		out = append(out, CampusDirectoryEntry{CampusSite: CampusSite{Company: s.company, URL: s.url, Scope: "官网招聘入口"}, Category: "证券", Status: s.status, Note: s.note, CheckedAt: "2026-10-08"})
 	}
 	return out
 }

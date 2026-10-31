@@ -1,10 +1,10 @@
-# CampusTrace Job Radar Productization Report
+# 岗位雷达实现记录
 
-## Executive Summary
+## 实现概览
 
-CampusTrace Job Radar 增量已实现，等待独立工程审查。用户可关注已登记的招聘来源，由 Worker 内调度循环持续发现及重新核验岗位，进入原有 Observation → Evidence → deterministic Assessment 链，再读取每日摘要、变化与截止雷达，使用通知和投递快捷操作。
+本文记录岗位雷达初版的设计、实现与验收，对应下方基线版本。当前服务关系见[架构文档](docs/architecture.md)。用户可关注已登记的招聘来源，由 Worker 内调度循环持续发现及重新核验岗位，进入原有 Observation → Evidence → deterministic Assessment 链，再读取每日摘要、变化与截止雷达，使用通知和投递快捷操作。
 
-本轮完成 A–J：WatchTarget、Scheduler、Source discovery/fetch、Recent Changes、Deadline Radar、Daily Digest、Notification Inbox、UserJobPreference/Quick Actions、Agent Radar Tools、中文 Job Radar 首页。未新增业务服务、消息系统或依赖，未修改 KanaRPC-Go。未 commit、push、tag 或部署替换现有服务。
+初版实现包括：WatchTarget、Scheduler、Source discovery/fetch、Recent Changes、Deadline Radar、Daily Digest、Notification Inbox、UserJobPreference/Quick Actions、Agent Radar Tools、中文 Job Radar 首页。发现、抓取和通知调度复用当时的 Worker、Redis 队列与 Analysis RPC。
 
 ## Baseline
 
@@ -99,7 +99,7 @@ WATCH_FETCH 是本轮增加的第二个 task type，用于避免一个列表的�
 
 最终 Observation IDs：Lever `9e95e35d150aebb6b440700396f0cd2d`；Greenhouse `958ef95f222af29b98f63e11c780ddd9`；SmartRecruiters `9fb8925969390e97e74a3acef9d2282f`。这些记录在本轮独立测试库中完成持久化验证，测试库不作为运行部署。
 
-接口依据及来源链接：[Lever](https://github.com/lever/postings-api)、[Greenhouse](https://docs.greenhouse.io/job-board.html)、[SmartRecruiters](https://developers.smartrecruiters.com/docs/endpoints)。企业标识与公开接口未来可能变化；不宣称支持这些平台的所有 tenant。
+接口依据及来源链接：[Lever](https://github.com/lever/postings-api)、[Greenhouse](https://docs.greenhouse.io/job-board.html)、[SmartRecruiters](https://developers.smartrecruiters.com/docs/endpoints)。适配范围按已登记的企业标识与公开接口配置，来源清单记录各入口的支持状态。
 
 UNSUPPORTED：未实现的 adapter、非法 tenant、登录/验证码/反爬场景、超过响应或 posting 容量的来源。401/403 明确按 BLOCKED 处理。没有绕过访问限制。
 

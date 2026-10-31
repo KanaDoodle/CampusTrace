@@ -50,7 +50,7 @@ func TestDecisionRecommendationKeepsTiesAndIncompleteScope(t *testing.T) {
 		t.Fatal(report)
 	}
 	partial := BuildCompanyComparison("测试公司", "ALL", []DecisionInput{a, {Job: d.Job{ID: "new"}, State: "BASIC"}}, d.Profile{}, decisionNow)
-	if partial.Recommendation != "PARTIAL" || partial.Pending != 1 || !strings.Contains(strings.Join(partial.Reasons, ""), "不代表整家公司") {
+	if partial.Recommendation != "PARTIAL" || partial.Pending != 1 || !strings.Contains(strings.Join(partial.Reasons, ""), "本次推荐基于已完成分析") {
 		t.Fatal(partial)
 	}
 }
@@ -118,7 +118,7 @@ func TestPreparationSeparatesEvidenceAbsenceAbilityGapsAndSoftOrBonusTasks(t *te
 			byKind[task.Kind] = task
 		}
 	}
-	if !strings.Contains(byKind["EVIDENCE"].Action, "不等于不会") || byKind["LEARN"].Priority != 1 || byKind["DEEPEN"].Category != "BONUS" || byKind["DEEPEN"].Priority != 3 || byKind["REHEARSE"].Category != "SOFT" {
+	if !strings.Contains(byKind["EVIDENCE"].Action, "补充相关项目经历") || byKind["LEARN"].Priority != 1 || byKind["DEEPEN"].Category != "BONUS" || byKind["DEEPEN"].Priority != 3 || byKind["REHEARSE"].Category != "SOFT" {
 		t.Fatal(plan)
 	}
 	for _, task := range plan.Tasks {

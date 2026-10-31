@@ -55,7 +55,7 @@ test('body-derived direction and local tiers participate in filtering without af
 test('local reasons and evidence are escaped, separate mandatory/bonus/alternative clues, and missing evidence is not inability',()=>{
  const a=row('a');a.local={score:57.5,tier:'POSSIBLE',role:'后端开发',role_source:'BODY',role_excerpt:'开发服务接口',reasons:['<script>bad</script>'],warnings:['必需项待核对'],checks:[{category:'REQUIRED',mode:'ANY',terms:['Go','Java'],excerpt:'Go / Java',result:'SIGNAL',evidence:[{kind:'IMPLEMENTED',excerpt:'实现 <Go> 服务'}]},{category:'BONUS',mode:'ALL',terms:['Redis'],excerpt:'Redis 优先',result:'NO_EVIDENCE',evidence:[]}]};
  const html=m.renderLocal(a,{esc});
- for(const word of ['可能相关','来自岗位职责','必需能力','加分项','任选一项','逐项核对','已确认项目事实','资料中暂无依据','57.5','更新时间仅用于同分排序'])assert.ok(html.includes(word),word);
+ for(const word of ['可能相关','来自岗位职责','必需能力','加分项','任选一项','逐项核对','已确认项目事实','资料中暂无依据','57.5','更新时间用于同分排序'])assert.ok(html.includes(word),word);
  assert.ok(!html.includes('<script>'));assert.ok(html.includes('&lt;Go&gt;'));assert.ok(!html.includes('你不具备'));
  assert.ok(m.renderLocal(row('missing'),{esc}).includes('岗位原文尚不可用'));
 });
@@ -83,7 +83,7 @@ test('操作状态与分析状态独立，拒绝和撤回保留真实投递历�
 
 test('analysis structure separates duty evidence from score and puts concrete work before duplicate language labels',()=>{
  const result={state:'ANALYZED',result:{score:60,coverage:100,model:'fixture',analyzed_at:'2026-10-07T00:00:00Z',requirements:[{id:'go',category:'REQUIRED',text:'掌握 Go',excerpt:'掌握 Go',confidence:1},{id:'soft',category:'REQUIRED',aspect:'SOFT',text:'热爱技术',excerpt:'热爱技术',confidence:1}],matches:[{requirement_id:'go',result:'DIRECT',explanation:'有 Go 实现',evidence:[{id:'skill',excerpt:'Go'},{id:'lang',excerpt:'Go'},{id:'impl',excerpt:'用 Go 实现请求复用与超时清理'}]}],candidate_facts:[{id:'skill',kind:'SKILL',text:'Go'},{id:'lang',kind:'LANGUAGE',text:'Go'},{id:'impl',kind:'IMPLEMENTED',text:'用 Go 实现请求复用与超时清理',project_name:'RPC项目'}],qualifications:{status:'UNKNOWN',results:[]},breakdown:[{category:'REQUIRED',total:5,known:5,direct:1,partial:4,missing:0},{category:'RESPONSIBILITY',total:4,known:2,direct:1,partial:1,missing:2},{category:'SOFT',total:1,known:0,missing:1}]}};
- const html=m.renderResult(result,{esc,D});assert.match(html,/工作内容相关性/);assert.match(html,/直接 1 · 部分 1 · 可迁移 0 · 资料待核对 2/);assert.match(html,/覆盖 100% 不等于全部能力已证明/);assert.match(html,/软性要求 1 项 · 默认不限制投递/);assert.ok(html.indexOf('用 Go 实现请求复用与超时清理')<html.indexOf('<br>Go'));assert.equal((html.match(/<br>Go/g)||[]).length,1);
+ const html=m.renderResult(result,{esc,D});assert.match(html,/工作内容相关性/);assert.match(html,/直接 1 · 部分 1 · 可迁移 0 · 资料待核对 2/);assert.match(html,/直接匹配、部分匹配与可迁移经验单独展示/);assert.match(html,/软性要求 1 项 · 默认不限制投递/);assert.ok(html.indexOf('用 Go 实现请求复用与超时清理')<html.indexOf('<br>Go'));assert.equal((html.match(/<br>Go/g)||[]).length,1);
 });
 
 
