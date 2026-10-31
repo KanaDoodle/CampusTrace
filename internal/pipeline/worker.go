@@ -11,6 +11,7 @@ import (
 	p "github.com/KanaDoodle/CampusTrace/internal/persistence"
 	"github.com/KanaDoodle/CampusTrace/internal/source"
 	"github.com/redis/go-redis/v9"
+
 	"log/slog"
 	"sync"
 	"time"
@@ -463,8 +464,6 @@ func (w *Worker) Run(ctx context.Context) error {
 		}
 	}
 }
-
-func (w *Worker) version() string { return d.EffectiveAnalysisVersion(w.Version) }
 
 func (w *Worker) processingVersion(o d.Observation) string {
 	parser := w.ParserVersion

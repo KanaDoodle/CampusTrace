@@ -383,7 +383,12 @@ func TestSchedulerProviderRejectionAndUnknownTimeoutStopWithoutReplay(t *testing
 			model := &schedulerModel{delegate: delegate, failure: &analysis.HTTPError{Status: 429}, timeout: timeout}
 			api.ResumeModel = model
 			runner := api.StartMatchTasks(ctx, 1)
-			runner.ExecutionTimeout = 100 * time.Millisecond
+			// Both branches must reach the provider. A 100ms whole-execution
+			// budget could expire in SQL preparation under -race, turning the
+			// intended 429 into a pre-dispatch timeout with zero model calls.
+			// The timeout fixture blocks on ctx.Done, so a wider budget still
+			// exercises a real in-provider deadline without a fixed sleep.
+			runner.ExecutionTimeout = 2 * time.Second
 			t.Cleanup(runner.Close)
 			run := schedulerSubmit(t, ctx, s, u, token, ids, h)
 			done := awaitRun(t, s, u, run.ID, "WAITING_AUTH")

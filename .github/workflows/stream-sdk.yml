@@ -1,0 +1,41 @@
+name: Published streaming SDK acceptance
+
+"on":
+  workflow_dispatch:
+    inputs:
+      sdk_version:
+        description: Already published KanaRPC-Go v0.2+ version
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  stream-sdk:
+    runs-on: ubuntu-latest
+    env:
+      GOWORK: "off"
+      SDK_VERSION: ${{ inputs.sdk_version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Build from public version and checksum database
+        run: python3 scripts/build-stream-sdk.py --version "$SDK_VERSION" --output "$RUNNER_TEMP/stream-sdk"
+      - name: Adapter regression with the selected module profile
+        run: |
+          export GOMODCACHE="$RUNNER_TEMP/stream-sdk/sdk/module-cache"
+          go test -modfile="$RUNNER_TEMP/stream-sdk/sdk/campustrace-stream.mod" -tags=kanarpc_stream -race -count=1 ./internal/inferencebridge ./internal/agent ./internal/transport
+      - name: Preserve module resolution evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: stream-sdk-resolution
+          path: |
+            ${{ runner.temp }}/stream-sdk/build-result.json
+            ${{ runner.temp }}/stream-sdk/build.log
+            ${{ runner.temp }}/stream-sdk/sdk/resolution.json
+          if-no-files-found: ignore

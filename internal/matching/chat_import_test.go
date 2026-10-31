@@ -41,7 +41,7 @@ func TestChatRequirementDiagnosticsDistinguishQuoteLengthFromSourceMismatch(t *t
 
 func TestChatDistinctQualificationsCanShareSourceSentence(t *testing.T) {
 	profile := d.Profile{Degree: "MASTER", Majors: []string{"软件工程"}}
-	candidate, err := CandidateFrom(profile, nil, "")
+	candidate, err := CandidateWithProjects(profile, nil, nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,7 +64,7 @@ func TestChatDistinctQualificationsCanShareSourceSentence(t *testing.T) {
 
 func TestChatPreferredDegreeDoesNotDemoteMandatoryMajor(t *testing.T) {
 	profile := d.Profile{Degree: "MASTER", Majors: []string{"软件工程"}}
-	candidate, err := CandidateFrom(profile, nil, "")
+	candidate, err := CandidateWithProjects(profile, nil, nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,7 +84,7 @@ func TestChatPreferredDegreeDoesNotDemoteMandatoryMajor(t *testing.T) {
 
 func TestChatDuplicateGuardsDistinguishIDsAndConditions(t *testing.T) {
 	profile := d.Profile{Languages: []string{"Go"}}
-	candidate, err := CandidateFrom(profile, nil, "")
+	candidate, err := CandidateWithProjects(profile, nil, nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -194,7 +194,7 @@ func TestChatDuplicatePositionAndOriginalGroupConsistencyArePreserved(t *testing
 
 func TestChatIndependentAbilitiesCanShareSourceExcerpt(t *testing.T) {
 	profile := d.Profile{}
-	candidate, err := CandidateFrom(profile, nil, "")
+	candidate, err := CandidateWithProjects(profile, nil, nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -218,7 +218,7 @@ func TestChatIndependentAbilitiesCanShareSourceExcerpt(t *testing.T) {
 
 func TestChatImportChecksCitationsAndRecomputesLocalJudgments(t *testing.T) {
 	p := d.Profile{Degree: "MASTER", GraduationYear: 2027, Languages: []string{"Go"}, PreferredCities: []string{"上海"}}
-	c, err := CandidateFrom(p, nil, "")
+	c, err := CandidateWithProjects(p, nil, nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -251,7 +251,7 @@ func TestChatImportChecksCitationsAndRecomputesLocalJudgments(t *testing.T) {
 
 func TestChatAtomicRequirementCanKeepFullMixedSourceContext(t *testing.T) {
 	p := d.Profile{Languages: []string{"Go"}}
-	c, err := CandidateFrom(p, nil, "")
+	c, err := CandidateWithProjects(p, nil, nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}

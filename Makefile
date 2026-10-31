@@ -1,4 +1,9 @@
 SHELL := /bin/sh
+APP_COMPOSE = docker compose --file docker-compose.yml --file compose.app.yml
+SEARCH_COMPOSE = $(APP_COMPOSE) --file compose.search.yml
+OBSERVABILITY_COMPOSE = $(APP_COMPOSE) --file compose.observability.yml
+KAFKA_COMPOSE = $(SEARCH_COMPOSE) --file compose.kafka.yml
+
 .PHONY: deps build cli migrate seed run stop dev-run dev-stop test race vet integration eval loadgen
 deps:
 	docker compose up -d --wait
@@ -26,7 +31,7 @@ vet:
 	go vet ./...
 integration:
 	docker compose exec -T mysql mysql -uroot -plocal-root-only -e "CREATE DATABASE IF NOT EXISTS campustrace_test; GRANT ALL ON campustrace_test.* TO 'campus'@'%';"
-	CAMPUS_INTEGRATION=1 go test -count=1 -v ./internal/integration
+	CAMPUS_INTEGRATION=1 MYSQL_TEST_ADMIN_DSN='root:local-root-only@tcp(127.0.0.1:13306)/mysql?parseTime=true&loc=UTC' go test -count=1 -v ./internal/integration
 
 eval:
 	go run ./cmd/eval
@@ -53,24 +58,24 @@ retrieval-eval:
 
 .PHONY: observability observability-stop observability-status observability-test
 observability:
-	docker compose --file docker-compose.yml --file compose.app.yml --file compose.observability.yml stop api worker analysis-1 analysis-2
-	docker compose --file docker-compose.yml --file compose.app.yml --file compose.observability.yml up -d --build --wait
+	$(OBSERVABILITY_COMPOSE) stop api worker analysis-1 analysis-2
+	$(OBSERVABILITY_COMPOSE) up -d --build --wait
 observability-stop:
-	docker compose --file docker-compose.yml --file compose.app.yml --file compose.observability.yml stop
+	$(OBSERVABILITY_COMPOSE) stop
 observability-status:
-	docker compose --file docker-compose.yml --file compose.app.yml --file compose.observability.yml ps
+	$(OBSERVABILITY_COMPOSE) ps
 observability-test:
 	sh scripts/observability-local.sh
 
 .PHONY: search-stack search-stop search-status search-rebuild search-test
 search-stack:
-	docker compose --file docker-compose.yml --file compose.app.yml --file compose.search.yml up -d --build --wait
+	$(SEARCH_COMPOSE) up -d --build --wait
 search-stop:
-	docker compose --file docker-compose.yml --file compose.app.yml --file compose.search.yml stop
+	$(SEARCH_COMPOSE) stop
 search-status:
-	docker compose --file docker-compose.yml --file compose.app.yml --file compose.search.yml ps
+	$(SEARCH_COMPOSE) ps
 search-rebuild:
-	docker compose --file docker-compose.yml --file compose.app.yml --file compose.search.yml exec -T search /app/search rebuild
+	$(SEARCH_COMPOSE) exec -T search /app/search rebuild
 search-test:
 	sh scripts/search-local.sh
 
@@ -84,7 +89,6 @@ performance-compare:
 	@test -n "$(PERF_BASELINE)" && test -n "$(PERF_CANDIDATE)" || { echo 'Set PERF_BASELINE and PERF_CANDIDATE to report.json paths'; exit 1; }
 	PYTHONDONTWRITEBYTECODE=1 python3 scripts/performance/report.py "$(PERF_CANDIDATE)" --baseline "$(PERF_BASELINE)"
 
-KAFKA_COMPOSE = docker compose --file docker-compose.yml --file compose.app.yml --file compose.search.yml --file compose.kafka.yml
 .PHONY: kafka-stack kafka-stop kafka-status kafka-replay kafka-test kafka-stack-test
 kafka-stack:
 	$(KAFKA_COMPOSE) run --rm kafka-init
@@ -112,8 +116,8 @@ recovery-test:
 online-rebuild-test:
 	SEARCH_TESTS='^TestSearchOnline' sh scripts/search-local.sh
 search-rebuild-progress:
-	docker compose --file docker-compose.yml --file compose.app.yml --file compose.search.yml exec -T search /app/search status
+	$(SEARCH_COMPOSE) exec -T search /app/search status
 search-rebuild-abort:
-	docker compose --file docker-compose.yml --file compose.app.yml --file compose.search.yml exec -T search /app/search abort
+	$(SEARCH_COMPOSE) exec -T search /app/search abort
 search-rollback:
-	docker compose --file docker-compose.yml --file compose.app.yml --file compose.search.yml exec -T search /app/search rollback
+	$(SEARCH_COMPOSE) exec -T search /app/search rollback

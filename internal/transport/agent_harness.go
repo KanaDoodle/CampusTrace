@@ -30,6 +30,7 @@ func executionResponse(v p.AgentExecution) any {
 }
 
 func (a *API) agentHarnessRoutes(on func(string, http.HandlerFunc)) {
+	a.narrationRoutes(on)
 	on("GET /api/agent/skills", func(w http.ResponseWriter, r *http.Request) { write(w, agent.Skills(), nil) })
 	on("GET /api/agent/executions", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
@@ -118,6 +119,9 @@ func (a *API) agentHarnessRoutes(on func(string, http.HandlerFunc)) {
 	})
 	on("POST /api/agent/executions/{id}/cancel", func(w http.ResponseWriter, r *http.Request) {
 		e := a.Store.CancelAgentExecution(r.Context(), user(r), r.PathValue("id"))
+		if e == nil && a.Narrations != nil {
+			a.Narrations.Cancel(r.PathValue("id"))
+		}
 		write(w, map[string]bool{"cancelled": e == nil}, e)
 	})
 	on("GET /api/agent/todos", func(w http.ResponseWriter, r *http.Request) {

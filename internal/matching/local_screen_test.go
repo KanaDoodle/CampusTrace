@@ -12,7 +12,7 @@ import (
 
 func localFixture(t *testing.T, p d.Profile, facts []d.ProjectFact) *LocalScreener {
 	t.Helper()
-	c, err := CandidateFrom(p, facts, "")
+	c, err := CandidateWithProjects(p, facts, nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -269,7 +269,7 @@ func TestLocalSummaryPreservesScoresAndDecisionsWithoutBuildingCitations(t *test
 
 func BenchmarkLocalInventoryEvidence(b *testing.B) {
 	p := localProfile()
-	c, err := CandidateFrom(p, []d.ProjectFact{{ID: "project", Kind: "IMPLEMENTED", Verified: true, Claim: "实现 Go 并发服务和 Redis 任务队列"}}, "")
+	c, err := CandidateWithProjects(p, []d.ProjectFact{{ID: "project", Kind: "IMPLEMENTED", Verified: true, Claim: "实现 Go 并发服务和 Redis 任务队列"}}, nil, "")
 	if err != nil {
 		b.Fatal(err)
 	}

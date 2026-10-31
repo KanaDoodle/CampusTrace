@@ -20,7 +20,7 @@ if [ "$ready" != "1" ]; then ./scripts/stop.sh; echo 'Startup failed; inspect bi
 for name in api worker analysis-1 analysis-2; do
   if ! kill -0 "$(cat "bin/$name.pid")" 2>/dev/null; then ./scripts/stop.sh; echo "Process $name failed; inspect bin/*.log" >&2; exit 1; fi
 done
-printf 'CampusTrace: http://127.0.0.1:8080\nLogs: bin/*.log\nStop: make stop\n'
+printf 'CampusTrace: http://127.0.0.1:8080\nLogs: bin/*.log\nStop: make dev-stop\n'
 
 if [ "${FOREGROUND:-0}" = "1" ]; then
   trap './scripts/stop.sh' EXIT INT TERM

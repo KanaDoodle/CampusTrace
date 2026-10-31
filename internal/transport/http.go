@@ -45,6 +45,7 @@ type API struct {
 	CustomModelSlots chan struct{}
 	MatchTasks       *MatchTaskRunner
 	ModelControl     *modelcontrol.Controller
+	Narrations       *agent.NarrationRunner
 }
 
 func (a *API) customModel(cfg modelconfig.Config) (*analysis.ChatClient, error) {

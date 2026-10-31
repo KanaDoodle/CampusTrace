@@ -9,7 +9,7 @@
   evidence:['profile_local.js','evidence.js'],
   models:['models.js','knowledge.js','knowledge.css'],
   knowledge:['models.js','matching.js','knowledge.js','knowledge_bulk.js','knowledge.css','agent.css'],
-  agent:[...shared,'agent_actions.js','agent_workspace.js','agent_harness.js','agent.css'],
+  agent:[...shared,'agent_actions.js','agent_workspace.js','agent_harness.js','agent_narration.js','agent.css'],
   practice:['practice.js'],
   applications:['campaigns.js','applications.js','drafts.js'],
   interviews:['interviews.js','drafts.js'],

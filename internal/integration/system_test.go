@@ -14,6 +14,7 @@ import (
 	p "github.com/KanaDoodle/CampusTrace/internal/persistence"
 	"github.com/KanaDoodle/CampusTrace/internal/pipeline"
 	"github.com/KanaDoodle/CampusTrace/internal/rag"
+	"github.com/KanaDoodle/CampusTrace/internal/testsupport/sqlfixture"
 	"github.com/KanaDoodle/CampusTrace/internal/transport"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/redis/go-redis/v9"
@@ -38,7 +39,11 @@ func setup(t *testing.T) (context.Context, *p.Store, *pipeline.Queue, string, st
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	t.Cleanup(cancel)
 	c := config.Load()
-	s, err := p.Open(ctx, config.Env("MYSQL_TEST_DSN", strings.Replace(c.DSN, "/campustrace?", "/campustrace_test?", 1)))
+	dsn := sqlfixture.Database(t, config.Env("MYSQL_TEST_DSN", c.DSN), "integration")
+	// Child API/MCP processes must use this test's schema too. Tests using this
+	// helper intentionally do not call t.Parallel because they launch children.
+	t.Setenv("MYSQL_TEST_DSN", dsn)
+	s, err := p.Open(ctx, dsn)
 	must(t, err)
 	t.Cleanup(func() { s.DB.Close() })
 	must(t, s.Migrate(ctx))
@@ -58,17 +63,8 @@ func setup(t *testing.T) (context.Context, *p.Store, *pipeline.Queue, string, st
 	must(t, err)
 	source := d.ID()
 	must(t, s.SaveSource(ctx, d.Source{ID: source, Name: "Synthetic integration official", Type: "OFFICIAL", Trust: "OFFICIAL"}))
-	// Both Dispatch and EnqueueFreshness read shared SQL tables despite each
-	// fixture's private Redis prefix. Remove the fixture's jobs and dependent
-	// records as well as pending tasks, so a later freshness tick cannot recreate
-	// hundreds of tasks from already-finished catalog tests.
-	t.Cleanup(func() {
-		cleanup, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		if err := cleanupFixture(cleanup, s, u, source); err != nil {
-			t.Error(err)
-		}
-	})
+	// sqlfixture drops this entire owned schema after all stores/processes close,
+	// including public sources and extra accounts created by a test.
 	return ctx, s, q, u, source
 }
 

@@ -71,6 +71,8 @@ The Compose project is always named `campustrace`. Put local settings in the ign
 4. **Turn analysis into action.** Compare saved results for the same company, add an application plan and work through the preparation checklist. Comparison and checklist reads do not trigger model calls. Maintain explicit application limits for the same company and recruiting round; actual submission still happens on the company’s website.
 5. **Keep the trail.** Record application stages, resume versions, interview dates and reviews. The Today list shows upcoming deadlines and interviews, missing reviews and recent analysis failures.
 
+Matching and exports use the same document assembled from reviewed education, skills, complete project paragraphs and confirmed facts. Removed extraction mistakes are not reintroduced from an original résumé.
+
 Local screening, whole-context relevance, eligibility and whether a role is open are separate judgments. Company comparisons use the complete candidate shortlist and explain first choices and tradeoffs; no item-count score predicts an offer.
 
 The directory has **银行** (banks) and **证券** (securities) filters. Bank presets cover CMB technology, CITIC IT, Bank of China software and IT operations, and Bank of Communications headquarters fintech roles. Securities presets cover China Merchants Securities, Huatai headquarters, CSC, Guosen, Galaxy and CICC. Each preset shows its actual scope; graduation dates, internship assessments and employment requirements remain in the original text. Other entries link to official sites and explain what still needs adaptation.
@@ -94,7 +96,9 @@ Querying a saved match does not start a new deep-analysis round. Allowed writes,
 
 Four built-in tasks collect context for company choices, interview preparation, review and today’s next steps. These are fixed, versioned read workflows: they save progress and can resume unfinished steps without starting paid analysis. Ordinary model-backed questions can choose permitted tools; business answers come from successful tool results.
 
-You can maintain reviewed memories, continue a prior discussion, enable recruiting-change reminders and select textual resources from an HTTPS MCP service. Model settings support a separate model for complex questions and a bounded request budget. The optional Go practice runner executes user-submitted code and tests in restricted containers. See [assistant capabilities and limits](docs/agent-harness.md) and [memory and practice](docs/agent-workspace.md).
+Four versioned read workflows cover company choices, interview preparation, review planning and daily recruiting tasks. SQL checkpoints preserve completed steps across interruptions. Reviewed memories, optional HTTPS MCP text resources and bounded model routing support these workflows; they do not submit applications or start paid job analysis. See [assistant capabilities and limits](docs/agent-harness.md).
+
+Optional learning notes and Go exercises are grouped under **实验功能**. Notes use local BM25 with explicitly configured semantic retrieval and reranking. The practice runner executes code in restricted containers and is enabled separately. See [retrieval](docs/knowledge-retrieval.md) and [memory and practice](docs/agent-workspace.md).
 
 Without one, a limited offline router lets you inspect the tool flow. It is not a full chat model.
 
@@ -159,17 +163,3 @@ CampusTrace targets personal use. There is no automatic application submission, 
 Issues are welcome. Reproduction steps and a redacted error message help; keep real resumes, keys and database backups private.
 
 License: [AGPL v3](LICENSE). See [dependency and upstream notices](docs/dependency-audit.md); KanaRPC-Go retains its KamaRPC-Go source history and attribution.
-
-## Reviewed context, memory and Go practice
-
-Matching now reads a single document assembled from saved, reviewed education, skills, complete project paragraphs and confirmed facts. Add omitted internships or research in Additional experience, then preview the saved analysis document. API calls and ChatGPT exports use the same document; removed extraction mistakes are not reintroduced from the original résumé.
-
-In Job Q&A, manage reviewed preferences, decisions and corrections, or ask the Agent to remember something and confirm its preview. Continue a saved discussion explicitly; changed profile or memory prevents stale summaries from being loaded. Memory is context, never proof of skills or current business state.
-
-Enable optional Go exercises with `./campustrace practice start`, then open Go practice under More tools. Run your implementation and tests, inspect real results and reload saved code. A separate trusted Docker controller enforces a fixed image, no network, read-only root, non-root execution, bounded resources and cleanup. This is a personal exercise runner, not a public multi-tenant isolation claim. See [reviewed context, memory and practice](docs/agent-workspace.md) for usage and limits.
-
-### Recruiting assistant workflows
-
-The assistant now has four versioned read workflows: company choices, interview preparation, review planning, and daily recruiting tasks. MySQL checkpoints preserve completed steps across interruptions. Relevant memory/tool selection, bounded read retries, optional public HTTPS MCP text resources, explicit model routing, usage reporting, and opt-in event reminders are documented in [the assistant guide](docs/agent-harness.md). Workflows reuse existing records and do not start paid job analysis or submit applications.
-
-Learning notes now have their own page. Local BM25 is the default; an explicitly configured embedding service supports semantic retrieval, with optional reranking of up to 20 candidates. Indexing requires a redacted-text preview. Keys stay in the browser. [Usage, retrieval evaluation and limits](docs/knowledge-retrieval.md).

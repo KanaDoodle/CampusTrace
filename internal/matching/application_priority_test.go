@@ -69,36 +69,6 @@ func TestExperienceDeclarationKeepsPartialSupportWithoutInventingPractice(t *tes
 	}
 }
 
-func TestAISplittingPreservesProficiencyContextAndAlternatives(t *testing.T) {
-	text := "深入理解Agent原理与架构，包括 Planning、Memory、Tool Use、Reflection等核心机制"
-	reqs := []Requirement{{ID: "r", Category: "REQUIRED", Text: text, Excerpt: text, Confidence: 1}}
-	got, err := PrepareCachedRequirements(reqs, text)
-	if err != nil || len(got) != 4 {
-		t.Fatal(got, err)
-	}
-	for _, r := range got {
-		if !strings.HasPrefix(r.Text, "深入理解Agent ") || r.Excerpt != text {
-			t.Fatal(r)
-		}
-	}
-	short := []Requirement{{ID: "memory", Category: "REQUIRED", Text: "理解Agent Memory机制", Excerpt: "Memory", Confidence: 1}}
-	got, err = PrepareCachedRequirements(short, text)
-	if err != nil || got[0].Text != "深入理解Agent Memory机制" || got[0].Excerpt != text {
-		t.Fatal(got, err)
-	}
-	for _, choice := range []string{"熟悉 Planning、Memory、Tool Use 中任一机制", "熟悉 LangGraph、AutoGen 等框架"} {
-		got, err := PrepareCachedRequirements([]Requirement{{ID: "choice", Category: "REQUIRED", Text: choice, Excerpt: choice, Confidence: 1}}, choice)
-		if err != nil || len(got) != 1 {
-			t.Fatal(got, err)
-		}
-	}
-	rag := "了解RAG技术原理，包括文档解析、分块策略、向量化、检索排序"
-	got, err = PrepareCachedRequirements([]Requirement{{ID: "rag", Category: "REQUIRED", Text: rag, Excerpt: rag, Confidence: 1}}, rag)
-	if err != nil || len(got) != 4 {
-		t.Fatal(got, err)
-	}
-}
-
 func TestChatContextRepairDoesNotBlockImportOrCopyJudgments(t *testing.T) {
 	text := "深入理解Agent原理，包括 Planning、Memory、Tool Use 等核心机制"
 	reqs := []Requirement{

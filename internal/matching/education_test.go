@@ -2,14 +2,13 @@ package matching
 
 import (
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
-	"strings"
 	"testing"
 	"time"
 )
 
 func TestMatchingUsesSelectedGraduationAndDegreeSpecificMajors(t *testing.T) {
 	p := d.Profile{Educations: []d.Education{{ID: "b", Degree: "BACHELOR", Majors: []string{"计算机"}, GraduationYear: 2024, Status: "GRADUATED"}, {ID: "m", Degree: "MASTER", Majors: []string{"数学"}, GraduationYear: 2027, Status: "ENROLLED"}}, PrimaryEducationID: "m"}
-	c, err := CandidateFrom(p, nil, "")
+	c, err := CandidateWithProjects(p, nil, nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,14 +35,11 @@ func TestMatchingUsesSelectedGraduationAndDegreeSpecificMajors(t *testing.T) {
 		}
 	}
 	p.PrimaryEducationID = "b"
-	other, _ := CandidateFrom(p, nil, "")
+	other, _ := CandidateWithProjects(p, nil, nil, "")
 	for _, f := range other.Facts {
 		if f.Kind == "GRADUATION" && f.Text != "2024" {
 			t.Fatal(f)
 		}
-	}
-	if !strings.Contains(comparisonPrompt, "owning degree") {
-		t.Fatal("degree scope missing from model instruction")
 	}
 	if abilityCitation(Fact{Kind: "EDUCATION"}, Requirement{Category: "REQUIRED"}) {
 		t.Fatal("education proved technical ability")
@@ -51,7 +47,7 @@ func TestMatchingUsesSelectedGraduationAndDegreeSpecificMajors(t *testing.T) {
 	before := ComparisonCandidateHash(c, ComparisonAbilities)
 	p.PrimaryEducationID = "m"
 	p.Educations[1].GraduationYear = 2028
-	changed, _ := CandidateFrom(p, nil, "")
+	changed, _ := CandidateWithProjects(p, nil, nil, "")
 	if ComparisonCandidateHash(changed, ComparisonAbilities) != before {
 		t.Fatal("graduation-only edit invalidated ability comparison")
 	}

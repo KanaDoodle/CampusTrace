@@ -147,7 +147,7 @@ func (s *Store) ForgetMemory(ctx context.Context, user, id string, version uint6
 		if _, err = tx.ExecContext(ctx, "DELETE FROM agent_tasks WHERE user_id=?", user); err != nil {
 			return err
 		}
-		if _, err = tx.ExecContext(ctx, `UPDATE agent_executions SET state='STALE',lease_token='',lease_until=NULL,body=JSON_SET(body,'$.state','STALE','$.input',NULL,'$.plan',JSON_ARRAY(),'$.grounded_observations',JSON_ARRAY(),'$.failures',JSON_ARRAY(),'$.answer','') WHERE user_id=?`, user); err != nil {
+		if _, err = tx.ExecContext(ctx, `UPDATE agent_executions SET state='STALE',lease_token='',lease_until=NULL,body=JSON_SET(body,'$.state','STALE','$.input',NULL,'$.plan',JSON_ARRAY(),'$.grounded_observations',JSON_ARRAY(),'$.failures',JSON_ARRAY(),'$.answer','','$.narration',NULL) WHERE user_id=?`, user); err != nil {
 			return err
 		}
 		old.Content = ""

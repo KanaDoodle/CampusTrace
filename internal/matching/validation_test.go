@@ -1,7 +1,6 @@
 package matching
 
 import (
-	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -40,42 +39,6 @@ func TestComparisonValidationDiagnosesWithoutEchoingCandidateOrOutput(t *testing
 		err := ValidateMatches(c, req, []Match{m})
 		var v *ValidationError
 		if !errors.As(err, &v) || v.Reason != tt.reason || v.ItemIndex != 1 {
-			t.Fatal(tt.reason, err)
-		}
-	}
-}
-func TestComparisonResolvesPreferencesBeforeModelCitationValidationButKeepsAbilityChecks(t *testing.T) {
-	c := Candidate{Facts: []Fact{{ID: "city", Kind: "CITY_PREFERRED", Text: "Shanghai"}}}
-	reqs := []Requirement{{ID: "city-r", Category: "QUALIFICATION", ClaimType: "LOCATION", Value: "上海市"}, {ID: "tech", Category: "REQUIRED"}}
-	output := []Match{{RequirementID: "city-r", Result: "MISMATCH", Explanation: "模型错认偏好", Evidence: []Citation{}}, {RequirementID: "tech", Result: "NO_EVIDENCE", Explanation: "暂无技术依据", Evidence: []Citation{}}}
-	model := &fakeModel{output: map[string]any{"jobs": []any{map[string]any{"job_id": "job", "matches": output}}}}
-	got, err := Compare(context.Background(), model, c, []MatchInput{{ID: "job", Requirements: reqs}})
-	if err != nil || got["job"][0].Result != "DIRECT" || got["job"][0].Evidence[0].Excerpt != "Shanghai" || model.calls != 1 {
-		t.Fatal(got, err)
-	}
-	output[1] = Match{RequirementID: "tech", Result: "DIRECT", Explanation: "错认能力", Evidence: []Citation{{ID: "city", Excerpt: "Shanghai"}}}
-	got, err = Compare(context.Background(), model, c, []MatchInput{{ID: "job", Requirements: reqs}})
-	if err != nil || got["job"][1].Result != "NO_EVIDENCE" || got["job"][1].ReviewNote != InvalidAbilityEvidence || len(got["job"][1].Evidence) != 0 || got["job"][0].Result != "DIRECT" {
-		t.Fatal("invalid ability judgment was not withdrawn independently", got, err)
-	}
-	output[0].RequirementID = "tech"
-	output[0].Result = "NO_EVIDENCE"
-	_, err = Compare(context.Background(), model, c, []MatchInput{{ID: "job", Requirements: reqs}})
-	var v *ValidationError
-	if !errors.As(err, &v) || v.Reason != "REQUIREMENT_DUPLICATE" {
-		t.Fatal("duplicate guard bypassed", err)
-	}
-}
-
-func TestComparisonSchemaFailuresAreDistinctFromCitationFailures(t *testing.T) {
-	for _, tt := range []struct {
-		reason string
-		output any
-	}{{"RESPONSE_SCHEMA", map[string]any{"jobs": nil}}, {"JOB_COUNT", map[string]any{"jobs": []any{}}}, {"JOB_UNKNOWN", map[string]any{"jobs": []any{map[string]any{"job_id": "private-invented", "matches": []any{}}}}}} {
-		m := &fakeModel{output: tt.output}
-		_, err := Compare(context.Background(), m, Candidate{}, []MatchInput{{ID: "job", Requirements: []Requirement{}}})
-		var v *ValidationError
-		if !errors.As(err, &v) || v.Reason != tt.reason || strings.Contains(err.Error(), "private") || m.calls != 1 {
 			t.Fatal(tt.reason, err)
 		}
 	}

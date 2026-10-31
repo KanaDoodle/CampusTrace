@@ -3,8 +3,6 @@ package matching
 import (
 	"regexp"
 	"strings"
-
-	d "github.com/KanaDoodle/CampusTrace/internal/domain"
 )
 
 var mixedClauses = regexp.MustCompile(`[，,；;]`)
@@ -71,32 +69,4 @@ func splitTestableRequirements(items []Requirement) []Requirement {
 		out = append(out, r)
 	}
 	return out
-}
-
-// An explicitly requested new comparison also benefits from cached extraction.
-// Historical completed matches keep their original ability units; no judgment
-// is invented for a newly split capability. Unchanged cache IDs are retained.
-func PrepareCachedRequirements(items []Requirement, text string) ([]Requirement, error) {
-	out := RepairQualifications(normalizeRequirements(append([]Requirement{}, items...), text), text)
-	if len(out) > MaxRequirements {
-		return nil, ErrCapacity
-	}
-	counts := map[string]int{}
-	for _, r := range out {
-		counts[r.ID]++
-	}
-	seen := map[string]bool{}
-	for i, r := range out {
-		if r.ID == "" || counts[r.ID] > 1 {
-			out[i].ID = d.Hash(r.Category + "\n" + r.Text + "\n" + r.Excerpt + "\n" + r.Aspect + "\n" + r.GroupID)[:24]
-		}
-		if err := ValidateRequirement(out[i], text); err != nil {
-			return nil, err
-		}
-		if seen[out[i].ID] {
-			return nil, ErrInvalid
-		}
-		seen[out[i].ID] = true
-	}
-	return out, validateGroups(out)
 }

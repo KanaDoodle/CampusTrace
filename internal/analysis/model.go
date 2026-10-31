@@ -88,34 +88,8 @@ func (c *ChatClient) completeUsage(ctx context.Context, messages any, tools any,
 			return nil, Usage{}, &HTTPError{429}
 		}
 	}
-	body := map[string]any{"model": c.Model, "messages": messages, "temperature": 0}
-	endpoint, _ := url.Parse(c.URL)
-	if c.OutputTokenLimit > 0 {
-		if endpoint != nil && endpoint.Hostname() == "api.openai.com" {
-			body["max_completion_tokens"] = c.OutputTokenLimit
-		} else {
-			body["max_tokens"] = c.OutputTokenLimit
-		}
-	}
-	if endpoint != nil && endpoint.Hostname() == "api.deepseek.com" {
-		// DeepSeek enables high-effort thinking by default. This workflow needs
-		// the final structured answer and does not retain reasoning across tools.
-		body["thinking"] = map[string]string{"type": "disabled"}
-		if jsonOutput {
-			body["response_format"] = map[string]string{"type": "json_object"}
-		}
-	}
-	if endpoint != nil && endpoint.Hostname() == "api.openai.com" && (c.Model == "gpt-6-luna" || c.Model == "gpt-6-sol") {
-		// GPT-6 Chat Completions tool calls use none reasoning effort.
-		body["reasoning_effort"] = "none"
-		delete(body, "temperature")
-	}
-	if jsonOutput && endpoint != nil && endpoint.Hostname() == "api.openai.com" {
-		body["response_format"] = map[string]string{"type": "json_object"}
-	}
-	if tools != nil {
-		body["tools"] = tools
-	}
+	body := c.requestBody(messages, tools, jsonOutput)
+
 	req, err := http.NewRequestWithContext(ctx, "POST", c.URL, bytes.NewBufferString(d.JSON(body)))
 	if err != nil {
 		return nil, Usage{}, err
@@ -157,6 +131,39 @@ func (c *ChatClient) completeUsage(ctx context.Context, messages any, tools any,
 		u = Usage{*v.Usage.PromptTokens, *v.Usage.CompletionTokens, true}
 	}
 	return v.Choices[0].Message, u, nil
+}
+
+// requestBody keeps streaming and ordinary calls on the same provider settings.
+func (c *ChatClient) requestBody(messages any, tools any, jsonOutput bool) map[string]any {
+	body := map[string]any{"model": c.Model, "messages": messages, "temperature": 0}
+	endpoint, _ := url.Parse(c.URL)
+	if c.OutputTokenLimit > 0 {
+		if endpoint != nil && endpoint.Hostname() == "api.openai.com" {
+			body["max_completion_tokens"] = c.OutputTokenLimit
+		} else {
+			body["max_tokens"] = c.OutputTokenLimit
+		}
+	}
+	if endpoint != nil && endpoint.Hostname() == "api.deepseek.com" {
+		// DeepSeek enables high-effort thinking by default. This workflow needs
+		// the final structured answer and does not retain reasoning across tools.
+		body["thinking"] = map[string]string{"type": "disabled"}
+		if jsonOutput {
+			body["response_format"] = map[string]string{"type": "json_object"}
+		}
+	}
+	if endpoint != nil && endpoint.Hostname() == "api.openai.com" && (c.Model == "gpt-6-luna" || c.Model == "gpt-6-sol") {
+		// GPT-6 Chat Completions tool calls use none reasoning effort.
+		body["reasoning_effort"] = "none"
+		delete(body, "temperature")
+	}
+	if jsonOutput && endpoint != nil && endpoint.Hostname() == "api.openai.com" {
+		body["response_format"] = map[string]string{"type": "json_object"}
+	}
+	if tools != nil {
+		body["tools"] = tools
+	}
+	return body
 }
 
 type LLMExtractor struct{ Client *ChatClient }

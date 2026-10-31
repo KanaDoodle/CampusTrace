@@ -26,14 +26,15 @@ function table(rows,columns,message='暂无记录。') {
 function options(group,selected,blank=false) {
   return (blank?'<option value="">请选择</option>':'')+Object.entries(D.enums[group]).map(([value,label])=>`<option value="${esc(value)}" ${value===selected?'selected':''}>${esc(label)}</option>`).join('');
 }
-async function api(path,method='GET',body) {
+async function api(path,method='GET',body,options={}) {
   let response;
   const version=authVersion,headers={'Content-Type':'application/json'};
   if(token&&token!=='cookie-session')headers.Authorization='Bearer '+token;
-  try { response=await fetch(path,{method,credentials:'same-origin',headers,body:body===undefined?undefined:JSON.stringify(body)}); }
+  try { response=await fetch(path,{method,credentials:'same-origin',signal:options.signal,headers:{...headers,...options.headers},body:body===undefined?undefined:JSON.stringify(body)}); }
   catch { throw new UserError('暂时无法连接服务，请检查网络后重试。'); }
   if(response.status===401&&version===authVersion&&token&&(path.startsWith('/api/')||path.startsWith('/agent/'))){clearLogin();show();}
   if (!response.ok) { const details=await response.json().catch(()=>({}));const error=new UserError(D.errorCode(details.code,response.status,path));error.status=response.status;error.code=details.code;if(path.includes('/api/matching/')){const jobIndex=details.diagnostic?.job_index;if(Number.isInteger(jobIndex)&&jobIndex>0&&jobIndex<=100)error.jobIndex=jobIndex;const stage={PREPARE:'准备资料',EXTRACT:'提取岗位要求',COMPARE:'匹配个人资料',SAVE:'保存结果'}[details.diagnostic?.stage];const status=details.diagnostic?.provider_status;const id=details.request_id||response.headers.get('X-Request-ID');if(stage)error.message+=' 失败阶段：'+stage+'。';error.message+=D.matchingDiagnostic(details.diagnostic);if(Number.isInteger(status)&&status>=100&&status<=599)error.message+=' 模型服务响应：HTTP '+status+'。';if(/^[a-f0-9]{32}$/.test(id||''))error.message+=' 请求编号：'+id+'。';}if(path==='/api/profile/resume/draft'){const reason=D.resumeDiagnostic(details.diagnostic);if(reason)error.message+=' 具体原因：'+reason+'。';const id=details.request_id||response.headers.get('X-Request-ID');if(/^[a-f0-9]{32}$/.test(id||''))error.message+=' 请求编号：'+id+'。';}throw error; }
+  if(options.stream){if(version!==authVersion){await response.body?.cancel?.();throw new UserError('登录状态已变化，请重新打开。');}return response;}
   try { return await response.json(); } catch { throw new UserError('服务返回的内容暂时无法显示，请稍后重试。'); }
 }
 function fail(error) { $('#notice').textContent=error instanceof UserError?error.message:'暂时无法完成操作，请检查填写内容或稍后重试。'; }
@@ -56,20 +57,16 @@ const authUI=CampusAuth.mount({api,formAction,UserError,fail,onLogin:()=>{authVe
 function clearLogin(){CampusUI.closeAll();pageVersion++;authVersion++;token='';sessionStorage.removeItem('campustrace-token');globalThis.CampusModels?.lock();globalThis.CampusMatching?.lock();globalThis.CampusInventory?.forget();globalThis.CampusKnowledge?.lock();globalThis.CampusDrafts?.lock();$('#content').replaceChildren();authUI.reset();}
 $('#logout').onclick=async()=>{if(!await CampusNavigation.leave())return;const button=$('#logout');button.disabled=true;try{await api('/auth/logout','POST',{});clearLogin();$('#notice').textContent='';show();}catch(error){fail(error);}finally{button.disabled=false;}};
 for (const b of document.querySelectorAll('[data-page]')) b.onclick=()=>page(b.dataset.page).catch(fail);
-const pageTitles={journey:'招聘通知',dossier:'申请档案与准备',radar:'我的校招雷达',watches:'关注源',source_jobs:'来源岗位',notifications:'通知收件箱',preferences:'稍后看与忽略',closing:'截止雷达',changes:'最近变化',jobs:'校招岗位',matching:'岗位雷达',company_decision:'公司投递决策',applications:'投递进展',interviews:'面试与复盘',weak_topics:'待加强知识点',project_facts:'项目事实',practice:'Go 练习',agent:'求职问答',knowledge:'学习资料',profile:'求职资料',models:'模型设置',ingest:'录入岗位'};
+const pageTitles={journey:'招聘通知',dossier:'申请档案与准备',radar:'我的校招雷达',watches:'关注源',source_jobs:'来源岗位',notifications:'通知收件箱',preferences:'稍后看与忽略',closing:'截止雷达',changes:'最近变化',matching:'岗位雷达',applications:'投递进展',interviews:'面试与复盘',weak_topics:'待加强知识点',practice:'Go 练习',agent:'求职问答',knowledge:'学习资料',profile:'求职资料',models:'模型设置',ingest:'录入岗位'};
 function input(name,label,value='',type='text',extra='') {return `<label>${esc(label)}<input name="${esc(name)}" type="${type}" value="${esc(value)}" ${extra}></label>`;}
 function area(name,label,value='',extra='') {return `<label>${esc(label)}<textarea name="${esc(name)}" ${extra}>${esc(value)}</textarea></label>`;}
-function displayQuery(query) {
-  const samples={'雪松':'Synthetic Cedar','港湾':'Synthetic Harbor','枫叶':'Synthetic Maple','青松':'Synthetic Pine','后端':'backend','实习':'intern'};
-  return samples[query.trim()]||query;
-}
 async function page(name,query='') {
   if(!await CampusNavigation.leave())return;
   if(name==='project_facts')name='profile';
   if(name==='jobs')name='matching';
   if(name==='company_decision'){name='matching';query={...(typeof query==='object'?query:{}),view:'company'};}
   CampusUI.closeAll();
-  const navName=name==='dossier'?'applications':name==='source_jobs'?'watches':['closing','changes'].includes(name)?'radar':name;
+  const navName=name==='weak_topics'?'interviews':name==='dossier'?'applications':name==='source_jobs'?'watches':['closing','changes'].includes(name)?'radar':name;
   for(const b of document.querySelectorAll('nav [data-page]')){if(b.dataset.page===navName)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');}
   $('#crumb').textContent=pageTitles[name]||'求职记录';
   document.querySelector('.sidebar').classList.remove('menu-open');
@@ -103,7 +100,7 @@ async function page(name,query='') {
     const agentDrafts=CampusNavigation.forms(document,{selector:'#memory-editor, #agent-skill-form, #agent-connector-form',ignoreNames:['skill_id']});agentDrafts.restore();CampusNavigation.register({active:()=>version===pageVersion,dirty:()=>agentDrafts.dirty()});
     const workspace=await CampusAgentWorkspace.bind({api,esc,formAction,UserError,fail,drafts:agentDrafts,active:()=>version===pageVersion});
     if(version!==pageVersion)return;
-    const harness=await CampusAgentHarness.bind({api,esc,formAction,UserError,fail,D,renderData:translated,navigate:page,drafts:agentDrafts,user:capabilities.user_id,initialSkill:query?.skill,active:()=>version===pageVersion});
+    const harness=await CampusAgentHarness.bind({api,fetchStream:(path,opts)=>api(path,'GET',undefined,{stream:true,signal:opts.signal,headers:opts.lastEventID?{'Last-Event-ID':opts.lastEventID}:{}}),esc,formAction,UserError,fail,D,renderData:translated,navigate:page,drafts:agentDrafts,user:capabilities.user_id,initialSkill:query?.skill,active:()=>version===pageVersion});
     if(version!==pageVersion)return;
     formAction('#ask',async (data,form)=>{const button=form.querySelector('button[type="submit"]');button.textContent='正在查询…';form.setAttribute('aria-busy','true');try{const result=await api('/agent/decide','POST',{...harness.options(),retrieval:CampusKnowledge.requestOptions(),task_id:workspace.taskID()||undefined,session_id:CampusModels.sessionID(capabilities),message:data.get('message'),model_config:CampusModels.requestConfig(),mask_name:CampusMatching.matchIdentity().mask_name});if(version!==pageVersion)return;harness.showQuestion();renderAgent(result,$('#agent-result'),()=>workspace.refresh());await Promise.all([workspace.refresh(),harness.refresh()]);}finally{button.textContent='查询求职记录';form.removeAttribute('aria-busy');}});return;
   }
@@ -116,7 +113,6 @@ async function page(name,query='') {
   }
   const rows=await api('/api/'+name);if(version!==pageVersion)return;
   if(name==='weak_topics') {set(`${heading}${table(rows,['topic','weight','occurrence_count','first_seen','last_seen','evidence_sources'],'还没有待加强知识点。完成面试复盘后，在这里查看需要重点补齐的内容。')}`);return;}
-  if(name==='project_facts') {set(`${heading}${rows.length?rows.map(f=>`<article class="card"><h3>${pill(f.kind,'fact')} · ${f.verified?'已核验':'待核验'}</h3><p>${esc(D.text(f.claim))}</p><p class="meta">项目编号：${esc(f.project_id)} · 更新于 ${esc(D.date(f.updated_at))}</p>${f.reference?`<p>依据：${esc(D.text(f.reference))}</p>`:''}</article>`).join(''):empty('还没有项目事实。添加并核验项目内容后，可用于面试准备。')}`);}
 }
 function protectEditor(selector,version) {
   const drafts=CampusNavigation.forms(document,{selector});drafts.restore();CampusNavigation.register({active:()=>version===pageVersion,dirty:()=>drafts.dirty()});return drafts;

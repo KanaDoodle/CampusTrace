@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/KanaDoodle/CampusTrace/internal/agent"
 	"github.com/KanaDoodle/CampusTrace/internal/analysis"
 	"github.com/KanaDoodle/CampusTrace/internal/auth"
 	"github.com/KanaDoodle/CampusTrace/internal/bootstrap"
 	"github.com/KanaDoodle/CampusTrace/internal/config"
+	"github.com/KanaDoodle/CampusTrace/internal/inferencebridge"
 	"github.com/KanaDoodle/CampusTrace/internal/modelcontrol"
 	"github.com/KanaDoodle/CampusTrace/internal/observability"
 	p "github.com/KanaDoodle/CampusTrace/internal/persistence"
@@ -56,11 +58,28 @@ func run() error {
 	}
 	slog.Info("database schema ready")
 	slots := make(chan struct{}, app.Config.LLMConcurrency)
-	if configured, ok := app.ResumeModel.(*analysis.ChatClient); ok {
+	configured, ok := app.ResumeModel.(*analysis.ChatClient)
+	if ok {
 		slots = configured.Sem
 	}
 	a := &transport.API{Practice: &practice.Client{URL: os.Getenv("PRACTICE_RUNNER_URL"), Key: []byte(os.Getenv("PRACTICE_SECRET"))}, Store: app.Store, Queue: app.Queue, Tools: app.Tools, Agent: app.Agent, Auth: auth.Service{Store: app.Store, Secret: []byte(app.Config.JWT)}, Metrics: app.Metrics, ResumeModel: app.ResumeModel, ResumeModelName: app.Config.LLMModel, CustomModelSlots: slots}
 	runner := a.StartMatchTasks(ctx, app.Config.LLMConcurrency)
+	narrator, err := inferencebridge.FromEnvironment([]byte(app.Config.JWT), configured)
+	if err != nil {
+		return err
+	}
+	if narrator != nil {
+		defer narrator.Close()
+	}
+	a.Narrations = agent.NewNarrationRunner(ctx, app.Store, narrator)
+	a.Narrations.Allow = func(call context.Context, owner string) (bool, error) {
+		ok, e := app.Queue.Allow(call, "agent:narration:"+owner, 5, time.Minute)
+		if e != nil || !ok {
+			return ok, e
+		}
+		return app.Queue.Allow(call, "llm:global", 30, time.Minute)
+	}
+	defer a.Narrations.Close()
 	a.ModelControl, err = modelcontrol.New(ctx, app.Store, modelcontrol.Options{
 		Policy: p.ModelPoolPolicy{ID: "matching-v1", Capacity: config.BoundedInt("MATCH_GLOBAL_CAPACITY", 2, 16), QueueLimit: config.BoundedInt("MATCH_GLOBAL_QUEUE", 64, 256), OwnerQueueLimit: config.BoundedInt("MATCH_GLOBAL_OWNER_QUEUE", 1, 16), DailyLimit: config.BoundedInt("MATCH_GLOBAL_DAILY_CALLS", 400, 100000), LeaseMS: 10000},
 		Wait:   app.Config.MatchQueueWait, Execution: app.Config.MatchExecution, Grace: 30 * time.Second,

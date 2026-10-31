@@ -2,6 +2,8 @@
 
 这里说明后台如何处理招聘观察、恢复失败任务，以及 Agent 能执行哪些动作。产品使用方式见 [README](../README.md)，匹配规则见 [岗位匹配与求职资料](matching.md)。
 
+经审阅依据的说明任务默认由 API 进程直接调用服务器 `LLM_*` 配置的流式模型 API，保留 SQL 草稿、只读 SSE、取消及显式重试。推理 RPC/vLLM 通过 `NARRATION_BACKEND=rpc` 单独启用作实验；原有 Analysis RPC 与 etcd 职责不变。见[模型后端选择](model-backends.md)。
+
 ## 原文、证据和判断为什么分开保存
 
 ```text

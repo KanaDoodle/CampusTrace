@@ -56,6 +56,9 @@ func TestFixtureCleanupRemovesJobsBeforeLaterFreshness(t *testing.T) {
 		_, err = child.ScheduleWatches(childCtx, time.Now().UTC(), 100)
 		must(t, err)
 		must(t, child.DeleteWatch(childCtx, user, deletedWatch))
+		// Explicitly keep the scoped cleanup regression, independently of the
+		// database-per-test teardown used by the suite.
+		must(t, cleanupFixture(childCtx, child, user, src))
 	}) {
 		return
 	}

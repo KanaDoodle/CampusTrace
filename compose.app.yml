@@ -44,6 +44,7 @@ services:
     environment:
       <<: *environment
       HTTP_ADDR: 0.0.0.0:8080
+      NARRATION_BACKEND: ${NARRATION_BACKEND:-api}
       PRACTICE_RUNNER_URL: http://sandbox-runner:18082
       PRACTICE_SECRET: ${PRACTICE_SECRET:-local-campus-practice-secret-change-me-2027}
     ports: ["127.0.0.1:${CAMPUS_HTTP_PORT:-8080}:8080"]
