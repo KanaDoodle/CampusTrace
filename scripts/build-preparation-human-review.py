@@ -63,7 +63,7 @@ def build(selection, output):
     # Exclusive creation prevents reruns from overwriting a user's annotations.
     output.mkdir(parents=True, mode=0o700, exist_ok=False)
     index = ['# 准备计划人工审阅\n',
-             '这是已有真实请求的定向回顾样本，含旧版本与失败案例；不是随机抽样或独立保留集。'
+             '这是已有执行报告的定向审阅包；模型证据类型以每份原报告为准，受控响应不能作为真实模型效果。'
              '全包离线生成，没有新增模型调用。评分尚未填写，不代表已完成人工评测。\n',
              '## 如何填写\n',
              '逐例打开审阅页，对照原任务、JD、计划和引用原文，再填写同目录 scores.json。'
@@ -92,13 +92,17 @@ def build(selection, output):
         sources = {s['id']: s for s in task.get('corpus', [])}
         sources.update({s['id']: s for s in task['sources']})
         text = [f'# {number:02d} · {entry["label"]}\n',
-                f'版本：{report["agent_version"]} / {report.get("quality_version", "历史规则，无质量版本字段")}\n',
+                f'版本：{report["agent_version"]} / {report.get("quality_version", "历史规则，无质量版本字段")}；证据：{report["mode"]}\n',
                 f'任务：{result["case_id"]}；执行器：{report.get("dynamic_executor")}；'
                 f'终态：{result["state"]}；请求：{result["model_calls"]} 次。\n',
                 f'原报告 SHA-256：{sha(raw)}\n',
                 '## 任务与材料范围\n', block(task['input']), block(task.get('missing', []))]
         if task.get('previous_plan'):
             text += ['## 反馈前的计划\n', block(task['previous_plan'])]
+        if result.get('defense'):
+            defense = result['defense']
+            text += ['## 跨练习记忆与本轮回答\n', block({'memory_mode': task['input']['defense'].get('memory_mode', 'confirmed'), 'memory_candidates': task.get('memory_candidates', []), 'selected_memories': defense.get('memories', []), 'question': defense['question'], 'answer': defense['answer'], 'review': defense.get('review')}), '审阅反馈是否误判、旧记忆是否被当作当前掌握，以及用户纠正是否被尊重。对照同题另一记忆开关结果，保留无收益或退化。\n']
+            sources.update({s['id']: s for s in defense.get('evidence', [])})
         text += ['## 实际输出\n', block(result.get('plan') or result.get('answer') or '未生成计划'),
                  '## 引用核对\n']
         for item in (result.get('plan') or {}).get('items', []):

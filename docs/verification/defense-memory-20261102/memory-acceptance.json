@@ -1,0 +1,27 @@
+{
+  "status": "PASS",
+  "evidence": "controlled-Go-LangGraph-MySQL",
+  "external_model_calls": 0,
+  "checks": [
+    "memory_preview_zero_calls_and_no_write",
+    "memory_server_binds_completed_answer_review_and_sources",
+    "memory_owner_isolation_and_ordinary_write_rejection",
+    "memory_confirmation_sql_receipt_and_business_deduplication",
+    "confirmed_memory_crosses_practices_and_applications_with_origin",
+    "paired_same_question_sources_budget_memory_on_off",
+    "memory_changes_scripted_followup_not_mastery",
+    "old_memory_evidence_cannot_bypass_current_read",
+    "injected_old_code_not_recalled",
+    "user_correction_is_versioned_and_dispute_excluded",
+    "late_correction_and_old_previews_rejected_without_model_call",
+    "correction_keeps_original_evidence_and_reaches_next_context",
+    "forget_clears_episode_receipts_and_recalled_contexts",
+    "forget_prevents_pending_or_confirmed_replay_resurrection"
+  ],
+  "semantic_quality": "NOT_MEASURED",
+  "paired": {
+    "on": "上次练习留下了一个待核对点，请用当前代码重新解释这个动作。",
+    "off": "请用自己的话说明刚才片段中由谁完成哪一步操作？"
+  },
+  "note": "Paired question differences are prescribed fixture behavior, not model improvement."
+}

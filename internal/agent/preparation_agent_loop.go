@@ -33,6 +33,9 @@ func preparationMessages(input d.PreparationInput, sources []d.PreparationSource
 
 func ValidatePreparationInput(in d.PreparationInput) error {
 	if in.Defense != nil {
+		if in.Defense.MemoryMode != "" && in.Defense.MemoryMode != "confirmed" && in.Defense.MemoryMode != "off" {
+			return p.ErrValidation
+		}
 		if _, ok := projectdefense.Find(in.Defense.Topic); !ok || strings.TrimSpace(in.Defense.Answer) == "" || len(in.Defense.Answer) > 6000 || in.Minutes < 5 || in.Days < 1 || len(in.Mastered)+len(in.Completed) > 0 {
 			return p.ErrValidation
 		}

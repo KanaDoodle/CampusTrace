@@ -1,0 +1,42 @@
+'use strict';
+const fs=require('node:fs'),path=require('node:path');
+(async()=>{
+ const {chromium}=require(process.env.PREP_PLAYWRIGHT_MODULE),browser=await chromium.launch({headless:true});
+ try{
+  const page=await browser.newPage({viewport:{width:1360,height:1000}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
+  await page.goto(process.env.PREP_BROWSER_URL);
+  await page.locator('#login input[name=email]').fill(process.env.PREP_BROWSER_EMAIL);
+  await page.locator('#login input[name=password]').fill(process.env.PREP_BROWSER_PASSWORD);
+  await page.locator('#auth-submit').click();await page.locator('#workspace').waitFor({state:'visible'});
+  const open=async()=>{await page.evaluate(async app=>{await page('dossier',{applicationID:app});},process.env.PREP_BROWSER_APPLICATION);await page.locator('#dossier-project-defense').click();};
+  const review=async()=>{await page.locator('#prep-goal textarea[name=defense_answer]').fill('我还不熟悉模型请求的位置。');await page.locator('#prep-goal button.btn-primary').click();await page.locator('#prep-consent').waitFor();};
+  const run=async()=>{await page.locator('#prep-consent').check();await page.locator('#prep-start').click();await page.getByRole('heading',{name:'答辩反馈已生成',exact:true}).waitFor();};
+  await open();await review();await run();
+  await page.locator('#defense-memory-save textarea[name=note]').fill('上次遗漏调用位置，下次请追问。');
+  await page.locator('#defense-memory-save button').click();
+  await page.locator('#defense-memory-confirm').getByText('当时模型反馈：',{exact:false}).waitFor();
+  let rows=await page.evaluate(()=>fetch('/api/agent/preparation/defense-memories?topic=go-langgraph').then(r=>r.json()));
+  if(rows.length)throw Error('memory written before confirmation');
+  await page.locator('#defense-memory-confirm [data-defense-memory-confirm]').click();
+  await page.locator('#prep-status').getByText('练习记忆已保存。下次新练习会重新核对后使用。',{exact:true}).waitFor();
+  await page.reload();await page.locator('#workspace').waitFor();await open();await review();
+  await page.locator('#prep-review').getByText('本轮使用的已确认练习记忆（1 条）',{exact:true}).waitFor();
+  await run();
+  await page.locator('.defense-review').getByText('上次练习留下了一个待核对点，请用当前代码重新解释这个动作。',{exact:true}).waitFor();
+  await page.screenshot({path:path.join(process.env.PREP_BROWSER_OUTPUT,'defense-memory.png'),fullPage:true});
+  const panel=page.locator('#defense-memories-panel');await panel.locator(':scope > summary').click();
+  await page.locator('#defense-memory-list details').first().locator(':scope > summary').click();
+  const edit=page.locator('[data-defense-memory-edit]');await edit.locator('textarea[name=note]').fill('纠正：这次模型反馈需要核对，暂不采用。');await edit.locator('input[name=disputed]').check();
+  await edit.getByRole('button',{name:'核对纠正并保存',exact:true}).click();
+  await page.locator('#defense-memory-edit-confirm [data-defense-memory-confirm]').click();
+  await page.locator('#defense-memory-list summary').getByText(/有异议，未采用/).waitFor();
+  await open();await review();await page.locator('#prep-review').getByText('本轮使用的已确认练习记忆（0 条）',{exact:true}).waitFor();
+  await page.locator('#defense-memories-panel > summary').click();await page.locator('#defense-memory-list details').first().locator(':scope > summary').click();
+  await page.locator('[data-defense-memory-forget]').click();
+  await page.locator('#defense-memory-list').getByText('还没有已确认的练习记忆。',{exact:true}).waitFor();
+  await page.locator('#prep-status').getByText(/练习记忆已遗忘/).waitFor();
+  rows=await page.evaluate(()=>fetch('/api/agent/preparation/defense-memories?topic=go-langgraph').then(r=>r.json()));if(rows.length)throw Error('forgotten memory still returned');
+  if(errors.length)throw Error(JSON.stringify(errors));
+  fs.writeFileSync(path.join(process.env.PREP_BROWSER_OUTPUT,'defense-memory-browser.json'),JSON.stringify({status:'PASS',external_model_calls:0,checks:['save_preview_has_no_write','explicit_memory_confirmation','recall_survives_reload','review_discloses_recalled_scope','scripted_followup_uses_memory','correction_and_dispute','disputed_memory_not_recalled','forget_removes_memory_and_old_preview','no_page_errors']},null,2));
+ }finally{await browser.close()}
+})().catch(e=>{console.error(e);process.exit(1)});

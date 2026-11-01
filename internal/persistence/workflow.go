@@ -28,6 +28,12 @@ type TransitionArgs struct {
 
 func ValidateAction(kind string, raw []byte) error {
 	switch kind {
+	case "remember_defense_memory":
+		var a SaveDefenseMemoryArgs
+		if err := d.Strict(raw, &a); err != nil {
+			return err
+		}
+		return a.Validate()
 	case "save_preparation_plan":
 		var a SavePreparationArgs
 		if err := d.Strict(raw, &a); err != nil {
@@ -38,6 +44,9 @@ func ValidateAction(kind string, raw []byte) error {
 		var a MemoryInput
 		if err := d.Strict(raw, &a); err != nil {
 			return err
+		}
+		if a.Kind == "DEFENSE" || a.Episode != nil {
+			return ErrValidation
 		}
 		return a.Validate()
 	case "watch_source":
@@ -119,6 +128,12 @@ func (s *Store) ApplyAction(ctx context.Context, user, nonce, kind string, raw [
 		}
 		now := time.Now().UTC()
 		switch kind {
+		case "remember_defense_memory":
+			var a SaveDefenseMemoryArgs
+			json.Unmarshal(raw, &a)
+			v, e := saveDefenseMemoryTx(ctx, tx, user, a)
+			err = e
+			result = []byte(d.JSON(v))
 		case "save_preparation_plan":
 			var a SavePreparationArgs
 			json.Unmarshal(raw, &a)

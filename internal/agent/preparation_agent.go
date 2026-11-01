@@ -146,6 +146,21 @@ func (r *PreparationRunner) Preview(ctx context.Context, user string, in d.Prepa
 	if err != nil {
 		return out, err
 	}
+	if defense != nil && in.Defense.MemoryMode != "off" {
+		rows, e := r.Store.DefenseMemories(ctx, user, defense.Topic)
+		if e != nil {
+			return out, e
+		}
+		defense.Memories, defense.MemoryExcluded = p.SelectDefenseMemories(rows, defense.Topic, defense.Version, time.Now().UTC())
+		// Apply this call's extra masking to recalled user text as well.
+		if env.MaskName != "" {
+			var masked []d.DefenseMemory
+			if e = json.Unmarshal([]byte(tools.memoryText(d.JSON(defense.Memories))), &masked); e != nil {
+				return out, p.ErrValidation
+			}
+			defense.Memories = masked
+		}
+	}
 	after, _, err := r.Store.PreparationAgentIdentity(ctx, user, in.ApplicationID, in.OtherReviews)
 	if err != nil {
 		return out, err

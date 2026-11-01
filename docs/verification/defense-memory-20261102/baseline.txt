@@ -1,0 +1,5 @@
+--- FAIL: TestProjectDefenseConfirmedExperienceReachesPrompt (0.00s)
+    project_defense_memory_test.go:18: confirmed cross-practice experience is absent from the model context
+FAIL
+FAIL	github.com/KanaDoodle/CampusTrace/internal/agent	0.630s
+FAIL

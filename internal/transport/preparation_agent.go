@@ -38,6 +38,59 @@ func (a *API) preparationEnvironment(in preparationAPIRequest) (agent.Preparatio
 	return agent.PreparationEnvironment{Model: agent.LiveModel{Client: client}, ModelIdentity: d.Hash(client.URL + "\x00" + client.Model), ModelLabel: client.Model, EvidenceKind: "model-api", MaskName: in.MaskName, Tools: &tools, Budget: in.Budget}, nil
 }
 func (a *API) preparationAgentRoutes(on func(string, http.HandlerFunc)) {
+	on("GET /api/agent/preparation/defense-memories", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		rows, err := a.Store.DefenseMemories(r.Context(), user(r), r.URL.Query().Get("topic"))
+		write(w, rows, err)
+	})
+	on("POST /api/agent/preparation/{id}/memory-preview", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		var input struct {
+			Note     string `json:"note"`
+			Disputed bool   `json:"disputed"`
+			Days     int    `json:"days"`
+		}
+		if decode(r, &input) != nil {
+			write(w, nil, p.ErrValidation)
+			return
+		}
+		v, err := a.Store.AgentExecution(r.Context(), user(r), r.PathValue("id"))
+		if err != nil {
+			write(w, nil, err)
+			return
+		}
+		if v.State != "COMPLETED" || v.Preparation == nil || v.Preparation.Defense == nil || v.Preparation.Defense.Review == nil {
+			write(w, nil, p.ErrConflict)
+			return
+		}
+		s := v.Preparation
+		args := p.SaveDefenseMemoryArgs{ExecutionID: v.ID, Revision: s.Revision, ReviewHash: d.Hash(d.JSON(s.Defense.Review)), EvidenceVersion: s.Defense.Version, Note: input.Note, Disputed: input.Disputed, Days: input.Days}
+		a.defenseMemoryProposal(w, r, args)
+	})
+	on("POST /api/agent/preparation/defense-memories/{id}/preview", func(w http.ResponseWriter, r *http.Request) {
+		var input struct {
+			Version  uint64 `json:"version"`
+			Note     string `json:"note"`
+			Disputed bool   `json:"disputed"`
+			Days     int    `json:"days"`
+		}
+		if decode(r, &input) != nil {
+			write(w, nil, p.ErrValidation)
+			return
+		}
+		old, err := a.Store.DefenseMemory(r.Context(), user(r), r.PathValue("id"))
+		if err != nil {
+			write(w, nil, err)
+			return
+		}
+		if old.Version != input.Version || old.Episode == nil {
+			write(w, nil, p.ErrConflict)
+			return
+		}
+		e := old.Episode
+		args := p.SaveDefenseMemoryArgs{ID: old.ID, Version: input.Version, ExecutionID: e.ExecutionID, Revision: e.Revision, ReviewHash: d.Hash(d.JSON(e.Review)), EvidenceVersion: e.EvidenceVersion, Note: input.Note, Disputed: input.Disputed, Days: input.Days}
+		a.defenseMemoryProposal(w, r, args)
+	})
 	on("GET /api/agent/preparation/defense-topics", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		write(w, map[string]any{"version": projectdefense.Version(), "catalog": projectdefense.Load()}, nil)
@@ -86,6 +139,17 @@ func (a *API) preparationAgentRoutes(on func(string, http.HandlerFunc)) {
 		pending, err := a.Tools.Propose(r.Context(), user(r), "save_preparation_plan", []byte(d.JSON(args)))
 		write(w, pending, err)
 	})
+}
+
+func (a *API) defenseMemoryProposal(w http.ResponseWriter, r *http.Request, args p.SaveDefenseMemoryArgs) {
+	w.Header().Set("Cache-Control", "no-store")
+	preview, err := a.Store.PreviewDefenseMemory(r.Context(), user(r), args)
+	if err != nil {
+		write(w, nil, err)
+		return
+	}
+	pending, err := a.Tools.Propose(r.Context(), user(r), "remember_defense_memory", []byte(d.JSON(args)))
+	write(w, map[string]any{"pending": pending, "memory": preview}, err)
 }
 
 func writePreparation(w http.ResponseWriter, v any, err error) {

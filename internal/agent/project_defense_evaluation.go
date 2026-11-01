@@ -54,6 +54,9 @@ func controlledDefenseReply(messages []Message, control string, emit func(string
 		return emit("read_project_defense_evidence", map[string]any{"ids": missing})
 	}
 	r := d.DefenseReview{Summary: "受控反馈：核对本次回答与项目证据", NextAction: "READ", NextQuestion: "请复述刚才片段中的一个动作。", Findings: []d.DefenseFinding{}, Plan: d.PreparationPlan{Summary: "本轮阅读与复述安排", Items: []d.PreparationItem{}}}
+	if len(data.Defense.Memories) > 0 {
+		r.NextQuestion = "上次练习留下了一个待核对点，请用当前代码重新解释这个动作。"
+	}
 	for _, point := range data.Defense.Points {
 		src := known[point.Sources[0]]
 		quote := strings.TrimSpace(strings.Split(src.Text, "\n")[0])

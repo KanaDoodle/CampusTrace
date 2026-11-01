@@ -83,7 +83,7 @@ func (t *Tools) Definitions() []Definition {
 	return append(out, extensionDefinitions()...)
 }
 func IsWrite(name string) bool {
-	return name == "save_preparation_plan" || name == "remember_memory" || name == "watch_source" || name == "unwatch_source" || name == "create_application" || name == "transition_application" || name == "record_interview_review"
+	return name == "remember_defense_memory" || name == "save_preparation_plan" || name == "remember_memory" || name == "watch_source" || name == "unwatch_source" || name == "create_application" || name == "transition_application" || name == "record_interview_review"
 }
 func Validate(name string, raw []byte) error {
 	if handled, err := validateExtension(name, raw); handled {

@@ -1,0 +1,60 @@
+?   	github.com/KanaDoodle/CampusTrace/bin/backups/sample-cleanup-20260928	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/bin/verification	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/bin/verification/deadlines-20261018	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/bin/verification/usability	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/analysis	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/api	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/benchmark	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/campustrace	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/dlq	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/eval	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/events	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/ingest	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/journey-demo	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/loadgen	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/match-eval	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/mcp-server	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/notify	[no test files]
+ok  	github.com/KanaDoodle/CampusTrace/cmd/preparation-eval	0.665s
+?   	github.com/KanaDoodle/CampusTrace/cmd/retrieval-eval	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/scheduler-bench	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/search	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/seed	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/tasks	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/worker	[no test files]
+ok  	github.com/KanaDoodle/CampusTrace/internal/agent	1.567s
+ok  	github.com/KanaDoodle/CampusTrace/internal/analysis	0.745s
+?   	github.com/KanaDoodle/CampusTrace/internal/auth	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/internal/bootstrap	[no test files]
+ok  	github.com/KanaDoodle/CampusTrace/internal/config	0.370s
+?   	github.com/KanaDoodle/CampusTrace/internal/demo	[no test files]
+ok  	github.com/KanaDoodle/CampusTrace/internal/domain	0.371s
+ok  	github.com/KanaDoodle/CampusTrace/internal/eventbus	0.464s
+ok  	github.com/KanaDoodle/CampusTrace/internal/inferencebridge	0.497s
+ok  	github.com/KanaDoodle/CampusTrace/internal/integration	1.127s
+ok  	github.com/KanaDoodle/CampusTrace/internal/jobevent	0.455s
+ok  	github.com/KanaDoodle/CampusTrace/internal/launcher	0.492s
+ok  	github.com/KanaDoodle/CampusTrace/internal/matcheval	0.482s
+ok  	github.com/KanaDoodle/CampusTrace/internal/matching	0.528s
+ok  	github.com/KanaDoodle/CampusTrace/internal/mcpclient	0.464s
+ok  	github.com/KanaDoodle/CampusTrace/internal/modelconfig	0.863s
+?   	github.com/KanaDoodle/CampusTrace/internal/modelcontrol	[no test files]
+ok  	github.com/KanaDoodle/CampusTrace/internal/observability	0.468s
+ok  	github.com/KanaDoodle/CampusTrace/internal/persistence	1.004s
+ok  	github.com/KanaDoodle/CampusTrace/internal/pipeline	1.307s
+?   	github.com/KanaDoodle/CampusTrace/internal/projectdefense	[no test files]
+ok  	github.com/KanaDoodle/CampusTrace/internal/rag	0.502s
+ok  	github.com/KanaDoodle/CampusTrace/internal/recruitmentmail	0.370s
+ok  	github.com/KanaDoodle/CampusTrace/internal/resume	0.381s
+ok  	github.com/KanaDoodle/CampusTrace/internal/rules	0.369s
+ok  	github.com/KanaDoodle/CampusTrace/internal/scheduling	0.361s
+ok  	github.com/KanaDoodle/CampusTrace/internal/searchapi	3.050s
+ok  	github.com/KanaDoodle/CampusTrace/internal/searchservice	0.498s
+ok  	github.com/KanaDoodle/CampusTrace/internal/source	4.746s
+ok  	github.com/KanaDoodle/CampusTrace/internal/taskmigration	0.527s
+ok  	github.com/KanaDoodle/CampusTrace/internal/taskqueue	0.490s
+?   	github.com/KanaDoodle/CampusTrace/internal/testsupport/sqlfixture	[no test files]
+ok  	github.com/KanaDoodle/CampusTrace/internal/transport	0.535s
+?   	github.com/KanaDoodle/CampusTrace/migrations	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/scripts/performance/tracecapture	[no test files]
+ok  	github.com/KanaDoodle/CampusTrace/web	0.774s

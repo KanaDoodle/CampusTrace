@@ -1,0 +1,20 @@
+{
+  "next": [
+    "model"
+  ],
+  "values": {
+    "execution_id": "d1833ae0006c823b96a91c3c70e34961",
+    "parent_id": "",
+    "view": {
+      "sequence": 2,
+      "phase": "RUNNING",
+      "preparation": {
+        "provider_state": "READY",
+        "model_calls": 1,
+        "tool_calls": 1,
+        "search_calls": 0
+      }
+    },
+    "last_node": "retrieve"
+  }
+}

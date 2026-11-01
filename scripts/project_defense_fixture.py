@@ -50,7 +50,8 @@ def respond(data, messages, reply, mode='normal'):
                       'deliverable': '一段自己的说明或一个具体疑问',
                       'workload': {'mode': 'ORAL', 'units': 1, 'scope': '1个问题：刚才片段中的动作'},
                       'references': []})
+    question = '上次练习留下了一个待核对点，请用当前代码重新解释这个动作。' if defense.get('memories') else '请用自己的话说明刚才片段中由谁完成哪一步操作？'
     reply('finish_project_defense_review', {'summary': '受控项目答辩反馈，供验证执行与保存流程。',
           'findings': findings, 'next_action': action,
-          'next_question': '' if finish else '请用自己的话说明刚才片段中由谁完成哪一步操作？',
+          'next_question': '' if finish else question,
           'plan': {'summary': '按当前缺口安排阅读和复述。' if items else '本轮练习结束。', 'items': items}})

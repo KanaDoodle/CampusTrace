@@ -1,0 +1,538 @@
+{
+  "evidence": "controlled-model-responses-real-Go-Python-LangGraph",
+  "external_model_calls": 0,
+  "pairs": [
+    {
+      "case": "prior-gap",
+      "on": {
+        "state": "COMPLETED",
+        "program_expectation_met": true,
+        "memory_ids": [
+          "11111111111111111111111111111111"
+        ],
+        "memory_context_bytes": 10866,
+        "model_calls": 2,
+        "tool_calls": 2,
+        "next_question": "上次练习留下了一个待核对点，请用当前代码重新解释这个动作。",
+        "usage": {
+          "limit": 128000,
+          "charged": 56510,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "unreported_calls": 2
+        },
+        "estimated_cost_usd": null
+      },
+      "off": {
+        "state": "COMPLETED",
+        "program_expectation_met": true,
+        "memory_ids": [],
+        "memory_context_bytes": 4,
+        "model_calls": 2,
+        "tool_calls": 2,
+        "next_question": "请复述刚才片段中的一个动作。",
+        "usage": {
+          "limit": 128000,
+          "charged": 32894,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "unreported_calls": 2
+        },
+        "estimated_cost_usd": null
+      },
+      "semantic_scores": {
+        "feedback_correctness": null,
+        "memory_added_value": null,
+        "correction_compliance": null
+      },
+      "reviewer": "UNREVIEWED"
+    },
+    {
+      "case": "prior-supported-current-incomplete",
+      "on": {
+        "state": "COMPLETED",
+        "program_expectation_met": true,
+        "memory_ids": [
+          "11111111111111111111111111111111"
+        ],
+        "memory_context_bytes": 10905,
+        "model_calls": 2,
+        "tool_calls": 2,
+        "next_question": "上次练习留下了一个待核对点，请用当前代码重新解释这个动作。",
+        "usage": {
+          "limit": 128000,
+          "charged": 56588,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "unreported_calls": 2
+        },
+        "estimated_cost_usd": null
+      },
+      "off": {
+        "state": "COMPLETED",
+        "program_expectation_met": true,
+        "memory_ids": [],
+        "memory_context_bytes": 4,
+        "model_calls": 2,
+        "tool_calls": 2,
+        "next_question": "请复述刚才片段中的一个动作。",
+        "usage": {
+          "limit": 128000,
+          "charged": 32894,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "unreported_calls": 2
+        },
+        "estimated_cost_usd": null
+      },
+      "semantic_scores": {
+        "feedback_correctness": null,
+        "memory_added_value": null,
+        "correction_compliance": null
+      },
+      "reviewer": "UNREVIEWED"
+    },
+    {
+      "case": "user-correction",
+      "on": {
+        "state": "COMPLETED",
+        "program_expectation_met": true,
+        "memory_ids": [
+          "11111111111111111111111111111111"
+        ],
+        "memory_context_bytes": 10881,
+        "model_calls": 2,
+        "tool_calls": 2,
+        "next_question": "上次练习留下了一个待核对点，请用当前代码重新解释这个动作。",
+        "usage": {
+          "limit": 128000,
+          "charged": 56540,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "unreported_calls": 2
+        },
+        "estimated_cost_usd": null
+      },
+      "off": {
+        "state": "COMPLETED",
+        "program_expectation_met": true,
+        "memory_ids": [],
+        "memory_context_bytes": 4,
+        "model_calls": 2,
+        "tool_calls": 2,
+        "next_question": "请复述刚才片段中的一个动作。",
+        "usage": {
+          "limit": 128000,
+          "charged": 32894,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "unreported_calls": 2
+        },
+        "estimated_cost_usd": null
+      },
+      "semantic_scores": {
+        "feedback_correctness": null,
+        "memory_added_value": null,
+        "correction_compliance": null
+      },
+      "reviewer": "UNREVIEWED"
+    },
+    {
+      "case": "disputed",
+      "on": {
+        "state": "COMPLETED",
+        "program_expectation_met": true,
+        "memory_ids": [],
+        "memory_context_bytes": 2,
+        "model_calls": 2,
+        "tool_calls": 2,
+        "next_question": "请复述刚才片段中的一个动作。",
+        "usage": {
+          "limit": 128000,
+          "charged": 32902,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "unreported_calls": 2
+        },
+        "estimated_cost_usd": null
+      },
+      "off": {
+        "state": "COMPLETED",
+        "program_expectation_met": true,
+        "memory_ids": [],
+        "memory_context_bytes": 4,
+        "model_calls": 2,
+        "tool_calls": 2,
+        "next_question": "请复述刚才片段中的一个动作。",
+        "usage": {
+          "limit": 128000,
+          "charged": 32894,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "unreported_calls": 2
+        },
+        "estimated_cost_usd": null
+      },
+      "semantic_scores": {
+        "feedback_correctness": null,
+        "memory_added_value": null,
+        "correction_compliance": null
+      },
+      "reviewer": "UNREVIEWED"
+    },
+    {
+      "case": "wrong-topic",
+      "on": {
+        "state": "COMPLETED",
+        "program_expectation_met": true,
+        "memory_ids": [],
+        "memory_context_bytes": 2,
+        "model_calls": 2,
+        "tool_calls": 2,
+        "next_question": "请复述刚才片段中的一个动作。",
+        "usage": {
+          "limit": 128000,
+          "charged": 32902,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "unreported_calls": 2
+        },
+        "estimated_cost_usd": null
+      },
+      "off": {
+        "state": "COMPLETED",
+        "program_expectation_met": true,
+        "memory_ids": [],
+        "memory_context_bytes": 4,
+        "model_calls": 2,
+        "tool_calls": 2,
+        "next_question": "请复述刚才片段中的一个动作。",
+        "usage": {
+          "limit": 128000,
+          "charged": 32894,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "unreported_calls": 2
+        },
+        "estimated_cost_usd": null
+      },
+      "semantic_scores": {
+        "feedback_correctness": null,
+        "memory_added_value": null,
+        "correction_compliance": null
+      },
+      "reviewer": "UNREVIEWED"
+    },
+    {
+      "case": "stale-code",
+      "on": {
+        "state": "COMPLETED",
+        "program_expectation_met": true,
+        "memory_ids": [],
+        "memory_context_bytes": 2,
+        "model_calls": 2,
+        "tool_calls": 2,
+        "next_question": "请复述刚才片段中的一个动作。",
+        "usage": {
+          "limit": 128000,
+          "charged": 32902,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "unreported_calls": 2
+        },
+        "estimated_cost_usd": null
+      },
+      "off": {
+        "state": "COMPLETED",
+        "program_expectation_met": true,
+        "memory_ids": [],
+        "memory_context_bytes": 4,
+        "model_calls": 2,
+        "tool_calls": 2,
+        "next_question": "请复述刚才片段中的一个动作。",
+        "usage": {
+          "limit": 128000,
+          "charged": 32894,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "unreported_calls": 2
+        },
+        "estimated_cost_usd": null
+      },
+      "semantic_scores": {
+        "feedback_correctness": null,
+        "memory_added_value": null,
+        "correction_compliance": null
+      },
+      "reviewer": "UNREVIEWED"
+    },
+    {
+      "case": "expired",
+      "on": {
+        "state": "COMPLETED",
+        "program_expectation_met": true,
+        "memory_ids": [],
+        "memory_context_bytes": 2,
+        "model_calls": 2,
+        "tool_calls": 2,
+        "next_question": "请复述刚才片段中的一个动作。",
+        "usage": {
+          "limit": 128000,
+          "charged": 32902,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "unreported_calls": 2
+        },
+        "estimated_cost_usd": null
+      },
+      "off": {
+        "state": "COMPLETED",
+        "program_expectation_met": true,
+        "memory_ids": [],
+        "memory_context_bytes": 4,
+        "model_calls": 2,
+        "tool_calls": 2,
+        "next_question": "请复述刚才片段中的一个动作。",
+        "usage": {
+          "limit": 128000,
+          "charged": 32894,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "unreported_calls": 2
+        },
+        "estimated_cost_usd": null
+      },
+      "semantic_scores": {
+        "feedback_correctness": null,
+        "memory_added_value": null,
+        "correction_compliance": null
+      },
+      "reviewer": "UNREVIEWED"
+    },
+    {
+      "case": "count-budget",
+      "on": {
+        "state": "COMPLETED",
+        "program_expectation_met": true,
+        "memory_ids": [
+          "44444444444444444444444444444444",
+          "33333333333333333333333333333333"
+        ],
+        "memory_context_bytes": 21731,
+        "model_calls": 2,
+        "tool_calls": 2,
+        "next_question": "上次练习留下了一个待核对点，请用当前代码重新解释这个动作。",
+        "usage": {
+          "limit": 128000,
+          "charged": 80120,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "unreported_calls": 2
+        },
+        "estimated_cost_usd": null
+      },
+      "off": {
+        "state": "COMPLETED",
+        "program_expectation_met": true,
+        "memory_ids": [],
+        "memory_context_bytes": 4,
+        "model_calls": 2,
+        "tool_calls": 2,
+        "next_question": "请复述刚才片段中的一个动作。",
+        "usage": {
+          "limit": 128000,
+          "charged": 32894,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "unreported_calls": 2
+        },
+        "estimated_cost_usd": null
+      },
+      "semantic_scores": {
+        "feedback_correctness": null,
+        "memory_added_value": null,
+        "correction_compliance": null
+      },
+      "reviewer": "UNREVIEWED"
+    },
+    {
+      "case": "hostile-note",
+      "on": {
+        "state": "COMPLETED",
+        "program_expectation_met": true,
+        "memory_ids": [
+          "11111111111111111111111111111111"
+        ],
+        "memory_context_bytes": 10866,
+        "model_calls": 2,
+        "tool_calls": 2,
+        "next_question": "上次练习留下了一个待核对点，请用当前代码重新解释这个动作。",
+        "usage": {
+          "limit": 128000,
+          "charged": 56510,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "unreported_calls": 2
+        },
+        "estimated_cost_usd": null
+      },
+      "off": {
+        "state": "COMPLETED",
+        "program_expectation_met": true,
+        "memory_ids": [],
+        "memory_context_bytes": 4,
+        "model_calls": 2,
+        "tool_calls": 2,
+        "next_question": "请复述刚才片段中的一个动作。",
+        "usage": {
+          "limit": 128000,
+          "charged": 32894,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "unreported_calls": 2
+        },
+        "estimated_cost_usd": null
+      },
+      "semantic_scores": {
+        "feedback_correctness": null,
+        "memory_added_value": null,
+        "correction_compliance": null
+      },
+      "reviewer": "UNREVIEWED"
+    },
+    {
+      "case": "no-memory",
+      "on": {
+        "state": "COMPLETED",
+        "program_expectation_met": true,
+        "memory_ids": [],
+        "memory_context_bytes": 2,
+        "model_calls": 2,
+        "tool_calls": 2,
+        "next_question": "请复述刚才片段中的一个动作。",
+        "usage": {
+          "limit": 128000,
+          "charged": 32902,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "unreported_calls": 2
+        },
+        "estimated_cost_usd": null
+      },
+      "off": {
+        "state": "COMPLETED",
+        "program_expectation_met": true,
+        "memory_ids": [],
+        "memory_context_bytes": 4,
+        "model_calls": 2,
+        "tool_calls": 2,
+        "next_question": "请复述刚才片段中的一个动作。",
+        "usage": {
+          "limit": 128000,
+          "charged": 32894,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "unreported_calls": 2
+        },
+        "estimated_cost_usd": null
+      },
+      "semantic_scores": {
+        "feedback_correctness": null,
+        "memory_added_value": null,
+        "correction_compliance": null
+      },
+      "reviewer": "UNREVIEWED"
+    },
+    {
+      "case": "unknown-model",
+      "on": {
+        "state": "PAUSED",
+        "program_expectation_met": true,
+        "memory_ids": [
+          "11111111111111111111111111111111"
+        ],
+        "memory_context_bytes": 10866,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "next_question": null,
+        "usage": {
+          "limit": 128000,
+          "charged": 24947,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "unreported_calls": 1
+        },
+        "estimated_cost_usd": null
+      },
+      "off": {
+        "state": "PAUSED",
+        "program_expectation_met": true,
+        "memory_ids": [],
+        "memory_context_bytes": 4,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "next_question": null,
+        "usage": {
+          "limit": 128000,
+          "charged": 13139,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "unreported_calls": 1
+        },
+        "estimated_cost_usd": null
+      },
+      "semantic_scores": {
+        "feedback_correctness": null,
+        "memory_added_value": null,
+        "correction_compliance": null
+      },
+      "reviewer": "UNREVIEWED"
+    },
+    {
+      "case": "five-minutes",
+      "on": {
+        "state": "COMPLETED",
+        "program_expectation_met": true,
+        "memory_ids": [
+          "11111111111111111111111111111111"
+        ],
+        "memory_context_bytes": 10866,
+        "model_calls": 2,
+        "tool_calls": 2,
+        "next_question": "上次练习留下了一个待核对点，请用当前代码重新解释这个动作。",
+        "usage": {
+          "limit": 128000,
+          "charged": 56504,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "unreported_calls": 2
+        },
+        "estimated_cost_usd": null
+      },
+      "off": {
+        "state": "COMPLETED",
+        "program_expectation_met": true,
+        "memory_ids": [],
+        "memory_context_bytes": 4,
+        "model_calls": 2,
+        "tool_calls": 2,
+        "next_question": "请复述刚才片段中的一个动作。",
+        "usage": {
+          "limit": 128000,
+          "charged": 32888,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "unreported_calls": 2
+        },
+        "estimated_cost_usd": null
+      },
+      "semantic_scores": {
+        "feedback_correctness": null,
+        "memory_added_value": null,
+        "correction_compliance": null
+      },
+      "reviewer": "UNREVIEWED"
+    }
+  ],
+  "quality_conclusion": "NOT_MEASURED; scripted branching is not a semantic or learning gain"
+}

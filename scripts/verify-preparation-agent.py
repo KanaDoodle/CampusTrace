@@ -2,6 +2,7 @@
 """Owned API/SQL/Redis/Kafka and browser acceptance; no real model or personal DB."""
 import argparse,contextlib,http.cookiejar,json,os,pathlib,socket,subprocess,sys,tempfile,time,urllib.error,urllib.request,uuid
 from project_defense_acceptance import verify as verify_defense
+from project_defense_memory_acceptance import verify as verify_memory
 sys.dont_write_bytecode=True
 
 def main():
@@ -63,8 +64,8 @@ def main():
   wait(healthy,60)
   class Client:
    def __init__(self):self.opener=urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
-   def request(self,path,body=None,expected=200):
-    req=urllib.request.Request(base+path,data=None if body is None else json.dumps(body).encode(),headers={'Content-Type':'application/json','Origin':base})
+   def request(self,path,body=None,expected=200,method=None):
+    req=urllib.request.Request(base+path,data=None if body is None else json.dumps(body).encode(),headers={'Content-Type':'application/json','Origin':base},method=method)
     try:r=self.opener.open(req,timeout=10)
     except urllib.error.HTTPError as e:r=e
     data=r.read();assert r.status==expected,(path,r.status,expected,data.decode());return json.loads(data) if data else None
@@ -155,7 +156,7 @@ def main():
   supplement=dict(goal,parent_id=question['id'],minutes=15,days=1,feedback='只有十五分钟，优先 Go 并发')
   supplement_review=c.request('/api/agent/preparation/preview',{'input':supplement})
   child=c.request('/api/agent/preparation',{'input':supplement,'confirm':True,'request_key':uuid.uuid4().hex,'review_hash':supplement_review['review_hash']})
-  child=wait(lambda:terminal(child['id']));assert child['state']=='COMPLETED' and sum(x['minutes'] for x in child['preparation_agent']['result']['items'])<=15
+  child=wait(lambda:terminal(child['id']));(work/'clarification-child.json').write_text(json.dumps(child,ensure_ascii=False,indent=2)+'\n');assert child['state']=='COMPLETED' and sum(x['minutes'] for x in child['preparation_agent']['result']['items'])<=15, {'state':child['state'],'trace':child.get('preparation_agent',{}).get('trace')}
   checks.append('clarification_interrupt_reviewed_child_15_minutes')
   # Cancellation reaches a real in-flight callback and fences late writes.
   raw(fixture_url+'/fixture/mode',{'mode':'hang'})
@@ -236,6 +237,20 @@ asyncio.run(main())"""
   checks.append('clarification_command_resumes_parent_to_reviewed_child')
   (work/'recovered.json').write_text(json.dumps(resumed,ensure_ascii=False,indent=2)+'\n')
   (work/'execution.json').write_text(json.dumps(v,ensure_ascii=False,indent=2)+'\n')
+  # The expanded suite crosses the real shared 30-calls/minute guard. Wait
+  # for its owned Redis window; do not raise or reset production limits.
+  rate_key='prep:'+runid+':rate:llm:global'
+  ttl=int(run(['docker','exec',redis,'redis-cli','PTTL',rate_key]))
+  if ttl>0:
+   print('Waiting for the owned model-rate window before memory acceptance',flush=True)
+   until=time.monotonic()+ttl/1000+.1
+   while time.monotonic()<until:time.sleep(min(.5,max(0,until-time.monotonic())))
+  memory_checks,memory_credentials,memory_app=verify_memory(Client,raw,fixture_url,sql,wait,work)
+  checks.extend(memory_checks)
+  if args.playwright_module:
+   memory_env=dict(env,PREP_BROWSER_URL=base,PREP_BROWSER_EMAIL=memory_credentials['email'],PREP_BROWSER_PASSWORD=memory_credentials['password'],PREP_BROWSER_APPLICATION=memory_app,PREP_BROWSER_OUTPUT=str(work),PREP_PLAYWRIGHT_MODULE=args.playwright_module)
+   subprocess.run(['node',str(root/'scripts/verify-defense-memory-browser.cjs')],cwd=root,env=memory_env,check=True)
+   checks.append('defense_memory_browser_confirm_recall_correct_forget')
   final=raw(fixture_url+'/fixture/status');assert final['active']==0
   (work/'result.json').write_text(json.dumps({'status':'PASS','evidence':'controlled-response-Go-Python-LangGraph','external_model_calls':0,'controlled_http_calls':final['calls'],'checks':checks,'real_model_effect':'NOT_VALIDATED','browser':'PASS' if args.playwright_module else 'NOT_RUN'},ensure_ascii=False,indent=2)+'\n')
   print((work/'result.json').read_text())

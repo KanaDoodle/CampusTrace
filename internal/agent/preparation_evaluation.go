@@ -16,19 +16,23 @@ import (
 )
 
 type PreparationEvalCase struct {
-	ID           string                `json:"id"`
-	Split        string                `json:"split"`
-	MaterialKind string                `json:"material_kind"`
-	Input        d.PreparationInput    `json:"input"`
-	Missing      []string              `json:"missing"`
-	Sources      []d.PreparationSource `json:"sources"`
-	Corpus       []d.PreparationSource `json:"corpus"`
-	PreviousPlan *d.PreparationPlan    `json:"previous_plan,omitempty"`
-	Expected     string                `json:"expected"`
-	Control      string                `json:"control,omitempty"`
-	ReviewNote   string                `json:"review_note"`
+	MemoryCandidates  []p.AgentMemory       `json:"memory_candidates,omitempty"`
+	ExpectedMemoryIDs *[]string             `json:"expected_memory_ids,omitempty"`
+	ID                string                `json:"id"`
+	Split             string                `json:"split"`
+	MaterialKind      string                `json:"material_kind"`
+	Input             d.PreparationInput    `json:"input"`
+	Missing           []string              `json:"missing"`
+	Sources           []d.PreparationSource `json:"sources"`
+	Corpus            []d.PreparationSource `json:"corpus"`
+	PreviousPlan      *d.PreparationPlan    `json:"previous_plan,omitempty"`
+	Expected          string                `json:"expected"`
+	Control           string                `json:"control,omitempty"`
+	ReviewNote        string                `json:"review_note"`
 }
 type PreparationEvalResult struct {
+	MemoryIDs             []string                 `json:"memory_ids,omitempty"`
+	MemoryContextBytes    int                      `json:"memory_context_bytes,omitempty"`
 	Defense               *d.DefenseState          `json:"defense,omitempty"`
 	PromptSHA             string                   `json:"prompt_sha256,omitempty"`
 	Retrievals            []d.PreparationRetrieval `json:"retrievals,omitempty"`
@@ -140,6 +144,9 @@ func evalPreparationCase(ctx context.Context, c PreparationEvalCase, arm string,
 			result.State = "FAILED"
 			result.Error = "INVALID_DEFENSE_INPUT"
 			return result
+		}
+		if in.Defense.MemoryMode != "off" {
+			v.Preparation.Defense.Memories, v.Preparation.Defense.MemoryExcluded = p.SelectDefenseMemories(c.MemoryCandidates, in.Defense.Topic, v.Preparation.Defense.Version, time.Now().UTC())
 		}
 	}
 	if c.Control == "stale" || c.Control == "unauthorized" {
@@ -261,6 +268,13 @@ func evalPreparationCase(ctx context.Context, c PreparationEvalCase, arm string,
 	result.ModelTurns = recorder.turns
 	result.Plan = v.Preparation.Plan
 	result.Defense = v.Preparation.Defense
+	if result.Defense != nil {
+		result.MemoryIDs = []string{}
+		for _, m := range result.Defense.Memories {
+			result.MemoryIDs = append(result.MemoryIDs, m.ID)
+		}
+		result.MemoryContextBytes = len(d.JSON(result.Defense.Memories))
+	}
 	result.Question = v.Preparation.Question
 	result.Calls = v.Preparation.ModelCalls
 	result.ToolCalls = tools.calls
@@ -330,6 +344,9 @@ func evalPreparationCase(ctx context.Context, c PreparationEvalCase, arm string,
 		result.PlanValid = v.Preparation.Defense.Review != nil && validateDefenseReview(v.Preparation, *v.Preparation.Defense.Review) == nil
 	}
 	result.ProgramExpectationMet = result.State == c.Expected && (c.Expected != "COMPLETED" || result.PlanValid)
+	if c.ExpectedMemoryIDs != nil && d.JSON(result.MemoryIDs) != d.JSON(*c.ExpectedMemoryIDs) {
+		result.ProgramExpectationMet = false
+	}
 	if result.ProgramExpectationMet && c.Expected == "PAUSED" {
 		if c.Control == "unknown-model" {
 			// This explicitly labelled controlled case tests unknown-result

@@ -1,0 +1,15 @@
+{
+  "status": "PASS",
+  "external_model_calls": 0,
+  "checks": [
+    "save_preview_has_no_write",
+    "explicit_memory_confirmation",
+    "recall_survives_reload",
+    "review_discloses_recalled_scope",
+    "scripted_followup_uses_memory",
+    "correction_and_dispute",
+    "disputed_memory_not_recalled",
+    "forget_removes_memory_and_old_preview",
+    "no_page_errors"
+  ]
+}

@@ -60,6 +60,25 @@ class HumanReviewTests(unittest.TestCase):
             review.build(self.selection, self.output)
         self.assertFalse(self.output.exists())
 
+    def test_defense_review_includes_memory_original_answer_and_unscored_quality(self):
+        tasks=json.loads(self.dataset.read_text())
+        tasks[0]['input']['defense']={'topic':'go-langgraph','memory_mode':'confirmed'}
+        tasks[0]['memory_candidates']=[{'content':'原始纠正'}]
+        self.dataset.write_text(json.dumps(tasks,ensure_ascii=False))
+        report=json.loads(self.report.read_text())
+        report['dataset_sha256']=hashlib.sha256(self.dataset.read_bytes()).hexdigest()
+        report['semantic_rubric']={'dimensions':['answer_feedback_correctness','memory_added_value','correction_compliance']}
+        report['results'][0]['defense']={'question':'本轮问题','answer':'本轮原回答','memories':[], 'evidence':[], 'review':{'summary':'具体反馈'}}
+        self.report.write_text(json.dumps(report,ensure_ascii=False))
+        review.build(self.selection,self.output)
+        page=(self.output/'01/审阅.md').read_text()
+        self.assertIn('本轮原回答',page)
+        self.assertIn('原始纠正',page)
+        self.assertIn('具体反馈',page)
+        scores=json.loads((self.output/'01/scores.json').read_text())['reviews'][0]['scores']
+        self.assertEqual(set(scores),set(report['semantic_rubric']['dimensions']))
+        self.assertTrue(all(x['score'] is None for x in scores.values()))
+
     def test_never_overwrites_annotations(self):
         review.build(self.selection, self.output)
         notes = self.output / '01/scores.json'

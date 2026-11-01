@@ -13,16 +13,24 @@ import (
 )
 
 type MemoryInput struct {
-	ID      string `json:"id,omitempty"`
-	Version uint64 `json:"version,omitempty"`
-	Kind    string `json:"kind"`
-	Content string `json:"content"`
-	Scope   string `json:"scope,omitempty"`
-	Days    int    `json:"days,omitempty"`
+	ID       string            `json:"id,omitempty"`
+	Version  uint64            `json:"version,omitempty"`
+	Kind     string            `json:"kind"`
+	Content  string            `json:"content"`
+	Scope    string            `json:"scope,omitempty"`
+	Days     int               `json:"days,omitempty"`
+	Episode  *d.DefenseEpisode `json:"episode,omitempty"`
+	Disputed bool              `json:"disputed,omitempty"`
 }
 
 func (v MemoryInput) Validate() error {
-	if v.Kind != "PREFERENCE" && v.Kind != "DECISION" && v.Kind != "CORRECTION" {
+	if v.Kind != "PREFERENCE" && v.Kind != "DECISION" && v.Kind != "CORRECTION" && v.Kind != "DEFENSE" {
+		return ErrValidation
+	}
+	if (v.Kind == "DEFENSE") != (v.Episode != nil) || (v.Kind != "DEFENSE" && v.Disputed) {
+		return ErrValidation
+	}
+	if v.Episode != nil && (len(d.JSON(v.Episode)) > 32768 || resume.HasSensitive(d.JSON(v.Episode))) {
 		return ErrValidation
 	}
 	if strings.TrimSpace(v.Content) == "" || len(v.Content) > 2000 || len(v.Scope) > 200 || !utf8.ValidString(v.Content) || !utf8.ValidString(v.Scope) || strings.ContainsRune(v.Scope, '\x00') || strings.ContainsRune(v.Content, '\x00') || resume.HasSensitive(v.Content) || resume.HasSensitive(v.Scope) || v.Days < 0 || v.Days > 3650 {
@@ -53,7 +61,7 @@ func (s *Store) MemoryRevision(ctx context.Context, user string) (uint64, error)
 	return memoryRevision(ctx, s.DB, user)
 }
 func (s *Store) AgentMemories(ctx context.Context, user string) ([]AgentMemory, error) {
-	return Many[AgentMemory](ctx, s.DB, "SELECT body FROM agent_memories WHERE user_id=? AND deleted=FALSE AND expires_at>UTC_TIMESTAMP(6) ORDER BY updated_at DESC,id LIMIT 100", user)
+	return Many[AgentMemory](ctx, s.DB, "SELECT body FROM agent_memories WHERE user_id=? AND deleted=FALSE AND expires_at>UTC_TIMESTAMP(6) AND JSON_UNQUOTE(JSON_EXTRACT(body,'$.kind'))<>'DEFENSE' ORDER BY updated_at DESC,id LIMIT 100", user)
 }
 func (s *Store) SearchMemories(ctx context.Context, user, query string) ([]AgentMemory, error) {
 	rows, err := s.AgentMemories(ctx, user)
@@ -89,6 +97,9 @@ func saveMemoryTx(ctx context.Context, tx *sql.Tx, user string, in MemoryInput) 
 		if old.Version != in.Version {
 			return out, ErrConflict
 		}
+		if (old.Kind == "DEFENSE") != (in.Kind == "DEFENSE") {
+			return out, ErrValidation
+		}
 		in.Version++
 	} else {
 		existing, err := Many[AgentMemory](ctx, tx, "SELECT body FROM agent_memories WHERE user_id=? AND deleted=FALSE AND expires_at>? FOR UPDATE", user, now)
@@ -96,7 +107,7 @@ func saveMemoryTx(ctx context.Context, tx *sql.Tx, user string, in MemoryInput) 
 			return out, err
 		}
 		for _, v := range existing {
-			if v.Kind == in.Kind && v.Content == in.Content && v.Scope == in.Scope {
+			if v.Kind == in.Kind && v.Content == in.Content && v.Scope == in.Scope && in.Kind != "DEFENSE" {
 				return v, nil
 			}
 		}
@@ -116,6 +127,9 @@ func saveMemoryTx(ctx context.Context, tx *sql.Tx, user string, in MemoryInput) 
 }
 func (s *Store) SaveMemory(ctx context.Context, user string, in MemoryInput) (AgentMemory, error) {
 	var out AgentMemory
+	if in.Kind == "DEFENSE" || in.Episode != nil {
+		return out, ErrValidation
+	}
 	err := s.Tx(ctx, func(tx *sql.Tx) error {
 		if err := lockRunUser(ctx, tx, user); err != nil {
 			return err
@@ -140,7 +154,7 @@ func (s *Store) ForgetMemory(ctx context.Context, user, id string, version uint6
 		}
 		// Redact confirmed action snapshots too, while retaining their nonce receipts
 		// so replaying an old confirmation cannot resurrect the forgotten note.
-		if _, err = tx.ExecContext(ctx, `UPDATE action_receipts SET result=JSON_SET(result,'$.content','','$.scope','','$.forgotten',TRUE) WHERE user_id=? AND JSON_UNQUOTE(JSON_EXTRACT(result,'$.id'))=? AND JSON_UNQUOTE(JSON_EXTRACT(result,'$.kind')) IN ('PREFERENCE','DECISION','CORRECTION')`, user, id); err != nil {
+		if _, err = tx.ExecContext(ctx, `UPDATE action_receipts SET result=JSON_SET(result,'$.content','','$.scope','','$.episode',NULL,'$.forgotten',TRUE) WHERE user_id=? AND JSON_UNQUOTE(JSON_EXTRACT(result,'$.id'))=? AND JSON_UNQUOTE(JSON_EXTRACT(result,'$.kind')) IN ('PREFERENCE','DECISION','CORRECTION','DEFENSE')`, user, id); err != nil {
 			return err
 		}
 		// Erase content as well as hiding the record. Epoch invalidates old contexts.
@@ -152,6 +166,8 @@ func (s *Store) ForgetMemory(ctx context.Context, user, id string, version uint6
 		}
 		old.Content = ""
 		old.Scope = ""
+		old.Episode = nil
+		old.Disputed = false
 		old.Version++
 		old.UpdatedAt = time.Now().UTC()
 		_, err = tx.ExecContext(ctx, "UPDATE agent_memories SET deleted=TRUE,version=?,updated_at=?,body=? WHERE id=? AND user_id=?", old.Version, old.UpdatedAt, d.JSON(old), id, user)
@@ -232,7 +248,7 @@ func (s *Store) AgentContext(ctx context.Context, user string) (revision uint64,
 	if err != nil {
 		return
 	}
-	rows, err = Many[AgentMemory](ctx, tx, "SELECT body FROM agent_memories WHERE user_id=? AND deleted=FALSE AND expires_at>UTC_TIMESTAMP(6) ORDER BY updated_at DESC,id LIMIT 100", user)
+	rows, err = Many[AgentMemory](ctx, tx, "SELECT body FROM agent_memories WHERE user_id=? AND deleted=FALSE AND expires_at>UTC_TIMESTAMP(6) AND JSON_UNQUOTE(JSON_EXTRACT(body,'$.kind'))<>'DEFENSE' ORDER BY updated_at DESC,id LIMIT 100", user)
 	if err != nil {
 		return
 	}

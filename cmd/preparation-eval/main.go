@@ -279,6 +279,15 @@ func run() error {
 	}
 	report["per_task_model_limit"] = perTaskLimit
 	report["semantic_rubric"] = map[string]any{"status": "UNREVIEWED", "scale": "0=violated/unsupported, 1=partial, 2=meets; null=not reviewed; N/A=not applicable", "dimensions": []string{"target_requirement_coverage", "citation_entailment", "feasible_workload", "feedback_compliance", "no_fabricated_experience", "retrieval_added_value"}, "reviewer": "No independent human labels; use scripts/review-preparation-evaluation.py to record reviewer and evidence"}
+	for _, task := range selected {
+		if task.Input.Defense == nil {
+			continue
+		}
+		report["baseline_adaptation"] = "Project defense uses only the product LangGraph dynamic path. Paired memory_mode=confirmed/off cases keep model, current question, sources and budgets equal; controlled replies demonstrate data flow, not quality improvement."
+		report["memory_policy_version"] = "project-defense-memory-v1; same-topic/current-evidence/user-confirmed; max 3 records and 24576 JSON bytes"
+		report["semantic_rubric"].(map[string]any)["dimensions"] = []string{"answer_feedback_correctness", "citation_entailment", "feasible_workload", "feedback_compliance", "no_fabricated_experience", "memory_added_value", "correction_compliance"}
+		break
+	}
 	report["arms"] = arms
 	encoded, err := json.MarshalIndent(report, "", "  ")
 	if err != nil {
