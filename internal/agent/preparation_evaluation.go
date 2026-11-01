@@ -120,24 +120,6 @@ func evalPreparationCase(ctx context.Context, c PreparationEvalCase, arm string,
 	result := PreparationEvalResult{CaseID: c.ID, Arm: arm, SourcesUsed: []string{}, BusinessState: "NOT_SAVED; SQL confirmation/isolation verified separately"}
 	if c.Control == "stale" || c.Control == "unauthorized" {
 		result.State = map[string]string{"stale": "STALE", "unauthorized": "DENIED"}[c.Control]
-		initial := map[string]bool{}
-		for _, source := range c.Sources {
-			initial[source.ID] = true
-		}
-		if arm != "single-prompt" {
-			retrieved := map[string]bool{}
-			for _, source := range v.Preparation.Sources {
-				if !initial[source.ID] {
-					retrieved[source.ID] = true
-				}
-			}
-			result.RetrievalNewSources = len(retrieved)
-			for _, id := range result.SourcesUsed {
-				if retrieved[id] {
-					result.RetrievalCitedSources++
-				}
-			}
-		}
 		result.ProgramExpectationMet = result.State == c.Expected
 		return result
 	}
@@ -275,6 +257,24 @@ func evalPreparationCase(ctx context.Context, c PreparationEvalCase, arm string,
 					result.SourcesUsed = append(result.SourcesUsed, ref.SourceID)
 					used[ref.SourceID] = true
 				}
+			}
+		}
+	}
+	initial := map[string]bool{}
+	for _, source := range c.Sources {
+		initial[source.ID] = true
+	}
+	if arm != "single-prompt" {
+		retrieved := map[string]bool{}
+		for _, source := range v.Preparation.Sources {
+			if !initial[source.ID] {
+				retrieved[source.ID] = true
+			}
+		}
+		result.RetrievalNewSources = len(retrieved)
+		for _, id := range result.SourcesUsed {
+			if retrieved[id] {
+				result.RetrievalCitedSources++
 			}
 		}
 	}

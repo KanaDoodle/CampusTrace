@@ -146,3 +146,33 @@ func TestPreparationClarificationScoreRejectsUnknownProviderOutcome(t *testing.T
 		}
 	}
 }
+
+func TestPreparationEvaluationCountsRetrievedAndCitedSourcesAfterExecution(t *testing.T) {
+	for _, arm := range []string{"dynamic", "fixed-plus-synthesis", "single-prompt"} {
+		t.Run(arm, func(t *testing.T) {
+			state := prepTestState()
+			note := preparationSource("KNOWLEDGE", "Go 并发学习材料", "Go 并发通过 context 协作取消。", "retrieval-count", "")
+			plan := prepTestPlan(state)
+			plan.Items[0].References = append(plan.Items[0].References, d.PreparationReference{SourceID: note.ID, Quote: "Go 并发通过 context 协作取消。"})
+			calls := 0
+			model := prepModelFunc(func(context.Context, []Message, []Definition) (Reply, error) {
+				calls++
+				if arm == "dynamic" && calls == 1 {
+					return Reply{Calls: []Call{{ID: "search", Name: "search_preparation_knowledge", Args: json.RawMessage(`{"query":"Go 并发"}`)}}}, nil
+				}
+				return Reply{Calls: []Call{{ID: "finish", Name: "finish_preparation_plan", Args: json.RawMessage(d.JSON(plan))}}}, nil
+			})
+			result := EvalPreparationCase(context.Background(), PreparationEvalCase{Input: state.Input, Sources: state.Sources, Corpus: []d.PreparationSource{note}, Expected: "COMPLETED"}, arm, model)
+			if !result.ProgramExpectationMet {
+				t.Fatalf("case failed: %+v", result)
+			}
+			expected := 1
+			if arm == "single-prompt" {
+				expected = 0
+			}
+			if result.RetrievalNewSources != expected || result.RetrievalCitedSources != expected {
+				t.Fatalf("actual retrieved=%d cited=%d; want %d", result.RetrievalNewSources, result.RetrievalCitedSources, expected)
+			}
+		})
+	}
+}
