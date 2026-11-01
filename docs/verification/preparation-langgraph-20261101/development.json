@@ -1,0 +1,1651 @@
+{
+  "agent_version": "application-preparation-agent-v5",
+  "arms": [
+    "single-prompt",
+    "fixed-plus-synthesis",
+    "dynamic"
+  ],
+  "baseline_adaptation": "Fixed path uses existing literal preparationQuery plus BM25, then one structured synthesis. All arms receive the same goal and constraints; the single prompt gets the entire allowed small corpus.",
+  "business_writes": "No writes in CLI arms; SQL confirmation, ownership, stale input and idempotency are separately tested",
+  "cost": "Reported usage and optional user-supplied prices; absent usage or prices leaves cost null. Controlled responses are not actual token/cost measurements.",
+  "dataset_sha256": "c94724634e3650aa16583ecea0d0960a7a17b13bd1de7391218915598bce8507",
+  "dynamic_executor": "langgraph",
+  "elapsed_ms": 54,
+  "external_model_attempts": 0,
+  "framework_versions": {
+    "langgraph": "1.2.19",
+    "langgraph-checkpoint-sqlite": "3.1.3"
+  },
+  "graph_version": "preparation-langgraph-v1",
+  "max_calls": 24,
+  "mode": "controlled-response-program-regression",
+  "model": "",
+  "model_config": {
+    "max_output_tokens": 2048,
+    "request_policy": "existing ChatClient provider-specific defaults",
+    "requested_model": "",
+    "url": ""
+  },
+  "prompt_sha256": "a12817ced679ad86664fdd92a375fd3d5fce9f84cdfb4c2fc070b8a9178eb2e6",
+  "results": [
+    {
+      "retrieval_new_sources": 0,
+      "retrieval_cited_sources": 0,
+      "case_id": "normal-go-180",
+      "arm": "single-prompt",
+      "state": "COMPLETED",
+      "program_expectation_met": true,
+      "plan_valid": true,
+      "sources_used": [
+        "s_2f07e4cfe64a446c2a7a091b",
+        "s_939eebbe496dea26bfed9624"
+      ],
+      "model_calls": 1,
+      "tool_calls": 0,
+      "invalid_calls": 0,
+      "failed_tool_calls": 0,
+      "repeated_queries": 0,
+      "latency_ms": 0.189,
+      "usage": {
+        "limit": 128000,
+        "charged": 9472,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "unreported_calls": 1
+      },
+      "estimated_cost_usd": null,
+      "plan": {
+        "summary": "在时间约束内准备实际实现和口头演练",
+        "items": [
+          {
+            "id": "go",
+            "title": "Go 并发与取消",
+            "minutes": 60,
+            "day": 1,
+            "basis": "JD",
+            "action": "解释竞争条件并实现取消传播",
+            "deliverable": "可运行例子与取舍说明",
+            "references": [
+              {
+                "source_id": "s_2f07e4cfe64a446c2a7a091b",
+                "quote": "岗位要求：熟悉 Go 并发、context 取消、MySQL 索引与事务。"
+              }
+            ]
+          },
+          {
+            "id": "mysql",
+            "title": "MySQL 索引与事务",
+            "minutes": 60,
+            "day": 1,
+            "basis": "JD",
+            "action": "用执行计划核查一条查询",
+            "deliverable": "SQL 与执行计划解释",
+            "references": [
+              {
+                "source_id": "s_2f07e4cfe64a446c2a7a091b",
+                "quote": "岗位要求：熟悉 Go 并发、context 取消、MySQL 索引与事务。"
+              }
+            ]
+          },
+          {
+            "id": "review",
+            "title": "复盘失分项",
+            "minutes": 60,
+            "day": 1,
+            "basis": "HISTORY",
+            "action": "针对原问题练习并核对答案",
+            "deliverable": "复盘改进清单",
+            "references": [
+              {
+                "source_id": "s_939eebbe496dea26bfed9624",
+                "quote": "MySQL 面试遗漏点：复合索引最左前缀和隔离级别。"
+              }
+            ]
+          }
+        ]
+      },
+      "trace": null,
+      "business_state": "NOT_SAVED; SQL confirmation/isolation verified separately",
+      "candidate_plan": {
+        "summary": "在时间约束内准备实际实现和口头演练",
+        "items": [
+          {
+            "id": "go",
+            "title": "Go 并发与取消",
+            "minutes": 60,
+            "day": 1,
+            "basis": "JD",
+            "action": "解释竞争条件并实现取消传播",
+            "deliverable": "可运行例子与取舍说明",
+            "references": [
+              {
+                "source_id": "s_2f07e4cfe64a446c2a7a091b",
+                "quote": "岗位要求：熟悉 Go 并发、context 取消、MySQL 索引与事务。"
+              }
+            ]
+          },
+          {
+            "id": "mysql",
+            "title": "MySQL 索引与事务",
+            "minutes": 60,
+            "day": 1,
+            "basis": "JD",
+            "action": "用执行计划核查一条查询",
+            "deliverable": "SQL 与执行计划解释",
+            "references": [
+              {
+                "source_id": "s_2f07e4cfe64a446c2a7a091b",
+                "quote": "岗位要求：熟悉 Go 并发、context 取消、MySQL 索引与事务。"
+              }
+            ]
+          },
+          {
+            "id": "review",
+            "title": "复盘失分项",
+            "minutes": 60,
+            "day": 1,
+            "basis": "HISTORY",
+            "action": "针对原问题练习并核对答案",
+            "deliverable": "复盘改进清单",
+            "references": [
+              {
+                "source_id": "s_939eebbe496dea26bfed9624",
+                "quote": "MySQL 面试遗漏点：复合索引最左前缀和隔离级别。"
+              }
+            ]
+          }
+        ]
+      },
+      "model_turns": [
+        {
+          "calls": [
+            {
+              "id": "controlled-1",
+              "name": "finish_preparation_plan",
+              "arguments": "{\"summary\":\"在时间约束内准备实际实现和口头演练\",\"items\":[{\"id\":\"go\",\"title\":\"Go 并发与取消\",\"minutes\":60,\"day\":1,\"basis\":\"JD\",\"action\":\"解释竞争条件并实现取消传播\",\"deliverable\":\"可运行例子与取舍说明\",\"references\":[{\"source_id\":\"s_2f07e4cfe64a446c2a7a091b\",\"quote\":\"岗位要求：熟悉 Go 并发、context 取消、MySQL 索引与事务。\"}]},{\"id\":\"mysql\",\"title\":\"MySQL 索引与事务\",\"minutes\":60,\"day\":1,\"basis\":\"JD\",\"action\":\"用执行计划核查一条查询\",\"deliverable\":\"SQL 与执行计划解释\",\"references\":[{\"source_id\":\"s_2f07e4cfe64a446c2a7a091b\",\"quote\":\"岗位要求：熟悉 Go 并发、context 取消、MySQL 索引与事务。\"}]},{\"id\":\"review\",\"title\":\"复盘失分项\",\"minutes\":60,\"day\":1,\"basis\":\"HISTORY\",\"action\":\"针对原问题练习并核对答案\",\"deliverable\":\"复盘改进清单\",\"references\":[{\"source_id\":\"s_939eebbe496dea26bfed9624\",\"quote\":\"MySQL 面试遗漏点：复合索引最左前缀和隔离级别。\"}]}]}"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "known": false
+          }
+        }
+      ]
+    },
+    {
+      "retrieval_new_sources": 0,
+      "retrieval_cited_sources": 0,
+      "case_id": "normal-go-180",
+      "arm": "fixed-plus-synthesis",
+      "state": "COMPLETED",
+      "program_expectation_met": true,
+      "plan_valid": true,
+      "sources_used": [
+        "s_2f07e4cfe64a446c2a7a091b",
+        "s_a693e862eacedc23bed05e7a"
+      ],
+      "model_calls": 1,
+      "tool_calls": 1,
+      "invalid_calls": 0,
+      "failed_tool_calls": 0,
+      "repeated_queries": 0,
+      "latency_ms": 0.154,
+      "usage": {
+        "limit": 128000,
+        "charged": 9124,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "unreported_calls": 1
+      },
+      "estimated_cost_usd": null,
+      "plan": {
+        "summary": "在时间约束内准备实际实现和口头演练",
+        "items": [
+          {
+            "id": "go",
+            "title": "Go 并发与取消",
+            "minutes": 60,
+            "day": 1,
+            "basis": "JD",
+            "action": "解释竞争条件并实现取消传播",
+            "deliverable": "可运行例子与取舍说明",
+            "references": [
+              {
+                "source_id": "s_2f07e4cfe64a446c2a7a091b",
+                "quote": "岗位要求：熟悉 Go 并发、context 取消、MySQL 索引与事务。"
+              }
+            ]
+          },
+          {
+            "id": "mysql",
+            "title": "MySQL 索引与事务",
+            "minutes": 60,
+            "day": 1,
+            "basis": "JD",
+            "action": "用执行计划核查一条查询",
+            "deliverable": "SQL 与执行计划解释",
+            "references": [
+              {
+                "source_id": "s_2f07e4cfe64a446c2a7a091b",
+                "quote": "岗位要求：熟悉 Go 并发、context 取消、MySQL 索引与事务。"
+              }
+            ]
+          },
+          {
+            "id": "review",
+            "title": "复盘失分项",
+            "minutes": 60,
+            "day": 1,
+            "basis": "HISTORY",
+            "action": "针对原问题练习并核对答案",
+            "deliverable": "复盘改进清单",
+            "references": [
+              {
+                "source_id": "s_a693e862eacedc23bed05e7a",
+                "quote": "实际问题：怎样避免 goroutine 泄漏；遗漏点：context 超时后任务仍运行。"
+              }
+            ]
+          }
+        ]
+      },
+      "trace": null,
+      "business_state": "NOT_SAVED; SQL confirmation/isolation verified separately",
+      "candidate_plan": {
+        "summary": "在时间约束内准备实际实现和口头演练",
+        "items": [
+          {
+            "id": "go",
+            "title": "Go 并发与取消",
+            "minutes": 60,
+            "day": 1,
+            "basis": "JD",
+            "action": "解释竞争条件并实现取消传播",
+            "deliverable": "可运行例子与取舍说明",
+            "references": [
+              {
+                "source_id": "s_2f07e4cfe64a446c2a7a091b",
+                "quote": "岗位要求：熟悉 Go 并发、context 取消、MySQL 索引与事务。"
+              }
+            ]
+          },
+          {
+            "id": "mysql",
+            "title": "MySQL 索引与事务",
+            "minutes": 60,
+            "day": 1,
+            "basis": "JD",
+            "action": "用执行计划核查一条查询",
+            "deliverable": "SQL 与执行计划解释",
+            "references": [
+              {
+                "source_id": "s_2f07e4cfe64a446c2a7a091b",
+                "quote": "岗位要求：熟悉 Go 并发、context 取消、MySQL 索引与事务。"
+              }
+            ]
+          },
+          {
+            "id": "review",
+            "title": "复盘失分项",
+            "minutes": 60,
+            "day": 1,
+            "basis": "HISTORY",
+            "action": "针对原问题练习并核对答案",
+            "deliverable": "复盘改进清单",
+            "references": [
+              {
+                "source_id": "s_a693e862eacedc23bed05e7a",
+                "quote": "实际问题：怎样避免 goroutine 泄漏；遗漏点：context 超时后任务仍运行。"
+              }
+            ]
+          }
+        ]
+      },
+      "model_turns": [
+        {
+          "calls": [
+            {
+              "id": "controlled-1",
+              "name": "finish_preparation_plan",
+              "arguments": "{\"summary\":\"在时间约束内准备实际实现和口头演练\",\"items\":[{\"id\":\"go\",\"title\":\"Go 并发与取消\",\"minutes\":60,\"day\":1,\"basis\":\"JD\",\"action\":\"解释竞争条件并实现取消传播\",\"deliverable\":\"可运行例子与取舍说明\",\"references\":[{\"source_id\":\"s_2f07e4cfe64a446c2a7a091b\",\"quote\":\"岗位要求：熟悉 Go 并发、context 取消、MySQL 索引与事务。\"}]},{\"id\":\"mysql\",\"title\":\"MySQL 索引与事务\",\"minutes\":60,\"day\":1,\"basis\":\"JD\",\"action\":\"用执行计划核查一条查询\",\"deliverable\":\"SQL 与执行计划解释\",\"references\":[{\"source_id\":\"s_2f07e4cfe64a446c2a7a091b\",\"quote\":\"岗位要求：熟悉 Go 并发、context 取消、MySQL 索引与事务。\"}]},{\"id\":\"review\",\"title\":\"复盘失分项\",\"minutes\":60,\"day\":1,\"basis\":\"HISTORY\",\"action\":\"针对原问题练习并核对答案\",\"deliverable\":\"复盘改进清单\",\"references\":[{\"source_id\":\"s_a693e862eacedc23bed05e7a\",\"quote\":\"实际问题：怎样避免 goroutine 泄漏；遗漏点：context 超时后任务仍运行。\"}]}]}"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "known": false
+          }
+        }
+      ]
+    },
+    {
+      "retrieval_new_sources": 0,
+      "retrieval_cited_sources": 0,
+      "case_id": "normal-go-180",
+      "arm": "dynamic",
+      "state": "COMPLETED",
+      "program_expectation_met": true,
+      "plan_valid": true,
+      "sources_used": [
+        "s_2f07e4cfe64a446c2a7a091b",
+        "s_a693e862eacedc23bed05e7a"
+      ],
+      "model_calls": 2,
+      "tool_calls": 1,
+      "invalid_calls": 0,
+      "failed_tool_calls": 0,
+      "repeated_queries": 0,
+      "latency_ms": 19.643,
+      "usage": {
+        "limit": 128000,
+        "charged": 19409,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "unreported_calls": 2
+      },
+      "estimated_cost_usd": null,
+      "plan": {
+        "summary": "在时间约束内准备实际实现和口头演练",
+        "items": [
+          {
+            "id": "go",
+            "title": "Go 并发与取消",
+            "minutes": 60,
+            "day": 1,
+            "basis": "JD",
+            "action": "解释竞争条件并实现取消传播",
+            "deliverable": "可运行例子与取舍说明",
+            "references": [
+              {
+                "source_id": "s_2f07e4cfe64a446c2a7a091b",
+                "quote": "岗位要求：熟悉 Go 并发、context 取消、MySQL 索引与事务。"
+              }
+            ]
+          },
+          {
+            "id": "mysql",
+            "title": "MySQL 索引与事务",
+            "minutes": 60,
+            "day": 1,
+            "basis": "JD",
+            "action": "用执行计划核查一条查询",
+            "deliverable": "SQL 与执行计划解释",
+            "references": [
+              {
+                "source_id": "s_2f07e4cfe64a446c2a7a091b",
+                "quote": "岗位要求：熟悉 Go 并发、context 取消、MySQL 索引与事务。"
+              }
+            ]
+          },
+          {
+            "id": "review",
+            "title": "复盘失分项",
+            "minutes": 60,
+            "day": 1,
+            "basis": "HISTORY",
+            "action": "针对原问题练习并核对答案",
+            "deliverable": "复盘改进清单",
+            "references": [
+              {
+                "source_id": "s_a693e862eacedc23bed05e7a",
+                "quote": "实际问题：怎样避免 goroutine 泄漏；遗漏点：context 超时后任务仍运行。"
+              }
+            ]
+          }
+        ]
+      },
+      "trace": [
+        {
+          "kind": "model",
+          "status": "DISPATCHED",
+          "call_id": "model-1"
+        },
+        {
+          "kind": "model",
+          "status": "RETURNED",
+          "call_id": "model-1"
+        },
+        {
+          "kind": "tool",
+          "name": "search_preparation_knowledge",
+          "status": "SUCCESS",
+          "call_id": "controlled-1"
+        },
+        {
+          "kind": "model",
+          "status": "DISPATCHED",
+          "call_id": "model-2"
+        },
+        {
+          "kind": "model",
+          "status": "RETURNED",
+          "call_id": "model-2"
+        },
+        {
+          "kind": "plan",
+          "name": "finish_preparation_plan",
+          "status": "VALIDATED",
+          "call_id": "controlled-2",
+          "detail": "用户确认前不保存业务计划"
+        }
+      ],
+      "business_state": "NOT_SAVED; SQL confirmation/isolation verified separately",
+      "answer": "在时间约束内准备实际实现和口头演练",
+      "model_turns": [
+        {
+          "calls": [
+            {
+              "id": "controlled-1",
+              "name": "search_preparation_knowledge",
+              "arguments": "{\"query\":\"Go 并发 MySQL 索引\"}"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "known": false
+          }
+        },
+        {
+          "calls": [
+            {
+              "id": "controlled-2",
+              "name": "finish_preparation_plan",
+              "arguments": "{\"summary\":\"在时间约束内准备实际实现和口头演练\",\"items\":[{\"id\":\"go\",\"title\":\"Go 并发与取消\",\"minutes\":60,\"day\":1,\"basis\":\"JD\",\"action\":\"解释竞争条件并实现取消传播\",\"deliverable\":\"可运行例子与取舍说明\",\"references\":[{\"source_id\":\"s_2f07e4cfe64a446c2a7a091b\",\"quote\":\"岗位要求：熟悉 Go 并发、context 取消、MySQL 索引与事务。\"}]},{\"id\":\"mysql\",\"title\":\"MySQL 索引与事务\",\"minutes\":60,\"day\":1,\"basis\":\"JD\",\"action\":\"用执行计划核查一条查询\",\"deliverable\":\"SQL 与执行计划解释\",\"references\":[{\"source_id\":\"s_2f07e4cfe64a446c2a7a091b\",\"quote\":\"岗位要求：熟悉 Go 并发、context 取消、MySQL 索引与事务。\"}]},{\"id\":\"review\",\"title\":\"复盘失分项\",\"minutes\":60,\"day\":1,\"basis\":\"HISTORY\",\"action\":\"针对原问题练习并核对答案\",\"deliverable\":\"复盘改进清单\",\"references\":[{\"source_id\":\"s_a693e862eacedc23bed05e7a\",\"quote\":\"实际问题：怎样避免 goroutine 泄漏；遗漏点：context 超时后任务仍运行。\"}]}]}"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "known": false
+          }
+        }
+      ]
+    },
+    {
+      "retrieval_new_sources": 0,
+      "retrieval_cited_sources": 0,
+      "case_id": "missing-time",
+      "arm": "single-prompt",
+      "state": "PAUSED",
+      "program_expectation_met": true,
+      "plan_valid": false,
+      "sources_used": [],
+      "model_calls": 1,
+      "tool_calls": 0,
+      "invalid_calls": 0,
+      "failed_tool_calls": 0,
+      "repeated_queries": 0,
+      "latency_ms": 0.073,
+      "usage": {
+        "limit": 128000,
+        "charged": 9466,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "unreported_calls": 1
+      },
+      "estimated_cost_usd": null,
+      "question": "请补充总准备时间和完成天数。",
+      "trace": null,
+      "business_state": "NOT_SAVED; SQL confirmation/isolation verified separately",
+      "model_turns": [
+        {
+          "calls": [
+            {
+              "id": "controlled-1",
+              "name": "ask_preparation_question",
+              "arguments": "{\"question\":\"请补充总准备时间和完成天数。\"}"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "known": false
+          }
+        }
+      ]
+    },
+    {
+      "retrieval_new_sources": 0,
+      "retrieval_cited_sources": 0,
+      "case_id": "missing-time",
+      "arm": "fixed-plus-synthesis",
+      "state": "PAUSED",
+      "program_expectation_met": true,
+      "plan_valid": false,
+      "sources_used": [],
+      "model_calls": 1,
+      "tool_calls": 1,
+      "invalid_calls": 0,
+      "failed_tool_calls": 0,
+      "repeated_queries": 0,
+      "latency_ms": 0.156,
+      "usage": {
+        "limit": 128000,
+        "charged": 9118,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "unreported_calls": 1
+      },
+      "estimated_cost_usd": null,
+      "question": "请补充总准备时间和完成天数。",
+      "trace": null,
+      "business_state": "NOT_SAVED; SQL confirmation/isolation verified separately",
+      "model_turns": [
+        {
+          "calls": [
+            {
+              "id": "controlled-1",
+              "name": "ask_preparation_question",
+              "arguments": "{\"question\":\"请补充总准备时间和完成天数。\"}"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "known": false
+          }
+        }
+      ]
+    },
+    {
+      "retrieval_new_sources": 0,
+      "retrieval_cited_sources": 0,
+      "case_id": "missing-time",
+      "arm": "dynamic",
+      "state": "PAUSED",
+      "program_expectation_met": true,
+      "plan_valid": false,
+      "sources_used": [],
+      "model_calls": 1,
+      "tool_calls": 0,
+      "invalid_calls": 0,
+      "failed_tool_calls": 0,
+      "repeated_queries": 0,
+      "latency_ms": 5.733,
+      "usage": {
+        "limit": 128000,
+        "charged": 9270,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "unreported_calls": 1
+      },
+      "estimated_cost_usd": null,
+      "question": "请补充总准备时间和完成天数。",
+      "trace": [
+        {
+          "kind": "model",
+          "status": "DISPATCHED",
+          "call_id": "model-1"
+        },
+        {
+          "kind": "model",
+          "status": "RETURNED",
+          "call_id": "model-1"
+        },
+        {
+          "kind": "question",
+          "name": "ask_preparation_question",
+          "status": "WAITING_INPUT",
+          "call_id": "controlled-1",
+          "detail": "请补充总准备时间和完成天数。"
+        }
+      ],
+      "business_state": "NOT_SAVED; SQL confirmation/isolation verified separately",
+      "answer": "请补充总准备时间和完成天数。",
+      "model_turns": [
+        {
+          "calls": [
+            {
+              "id": "controlled-1",
+              "name": "ask_preparation_question",
+              "arguments": "{\"question\":\"请补充总准备时间和完成天数。\"}"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "known": false
+          }
+        }
+      ]
+    },
+    {
+      "retrieval_new_sources": 0,
+      "retrieval_cited_sources": 0,
+      "case_id": "legacy-no-snapshot",
+      "arm": "single-prompt",
+      "state": "PAUSED",
+      "program_expectation_met": true,
+      "plan_valid": false,
+      "sources_used": [],
+      "model_calls": 1,
+      "tool_calls": 0,
+      "invalid_calls": 0,
+      "failed_tool_calls": 0,
+      "repeated_queries": 0,
+      "latency_ms": 0.06,
+      "usage": {
+        "limit": 128000,
+        "charged": 8104,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "unreported_calls": 1
+      },
+      "estimated_cost_usd": null,
+      "question": "缺少本次申请的历史 JD，请核对原始留档材料；不会使用当前 JD 替代。",
+      "trace": null,
+      "business_state": "NOT_SAVED; SQL confirmation/isolation verified separately",
+      "model_turns": [
+        {
+          "calls": [
+            {
+              "id": "controlled-1",
+              "name": "ask_preparation_question",
+              "arguments": "{\"question\":\"缺少本次申请的历史 JD，请核对原始留档材料；不会使用当前 JD 替代。\"}"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "known": false
+          }
+        }
+      ]
+    },
+    {
+      "retrieval_new_sources": 0,
+      "retrieval_cited_sources": 0,
+      "case_id": "legacy-no-snapshot",
+      "arm": "fixed-plus-synthesis",
+      "state": "PAUSED",
+      "program_expectation_met": true,
+      "plan_valid": false,
+      "sources_used": [],
+      "model_calls": 1,
+      "tool_calls": 1,
+      "invalid_calls": 0,
+      "failed_tool_calls": 0,
+      "repeated_queries": 0,
+      "latency_ms": 0.046,
+      "usage": {
+        "limit": 128000,
+        "charged": 7161,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "unreported_calls": 1
+      },
+      "estimated_cost_usd": null,
+      "question": "缺少本次申请的历史 JD，请核对原始留档材料；不会使用当前 JD 替代。",
+      "trace": null,
+      "business_state": "NOT_SAVED; SQL confirmation/isolation verified separately",
+      "model_turns": [
+        {
+          "calls": [
+            {
+              "id": "controlled-1",
+              "name": "ask_preparation_question",
+              "arguments": "{\"question\":\"缺少本次申请的历史 JD，请核对原始留档材料；不会使用当前 JD 替代。\"}"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "known": false
+          }
+        }
+      ]
+    },
+    {
+      "retrieval_new_sources": 0,
+      "retrieval_cited_sources": 0,
+      "case_id": "legacy-no-snapshot",
+      "arm": "dynamic",
+      "state": "PAUSED",
+      "program_expectation_met": true,
+      "plan_valid": false,
+      "sources_used": [],
+      "model_calls": 1,
+      "tool_calls": 0,
+      "invalid_calls": 0,
+      "failed_tool_calls": 0,
+      "repeated_queries": 0,
+      "latency_ms": 6.009,
+      "usage": {
+        "limit": 128000,
+        "charged": 7909,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "unreported_calls": 1
+      },
+      "estimated_cost_usd": null,
+      "question": "缺少本次申请的历史 JD，请核对原始留档材料；不会使用当前 JD 替代。",
+      "trace": [
+        {
+          "kind": "model",
+          "status": "DISPATCHED",
+          "call_id": "model-1"
+        },
+        {
+          "kind": "model",
+          "status": "RETURNED",
+          "call_id": "model-1"
+        },
+        {
+          "kind": "question",
+          "name": "ask_preparation_question",
+          "status": "WAITING_INPUT",
+          "call_id": "controlled-1",
+          "detail": "缺少本次申请的历史 JD，请核对原始留档材料；不会使用当前 JD 替代。"
+        }
+      ],
+      "business_state": "NOT_SAVED; SQL confirmation/isolation verified separately",
+      "answer": "缺少本次申请的历史 JD，请核对原始留档材料；不会使用当前 JD 替代。",
+      "model_turns": [
+        {
+          "calls": [
+            {
+              "id": "controlled-1",
+              "name": "ask_preparation_question",
+              "arguments": "{\"question\":\"缺少本次申请的历史 JD，请核对原始留档材料；不会使用当前 JD 替代。\"}"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "known": false
+          }
+        }
+      ]
+    },
+    {
+      "retrieval_new_sources": 0,
+      "retrieval_cited_sources": 0,
+      "case_id": "feedback-mastered-and-one-hour",
+      "arm": "single-prompt",
+      "state": "COMPLETED",
+      "program_expectation_met": true,
+      "plan_valid": true,
+      "sources_used": [
+        "s_2f07e4cfe64a446c2a7a091b"
+      ],
+      "model_calls": 1,
+      "tool_calls": 0,
+      "invalid_calls": 0,
+      "failed_tool_calls": 0,
+      "repeated_queries": 0,
+      "latency_ms": 0.1,
+      "usage": {
+        "limit": 128000,
+        "charged": 10195,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "unreported_calls": 1
+      },
+      "estimated_cost_usd": null,
+      "plan": {
+        "summary": "在时间约束内准备实际实现和口头演练",
+        "items": [
+          {
+            "id": "mysql",
+            "title": "MySQL 索引与事务",
+            "minutes": 60,
+            "day": 1,
+            "basis": "JD",
+            "action": "按留档练习并说明实现",
+            "deliverable": "回答提纲",
+            "references": [
+              {
+                "source_id": "s_2f07e4cfe64a446c2a7a091b",
+                "quote": "Go 并发"
+              }
+            ]
+          }
+        ]
+      },
+      "trace": null,
+      "business_state": "NOT_SAVED; SQL confirmation/isolation verified separately",
+      "candidate_plan": {
+        "summary": "在时间约束内准备实际实现和口头演练",
+        "items": [
+          {
+            "id": "mysql",
+            "title": "MySQL 索引与事务",
+            "minutes": 60,
+            "day": 1,
+            "basis": "JD",
+            "action": "按留档练习并说明实现",
+            "deliverable": "回答提纲",
+            "references": [
+              {
+                "source_id": "s_2f07e4cfe64a446c2a7a091b",
+                "quote": "Go 并发"
+              }
+            ]
+          }
+        ]
+      },
+      "model_turns": [
+        {
+          "calls": [
+            {
+              "id": "controlled-1",
+              "name": "finish_preparation_plan",
+              "arguments": "{\"summary\":\"在时间约束内准备实际实现和口头演练\",\"items\":[{\"id\":\"mysql\",\"title\":\"MySQL 索引与事务\",\"minutes\":60,\"day\":1,\"basis\":\"JD\",\"action\":\"按留档练习并说明实现\",\"deliverable\":\"回答提纲\",\"references\":[{\"source_id\":\"s_2f07e4cfe64a446c2a7a091b\",\"quote\":\"Go 并发\"}]}]}"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "known": false
+          }
+        }
+      ]
+    },
+    {
+      "retrieval_new_sources": 0,
+      "retrieval_cited_sources": 0,
+      "case_id": "feedback-mastered-and-one-hour",
+      "arm": "fixed-plus-synthesis",
+      "state": "COMPLETED",
+      "program_expectation_met": true,
+      "plan_valid": true,
+      "sources_used": [
+        "s_2f07e4cfe64a446c2a7a091b"
+      ],
+      "model_calls": 1,
+      "tool_calls": 1,
+      "invalid_calls": 0,
+      "failed_tool_calls": 0,
+      "repeated_queries": 0,
+      "latency_ms": 0.105,
+      "usage": {
+        "limit": 128000,
+        "charged": 9847,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "unreported_calls": 1
+      },
+      "estimated_cost_usd": null,
+      "plan": {
+        "summary": "在时间约束内准备实际实现和口头演练",
+        "items": [
+          {
+            "id": "mysql",
+            "title": "MySQL 索引与事务",
+            "minutes": 60,
+            "day": 1,
+            "basis": "JD",
+            "action": "按留档练习并说明实现",
+            "deliverable": "回答提纲",
+            "references": [
+              {
+                "source_id": "s_2f07e4cfe64a446c2a7a091b",
+                "quote": "Go 并发"
+              }
+            ]
+          }
+        ]
+      },
+      "trace": null,
+      "business_state": "NOT_SAVED; SQL confirmation/isolation verified separately",
+      "candidate_plan": {
+        "summary": "在时间约束内准备实际实现和口头演练",
+        "items": [
+          {
+            "id": "mysql",
+            "title": "MySQL 索引与事务",
+            "minutes": 60,
+            "day": 1,
+            "basis": "JD",
+            "action": "按留档练习并说明实现",
+            "deliverable": "回答提纲",
+            "references": [
+              {
+                "source_id": "s_2f07e4cfe64a446c2a7a091b",
+                "quote": "Go 并发"
+              }
+            ]
+          }
+        ]
+      },
+      "model_turns": [
+        {
+          "calls": [
+            {
+              "id": "controlled-1",
+              "name": "finish_preparation_plan",
+              "arguments": "{\"summary\":\"在时间约束内准备实际实现和口头演练\",\"items\":[{\"id\":\"mysql\",\"title\":\"MySQL 索引与事务\",\"minutes\":60,\"day\":1,\"basis\":\"JD\",\"action\":\"按留档练习并说明实现\",\"deliverable\":\"回答提纲\",\"references\":[{\"source_id\":\"s_2f07e4cfe64a446c2a7a091b\",\"quote\":\"Go 并发\"}]}]}"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "known": false
+          }
+        }
+      ]
+    },
+    {
+      "retrieval_new_sources": 0,
+      "retrieval_cited_sources": 0,
+      "case_id": "feedback-mastered-and-one-hour",
+      "arm": "dynamic",
+      "state": "COMPLETED",
+      "program_expectation_met": true,
+      "plan_valid": true,
+      "sources_used": [
+        "s_2f07e4cfe64a446c2a7a091b"
+      ],
+      "model_calls": 1,
+      "tool_calls": 0,
+      "invalid_calls": 0,
+      "failed_tool_calls": 0,
+      "repeated_queries": 0,
+      "latency_ms": 5.972,
+      "usage": {
+        "limit": 128000,
+        "charged": 9999,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "unreported_calls": 1
+      },
+      "estimated_cost_usd": null,
+      "plan": {
+        "summary": "在时间约束内准备实际实现和口头演练",
+        "items": [
+          {
+            "id": "mysql",
+            "title": "MySQL 索引与事务",
+            "minutes": 60,
+            "day": 1,
+            "basis": "JD",
+            "action": "按留档练习并说明实现",
+            "deliverable": "回答提纲",
+            "references": [
+              {
+                "source_id": "s_2f07e4cfe64a446c2a7a091b",
+                "quote": "Go 并发"
+              }
+            ]
+          }
+        ]
+      },
+      "trace": [
+        {
+          "kind": "model",
+          "status": "DISPATCHED",
+          "call_id": "model-1"
+        },
+        {
+          "kind": "model",
+          "status": "RETURNED",
+          "call_id": "model-1"
+        },
+        {
+          "kind": "plan",
+          "name": "finish_preparation_plan",
+          "status": "VALIDATED",
+          "call_id": "controlled-1",
+          "detail": "用户确认前不保存业务计划"
+        }
+      ],
+      "business_state": "NOT_SAVED; SQL confirmation/isolation verified separately",
+      "answer": "在时间约束内准备实际实现和口头演练",
+      "model_turns": [
+        {
+          "calls": [
+            {
+              "id": "controlled-1",
+              "name": "finish_preparation_plan",
+              "arguments": "{\"summary\":\"在时间约束内准备实际实现和口头演练\",\"items\":[{\"id\":\"mysql\",\"title\":\"MySQL 索引与事务\",\"minutes\":60,\"day\":1,\"basis\":\"JD\",\"action\":\"按留档练习并说明实现\",\"deliverable\":\"回答提纲\",\"references\":[{\"source_id\":\"s_2f07e4cfe64a446c2a7a091b\",\"quote\":\"Go 并发\"}]}]}"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "known": false
+          }
+        }
+      ]
+    },
+    {
+      "retrieval_new_sources": 0,
+      "retrieval_cited_sources": 0,
+      "case_id": "retrieval-rewrite",
+      "arm": "single-prompt",
+      "state": "COMPLETED",
+      "program_expectation_met": true,
+      "plan_valid": true,
+      "sources_used": [
+        "s_2f07e4cfe64a446c2a7a091b",
+        "s_939eebbe496dea26bfed9624"
+      ],
+      "model_calls": 1,
+      "tool_calls": 0,
+      "invalid_calls": 0,
+      "failed_tool_calls": 0,
+      "repeated_queries": 0,
+      "latency_ms": 0.257,
+      "usage": {
+        "limit": 128000,
+        "charged": 9472,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "unreported_calls": 1
+      },
+      "estimated_cost_usd": null,
+      "plan": {
+        "summary": "在时间约束内准备实际实现和口头演练",
+        "items": [
+          {
+            "id": "go",
+            "title": "Go 并发与取消",
+            "minutes": 60,
+            "day": 1,
+            "basis": "JD",
+            "action": "解释竞争条件并实现取消传播",
+            "deliverable": "可运行例子与取舍说明",
+            "references": [
+              {
+                "source_id": "s_2f07e4cfe64a446c2a7a091b",
+                "quote": "岗位要求：熟悉 Go 并发、context 取消、MySQL 索引与事务。"
+              }
+            ]
+          },
+          {
+            "id": "mysql",
+            "title": "MySQL 索引与事务",
+            "minutes": 60,
+            "day": 1,
+            "basis": "JD",
+            "action": "用执行计划核查一条查询",
+            "deliverable": "SQL 与执行计划解释",
+            "references": [
+              {
+                "source_id": "s_2f07e4cfe64a446c2a7a091b",
+                "quote": "岗位要求：熟悉 Go 并发、context 取消、MySQL 索引与事务。"
+              }
+            ]
+          },
+          {
+            "id": "review",
+            "title": "复盘失分项",
+            "minutes": 60,
+            "day": 1,
+            "basis": "HISTORY",
+            "action": "针对原问题练习并核对答案",
+            "deliverable": "复盘改进清单",
+            "references": [
+              {
+                "source_id": "s_939eebbe496dea26bfed9624",
+                "quote": "MySQL 面试遗漏点：复合索引最左前缀和隔离级别。"
+              }
+            ]
+          }
+        ]
+      },
+      "trace": null,
+      "business_state": "NOT_SAVED; SQL confirmation/isolation verified separately",
+      "candidate_plan": {
+        "summary": "在时间约束内准备实际实现和口头演练",
+        "items": [
+          {
+            "id": "go",
+            "title": "Go 并发与取消",
+            "minutes": 60,
+            "day": 1,
+            "basis": "JD",
+            "action": "解释竞争条件并实现取消传播",
+            "deliverable": "可运行例子与取舍说明",
+            "references": [
+              {
+                "source_id": "s_2f07e4cfe64a446c2a7a091b",
+                "quote": "岗位要求：熟悉 Go 并发、context 取消、MySQL 索引与事务。"
+              }
+            ]
+          },
+          {
+            "id": "mysql",
+            "title": "MySQL 索引与事务",
+            "minutes": 60,
+            "day": 1,
+            "basis": "JD",
+            "action": "用执行计划核查一条查询",
+            "deliverable": "SQL 与执行计划解释",
+            "references": [
+              {
+                "source_id": "s_2f07e4cfe64a446c2a7a091b",
+                "quote": "岗位要求：熟悉 Go 并发、context 取消、MySQL 索引与事务。"
+              }
+            ]
+          },
+          {
+            "id": "review",
+            "title": "复盘失分项",
+            "minutes": 60,
+            "day": 1,
+            "basis": "HISTORY",
+            "action": "针对原问题练习并核对答案",
+            "deliverable": "复盘改进清单",
+            "references": [
+              {
+                "source_id": "s_939eebbe496dea26bfed9624",
+                "quote": "MySQL 面试遗漏点：复合索引最左前缀和隔离级别。"
+              }
+            ]
+          }
+        ]
+      },
+      "model_turns": [
+        {
+          "calls": [
+            {
+              "id": "controlled-1",
+              "name": "finish_preparation_plan",
+              "arguments": "{\"summary\":\"在时间约束内准备实际实现和口头演练\",\"items\":[{\"id\":\"go\",\"title\":\"Go 并发与取消\",\"minutes\":60,\"day\":1,\"basis\":\"JD\",\"action\":\"解释竞争条件并实现取消传播\",\"deliverable\":\"可运行例子与取舍说明\",\"references\":[{\"source_id\":\"s_2f07e4cfe64a446c2a7a091b\",\"quote\":\"岗位要求：熟悉 Go 并发、context 取消、MySQL 索引与事务。\"}]},{\"id\":\"mysql\",\"title\":\"MySQL 索引与事务\",\"minutes\":60,\"day\":1,\"basis\":\"JD\",\"action\":\"用执行计划核查一条查询\",\"deliverable\":\"SQL 与执行计划解释\",\"references\":[{\"source_id\":\"s_2f07e4cfe64a446c2a7a091b\",\"quote\":\"岗位要求：熟悉 Go 并发、context 取消、MySQL 索引与事务。\"}]},{\"id\":\"review\",\"title\":\"复盘失分项\",\"minutes\":60,\"day\":1,\"basis\":\"HISTORY\",\"action\":\"针对原问题练习并核对答案\",\"deliverable\":\"复盘改进清单\",\"references\":[{\"source_id\":\"s_939eebbe496dea26bfed9624\",\"quote\":\"MySQL 面试遗漏点：复合索引最左前缀和隔离级别。\"}]}]}"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "known": false
+          }
+        }
+      ]
+    },
+    {
+      "retrieval_new_sources": 0,
+      "retrieval_cited_sources": 0,
+      "case_id": "retrieval-rewrite",
+      "arm": "fixed-plus-synthesis",
+      "state": "COMPLETED",
+      "program_expectation_met": true,
+      "plan_valid": true,
+      "sources_used": [
+        "s_2f07e4cfe64a446c2a7a091b",
+        "s_a693e862eacedc23bed05e7a"
+      ],
+      "model_calls": 1,
+      "tool_calls": 1,
+      "invalid_calls": 0,
+      "failed_tool_calls": 0,
+      "repeated_queries": 0,
+      "latency_ms": 0.371,
+      "usage": {
+        "limit": 128000,
+        "charged": 9124,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "unreported_calls": 1
+      },
+      "estimated_cost_usd": null,
+      "plan": {
+        "summary": "在时间约束内准备实际实现和口头演练",
+        "items": [
+          {
+            "id": "go",
+            "title": "Go 并发与取消",
+            "minutes": 60,
+            "day": 1,
+            "basis": "JD",
+            "action": "解释竞争条件并实现取消传播",
+            "deliverable": "可运行例子与取舍说明",
+            "references": [
+              {
+                "source_id": "s_2f07e4cfe64a446c2a7a091b",
+                "quote": "岗位要求：熟悉 Go 并发、context 取消、MySQL 索引与事务。"
+              }
+            ]
+          },
+          {
+            "id": "mysql",
+            "title": "MySQL 索引与事务",
+            "minutes": 60,
+            "day": 1,
+            "basis": "JD",
+            "action": "用执行计划核查一条查询",
+            "deliverable": "SQL 与执行计划解释",
+            "references": [
+              {
+                "source_id": "s_2f07e4cfe64a446c2a7a091b",
+                "quote": "岗位要求：熟悉 Go 并发、context 取消、MySQL 索引与事务。"
+              }
+            ]
+          },
+          {
+            "id": "review",
+            "title": "复盘失分项",
+            "minutes": 60,
+            "day": 1,
+            "basis": "HISTORY",
+            "action": "针对原问题练习并核对答案",
+            "deliverable": "复盘改进清单",
+            "references": [
+              {
+                "source_id": "s_a693e862eacedc23bed05e7a",
+                "quote": "实际问题：怎样避免 goroutine 泄漏；遗漏点：context 超时后任务仍运行。"
+              }
+            ]
+          }
+        ]
+      },
+      "trace": null,
+      "business_state": "NOT_SAVED; SQL confirmation/isolation verified separately",
+      "candidate_plan": {
+        "summary": "在时间约束内准备实际实现和口头演练",
+        "items": [
+          {
+            "id": "go",
+            "title": "Go 并发与取消",
+            "minutes": 60,
+            "day": 1,
+            "basis": "JD",
+            "action": "解释竞争条件并实现取消传播",
+            "deliverable": "可运行例子与取舍说明",
+            "references": [
+              {
+                "source_id": "s_2f07e4cfe64a446c2a7a091b",
+                "quote": "岗位要求：熟悉 Go 并发、context 取消、MySQL 索引与事务。"
+              }
+            ]
+          },
+          {
+            "id": "mysql",
+            "title": "MySQL 索引与事务",
+            "minutes": 60,
+            "day": 1,
+            "basis": "JD",
+            "action": "用执行计划核查一条查询",
+            "deliverable": "SQL 与执行计划解释",
+            "references": [
+              {
+                "source_id": "s_2f07e4cfe64a446c2a7a091b",
+                "quote": "岗位要求：熟悉 Go 并发、context 取消、MySQL 索引与事务。"
+              }
+            ]
+          },
+          {
+            "id": "review",
+            "title": "复盘失分项",
+            "minutes": 60,
+            "day": 1,
+            "basis": "HISTORY",
+            "action": "针对原问题练习并核对答案",
+            "deliverable": "复盘改进清单",
+            "references": [
+              {
+                "source_id": "s_a693e862eacedc23bed05e7a",
+                "quote": "实际问题：怎样避免 goroutine 泄漏；遗漏点：context 超时后任务仍运行。"
+              }
+            ]
+          }
+        ]
+      },
+      "model_turns": [
+        {
+          "calls": [
+            {
+              "id": "controlled-1",
+              "name": "finish_preparation_plan",
+              "arguments": "{\"summary\":\"在时间约束内准备实际实现和口头演练\",\"items\":[{\"id\":\"go\",\"title\":\"Go 并发与取消\",\"minutes\":60,\"day\":1,\"basis\":\"JD\",\"action\":\"解释竞争条件并实现取消传播\",\"deliverable\":\"可运行例子与取舍说明\",\"references\":[{\"source_id\":\"s_2f07e4cfe64a446c2a7a091b\",\"quote\":\"岗位要求：熟悉 Go 并发、context 取消、MySQL 索引与事务。\"}]},{\"id\":\"mysql\",\"title\":\"MySQL 索引与事务\",\"minutes\":60,\"day\":1,\"basis\":\"JD\",\"action\":\"用执行计划核查一条查询\",\"deliverable\":\"SQL 与执行计划解释\",\"references\":[{\"source_id\":\"s_2f07e4cfe64a446c2a7a091b\",\"quote\":\"岗位要求：熟悉 Go 并发、context 取消、MySQL 索引与事务。\"}]},{\"id\":\"review\",\"title\":\"复盘失分项\",\"minutes\":60,\"day\":1,\"basis\":\"HISTORY\",\"action\":\"针对原问题练习并核对答案\",\"deliverable\":\"复盘改进清单\",\"references\":[{\"source_id\":\"s_a693e862eacedc23bed05e7a\",\"quote\":\"实际问题：怎样避免 goroutine 泄漏；遗漏点：context 超时后任务仍运行。\"}]}]}"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "known": false
+          }
+        }
+      ]
+    },
+    {
+      "retrieval_new_sources": 0,
+      "retrieval_cited_sources": 0,
+      "case_id": "retrieval-rewrite",
+      "arm": "dynamic",
+      "state": "COMPLETED",
+      "program_expectation_met": true,
+      "plan_valid": true,
+      "sources_used": [
+        "s_2f07e4cfe64a446c2a7a091b",
+        "s_a693e862eacedc23bed05e7a"
+      ],
+      "model_calls": 3,
+      "tool_calls": 2,
+      "invalid_calls": 0,
+      "failed_tool_calls": 0,
+      "repeated_queries": 0,
+      "latency_ms": 9.948,
+      "usage": {
+        "limit": 128000,
+        "charged": 28903,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "unreported_calls": 3
+      },
+      "estimated_cost_usd": null,
+      "plan": {
+        "summary": "在时间约束内准备实际实现和口头演练",
+        "items": [
+          {
+            "id": "go",
+            "title": "Go 并发与取消",
+            "minutes": 60,
+            "day": 1,
+            "basis": "JD",
+            "action": "解释竞争条件并实现取消传播",
+            "deliverable": "可运行例子与取舍说明",
+            "references": [
+              {
+                "source_id": "s_2f07e4cfe64a446c2a7a091b",
+                "quote": "岗位要求：熟悉 Go 并发、context 取消、MySQL 索引与事务。"
+              }
+            ]
+          },
+          {
+            "id": "mysql",
+            "title": "MySQL 索引与事务",
+            "minutes": 60,
+            "day": 1,
+            "basis": "JD",
+            "action": "用执行计划核查一条查询",
+            "deliverable": "SQL 与执行计划解释",
+            "references": [
+              {
+                "source_id": "s_2f07e4cfe64a446c2a7a091b",
+                "quote": "岗位要求：熟悉 Go 并发、context 取消、MySQL 索引与事务。"
+              }
+            ]
+          },
+          {
+            "id": "review",
+            "title": "复盘失分项",
+            "minutes": 60,
+            "day": 1,
+            "basis": "HISTORY",
+            "action": "针对原问题练习并核对答案",
+            "deliverable": "复盘改进清单",
+            "references": [
+              {
+                "source_id": "s_a693e862eacedc23bed05e7a",
+                "quote": "实际问题：怎样避免 goroutine 泄漏；遗漏点：context 超时后任务仍运行。"
+              }
+            ]
+          }
+        ]
+      },
+      "trace": [
+        {
+          "kind": "model",
+          "status": "DISPATCHED",
+          "call_id": "model-1"
+        },
+        {
+          "kind": "model",
+          "status": "RETURNED",
+          "call_id": "model-1"
+        },
+        {
+          "kind": "tool",
+          "name": "search_preparation_knowledge",
+          "status": "EMPTY",
+          "call_id": "controlled-1"
+        },
+        {
+          "kind": "model",
+          "status": "DISPATCHED",
+          "call_id": "model-2"
+        },
+        {
+          "kind": "model",
+          "status": "RETURNED",
+          "call_id": "model-2"
+        },
+        {
+          "kind": "tool",
+          "name": "search_preparation_knowledge",
+          "status": "SUCCESS",
+          "call_id": "controlled-2"
+        },
+        {
+          "kind": "model",
+          "status": "DISPATCHED",
+          "call_id": "model-3"
+        },
+        {
+          "kind": "model",
+          "status": "RETURNED",
+          "call_id": "model-3"
+        },
+        {
+          "kind": "plan",
+          "name": "finish_preparation_plan",
+          "status": "VALIDATED",
+          "call_id": "controlled-3",
+          "detail": "用户确认前不保存业务计划"
+        }
+      ],
+      "business_state": "NOT_SAVED; SQL confirmation/isolation verified separately",
+      "answer": "在时间约束内准备实际实现和口头演练",
+      "model_turns": [
+        {
+          "calls": [
+            {
+              "id": "controlled-1",
+              "name": "search_preparation_knowledge",
+              "arguments": "{\"query\":\"unmatched-initial-query\"}"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "known": false
+          }
+        },
+        {
+          "calls": [
+            {
+              "id": "controlled-2",
+              "name": "search_preparation_knowledge",
+              "arguments": "{\"query\":\"MySQL 索引\"}"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "known": false
+          }
+        },
+        {
+          "calls": [
+            {
+              "id": "controlled-3",
+              "name": "finish_preparation_plan",
+              "arguments": "{\"summary\":\"在时间约束内准备实际实现和口头演练\",\"items\":[{\"id\":\"go\",\"title\":\"Go 并发与取消\",\"minutes\":60,\"day\":1,\"basis\":\"JD\",\"action\":\"解释竞争条件并实现取消传播\",\"deliverable\":\"可运行例子与取舍说明\",\"references\":[{\"source_id\":\"s_2f07e4cfe64a446c2a7a091b\",\"quote\":\"岗位要求：熟悉 Go 并发、context 取消、MySQL 索引与事务。\"}]},{\"id\":\"mysql\",\"title\":\"MySQL 索引与事务\",\"minutes\":60,\"day\":1,\"basis\":\"JD\",\"action\":\"用执行计划核查一条查询\",\"deliverable\":\"SQL 与执行计划解释\",\"references\":[{\"source_id\":\"s_2f07e4cfe64a446c2a7a091b\",\"quote\":\"岗位要求：熟悉 Go 并发、context 取消、MySQL 索引与事务。\"}]},{\"id\":\"review\",\"title\":\"复盘失分项\",\"minutes\":60,\"day\":1,\"basis\":\"HISTORY\",\"action\":\"针对原问题练习并核对答案\",\"deliverable\":\"复盘改进清单\",\"references\":[{\"source_id\":\"s_a693e862eacedc23bed05e7a\",\"quote\":\"实际问题：怎样避免 goroutine 泄漏；遗漏点：context 超时后任务仍运行。\"}]}]}"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "known": false
+          }
+        }
+      ]
+    },
+    {
+      "retrieval_new_sources": 0,
+      "retrieval_cited_sources": 0,
+      "case_id": "unknown-model-response",
+      "arm": "single-prompt",
+      "state": "PAUSED",
+      "program_expectation_met": true,
+      "plan_valid": false,
+      "sources_used": [],
+      "model_calls": 1,
+      "tool_calls": 0,
+      "invalid_calls": 0,
+      "failed_tool_calls": 0,
+      "repeated_queries": 0,
+      "latency_ms": 0.045,
+      "usage": {
+        "limit": 128000,
+        "charged": 9472,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "unreported_calls": 1
+      },
+      "estimated_cost_usd": null,
+      "trace": null,
+      "business_state": "NOT_SAVED; SQL confirmation/isolation verified separately",
+      "error": "MODEL_OR_TOOL_INTERRUPTED",
+      "model_turns": [
+        {
+          "usage": {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "known": false
+          },
+          "error": "MODEL_REQUEST_FAILED"
+        }
+      ]
+    },
+    {
+      "retrieval_new_sources": 0,
+      "retrieval_cited_sources": 0,
+      "case_id": "unknown-model-response",
+      "arm": "fixed-plus-synthesis",
+      "state": "PAUSED",
+      "program_expectation_met": true,
+      "plan_valid": false,
+      "sources_used": [],
+      "model_calls": 1,
+      "tool_calls": 1,
+      "invalid_calls": 0,
+      "failed_tool_calls": 0,
+      "repeated_queries": 0,
+      "latency_ms": 0.073,
+      "usage": {
+        "limit": 128000,
+        "charged": 9124,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "unreported_calls": 1
+      },
+      "estimated_cost_usd": null,
+      "trace": null,
+      "business_state": "NOT_SAVED; SQL confirmation/isolation verified separately",
+      "error": "MODEL_OR_TOOL_INTERRUPTED",
+      "model_turns": [
+        {
+          "usage": {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "known": false
+          },
+          "error": "MODEL_REQUEST_FAILED"
+        }
+      ]
+    },
+    {
+      "retrieval_new_sources": 0,
+      "retrieval_cited_sources": 0,
+      "case_id": "unknown-model-response",
+      "arm": "dynamic",
+      "state": "PAUSED",
+      "program_expectation_met": true,
+      "plan_valid": false,
+      "sources_used": [],
+      "model_calls": 1,
+      "tool_calls": 0,
+      "invalid_calls": 0,
+      "failed_tool_calls": 0,
+      "repeated_queries": 0,
+      "latency_ms": 5.138,
+      "usage": {
+        "limit": 128000,
+        "charged": 9276,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "unreported_calls": 1
+      },
+      "estimated_cost_usd": null,
+      "trace": [
+        {
+          "kind": "model",
+          "status": "DISPATCHED",
+          "call_id": "model-1"
+        },
+        {
+          "kind": "model",
+          "status": "UNKNOWN",
+          "call_id": "model-1",
+          "detail": "未自动重试"
+        }
+      ],
+      "business_state": "NOT_SAVED; SQL confirmation/isolation verified separately",
+      "answer": "模型请求结果未知。已完成的读取保留；核对后可明确授权一次新尝试。",
+      "model_turns": [
+        {
+          "usage": {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "known": false
+          },
+          "error": "MODEL_REQUEST_FAILED"
+        }
+      ]
+    }
+  ],
+  "semantic_quality": "REQUIRES_HUMAN_REVIEW; citation substring checks do not prove factual entailment",
+  "semantic_rubric": {
+    "dimensions": [
+      "target_requirement_coverage",
+      "citation_entailment",
+      "feasible_workload",
+      "feedback_compliance",
+      "no_fabricated_experience",
+      "retrieval_added_value"
+    ],
+    "reviewer": "No independent human labels; use scripts/review-preparation-evaluation.py to record reviewer and evidence",
+    "scale": "0=violated/unsupported, 1=partial, 2=meets; null=not reviewed; N/A=not applicable",
+    "status": "UNREVIEWED"
+  },
+  "split": "development",
+  "summary": {
+    "dynamic": {
+      "failed_tool_calls": 0,
+      "invalid_calls": 0,
+      "model_calls": 9,
+      "p50_ms": 5.972,
+      "p95_ms": 19.643,
+      "program_expectations_met": 6,
+      "quantile_method": "nearest-rank",
+      "tasks": 6,
+      "tool_calls": 3
+    },
+    "fixed-plus-synthesis": {
+      "failed_tool_calls": 0,
+      "invalid_calls": 0,
+      "model_calls": 6,
+      "p50_ms": 0.105,
+      "p95_ms": 0.371,
+      "program_expectations_met": 6,
+      "quantile_method": "nearest-rank",
+      "tasks": 6,
+      "tool_calls": 6
+    },
+    "single-prompt": {
+      "failed_tool_calls": 0,
+      "invalid_calls": 0,
+      "model_calls": 6,
+      "p50_ms": 0.073,
+      "p95_ms": 0.257,
+      "program_expectations_met": 6,
+      "quantile_method": "nearest-rank",
+      "tasks": 6,
+      "tool_calls": 0
+    }
+  },
+  "tools_version": "preparation-tools-v1-bm25"
+}

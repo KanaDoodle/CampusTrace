@@ -1,0 +1,18 @@
+{
+  "original_rpc_work_files": 46,
+  "unchanged": 44,
+  "original_prefix_preserved": [
+    {
+      "path": ".gitignore",
+      "original_prefix_bytes": 1747
+    },
+    {
+      "path": "docs/model-backends.md",
+      "original_prefix_bytes": 2410
+    }
+  ],
+  "unexpected_changes": [],
+  "temporary_model_bridge_stopped": true,
+  "browser_config_mutated": false,
+  "private_job_material_sent": false
+}

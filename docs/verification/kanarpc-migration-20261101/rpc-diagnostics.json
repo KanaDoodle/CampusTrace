@@ -1,0 +1,83 @@
+[
+  {
+    "run": "ct-kanarpc-stack-final-20261101",
+    "time": "2026-10-31T17:46:54.166159927Z",
+    "msg": "analysis RPC call failed",
+    "reason": "discovery_not_ready",
+    "discovery_ready": false,
+    "endpoints": 2,
+    "snapshot_errors": 0
+  },
+  {
+    "run": "ct-kanarpc-stack-final-20261101",
+    "time": "2026-10-31T17:46:57.247765471Z",
+    "msg": "analysis RPC call failed",
+    "reason": "discovery_not_ready",
+    "discovery_ready": false,
+    "endpoints": 2,
+    "snapshot_errors": 0
+  },
+  {
+    "run": "ct-kanarpc-stack-final-20261101",
+    "time": "2026-10-31T17:47:03.325979459Z",
+    "msg": "analysis RPC call failed",
+    "reason": "discovery_not_ready",
+    "discovery_ready": false,
+    "endpoints": 2,
+    "snapshot_errors": 0
+  },
+  {
+    "run": "ct-kanarpc-stack-final-20261101",
+    "time": "2026-10-31T17:47:15.442862798Z",
+    "msg": "analysis RPC call failed",
+    "reason": "discovery_not_ready",
+    "discovery_ready": false,
+    "endpoints": 2,
+    "snapshot_errors": 0
+  },
+  {
+    "run": "ct-kanarpc-stack-progress-20261101",
+    "time": "2026-10-31T17:53:25.55667422Z",
+    "msg": "analysis RPC call failed",
+    "reason": "discovery_not_ready",
+    "discovery_ready": false,
+    "endpoints": 2,
+    "snapshot_errors": 0
+  },
+  {
+    "run": "ct-kanarpc-stack-progress-20261101",
+    "time": "2026-10-31T17:53:28.629171638Z",
+    "msg": "analysis RPC call failed",
+    "reason": "discovery_not_ready",
+    "discovery_ready": false,
+    "endpoints": 2,
+    "snapshot_errors": 0
+  },
+  {
+    "run": "ct-kanarpc-stack-progress-20261101",
+    "time": "2026-10-31T17:53:34.687489418Z",
+    "msg": "analysis RPC call failed",
+    "reason": "discovery_not_ready",
+    "discovery_ready": false,
+    "endpoints": 2,
+    "snapshot_errors": 0
+  },
+  {
+    "run": "ct-kanarpc-stack-progress-20261101",
+    "time": "2026-10-31T17:53:46.753543132Z",
+    "msg": "analysis RPC call failed",
+    "reason": "discovery_not_ready",
+    "discovery_ready": false,
+    "endpoints": 2,
+    "snapshot_errors": 0
+  },
+  {
+    "run": "ct-kanarpc-stack-repair-20261101",
+    "time": "2026-10-31T17:58:47.064118341Z",
+    "msg": "analysis RPC call failed",
+    "reason": "discovery_not_ready",
+    "discovery_ready": false,
+    "endpoints": 2,
+    "snapshot_errors": 0
+  }
+]

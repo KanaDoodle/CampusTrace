@@ -1,0 +1,69 @@
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 949B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/golang:1.27.3-bookworm
+#2 DONE 1.9s
+
+#3 [internal] load .dockerignore
+#3 transferring context:
+#3 transferring context: 140B done
+#3 DONE 0.1s
+
+#4 [build 1/9] FROM docker.io/library/golang:1.27.3-bookworm@sha256:d9b6a1beb9474adc2a1ce842573639b44b2a0dd49b6669f51d3821baf9ec37c9
+#4 resolve docker.io/library/golang:1.27.3-bookworm@sha256:d9b6a1beb9474adc2a1ce842573639b44b2a0dd49b6669f51d3821baf9ec37c9 done
+#4 DONE 0.0s
+
+#5 [internal] load build context
+#5 transferring context: 6.20MB 0.1s done
+#5 DONE 0.1s
+
+#6 [build 2/9] WORKDIR /src
+#6 CACHED
+
+#7 [build 3/9] COPY go.mod go.sum ./
+#7 CACHED
+
+#8 [build 4/9] RUN go mod download
+#8 CACHED
+
+#9 [build 5/9] COPY cmd ./cmd
+#9 CACHED
+
+#10 [build 6/9] COPY internal ./internal
+#10 DONE 0.1s
+
+#11 [build 7/9] COPY web ./web
+#11 DONE 0.0s
+
+#12 [build 8/9] COPY migrations ./migrations
+#12 DONE 0.0s
+
+#13 [build 9/9] RUN go build -trimpath -o /out/api ./cmd/api &&     go build -trimpath -o /out/worker ./cmd/worker &&     go build -trimpath -o /out/notify ./cmd/notify &&     go build -trimpath -o /out/events ./cmd/events &&     go build -trimpath -o /out/tasks ./cmd/tasks &&     go build -trimpath -o /out/dlq ./cmd/dlq &&     go build -trimpath -o /out/analysis ./cmd/analysis &&     go build -trimpath -o /out/campustrace ./cmd/campustrace
+#13 DONE 24.9s
+
+#14 [stage-1 1/4] COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+#14 CACHED
+
+#15 [stage-1 2/4] COPY --from=build /usr/share/zoneinfo /usr/share/zoneinfo
+#15 CACHED
+
+#16 [stage-1 3/4] COPY --from=build /out/ /app/
+#16 DONE 0.2s
+
+#17 [stage-1 4/4] WORKDIR /app
+#17 DONE 0.0s
+
+#18 exporting to image
+#18 exporting layers
+#18 exporting layers 5.0s done
+#18 exporting manifest sha256:981f532fd3cfa3ce389779bf5ced14f5ec3df025c5b2baa8fb233b4a844b37b8 done
+#18 exporting config sha256:008d411b1d15c09f0b16a65c27b9bda9aeebb9e067b43855571b9c5cdd650e28 done
+#18 exporting attestation manifest sha256:9ebaa3b7934927f14061fd85a3a98eef144145438c0f33ce99247eda1a616a37 done
+#18 exporting manifest list sha256:ff7d47f69216eaa5bda440062d36a856503912aefba06c6fe2af01acecea4d4b done
+#18 naming to docker.io/library/campustrace-observer-test:96074 done
+#18 unpacking to docker.io/library/campustrace-observer-test:96074
+#18 unpacking to docker.io/library/campustrace-observer-test:96074 0.8s done
+#18 DONE 5.8s

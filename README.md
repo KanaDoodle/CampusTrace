@@ -45,8 +45,9 @@ flowchart LR
 ```
 
 - **Core**：Go、MySQL、Kafka、Redis；保存业务事实、权限、任务、投递留档与复盘。API 与 Worker 属于同一业务域。
-- **Analysis**：独立 Go 进程，通过 [KanaRPC-Go](https://github.com/KanaDoodle/KanaRPC-Go) 的公开接口及 etcd 提供分析。固定依赖已发布版本，不需要相邻源码仓库；上游来源见[依赖说明](docs/dependency-audit.md)。
+- **Analysis**：独立 Go 进程，通过 [KanaRPC](https://github.com/KanaDoodle/KanaRPC) 的 KNR2 协议及 etcd 提供分析，支持远端取消、有界调度、发现驱动的连接复用与优雅关闭。固定依赖公开提交对应的 Go 版本，不需要相邻源码仓库；见[依赖说明](docs/dependency-audit.md)与[迁移验收](docs/kanarpc-migration.md)。
 - **Search / Notify**：Search 只维护 OpenSearch 派生索引；Notify 独立消费，但属于 Core 业务域并共享其数据库。完整栈按需开启。
+- **申请准备 Agent**：Python / LangGraph 状态图、持久 SQLite Checkpointer；Go 提供受控工具、模型预算和确认保存，支持澄清、反馈修订与恢复。[使用与部署](docs/preparation-langgraph.md)。
 - **观测与回归**：OpenTelemetry、Prometheus/Grafana/Tempo、pprof、k6、Go race/fuzz、GitHub Actions。
 - **AI 应用**：持久任务、受控工具调用、固定可恢复工作流、MCP；本地 BM25，按需配置 Embedding/RRF/Reranker。模型与检索效果通过独立评测记录。
 

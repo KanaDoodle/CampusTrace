@@ -1,0 +1,120 @@
+{
+  "state": "COMPLETED",
+  "completed": [
+    {
+      "case": "normal-go-180",
+      "attempts": 5,
+      "summary": {
+        "dynamic": {
+          "failed_tool_calls": 0,
+          "invalid_calls": 0,
+          "model_calls": 3,
+          "p50_ms": 10000.595,
+          "p95_ms": 10000.595,
+          "program_expectations_met": 1,
+          "tasks": 1,
+          "tool_calls": 3
+        },
+        "fixed-plus-synthesis": {
+          "failed_tool_calls": 0,
+          "invalid_calls": 0,
+          "model_calls": 1,
+          "p50_ms": 8642.023,
+          "p95_ms": 8642.023,
+          "program_expectations_met": 0,
+          "tasks": 1,
+          "tool_calls": 1
+        },
+        "single-prompt": {
+          "failed_tool_calls": 0,
+          "invalid_calls": 0,
+          "model_calls": 1,
+          "p50_ms": 9094.675,
+          "p95_ms": 9094.675,
+          "program_expectations_met": 1,
+          "tasks": 1,
+          "tool_calls": 0
+        }
+      }
+    },
+    {
+      "case": "feedback-mastered-and-one-hour",
+      "attempts": 5,
+      "summary": {
+        "dynamic": {
+          "failed_tool_calls": 0,
+          "invalid_calls": 1,
+          "model_calls": 3,
+          "p50_ms": 9138.909,
+          "p95_ms": 9138.909,
+          "program_expectations_met": 0,
+          "tasks": 1,
+          "tool_calls": 2
+        },
+        "fixed-plus-synthesis": {
+          "failed_tool_calls": 0,
+          "invalid_calls": 0,
+          "model_calls": 1,
+          "p50_ms": 4652.477,
+          "p95_ms": 4652.477,
+          "program_expectations_met": 0,
+          "tasks": 1,
+          "tool_calls": 1
+        },
+        "single-prompt": {
+          "failed_tool_calls": 0,
+          "invalid_calls": 0,
+          "model_calls": 1,
+          "p50_ms": 5301.431,
+          "p95_ms": 5301.431,
+          "program_expectations_met": 0,
+          "tasks": 1,
+          "tool_calls": 0
+        }
+      }
+    },
+    {
+      "case": "legacy-no-snapshot",
+      "attempts": 3,
+      "summary": {
+        "dynamic": {
+          "failed_tool_calls": 0,
+          "invalid_calls": 0,
+          "model_calls": 1,
+          "p50_ms": 1720.578,
+          "p95_ms": 1720.578,
+          "program_expectations_met": 1,
+          "tasks": 1,
+          "tool_calls": 0
+        },
+        "fixed-plus-synthesis": {
+          "failed_tool_calls": 0,
+          "invalid_calls": 0,
+          "model_calls": 1,
+          "p50_ms": 1731.489,
+          "p95_ms": 1731.489,
+          "program_expectations_met": 1,
+          "tasks": 1,
+          "tool_calls": 1
+        },
+        "single-prompt": {
+          "failed_tool_calls": 0,
+          "invalid_calls": 0,
+          "model_calls": 1,
+          "p50_ms": 1477.72,
+          "p95_ms": 1477.72,
+          "program_expectations_met": 1,
+          "tasks": 1,
+          "tool_calls": 0
+        }
+      }
+    }
+  ],
+  "max_provider_attempts": 24,
+  "cases": [
+    "normal-go-180",
+    "feedback-mastered-and-one-hour",
+    "legacy-no-snapshot"
+  ],
+  "current_case": "legacy-no-snapshot"
+}

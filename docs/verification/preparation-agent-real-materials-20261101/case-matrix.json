@@ -1,0 +1,1482 @@
+[
+  {
+    "case_id": "real-dev-cpp-language-gap",
+    "arm": "single-prompt",
+    "state": "COMPLETED",
+    "program_expectation_met": true,
+    "plan_valid": true,
+    "model_calls": 1,
+    "tool_calls": 0,
+    "invalid_calls": 0,
+    "latency_ms": 8704.984,
+    "usage": {
+      "limit": 128000,
+      "charged": 12331,
+      "prompt_tokens": 10779,
+      "completion_tokens": 1552,
+      "unreported_calls": 0
+    },
+    "phase": "development-initial",
+    "accepted_total_minutes": 60
+  },
+  {
+    "case_id": "real-dev-cpp-language-gap",
+    "arm": "fixed-plus-synthesis",
+    "state": "COMPLETED",
+    "program_expectation_met": true,
+    "plan_valid": true,
+    "model_calls": 1,
+    "tool_calls": 1,
+    "invalid_calls": 0,
+    "latency_ms": 9473.555,
+    "usage": {
+      "limit": 128000,
+      "charged": 12442,
+      "prompt_tokens": 10779,
+      "completion_tokens": 1663,
+      "unreported_calls": 0
+    },
+    "phase": "development-initial",
+    "accepted_total_minutes": 60
+  },
+  {
+    "case_id": "real-dev-cpp-language-gap",
+    "arm": "dynamic",
+    "state": "COMPLETED",
+    "program_expectation_met": true,
+    "plan_valid": true,
+    "model_calls": 3,
+    "tool_calls": 3,
+    "invalid_calls": 0,
+    "latency_ms": 11488.029,
+    "usage": {
+      "limit": 128000,
+      "charged": 35991,
+      "prompt_tokens": 34223,
+      "completion_tokens": 1768,
+      "unreported_calls": 0
+    },
+    "phase": "development-initial",
+    "accepted_total_minutes": 60
+  },
+  {
+    "case_id": "real-dev-feedback-60",
+    "arm": "single-prompt",
+    "state": "COMPLETED",
+    "program_expectation_met": true,
+    "plan_valid": true,
+    "model_calls": 1,
+    "tool_calls": 0,
+    "invalid_calls": 0,
+    "latency_ms": 4541.885,
+    "usage": {
+      "limit": 128000,
+      "charged": 11791,
+      "prompt_tokens": 10987,
+      "completion_tokens": 804,
+      "unreported_calls": 0
+    },
+    "phase": "development-initial",
+    "accepted_total_minutes": 60
+  },
+  {
+    "case_id": "real-dev-feedback-60",
+    "arm": "fixed-plus-synthesis",
+    "state": "COMPLETED",
+    "program_expectation_met": true,
+    "plan_valid": true,
+    "model_calls": 1,
+    "tool_calls": 1,
+    "invalid_calls": 0,
+    "latency_ms": 5569.629,
+    "usage": {
+      "limit": 128000,
+      "charged": 11859,
+      "prompt_tokens": 10987,
+      "completion_tokens": 872,
+      "unreported_calls": 0
+    },
+    "phase": "development-initial",
+    "accepted_total_minutes": 60
+  },
+  {
+    "case_id": "real-dev-feedback-60",
+    "arm": "dynamic",
+    "state": "COMPLETED",
+    "program_expectation_met": true,
+    "plan_valid": true,
+    "model_calls": 2,
+    "tool_calls": 2,
+    "invalid_calls": 0,
+    "latency_ms": 6120.839,
+    "usage": {
+      "limit": 128000,
+      "charged": 22292,
+      "prompt_tokens": 21414,
+      "completion_tokens": 878,
+      "unreported_calls": 0
+    },
+    "phase": "development-initial",
+    "accepted_total_minutes": 60
+  },
+  {
+    "case_id": "real-dev-youka-180",
+    "arm": "single-prompt",
+    "state": "FAILED",
+    "program_expectation_met": false,
+    "plan_valid": false,
+    "model_calls": 1,
+    "tool_calls": 0,
+    "invalid_calls": 1,
+    "latency_ms": 10358.778,
+    "usage": {
+      "limit": 128000,
+      "charged": 12814,
+      "prompt_tokens": 10766,
+      "completion_tokens": 2048,
+      "unreported_calls": 0
+    },
+    "phase": "development-initial",
+    "accepted_total_minutes": null
+  },
+  {
+    "case_id": "real-dev-youka-180",
+    "arm": "fixed-plus-synthesis",
+    "state": "FAILED",
+    "program_expectation_met": false,
+    "plan_valid": false,
+    "model_calls": 1,
+    "tool_calls": 1,
+    "invalid_calls": 1,
+    "latency_ms": 10891.806,
+    "usage": {
+      "limit": 128000,
+      "charged": 12814,
+      "prompt_tokens": 10766,
+      "completion_tokens": 2048,
+      "unreported_calls": 0
+    },
+    "phase": "development-initial",
+    "accepted_total_minutes": null
+  },
+  {
+    "case_id": "real-dev-youka-180",
+    "arm": "dynamic",
+    "state": "FAILED",
+    "program_expectation_met": false,
+    "plan_valid": false,
+    "model_calls": 2,
+    "tool_calls": 2,
+    "invalid_calls": 1,
+    "latency_ms": 12556.321,
+    "usage": {
+      "limit": 128000,
+      "charged": 23329,
+      "prompt_tokens": 21188,
+      "completion_tokens": 2141,
+      "unreported_calls": 0
+    },
+    "phase": "development-initial",
+    "accepted_total_minutes": null
+  },
+  {
+    "case_id": "real-dev-youka-180",
+    "arm": "single-prompt",
+    "state": "COMPLETED",
+    "program_expectation_met": true,
+    "plan_valid": true,
+    "model_calls": 1,
+    "tool_calls": 0,
+    "invalid_calls": 0,
+    "latency_ms": 4368.016,
+    "usage": {
+      "limit": 128000,
+      "charged": 11704,
+      "prompt_tokens": 10880,
+      "completion_tokens": 824,
+      "unreported_calls": 0
+    },
+    "phase": "development-fixed",
+    "accepted_total_minutes": 180
+  },
+  {
+    "case_id": "real-dev-youka-180",
+    "arm": "fixed-plus-synthesis",
+    "state": "COMPLETED",
+    "program_expectation_met": true,
+    "plan_valid": true,
+    "model_calls": 1,
+    "tool_calls": 1,
+    "invalid_calls": 0,
+    "latency_ms": 4798.074,
+    "usage": {
+      "limit": 128000,
+      "charged": 11672,
+      "prompt_tokens": 10880,
+      "completion_tokens": 792,
+      "unreported_calls": 0
+    },
+    "phase": "development-fixed",
+    "accepted_total_minutes": 180
+  },
+  {
+    "case_id": "real-dev-youka-180",
+    "arm": "dynamic",
+    "state": "COMPLETED",
+    "program_expectation_met": true,
+    "plan_valid": true,
+    "model_calls": 2,
+    "tool_calls": 2,
+    "invalid_calls": 0,
+    "latency_ms": 6028.197,
+    "usage": {
+      "limit": 128000,
+      "charged": 23202,
+      "prompt_tokens": 22261,
+      "completion_tokens": 941,
+      "unreported_calls": 0
+    },
+    "phase": "development-fixed",
+    "accepted_total_minutes": 180
+  },
+  {
+    "case_id": "real-val-15-minutes",
+    "arm": "single-prompt",
+    "state": "FAILED",
+    "program_expectation_met": false,
+    "plan_valid": false,
+    "model_calls": 1,
+    "tool_calls": 0,
+    "invalid_calls": 1,
+    "latency_ms": 4877.841,
+    "usage": {
+      "limit": 128000,
+      "charged": 11676,
+      "prompt_tokens": 10880,
+      "completion_tokens": 796,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": null
+  },
+  {
+    "case_id": "real-val-15-minutes",
+    "arm": "fixed-plus-synthesis",
+    "state": "FAILED",
+    "program_expectation_met": false,
+    "plan_valid": false,
+    "model_calls": 1,
+    "tool_calls": 1,
+    "invalid_calls": 1,
+    "latency_ms": 4191.62,
+    "usage": {
+      "limit": 128000,
+      "charged": 11709,
+      "prompt_tokens": 10880,
+      "completion_tokens": 829,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": null
+  },
+  {
+    "case_id": "real-val-15-minutes",
+    "arm": "dynamic",
+    "state": "FAILED",
+    "program_expectation_met": false,
+    "plan_valid": false,
+    "model_calls": 3,
+    "tool_calls": 2,
+    "invalid_calls": 2,
+    "latency_ms": 9778.517,
+    "usage": {
+      "limit": 128000,
+      "charged": 40368,
+      "prompt_tokens": 38693,
+      "completion_tokens": 1675,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": null
+  },
+  {
+    "case_id": "real-val-cpp-portable-skills",
+    "arm": "single-prompt",
+    "state": "COMPLETED",
+    "program_expectation_met": true,
+    "plan_valid": true,
+    "model_calls": 1,
+    "tool_calls": 0,
+    "invalid_calls": 0,
+    "latency_ms": 4529.962,
+    "usage": {
+      "limit": 128000,
+      "charged": 11616,
+      "prompt_tokens": 10885,
+      "completion_tokens": 731,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": 60
+  },
+  {
+    "case_id": "real-val-cpp-portable-skills",
+    "arm": "fixed-plus-synthesis",
+    "state": "FAILED",
+    "program_expectation_met": false,
+    "plan_valid": false,
+    "model_calls": 1,
+    "tool_calls": 1,
+    "invalid_calls": 1,
+    "latency_ms": 4023.888,
+    "usage": {
+      "limit": 128000,
+      "charged": 11632,
+      "prompt_tokens": 10885,
+      "completion_tokens": 747,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": null
+  },
+  {
+    "case_id": "real-val-cpp-portable-skills",
+    "arm": "dynamic",
+    "state": "COMPLETED",
+    "program_expectation_met": true,
+    "plan_valid": true,
+    "model_calls": 2,
+    "tool_calls": 2,
+    "invalid_calls": 0,
+    "latency_ms": 5382.74,
+    "usage": {
+      "limit": 128000,
+      "charged": 23106,
+      "prompt_tokens": 22265,
+      "completion_tokens": 841,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": 60
+  },
+  {
+    "case_id": "real-val-empty-retrieval",
+    "arm": "single-prompt",
+    "state": "FAILED",
+    "program_expectation_met": false,
+    "plan_valid": false,
+    "model_calls": 1,
+    "tool_calls": 0,
+    "invalid_calls": 1,
+    "latency_ms": 4465.162,
+    "usage": {
+      "limit": 128000,
+      "charged": 11675,
+      "prompt_tokens": 10880,
+      "completion_tokens": 795,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": null
+  },
+  {
+    "case_id": "real-val-empty-retrieval",
+    "arm": "fixed-plus-synthesis",
+    "state": "FAILED",
+    "program_expectation_met": false,
+    "plan_valid": false,
+    "model_calls": 1,
+    "tool_calls": 1,
+    "invalid_calls": 1,
+    "latency_ms": 4178.545,
+    "usage": {
+      "limit": 128000,
+      "charged": 5577,
+      "prompt_tokens": 4809,
+      "completion_tokens": 768,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": null
+  },
+  {
+    "case_id": "real-val-empty-retrieval",
+    "arm": "dynamic",
+    "state": "FAILED",
+    "program_expectation_met": false,
+    "plan_valid": false,
+    "model_calls": 6,
+    "tool_calls": 3,
+    "invalid_calls": 4,
+    "latency_ms": 16661.822,
+    "usage": {
+      "limit": 128000,
+      "charged": 39217,
+      "prompt_tokens": 35925,
+      "completion_tokens": 3292,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": null
+  },
+  {
+    "case_id": "real-val-feedback-completed",
+    "arm": "single-prompt",
+    "state": "COMPLETED",
+    "program_expectation_met": true,
+    "plan_valid": true,
+    "model_calls": 1,
+    "tool_calls": 0,
+    "invalid_calls": 0,
+    "latency_ms": 2078.182,
+    "usage": {
+      "limit": 128000,
+      "charged": 11357,
+      "prompt_tokens": 11100,
+      "completion_tokens": 257,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": 30
+  },
+  {
+    "case_id": "real-val-feedback-completed",
+    "arm": "fixed-plus-synthesis",
+    "state": "COMPLETED",
+    "program_expectation_met": true,
+    "plan_valid": true,
+    "model_calls": 1,
+    "tool_calls": 1,
+    "invalid_calls": 0,
+    "latency_ms": 1844.854,
+    "usage": {
+      "limit": 128000,
+      "charged": 11388,
+      "prompt_tokens": 11100,
+      "completion_tokens": 288,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": 30
+  },
+  {
+    "case_id": "real-val-feedback-completed",
+    "arm": "dynamic",
+    "state": "COMPLETED",
+    "program_expectation_met": true,
+    "plan_valid": true,
+    "model_calls": 2,
+    "tool_calls": 2,
+    "invalid_calls": 0,
+    "latency_ms": 3581.535,
+    "usage": {
+      "limit": 128000,
+      "charged": 22011,
+      "prompt_tokens": 21640,
+      "completion_tokens": 371,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": 30
+  },
+  {
+    "case_id": "real-val-feedback-mastered",
+    "arm": "single-prompt",
+    "state": "COMPLETED",
+    "program_expectation_met": true,
+    "plan_valid": true,
+    "model_calls": 1,
+    "tool_calls": 0,
+    "invalid_calls": 0,
+    "latency_ms": 1808.037,
+    "usage": {
+      "limit": 128000,
+      "charged": 11372,
+      "prompt_tokens": 11101,
+      "completion_tokens": 271,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": 60
+  },
+  {
+    "case_id": "real-val-feedback-mastered",
+    "arm": "fixed-plus-synthesis",
+    "state": "COMPLETED",
+    "program_expectation_met": true,
+    "plan_valid": true,
+    "model_calls": 1,
+    "tool_calls": 1,
+    "invalid_calls": 0,
+    "latency_ms": 2216.57,
+    "usage": {
+      "limit": 128000,
+      "charged": 11358,
+      "prompt_tokens": 11101,
+      "completion_tokens": 257,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": 60
+  },
+  {
+    "case_id": "real-val-feedback-mastered",
+    "arm": "dynamic",
+    "state": "COMPLETED",
+    "program_expectation_met": true,
+    "plan_valid": true,
+    "model_calls": 2,
+    "tool_calls": 2,
+    "invalid_calls": 0,
+    "latency_ms": 3775.693,
+    "usage": {
+      "limit": 128000,
+      "charged": 22003,
+      "prompt_tokens": 21642,
+      "completion_tokens": 361,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": 60
+  },
+  {
+    "case_id": "real-val-missing-days",
+    "arm": "single-prompt",
+    "state": "PAUSED",
+    "program_expectation_met": true,
+    "plan_valid": false,
+    "model_calls": 1,
+    "tool_calls": 0,
+    "invalid_calls": 0,
+    "latency_ms": 1619.766,
+    "usage": {
+      "limit": 128000,
+      "charged": 10956,
+      "prompt_tokens": 10860,
+      "completion_tokens": 96,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": null
+  },
+  {
+    "case_id": "real-val-missing-days",
+    "arm": "fixed-plus-synthesis",
+    "state": "FAILED",
+    "program_expectation_met": false,
+    "plan_valid": false,
+    "model_calls": 1,
+    "tool_calls": 1,
+    "invalid_calls": 1,
+    "latency_ms": 4808,
+    "usage": {
+      "limit": 128000,
+      "charged": 11702,
+      "prompt_tokens": 10860,
+      "completion_tokens": 842,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": null
+  },
+  {
+    "case_id": "real-val-missing-days",
+    "arm": "dynamic",
+    "state": "PAUSED",
+    "program_expectation_met": true,
+    "plan_valid": false,
+    "model_calls": 3,
+    "tool_calls": 2,
+    "invalid_calls": 1,
+    "latency_ms": 7674.263,
+    "usage": {
+      "limit": 128000,
+      "charged": 41334,
+      "prompt_tokens": 40322,
+      "completion_tokens": 1012,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": null
+  },
+  {
+    "case_id": "real-val-missing-jd",
+    "arm": "single-prompt",
+    "state": "PAUSED",
+    "program_expectation_met": true,
+    "plan_valid": false,
+    "model_calls": 1,
+    "tool_calls": 0,
+    "invalid_calls": 0,
+    "latency_ms": 1291.3,
+    "usage": {
+      "limit": 128000,
+      "charged": 10710,
+      "prompt_tokens": 10614,
+      "completion_tokens": 96,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": null
+  },
+  {
+    "case_id": "real-val-missing-jd",
+    "arm": "fixed-plus-synthesis",
+    "state": "PAUSED",
+    "program_expectation_met": true,
+    "plan_valid": false,
+    "model_calls": 1,
+    "tool_calls": 1,
+    "invalid_calls": 0,
+    "latency_ms": 1332.104,
+    "usage": {
+      "limit": 128000,
+      "charged": 4636,
+      "prompt_tokens": 4543,
+      "completion_tokens": 93,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": null
+  },
+  {
+    "case_id": "real-val-missing-jd",
+    "arm": "dynamic",
+    "state": "PAUSED",
+    "program_expectation_met": true,
+    "plan_valid": false,
+    "model_calls": 1,
+    "tool_calls": 0,
+    "invalid_calls": 0,
+    "latency_ms": 1182.959,
+    "usage": {
+      "limit": 128000,
+      "charged": 4840,
+      "prompt_tokens": 4732,
+      "completion_tokens": 108,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": null
+  },
+  {
+    "case_id": "real-val-missing-resume",
+    "arm": "single-prompt",
+    "state": "COMPLETED",
+    "program_expectation_met": true,
+    "plan_valid": true,
+    "model_calls": 1,
+    "tool_calls": 0,
+    "invalid_calls": 0,
+    "latency_ms": 4525.867,
+    "usage": {
+      "limit": 128000,
+      "charged": 10377,
+      "prompt_tokens": 9585,
+      "completion_tokens": 792,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": 180
+  },
+  {
+    "case_id": "real-val-missing-resume",
+    "arm": "fixed-plus-synthesis",
+    "state": "COMPLETED",
+    "program_expectation_met": true,
+    "plan_valid": true,
+    "model_calls": 1,
+    "tool_calls": 1,
+    "invalid_calls": 0,
+    "latency_ms": 4018.362,
+    "usage": {
+      "limit": 128000,
+      "charged": 10319,
+      "prompt_tokens": 9585,
+      "completion_tokens": 734,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": 180
+  },
+  {
+    "case_id": "real-val-missing-resume",
+    "arm": "dynamic",
+    "state": "COMPLETED",
+    "program_expectation_met": true,
+    "plan_valid": true,
+    "model_calls": 2,
+    "tool_calls": 2,
+    "invalid_calls": 0,
+    "latency_ms": 6381.327,
+    "usage": {
+      "limit": 128000,
+      "charged": 20590,
+      "prompt_tokens": 19675,
+      "completion_tokens": 915,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": 180
+  },
+  {
+    "case_id": "real-val-missing-time",
+    "arm": "single-prompt",
+    "state": "PAUSED",
+    "program_expectation_met": true,
+    "plan_valid": false,
+    "model_calls": 1,
+    "tool_calls": 0,
+    "invalid_calls": 0,
+    "latency_ms": 1410.343,
+    "usage": {
+      "limit": 128000,
+      "charged": 10934,
+      "prompt_tokens": 10864,
+      "completion_tokens": 70,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": null
+  },
+  {
+    "case_id": "real-val-missing-time",
+    "arm": "fixed-plus-synthesis",
+    "state": "PAUSED",
+    "program_expectation_met": true,
+    "plan_valid": false,
+    "model_calls": 1,
+    "tool_calls": 1,
+    "invalid_calls": 0,
+    "latency_ms": 1044.844,
+    "usage": {
+      "limit": 128000,
+      "charged": 10946,
+      "prompt_tokens": 10864,
+      "completion_tokens": 82,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": null
+  },
+  {
+    "case_id": "real-val-missing-time",
+    "arm": "dynamic",
+    "state": "PAUSED",
+    "program_expectation_met": true,
+    "plan_valid": false,
+    "model_calls": 1,
+    "tool_calls": 0,
+    "invalid_calls": 0,
+    "latency_ms": 1386.546,
+    "usage": {
+      "limit": 128000,
+      "charged": 5064,
+      "prompt_tokens": 4982,
+      "completion_tokens": 82,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": null
+  },
+  {
+    "case_id": "real-val-no-invented-history",
+    "arm": "single-prompt",
+    "state": "COMPLETED",
+    "program_expectation_met": true,
+    "plan_valid": true,
+    "model_calls": 1,
+    "tool_calls": 0,
+    "invalid_calls": 0,
+    "latency_ms": 4487.031,
+    "usage": {
+      "limit": 128000,
+      "charged": 11724,
+      "prompt_tokens": 10868,
+      "completion_tokens": 856,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": 60
+  },
+  {
+    "case_id": "real-val-no-invented-history",
+    "arm": "fixed-plus-synthesis",
+    "state": "COMPLETED",
+    "program_expectation_met": true,
+    "plan_valid": true,
+    "model_calls": 1,
+    "tool_calls": 1,
+    "invalid_calls": 0,
+    "latency_ms": 4135.986,
+    "usage": {
+      "limit": 128000,
+      "charged": 7827,
+      "prompt_tokens": 7072,
+      "completion_tokens": 755,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": 60
+  },
+  {
+    "case_id": "real-val-no-invented-history",
+    "arm": "dynamic",
+    "state": "COMPLETED",
+    "program_expectation_met": true,
+    "plan_valid": true,
+    "model_calls": 2,
+    "tool_calls": 2,
+    "invalid_calls": 0,
+    "latency_ms": 5272.942,
+    "usage": {
+      "limit": 128000,
+      "charged": 23073,
+      "prompt_tokens": 22232,
+      "completion_tokens": 841,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": 60
+  },
+  {
+    "case_id": "real-val-no-knowledge",
+    "arm": "single-prompt",
+    "state": "FAILED",
+    "program_expectation_met": false,
+    "plan_valid": false,
+    "model_calls": 1,
+    "tool_calls": 0,
+    "invalid_calls": 1,
+    "latency_ms": 3825.402,
+    "usage": {
+      "limit": 128000,
+      "charged": 5577,
+      "prompt_tokens": 4809,
+      "completion_tokens": 768,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": null
+  },
+  {
+    "case_id": "real-val-no-knowledge",
+    "arm": "fixed-plus-synthesis",
+    "state": "FAILED",
+    "program_expectation_met": false,
+    "plan_valid": false,
+    "model_calls": 1,
+    "tool_calls": 1,
+    "invalid_calls": 1,
+    "latency_ms": 3987.926,
+    "usage": {
+      "limit": 128000,
+      "charged": 5579,
+      "prompt_tokens": 4809,
+      "completion_tokens": 770,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": null
+  },
+  {
+    "case_id": "real-val-no-knowledge",
+    "arm": "dynamic",
+    "state": "FAILED",
+    "program_expectation_met": false,
+    "plan_valid": false,
+    "model_calls": 6,
+    "tool_calls": 3,
+    "invalid_calls": 4,
+    "latency_ms": 16291.469,
+    "usage": {
+      "limit": 128000,
+      "charged": 39634,
+      "prompt_tokens": 36154,
+      "completion_tokens": 3480,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": null
+  },
+  {
+    "case_id": "real-val-no-production-experience",
+    "arm": "single-prompt",
+    "state": "COMPLETED",
+    "program_expectation_met": true,
+    "plan_valid": true,
+    "model_calls": 1,
+    "tool_calls": 0,
+    "invalid_calls": 0,
+    "latency_ms": 4442.323,
+    "usage": {
+      "limit": 128000,
+      "charged": 11645,
+      "prompt_tokens": 10867,
+      "completion_tokens": 778,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": 60
+  },
+  {
+    "case_id": "real-val-no-production-experience",
+    "arm": "fixed-plus-synthesis",
+    "state": "COMPLETED",
+    "program_expectation_met": true,
+    "plan_valid": true,
+    "model_calls": 1,
+    "tool_calls": 1,
+    "invalid_calls": 0,
+    "latency_ms": 4334.089,
+    "usage": {
+      "limit": 128000,
+      "charged": 7850,
+      "prompt_tokens": 7071,
+      "completion_tokens": 779,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": 60
+  },
+  {
+    "case_id": "real-val-no-production-experience",
+    "arm": "dynamic",
+    "state": "COMPLETED",
+    "program_expectation_met": true,
+    "plan_valid": true,
+    "model_calls": 2,
+    "tool_calls": 2,
+    "invalid_calls": 0,
+    "latency_ms": 5259.129,
+    "usage": {
+      "limit": 128000,
+      "charged": 23153,
+      "prompt_tokens": 22229,
+      "completion_tokens": 924,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": 60
+  },
+  {
+    "case_id": "real-val-no-project-material",
+    "arm": "single-prompt",
+    "state": "FAILED",
+    "program_expectation_met": false,
+    "plan_valid": false,
+    "model_calls": 1,
+    "tool_calls": 0,
+    "invalid_calls": 1,
+    "latency_ms": 4492.27,
+    "usage": {
+      "limit": 128000,
+      "charged": 9846,
+      "prompt_tokens": 9096,
+      "completion_tokens": 750,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": null
+  },
+  {
+    "case_id": "real-val-no-project-material",
+    "arm": "fixed-plus-synthesis",
+    "state": "FAILED",
+    "program_expectation_met": false,
+    "plan_valid": false,
+    "model_calls": 1,
+    "tool_calls": 1,
+    "invalid_calls": 1,
+    "latency_ms": 4495.539,
+    "usage": {
+      "limit": 128000,
+      "charged": 9891,
+      "prompt_tokens": 9096,
+      "completion_tokens": 795,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": null
+  },
+  {
+    "case_id": "real-val-no-project-material",
+    "arm": "dynamic",
+    "state": "PAUSED",
+    "program_expectation_met": false,
+    "plan_valid": false,
+    "model_calls": 5,
+    "tool_calls": 2,
+    "invalid_calls": 4,
+    "latency_ms": 15872.509,
+    "usage": {
+      "limit": 128000,
+      "charged": 73893,
+      "prompt_tokens": 70440,
+      "completion_tokens": 3453,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": null
+  },
+  {
+    "case_id": "real-val-retrieval-outage",
+    "arm": "single-prompt",
+    "state": "FAILED",
+    "program_expectation_met": false,
+    "plan_valid": false,
+    "model_calls": 1,
+    "tool_calls": 0,
+    "invalid_calls": 1,
+    "latency_ms": 4949.068,
+    "usage": {
+      "limit": 128000,
+      "charged": 11758,
+      "prompt_tokens": 10880,
+      "completion_tokens": 878,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": null
+  },
+  {
+    "case_id": "real-val-retrieval-outage",
+    "arm": "fixed-plus-synthesis",
+    "state": "FAILED",
+    "program_expectation_met": false,
+    "plan_valid": false,
+    "model_calls": 1,
+    "tool_calls": 1,
+    "invalid_calls": 1,
+    "latency_ms": 4024.693,
+    "usage": {
+      "limit": 128000,
+      "charged": 5561,
+      "prompt_tokens": 4809,
+      "completion_tokens": 752,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": null
+  },
+  {
+    "case_id": "real-val-retrieval-outage",
+    "arm": "dynamic",
+    "state": "COMPLETED",
+    "program_expectation_met": true,
+    "plan_valid": true,
+    "model_calls": 3,
+    "tool_calls": 2,
+    "invalid_calls": 1,
+    "latency_ms": 8165.244,
+    "usage": {
+      "limit": 128000,
+      "charged": 17730,
+      "prompt_tokens": 16152,
+      "completion_tokens": 1578,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": 60
+  },
+  {
+    "case_id": "real-val-tuyou-180",
+    "arm": "single-prompt",
+    "state": "COMPLETED",
+    "program_expectation_met": true,
+    "plan_valid": true,
+    "model_calls": 1,
+    "tool_calls": 0,
+    "invalid_calls": 0,
+    "latency_ms": 4366.562,
+    "usage": {
+      "limit": 128000,
+      "charged": 11644,
+      "prompt_tokens": 10865,
+      "completion_tokens": 779,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": 180
+  },
+  {
+    "case_id": "real-val-tuyou-180",
+    "arm": "fixed-plus-synthesis",
+    "state": "COMPLETED",
+    "program_expectation_met": true,
+    "plan_valid": true,
+    "model_calls": 1,
+    "tool_calls": 1,
+    "invalid_calls": 0,
+    "latency_ms": 4010.543,
+    "usage": {
+      "limit": 128000,
+      "charged": 7847,
+      "prompt_tokens": 7069,
+      "completion_tokens": 778,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": 180
+  },
+  {
+    "case_id": "real-val-tuyou-180",
+    "arm": "dynamic",
+    "state": "COMPLETED",
+    "program_expectation_met": true,
+    "plan_valid": true,
+    "model_calls": 2,
+    "tool_calls": 2,
+    "invalid_calls": 0,
+    "latency_ms": 5898.589,
+    "usage": {
+      "limit": 128000,
+      "charged": 23130,
+      "prompt_tokens": 22223,
+      "completion_tokens": 907,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": 180
+  },
+  {
+    "case_id": "real-val-tuyou-30",
+    "arm": "single-prompt",
+    "state": "FAILED",
+    "program_expectation_met": false,
+    "plan_valid": false,
+    "model_calls": 1,
+    "tool_calls": 0,
+    "invalid_calls": 1,
+    "latency_ms": 4412.84,
+    "usage": {
+      "limit": 128000,
+      "charged": 11661,
+      "prompt_tokens": 10865,
+      "completion_tokens": 796,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": null
+  },
+  {
+    "case_id": "real-val-tuyou-30",
+    "arm": "fixed-plus-synthesis",
+    "state": "FAILED",
+    "program_expectation_met": false,
+    "plan_valid": false,
+    "model_calls": 1,
+    "tool_calls": 1,
+    "invalid_calls": 1,
+    "latency_ms": 4419.677,
+    "usage": {
+      "limit": 128000,
+      "charged": 7946,
+      "prompt_tokens": 7069,
+      "completion_tokens": 877,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": null
+  },
+  {
+    "case_id": "real-val-tuyou-30",
+    "arm": "dynamic",
+    "state": "COMPLETED",
+    "program_expectation_met": true,
+    "plan_valid": true,
+    "model_calls": 2,
+    "tool_calls": 2,
+    "invalid_calls": 0,
+    "latency_ms": 5338.257,
+    "usage": {
+      "limit": 128000,
+      "charged": 23100,
+      "prompt_tokens": 22226,
+      "completion_tokens": 874,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": 30
+  },
+  {
+    "case_id": "real-val-version-conflict",
+    "arm": "single-prompt",
+    "state": "FAILED",
+    "program_expectation_met": false,
+    "plan_valid": false,
+    "model_calls": 1,
+    "tool_calls": 0,
+    "invalid_calls": 1,
+    "latency_ms": 3373.208,
+    "usage": {
+      "limit": 128000,
+      "charged": 11502,
+      "prompt_tokens": 10894,
+      "completion_tokens": 608,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": null
+  },
+  {
+    "case_id": "real-val-version-conflict",
+    "arm": "fixed-plus-synthesis",
+    "state": "FAILED",
+    "program_expectation_met": false,
+    "plan_valid": false,
+    "model_calls": 1,
+    "tool_calls": 1,
+    "invalid_calls": 1,
+    "latency_ms": 4115.307,
+    "usage": {
+      "limit": 128000,
+      "charged": 11555,
+      "prompt_tokens": 10894,
+      "completion_tokens": 661,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": null
+  },
+  {
+    "case_id": "real-val-version-conflict",
+    "arm": "dynamic",
+    "state": "FAILED",
+    "program_expectation_met": false,
+    "plan_valid": false,
+    "model_calls": 5,
+    "tool_calls": 2,
+    "invalid_calls": 4,
+    "latency_ms": 14186.572,
+    "usage": {
+      "limit": 128000,
+      "charged": 72808,
+      "prompt_tokens": 69780,
+      "completion_tokens": 3028,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": null
+  },
+  {
+    "case_id": "real-val-youka-60",
+    "arm": "single-prompt",
+    "state": "FAILED",
+    "program_expectation_met": false,
+    "plan_valid": false,
+    "model_calls": 1,
+    "tool_calls": 0,
+    "invalid_calls": 1,
+    "latency_ms": 4099.016,
+    "usage": {
+      "limit": 128000,
+      "charged": 11674,
+      "prompt_tokens": 10880,
+      "completion_tokens": 794,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": null
+  },
+  {
+    "case_id": "real-val-youka-60",
+    "arm": "fixed-plus-synthesis",
+    "state": "COMPLETED",
+    "program_expectation_met": true,
+    "plan_valid": true,
+    "model_calls": 1,
+    "tool_calls": 1,
+    "invalid_calls": 0,
+    "latency_ms": 4915.537,
+    "usage": {
+      "limit": 128000,
+      "charged": 11677,
+      "prompt_tokens": 10880,
+      "completion_tokens": 797,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": 60
+  },
+  {
+    "case_id": "real-val-youka-60",
+    "arm": "dynamic",
+    "state": "FAILED",
+    "program_expectation_met": false,
+    "plan_valid": false,
+    "model_calls": 3,
+    "tool_calls": 2,
+    "invalid_calls": 2,
+    "latency_ms": 9548.86,
+    "usage": {
+      "limit": 128000,
+      "charged": 42133,
+      "prompt_tokens": 40395,
+      "completion_tokens": 1738,
+      "unreported_calls": 0
+    },
+    "phase": "validation",
+    "accepted_total_minutes": null
+  },
+  {
+    "case_id": "real-val-version-conflict",
+    "arm": "single-prompt",
+    "state": "FAILED",
+    "program_expectation_met": false,
+    "plan_valid": false,
+    "model_calls": 1,
+    "tool_calls": 0,
+    "invalid_calls": 1,
+    "latency_ms": 4265.604,
+    "usage": {
+      "limit": 128000,
+      "charged": 11641,
+      "prompt_tokens": 10977,
+      "completion_tokens": 664,
+      "unreported_calls": 0
+    },
+    "phase": "repair-v3",
+    "accepted_total_minutes": null
+  },
+  {
+    "case_id": "real-val-version-conflict",
+    "arm": "fixed-plus-synthesis",
+    "state": "FAILED",
+    "program_expectation_met": false,
+    "plan_valid": false,
+    "model_calls": 1,
+    "tool_calls": 1,
+    "invalid_calls": 1,
+    "latency_ms": 3923.264,
+    "usage": {
+      "limit": 128000,
+      "charged": 11607,
+      "prompt_tokens": 10977,
+      "completion_tokens": 630,
+      "unreported_calls": 0
+    },
+    "phase": "repair-v3",
+    "accepted_total_minutes": null
+  },
+  {
+    "case_id": "real-val-version-conflict",
+    "arm": "dynamic",
+    "state": "COMPLETED",
+    "program_expectation_met": true,
+    "plan_valid": true,
+    "model_calls": 2,
+    "tool_calls": 2,
+    "invalid_calls": 0,
+    "latency_ms": 5430.951,
+    "usage": {
+      "limit": 128000,
+      "charged": 17315,
+      "prompt_tokens": 16484,
+      "completion_tokens": 831,
+      "unreported_calls": 0
+    },
+    "phase": "repair-v3",
+    "accepted_total_minutes": 60
+  },
+  {
+    "case_id": "real-val-youka-60",
+    "arm": "single-prompt",
+    "state": "COMPLETED",
+    "program_expectation_met": true,
+    "plan_valid": true,
+    "model_calls": 1,
+    "tool_calls": 0,
+    "invalid_calls": 0,
+    "latency_ms": 4519.369,
+    "usage": {
+      "limit": 128000,
+      "charged": 11759,
+      "prompt_tokens": 10963,
+      "completion_tokens": 796,
+      "unreported_calls": 0
+    },
+    "phase": "repair-v3",
+    "accepted_total_minutes": 60
+  },
+  {
+    "case_id": "real-val-youka-60",
+    "arm": "fixed-plus-synthesis",
+    "state": "COMPLETED",
+    "program_expectation_met": true,
+    "plan_valid": true,
+    "model_calls": 1,
+    "tool_calls": 1,
+    "invalid_calls": 0,
+    "latency_ms": 4635.595,
+    "usage": {
+      "limit": 128000,
+      "charged": 11739,
+      "prompt_tokens": 10963,
+      "completion_tokens": 776,
+      "unreported_calls": 0
+    },
+    "phase": "repair-v3",
+    "accepted_total_minutes": 60
+  },
+  {
+    "case_id": "real-val-youka-60",
+    "arm": "dynamic",
+    "state": "COMPLETED",
+    "program_expectation_met": true,
+    "plan_valid": true,
+    "model_calls": 2,
+    "tool_calls": 2,
+    "invalid_calls": 0,
+    "latency_ms": 6076.85,
+    "usage": {
+      "limit": 128000,
+      "charged": 17337,
+      "prompt_tokens": 16438,
+      "completion_tokens": 899,
+      "unreported_calls": 0
+    },
+    "phase": "repair-v3",
+    "accepted_total_minutes": 60
+  },
+  {
+    "case_id": "real-val-15-minutes",
+    "arm": "dynamic",
+    "state": "FAILED",
+    "program_expectation_met": false,
+    "plan_valid": false,
+    "model_calls": 6,
+    "tool_calls": 2,
+    "invalid_calls": 4,
+    "latency_ms": 17017.524,
+    "usage": {
+      "limit": 128000,
+      "charged": 73134,
+      "prompt_tokens": 69375,
+      "completion_tokens": 3759,
+      "unreported_calls": 0
+    },
+    "phase": "repair-v3-spot",
+    "accepted_total_minutes": null
+  },
+  {
+    "case_id": "real-val-15-minutes",
+    "arm": "single-prompt",
+    "state": "COMPLETED",
+    "program_expectation_met": true,
+    "plan_valid": true,
+    "model_calls": 1,
+    "tool_calls": 0,
+    "invalid_calls": 0,
+    "latency_ms": 3438.857,
+    "usage": {
+      "limit": 128000,
+      "charged": 11624,
+      "prompt_tokens": 10989,
+      "completion_tokens": 635,
+      "unreported_calls": 0
+    },
+    "phase": "repair-v4-schema",
+    "accepted_total_minutes": 15
+  }
+]

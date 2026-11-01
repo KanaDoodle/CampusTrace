@@ -1,0 +1,5 @@
+=== RUN   TestPreparationUpgradeBaseline
+    preparation_baseline_test.go:43: {"evidence":"controlled-response-baseline","dynamic_tools_present":true,"frozen_read_present":true,"model_time_plan_preserved":false,"fixed_workflow_calls":1,"fixed_workflow_has_time_or_feedback_input":false}
+--- PASS: TestPreparationUpgradeBaseline (0.00s)
+PASS
+ok  	github.com/KanaDoodle/CampusTrace/internal/agent	0.510s

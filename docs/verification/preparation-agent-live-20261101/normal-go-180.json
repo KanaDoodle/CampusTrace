@@ -1,0 +1,433 @@
+{
+  "baseline_adaptation": "Fixed path uses existing literal preparationQuery plus BM25, then one structured synthesis. All arms receive the same goal and constraints; the single prompt gets the entire allowed small corpus.",
+  "business_writes": "No writes in CLI arms; SQL confirmation, ownership, stale input and idempotency are separately tested",
+  "cost": "Reported usage and optional user-supplied prices; absent usage or prices leaves cost null. Controlled responses are not actual token/cost measurements.",
+  "dataset_sha256": "c94724634e3650aa16583ecea0d0960a7a17b13bd1de7391218915598bce8507",
+  "elapsed_ms": 27737,
+  "external_model_attempts": 5,
+  "max_calls": 8,
+  "mode": "real-model-on-explicitly-authorized-materials",
+  "model": "deepseek-flash",
+  "model_config": {
+    "max_output_tokens": 2048,
+    "request_policy": "existing ChatClient provider-specific defaults",
+    "requested_model": "deepseek-flash",
+    "url": "https://api.deepseek.com/chat/completions"
+  },
+  "results": [
+    {
+      "case_id": "normal-go-180",
+      "arm": "single-prompt",
+      "state": "COMPLETED",
+      "program_expectation_met": true,
+      "plan_valid": true,
+      "sources_used": [
+        "s_a693e862eacedc23bed05e7a",
+        "s_82b8f4eec5f03efec444c8c4",
+        "s_2f07e4cfe64a446c2a7a091b",
+        "s_274c1a87e09ce62357d2f1f9",
+        "s_54868f187539a650bdbaa4de",
+        "s_08f1f1ca2ca501d795c8641c"
+      ],
+      "model_calls": 1,
+      "tool_calls": 0,
+      "invalid_calls": 0,
+      "failed_tool_calls": 0,
+      "repeated_queries": 0,
+      "latency_ms": 9094.675,
+      "usage": {
+        "limit": 128000,
+        "charged": 3642,
+        "prompt_tokens": 1874,
+        "completion_tokens": 1768,
+        "unreported_calls": 0
+      },
+      "estimated_cost_usd": null,
+      "plan": {
+        "summary": "三天共 180 分钟（每天 60 分钟）的 Go 后端面试准备：优先补齐本申请上一轮复盘暴露的 context 取消与 goroutine 泄漏失分点，再覆盖 JD 的 Go 并发、MySQL 索引与事务，并用简历/项目材料做可核验的口述演练。项目材料中的「未测生产吞吐量」保持为限制说明，不作为已实现指标陈述；另一申请的历史复盘不并入本申请失分。",
+        "items": [
+          {
+            "id": "d1-context-cancel",
+            "title": "context 取消传播与 goroutine 泄漏（复盘失分点）",
+            "minutes": 45,
+            "day": 1,
+            "basis": "HISTORY",
+            "action": "针对上一轮复盘的两个问题做专项修补：先手写一个父 context 带超时、子任务阻塞在 channel/IO 上的最小示例，验证超时后子任务确实退出并回收 goroutine；再整理「取消后任务仍运行」的常见成因清单（未把 ctx 传入下游、select 缺 ctx.Done()、启动 goroutine 未受控、defer cancel 缺失）。结合笔记理解子任务继承 context 的机制，但笔记只作知识参考，不当作亲身经历。",
+            "deliverable": "一页纸：可运行的取消传播示例代码 + 泄漏成因清单 + 3 句口述稿（说明如何避免 goroutine 泄漏、如何保证超时后任务停止）。",
+            "references": [
+              {
+                "source_id": "s_a693e862eacedc23bed05e7a",
+                "quote": "实际问题：怎样避免 goroutine 泄漏；遗漏点：context 超时后任务仍运行。"
+              },
+              {
+                "source_id": "s_82b8f4eec5f03efec444c8c4",
+                "quote": "Go 并发：子任务继承 context，取消后退出阻塞和回收 goroutine。"
+              }
+            ]
+          },
+          {
+            "id": "d1-go-concurrency",
+            "title": "Go 并发基础与有界任务调度口述",
+            "minutes": 15,
+            "day": 1,
+            "basis": "JD",
+            "action": "对照 JD 的并发要求，梳理 goroutine、channel、select、WaitGroup、有界 worker 池的要点，并把它与简历中「Go 任务调度」和项目材料中「有界后台任务」对应起来，形成 2 分钟口述：任务如何入队、并发上限如何控制、如何优雅退出。",
+            "deliverable": "并发要点清单（不超过 10 条）+ 2 分钟口述录音或逐字稿。",
+            "references": [
+              {
+                "source_id": "s_2f07e4cfe64a446c2a7a091b",
+                "quote": "熟悉 Go 并发、context 取消、MySQL 索引与事务。"
+              },
+              {
+                "source_id": "s_274c1a87e09ce62357d2f1f9",
+                "quote": "合成候选人：实现过 Go 任务调度与 SQL 幂等。"
+              },
+              {
+                "source_id": "s_54868f187539a650bdbaa4de",
+                "quote": "合成项目：MySQL 事务发件箱与有界后台任务；未测生产吞吐量。"
+              }
+            ]
+          },
+          {
+            "id": "d2-mysql-index",
+            "title": "MySQL 索引与 EXPLAIN 访问路径",
+            "minutes": 30,
+            "day": 2,
+            "basis": "JD",
+            "action": "按 JD 的索引要求，用本地示例表写 3 条查询并跑 EXPLAIN，记录访问路径与是否回表；再补最左前缀与联合索引顺序的说明。注意：最左前缀/隔离级别来自另一申请的历史复盘，仅作一般知识补充，不计入本申请失分项。",
+            "deliverable": "EXPLAIN 结果截图或文本 + 每条查询的一句话解读（走哪个索引、是否回表）。",
+            "references": [
+              {
+                "source_id": "s_2f07e4cfe64a446c2a7a091b",
+                "quote": "熟悉 Go 并发、context 取消、MySQL 索引与事务。"
+              },
+              {
+                "source_id": "s_08f1f1ca2ca501d795c8641c",
+                "quote": "MySQL 索引：使用 EXPLAIN 查看访问路径与回表；事务保证原子提交。"
+              }
+            ]
+          },
+          {
+            "id": "d2-mysql-tx-outbox",
+            "title": "MySQL 事务与发件箱模式（含限制说明）",
+            "minutes": 30,
+            "day": 2,
+            "basis": "JD",
+            "action": "复习事务原子提交与隔离级别要点，并把项目材料中的「MySQL 事务发件箱」讲清楚：业务写入与消息记录如何在同一事务内提交、投递如何保证幂等（对应简历的 SQL 幂等）。明确标注「未测生产吞吐量」，准备一句如实回答：吞吐量未做生产压测，只能说明设计取舍。",
+            "deliverable": "发件箱流程图（文字版即可）+ 3 分钟口述稿，含一句限制说明与一句幂等实现说明。",
+            "references": [
+              {
+                "source_id": "s_2f07e4cfe64a446c2a7a091b",
+                "quote": "熟悉 Go 并发、context 取消、MySQL 索引与事务。"
+              },
+              {
+                "source_id": "s_54868f187539a650bdbaa4de",
+                "quote": "合成项目：MySQL 事务发件箱与有界后台任务；未测生产吞吐量。"
+              },
+              {
+                "source_id": "s_274c1a87e09ce62357d2f1f9",
+                "quote": "合成候选人：实现过 Go 任务调度与 SQL 幂等。"
+              }
+            ]
+          },
+          {
+            "id": "d3-mock-and-gaps",
+            "title": "模拟问答与失分点复测",
+            "minutes": 45,
+            "day": 3,
+            "basis": "HISTORY",
+            "action": "做一轮 20 分钟模拟问答：先答上一轮复盘的两个问题（如何避免 goroutine 泄漏、context 超时后任务为何仍运行及如何修复），再答 JD 的并发/索引/事务各一题。对照第 1 天的口述稿自查是否仍有「超时后任务仍运行」的表述漏洞，把答不出的点写成待补清单。",
+            "deliverable": "模拟问答记录（问题—回答要点—自评）+ 待补清单（不超过 5 条）。",
+            "references": [
+              {
+                "source_id": "s_a693e862eacedc23bed05e7a",
+                "quote": "实际问题：怎样避免 goroutine 泄漏；遗漏点：context 超时后任务仍运行。"
+              },
+              {
+                "source_id": "s_2f07e4cfe64a446c2a7a091b",
+                "quote": "熟悉 Go 并发、context 取消、MySQL 索引与事务。"
+              }
+            ]
+          },
+          {
+            "id": "d3-verify-labels",
+            "title": "材料核验与表述边界检查",
+            "minutes": 15,
+            "day": 3,
+            "basis": "GENERAL",
+            "action": "逐条核对简历与项目材料中的每句描述，确认没有把笔记内容说成亲身经历、没有编造实习/指标/事故；把「未测生产吞吐量」等限制与未核验标签保留在口述稿中，统一改成可核验的表述。",
+            "deliverable": "一页核验清单：每条主张—来源（简历/项目/笔记）—是否可核验—最终口述措辞。",
+            "references": [
+              {
+                "source_id": "s_54868f187539a650bdbaa4de",
+                "quote": "合成项目：MySQL 事务发件箱与有界后台任务；未测生产吞吐量。"
+              }
+            ]
+          }
+        ]
+      },
+      "trace": null,
+      "business_state": "NOT_SAVED; SQL confirmation/isolation verified separately"
+    },
+    {
+      "case_id": "normal-go-180",
+      "arm": "fixed-plus-synthesis",
+      "state": "FAILED",
+      "program_expectation_met": false,
+      "plan_valid": false,
+      "sources_used": [],
+      "model_calls": 1,
+      "tool_calls": 1,
+      "invalid_calls": 0,
+      "failed_tool_calls": 0,
+      "repeated_queries": 0,
+      "latency_ms": 8642.023,
+      "usage": {
+        "limit": 128000,
+        "charged": 3408,
+        "prompt_tokens": 1759,
+        "completion_tokens": 1649,
+        "unreported_calls": 0
+      },
+      "estimated_cost_usd": null,
+      "trace": null,
+      "business_state": "NOT_SAVED; SQL confirmation/isolation verified separately",
+      "error": "INVALID_PLAN"
+    },
+    {
+      "case_id": "normal-go-180",
+      "arm": "dynamic",
+      "state": "COMPLETED",
+      "program_expectation_met": true,
+      "plan_valid": true,
+      "sources_used": [
+        "s_a693e862eacedc23bed05e7a",
+        "s_82b8f4eec5f03efec444c8c4",
+        "s_2f07e4cfe64a446c2a7a091b",
+        "s_08f1f1ca2ca501d795c8641c",
+        "s_54868f187539a650bdbaa4de",
+        "s_274c1a87e09ce62357d2f1f9"
+      ],
+      "model_calls": 3,
+      "tool_calls": 3,
+      "invalid_calls": 0,
+      "failed_tool_calls": 0,
+      "repeated_queries": 0,
+      "latency_ms": 10000.595,
+      "usage": {
+        "limit": 128000,
+        "charged": 7799,
+        "prompt_tokens": 6069,
+        "completion_tokens": 1730,
+        "unreported_calls": 0
+      },
+      "estimated_cost_usd": null,
+      "plan": {
+        "summary": "三天共 180 分钟（每天 60 分钟）的 Go 后端面试准备：优先补齐本申请上一轮复盘暴露的 context 取消与 goroutine 泄漏失分点，再覆盖 JD 的 Go 并发、MySQL 索引与事务，最后用项目材料（含未测吞吐量等限制）做可核验的口述演练。历史其他申请复盘仅作一般参考，不当作本岗位考题。",
+        "items": [
+          {
+            "id": "d1-context-cancel",
+            "title": "context 取消传播与 goroutine 泄漏（复盘失分点）",
+            "minutes": 45,
+            "day": 1,
+            "basis": "HISTORY",
+            "action": "针对复盘记录的两个失分点做专项：先手写一个带 context.WithTimeout 的任务调度小例子，让子任务在取消后退出阻塞并回收 goroutine；再逐条回答“怎样避免 goroutine 泄漏”，写出 4 条检查清单（谁创建谁负责退出、select 监听 ctx.Done()、channel 有界与关闭责任、超时后不再继续执行任务）。对照笔记核对取消传播链路，不引入未做过的实现细节。",
+            "deliverable": "一页 A4：可运行的取消示例代码 + 4 条防泄漏检查清单 + 对“context 超时后任务仍运行”的根因与修复说明各 3 句。",
+            "references": [
+              {
+                "source_id": "s_a693e862eacedc23bed05e7a",
+                "quote": "实际问题：怎样避免 goroutine 泄漏；遗漏点：context 超时后任务仍运行。"
+              },
+              {
+                "source_id": "s_82b8f4eec5f03efec444c8c4",
+                "quote": "Go 并发：子任务继承 context，取消后退出阻塞和回收 goroutine。"
+              }
+            ]
+          },
+          {
+            "id": "d1-go-concurrency",
+            "title": "Go 并发基础口述（JD 要求）",
+            "minutes": 15,
+            "day": 1,
+            "basis": "JD",
+            "action": "围绕 JD 的并发要求做 5 分钟限时口述：goroutine 与 channel 的协作方式、有界并发如何限制、取消如何贯穿调用链。录音回听，标出卡壳处并补一句更准确的表述。",
+            "deliverable": "5 分钟录音 + 3 条卡壳点及改写后的表述。",
+            "references": [
+              {
+                "source_id": "s_2f07e4cfe64a446c2a7a091b",
+                "quote": "熟悉 Go 并发、context 取消、MySQL 索引与事务。"
+              }
+            ]
+          },
+          {
+            "id": "d2-mysql-index",
+            "title": "MySQL 索引与 EXPLAIN 演练（JD 要求）",
+            "minutes": 30,
+            "day": 2,
+            "basis": "JD",
+            "action": "按 JD 的索引要求，为项目中的发件箱表设计一条查询，写出索引方案并用 EXPLAIN 查看访问路径与是否回表；同时准备复合索引最左前缀的说明（此项来自其他申请复盘，仅作一般知识准备，不视为本岗位考题）。",
+            "deliverable": "一张表：查询语句、索引定义、EXPLAIN 关键列截图或文字记录、最左前缀 3 句解释。",
+            "references": [
+              {
+                "source_id": "s_2f07e4cfe64a446c2a7a091b",
+                "quote": "熟悉 Go 并发、context 取消、MySQL 索引与事务。"
+              },
+              {
+                "source_id": "s_08f1f1ca2ca501d795c8641c",
+                "quote": "MySQL 索引：使用 EXPLAIN 查看访问路径与回表；事务保证原子提交。"
+              }
+            ]
+          },
+          {
+            "id": "d2-mysql-tx",
+            "title": "事务与发件箱幂等（JD + 项目材料）",
+            "minutes": 30,
+            "day": 2,
+            "basis": "JD",
+            "action": "结合项目材料中的“MySQL 事务发件箱”，讲清事务原子提交与发件箱模式如何保证消息不丢、SQL 幂等如何实现（唯一键/去重表等，只写自己确实做过的做法）。准备隔离级别与幻读的 2 分钟说明，作为一般知识补充。",
+            "deliverable": "一页时序图（事务写入 + 发件箱投递）+ 幂等实现要点 5 条 + 2 分钟隔离级别口述稿。",
+            "references": [
+              {
+                "source_id": "s_2f07e4cfe64a446c2a7a091b",
+                "quote": "熟悉 Go 并发、context 取消、MySQL 索引与事务。"
+              },
+              {
+                "source_id": "s_54868f187539a650bdbaa4de",
+                "quote": "合成项目：MySQL 事务发件箱与有界后台任务；未测生产吞吐量。"
+              },
+              {
+                "source_id": "s_274c1a87e09ce62357d2f1f9",
+                "quote": "合成候选人：实现过 Go 任务调度与 SQL 幂等。"
+              }
+            ]
+          },
+          {
+            "id": "d3-project-story",
+            "title": "项目讲述与限制边界（保留未核验标签）",
+            "minutes": 30,
+            "day": 3,
+            "basis": "GENERAL",
+            "action": "把任务调度 + 有界后台任务 + 发件箱串成 3 分钟项目讲述，明确区分“已实现”与“未验证”：吞吐量未测就直说未测，不编造指标或事故；准备被追问“有界队列满了怎么办”“任务失败如何重试”时的回答。",
+            "deliverable": "3 分钟项目讲述稿（含 1 句明确的限制声明）+ 5 个预设追问及回答要点。",
+            "references": [
+              {
+                "source_id": "s_54868f187539a650bdbaa4de",
+                "quote": "合成项目：MySQL 事务发件箱与有界后台任务；未测生产吞吐量。"
+              }
+            ]
+          },
+          {
+            "id": "d3-mock",
+            "title": "限时模拟面试与查漏",
+            "minutes": 30,
+            "day": 3,
+            "basis": "GENERAL",
+            "action": "按 25 分钟模拟：10 分钟并发与取消、10 分钟 MySQL、5 分钟项目追问，全程录音；回听后只记录仍未答清的点，形成面试当天 10 分钟速览清单。",
+            "deliverable": "模拟录音 + 未答清点清单（不超过 5 条）+ 当天速览卡。",
+            "references": [
+              {
+                "source_id": "s_a693e862eacedc23bed05e7a",
+                "quote": "实际问题：怎样避免 goroutine 泄漏；遗漏点：context 超时后任务仍运行。"
+              }
+            ]
+          }
+        ]
+      },
+      "trace": [
+        {
+          "kind": "model",
+          "status": "DISPATCHED",
+          "call_id": "model-1"
+        },
+        {
+          "kind": "model",
+          "status": "RETURNED",
+          "call_id": "model-1",
+          "latency_ms": 1044
+        },
+        {
+          "kind": "tool",
+          "name": "search_preparation_knowledge",
+          "status": "SUCCESS",
+          "call_id": "call_00_xuoBIQ15LQFhf8q0XjOZ5358"
+        },
+        {
+          "kind": "tool",
+          "name": "search_related_reviews",
+          "status": "SUCCESS",
+          "call_id": "call_01_5w7GZ037mFIBBDBxKmNs2235"
+        },
+        {
+          "kind": "model",
+          "status": "DISPATCHED",
+          "call_id": "model-2"
+        },
+        {
+          "kind": "model",
+          "status": "RETURNED",
+          "call_id": "model-2",
+          "latency_ms": 699
+        },
+        {
+          "kind": "tool",
+          "name": "search_preparation_knowledge",
+          "status": "SUCCESS",
+          "call_id": "call_00_qYtjVps1UH62E0LcqUVw0684"
+        },
+        {
+          "kind": "model",
+          "status": "DISPATCHED",
+          "call_id": "model-3"
+        },
+        {
+          "kind": "model",
+          "status": "RETURNED",
+          "call_id": "model-3",
+          "latency_ms": 8254
+        },
+        {
+          "kind": "plan",
+          "name": "finish_preparation_plan",
+          "status": "VALIDATED",
+          "call_id": "call_00_XJLVpQz47ncjigyxe2oB8951",
+          "detail": "用户确认前不保存业务计划"
+        }
+      ],
+      "business_state": "NOT_SAVED; SQL confirmation/isolation verified separately"
+    }
+  ],
+  "semantic_quality": "REQUIRES_HUMAN_REVIEW; citation substring checks do not prove factual entailment",
+  "split": "development",
+  "summary": {
+    "dynamic": {
+      "failed_tool_calls": 0,
+      "invalid_calls": 0,
+      "model_calls": 3,
+      "p50_ms": 10000.595,
+      "p95_ms": 10000.595,
+      "program_expectations_met": 1,
+      "tasks": 1,
+      "tool_calls": 3
+    },
+    "fixed-plus-synthesis": {
+      "failed_tool_calls": 0,
+      "invalid_calls": 0,
+      "model_calls": 1,
+      "p50_ms": 8642.023,
+      "p95_ms": 8642.023,
+      "program_expectations_met": 0,
+      "tasks": 1,
+      "tool_calls": 1
+    },
+    "single-prompt": {
+      "failed_tool_calls": 0,
+      "invalid_calls": 0,
+      "model_calls": 1,
+      "p50_ms": 9094.675,
+      "p95_ms": 9094.675,
+      "program_expectations_met": 1,
+      "tasks": 1,
+      "tool_calls": 0
+    }
+  }
+}

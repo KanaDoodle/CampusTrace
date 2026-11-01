@@ -341,7 +341,7 @@ func TestKafkaBusinessReplayAndRedisRateLimit(t *testing.T) {
 		t.Fatal("rate limiter not atomic", accepted.Load())
 	}
 }
-func TestMyRPCTwoInstances(t *testing.T) {
+func TestKanaRPCTwoInstances(t *testing.T) {
 	ctx, _, _, _, _ := setup(t)
 	endpoints := config.Load().Endpoints()
 	name := "ct-integration-" + d.ID()
@@ -366,16 +366,14 @@ func TestMyRPCTwoInstances(t *testing.T) {
 	if seen["analysis-1"] == 0 || seen["analysis-2"] == 0 {
 		t.Fatal("not balanced", seen)
 	}
-	// Abrupt serving failure without lease revocation exercises stale discovery + breaker.
-	s2.Server.Shutdown()
+	// Abrupt serving failure retains a stale discovery entry. Calls are never
+	// replayed: dead connections retire and later selections use dial backoff.
+	s2.Server.Close()
 	success, failed := 0, 0
 	for i := 0; i < 28; i++ {
 		v, err := c.Call(ctx, analysis.Request{Text: jd})
 		if err != nil {
 			failed++
-			if strings.Contains(err.Error(), "circuit breaker open") {
-				t.Fatal("known open instance must be filtered while a healthy peer exists")
-			}
 		} else {
 			success++
 			if v.Instance != "analysis-1" {
@@ -383,28 +381,18 @@ func TestMyRPCTwoInstances(t *testing.T) {
 			}
 		}
 	}
-	if success != 22 || failed != 6 {
-		t.Fatal("expected six failures to complete the existing breaker window, then healthy selection", success, failed)
+	if success == 0 || failed == 0 {
+		t.Fatal("expected healthy peer progress and stale peer failures", success, failed)
 	}
-	for i := 0; i < 12; i++ {
-		v, e := c.Call(ctx, analysis.Request{Text: jd})
-		must(t, e)
-		if v.Instance != "analysis-1" {
-			t.Fatal("breaker-open peer consumed a healthy request", v)
-		}
-	}
-	must(t, s2.Registry.Close())
+	must(t, s2.Registration.Close(ctx))
 	deadline := time.Now().Add(2 * time.Second)
-	for time.Now().Before(deadline) {
-		instances, err := s1.Registry.DiscoverContext(ctx, name)
-		must(t, err)
-		if len(instances) == 1 {
-			break
-		}
+	for c.Stats().Endpoints != 1 && time.Now().Before(deadline) {
 		time.Sleep(10 * time.Millisecond)
 	}
-	time.Sleep(30 * time.Millisecond)
-	for i := 0; i < 4; i++ {
+	if c.Stats().Endpoints != 1 {
+		t.Fatal("withdrawn peer retained", c.Stats())
+	}
+	for i := 0; i < 12; i++ {
 		v, err := c.Call(ctx, analysis.Request{Text: jd})
 		must(t, err)
 		if v.Instance != "analysis-1" {
@@ -431,7 +419,7 @@ func TestMyRPCTwoInstances(t *testing.T) {
 	if !errors.Is(err, context.Canceled) {
 		t.Fatal("cancellation", err)
 	}
-	t.Logf("L: two instances %v; after failure successful=%d errors=%d breaker-aware selection; timeout and client cancellation passed", seen, success, failed)
+	t.Logf("L: two instances %v; after failure successful=%d errors=%d connection retirement and withdrawal; timeout and client cancellation passed", seen, success, failed)
 }
 func TestAgentConfirmationSSEMCP(t *testing.T) {
 	ctx, s, q, user, src := setup(t)
@@ -660,7 +648,7 @@ func TestRunningWorkerOutboxRPC(t *testing.T) {
 	if meter.max.Load() > 2 || meter.max.Load() == 0 {
 		t.Fatal("unbounded or unused pool", meter.max.Load())
 	}
-	t.Logf("Actual bounded worker -> MyRPC -> SQL -> outbox pipeline completed %d observations; max processing calls=%d, RPC semaphore=1", len(ids), meter.max.Load())
+	t.Logf("Actual bounded worker -> KanaRPC -> SQL -> outbox pipeline completed %d observations; max processing calls=%d, RPC semaphore=1", len(ids), meter.max.Load())
 }
 
 func TestFailureStatusAndOwnership(t *testing.T) {

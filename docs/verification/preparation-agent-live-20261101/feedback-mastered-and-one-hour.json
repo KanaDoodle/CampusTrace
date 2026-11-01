@@ -1,0 +1,180 @@
+{
+  "baseline_adaptation": "Fixed path uses existing literal preparationQuery plus BM25, then one structured synthesis. All arms receive the same goal and constraints; the single prompt gets the entire allowed small corpus.",
+  "business_writes": "No writes in CLI arms; SQL confirmation, ownership, stale input and idempotency are separately tested",
+  "cost": "Reported usage and optional user-supplied prices; absent usage or prices leaves cost null. Controlled responses are not actual token/cost measurements.",
+  "dataset_sha256": "c94724634e3650aa16583ecea0d0960a7a17b13bd1de7391218915598bce8507",
+  "elapsed_ms": 19092,
+  "external_model_attempts": 5,
+  "max_calls": 8,
+  "mode": "real-model-on-explicitly-authorized-materials",
+  "model": "deepseek-flash",
+  "model_config": {
+    "max_output_tokens": 2048,
+    "request_policy": "existing ChatClient provider-specific defaults",
+    "requested_model": "deepseek-flash",
+    "url": "https://api.deepseek.com/chat/completions"
+  },
+  "results": [
+    {
+      "case_id": "feedback-mastered-and-one-hour",
+      "arm": "single-prompt",
+      "state": "FAILED",
+      "program_expectation_met": false,
+      "plan_valid": false,
+      "sources_used": [],
+      "model_calls": 1,
+      "tool_calls": 0,
+      "invalid_calls": 0,
+      "failed_tool_calls": 0,
+      "repeated_queries": 0,
+      "latency_ms": 5301.431,
+      "usage": {
+        "limit": 128000,
+        "charged": 3009,
+        "prompt_tokens": 2064,
+        "completion_tokens": 945,
+        "unreported_calls": 0
+      },
+      "estimated_cost_usd": null,
+      "trace": null,
+      "business_state": "NOT_SAVED; SQL confirmation/isolation verified separately",
+      "error": "INVALID_PLAN"
+    },
+    {
+      "case_id": "feedback-mastered-and-one-hour",
+      "arm": "fixed-plus-synthesis",
+      "state": "FAILED",
+      "program_expectation_met": false,
+      "plan_valid": false,
+      "sources_used": [],
+      "model_calls": 1,
+      "tool_calls": 1,
+      "invalid_calls": 0,
+      "failed_tool_calls": 0,
+      "repeated_queries": 0,
+      "latency_ms": 4652.477,
+      "usage": {
+        "limit": 128000,
+        "charged": 2827,
+        "prompt_tokens": 1949,
+        "completion_tokens": 878,
+        "unreported_calls": 0
+      },
+      "estimated_cost_usd": null,
+      "trace": null,
+      "business_state": "NOT_SAVED; SQL confirmation/isolation verified separately",
+      "error": "INVALID_PLAN"
+    },
+    {
+      "case_id": "feedback-mastered-and-one-hour",
+      "arm": "dynamic",
+      "state": "FAILED",
+      "program_expectation_met": false,
+      "plan_valid": false,
+      "sources_used": [],
+      "model_calls": 3,
+      "tool_calls": 2,
+      "invalid_calls": 1,
+      "failed_tool_calls": 0,
+      "repeated_queries": 0,
+      "latency_ms": 9138.909,
+      "usage": {
+        "limit": 128000,
+        "charged": 9611,
+        "prompt_tokens": 7672,
+        "completion_tokens": 1939,
+        "unreported_calls": 0
+      },
+      "estimated_cost_usd": null,
+      "trace": [
+        {
+          "kind": "model",
+          "status": "DISPATCHED",
+          "call_id": "model-1"
+        },
+        {
+          "kind": "model",
+          "status": "RETURNED",
+          "call_id": "model-1",
+          "latency_ms": 936
+        },
+        {
+          "kind": "tool",
+          "name": "search_related_reviews",
+          "status": "SUCCESS",
+          "call_id": "call_00_nfmJEqbrzNWsDq7adJAB9417"
+        },
+        {
+          "kind": "tool",
+          "name": "search_preparation_knowledge",
+          "status": "SUCCESS",
+          "call_id": "call_01_hQKsSxnpkuN1RQZldQQz3252"
+        },
+        {
+          "kind": "model",
+          "status": "DISPATCHED",
+          "call_id": "model-2"
+        },
+        {
+          "kind": "model",
+          "status": "RETURNED",
+          "call_id": "model-2",
+          "latency_ms": 4846
+        },
+        {
+          "kind": "tool",
+          "name": "finish_preparation_plan",
+          "status": "REJECTED",
+          "call_id": "call_00_miENueUhoEODJbhhSUYM4236",
+          "detail": "INVALID_PLAN: verify minutes, stable remaining item IDs, source kinds and literal citations"
+        },
+        {
+          "kind": "model",
+          "status": "DISPATCHED",
+          "call_id": "model-3"
+        },
+        {
+          "kind": "model",
+          "status": "RETURNED",
+          "call_id": "model-3",
+          "latency_ms": 3354
+        }
+      ],
+      "business_state": "NOT_SAVED; SQL confirmation/isolation verified separately"
+    }
+  ],
+  "semantic_quality": "REQUIRES_HUMAN_REVIEW; citation substring checks do not prove factual entailment",
+  "split": "development",
+  "summary": {
+    "dynamic": {
+      "failed_tool_calls": 0,
+      "invalid_calls": 1,
+      "model_calls": 3,
+      "p50_ms": 9138.909,
+      "p95_ms": 9138.909,
+      "program_expectations_met": 0,
+      "tasks": 1,
+      "tool_calls": 2
+    },
+    "fixed-plus-synthesis": {
+      "failed_tool_calls": 0,
+      "invalid_calls": 0,
+      "model_calls": 1,
+      "p50_ms": 4652.477,
+      "p95_ms": 4652.477,
+      "program_expectations_met": 0,
+      "tasks": 1,
+      "tool_calls": 1
+    },
+    "single-prompt": {
+      "failed_tool_calls": 0,
+      "invalid_calls": 0,
+      "model_calls": 1,
+      "p50_ms": 5301.431,
+      "p95_ms": 5301.431,
+      "program_expectations_met": 0,
+      "tasks": 1,
+      "tool_calls": 0
+    }
+  }
+}

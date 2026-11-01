@@ -20,20 +20,17 @@ func (e *versionExtractor) Claims(ctx context.Context, text string) ([]d.Claim, 
 func TestAnalysisSemanticVersionCheckedBeforeExtractor(t *testing.T) {
 	extractor := &versionExtractor{}
 	service := &Service{Root: context.Background(), Instance: "version-fixture", Extractor: extractor}
-	var response Response
-	err := service.AnalyzeObservation(&Request{Text: "tech: go", AnalysisVersion: "claims-v3-semantics"}, &response)
+	response, err := service.AnalyzeObservation(context.Background(), Request{Text: "tech: go", AnalysisVersion: "claims-v3-semantics"})
 	if err != nil || response.Error == "" || response.AnalysisVersion != d.AnalysisVersion || extractor.calls.Load() != 0 {
 		t.Fatal("incompatible request invoked extractor", response, err)
 	}
-	response = Response{}
-	err = service.AnalyzeObservation(&Request{Text: "tech: go", AnalysisVersion: d.AnalysisVersion}, &response)
+	response, err = service.AnalyzeObservation(context.Background(), Request{Text: "tech: go", AnalysisVersion: d.AnalysisVersion})
 	if err != nil || response.Error != "" || response.AnalysisVersion != d.AnalysisVersion || extractor.calls.Load() != 1 {
 		t.Fatal("matching version rejected", response, err)
 	}
 	// Legacy callers may omit the new field; the server still identifies the
 	// actual implementation. New callers always send and validate the version.
-	response = Response{}
-	err = service.AnalyzeObservation(&Request{Text: "tech: go"}, &response)
+	response, err = service.AnalyzeObservation(context.Background(), Request{Text: "tech: go"})
 	if err != nil || response.Error != "" || response.AnalysisVersion != d.AnalysisVersion || extractor.calls.Load() != 2 {
 		t.Fatal("legacy request compatibility lost", response, err)
 	}

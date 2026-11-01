@@ -19,7 +19,7 @@ run: cli
 	./bin/campustrace start
 stop: cli
 	./bin/campustrace stop
-dev-run: build
+dev-run: build preparation-install
 	./scripts/start.sh
 dev-stop:
 	./scripts/stop.sh
@@ -48,7 +48,7 @@ loadgen:
 dev-workspace:
 	@test ! -e go.work || { echo 'go.work already exists; inspect it before changing the dependency'; exit 1; }
 	go work init .
-	go work edit -go=1.27.3 -replace=github.com/KanaDoodle/KanaRPC-Go=../KanaRPC-Go
+	go work edit -go=1.27.3 -replace=github.com/KanaDoodle/KanaRPC=../KanaRPC
 verify-boundary:
 	./scripts/verify-release-boundary.sh
 
@@ -131,3 +131,12 @@ task-topics:
 .PHONY: browser-vendor-test
 browser-vendor-test:
 	node scripts/verify-resume-vendors.cjs
+
+.PHONY: preparation-install preparation-test preparation-eval
+preparation-install:
+	python3 -m venv services/preparation/.venv
+	services/preparation/.venv/bin/pip install --require-hashes -r services/preparation/requirements.lock
+preparation-test:
+	cd services/preparation && .venv/bin/python -m unittest discover -s tests -v
+preparation-eval:
+	python3 scripts/evaluate-preparation-langgraph.py --output /tmp/ct-preparation-langgraph-eval

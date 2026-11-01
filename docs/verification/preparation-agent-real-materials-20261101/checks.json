@@ -1,0 +1,16 @@
+{
+  "targeted_race": "PASS",
+  "whole_go_packages": "PASS",
+  "python_tests": 8,
+  "frontend_tests": 458,
+  "browser_fixture": "PASS",
+  "browser_external_model_calls": 0,
+  "native_sql_isolation": "PASS",
+  "actual_model_calls": 120,
+  "unreported_model_calls": 0,
+  "policy_version": "application-preparation-agent-v4",
+  "latest_real_dynamic": "v3 targeted reruns, 15-minute failure retained",
+  "latest_v4_real": "one single-prompt constraint check; no full dynamic run",
+  "deterministic_known_format_repair": "PASS; checkpoint and tool-budget tests",
+  "latest_live_budget_exhausted": true
+}

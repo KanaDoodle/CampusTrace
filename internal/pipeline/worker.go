@@ -150,8 +150,7 @@ func (w *Worker) Process(ctx context.Context, t p.Task) (err error) {
 			if err != nil {
 				w.Metrics.Add("rpc_errors", 1)
 				// Only an explicit rejection permits a later automatic attempt.
-				var rejected *analysis.HTTPError
-				if errors.As(err, &rejected) && (rejected.Status == 429 || rejected.Status == 401 || rejected.Status == 403) {
+				if analysis.InvocationRejected(err) {
 					cleanup, stop := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 					e := w.Store.RejectAnalysisInvocation(cleanup, t)
 					stop()

@@ -1,0 +1,226 @@
+{
+  "date": "2026-11-01",
+  "requested_model": "deepseek-flash",
+  "url": "https://api.deepseek.com/chat/completions",
+  "actual_provider_attempts": 120,
+  "authorized_cap": 120,
+  "reported_tokens": 1288288,
+  "cases": 21,
+  "development": 3,
+  "validation": 18,
+  "material_scope": {
+    "real_resume_snapshots": 1,
+    "archived_real_job_descriptions": 3,
+    "current_project_readme_excerpts": 2,
+    "learning_handbook_excerpts": 5,
+    "authentic_interview_reviews": 0,
+    "user_confirmed_no_reviews": true,
+    "goals_deadlines_and_parent_plans": "constructed scenarios over real materials; not actual interviews or submission records",
+    "direct_identifiers_removed": true
+  },
+  "business_writes_in_live_evaluation": 0,
+  "cost_usd": null,
+  "cost_reason": "No authorized unit prices supplied; usage recorded without inferred billing.",
+  "phases": {
+    "development-initial": {
+      "single-prompt": {
+        "tasks": 3,
+        "program_expectations_met": 2,
+        "model_calls": 3,
+        "tool_calls": 0,
+        "invalid_calls": 1,
+        "failed_tool_calls": 0,
+        "prompt_tokens": 32532,
+        "completion_tokens": 4404,
+        "unreported_calls": 0,
+        "total_latency_ms": 23605.647
+      },
+      "fixed-plus-synthesis": {
+        "tasks": 3,
+        "program_expectations_met": 2,
+        "model_calls": 3,
+        "tool_calls": 3,
+        "invalid_calls": 1,
+        "failed_tool_calls": 0,
+        "prompt_tokens": 32532,
+        "completion_tokens": 4583,
+        "unreported_calls": 0,
+        "total_latency_ms": 25934.99
+      },
+      "dynamic": {
+        "tasks": 3,
+        "program_expectations_met": 2,
+        "model_calls": 7,
+        "tool_calls": 7,
+        "invalid_calls": 1,
+        "failed_tool_calls": 0,
+        "prompt_tokens": 76825,
+        "completion_tokens": 4787,
+        "unreported_calls": 0,
+        "total_latency_ms": 30165.189
+      }
+    },
+    "development-fixed": {
+      "single-prompt": {
+        "tasks": 1,
+        "program_expectations_met": 1,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "invalid_calls": 0,
+        "failed_tool_calls": 0,
+        "prompt_tokens": 10880,
+        "completion_tokens": 824,
+        "unreported_calls": 0,
+        "total_latency_ms": 4368.016
+      },
+      "fixed-plus-synthesis": {
+        "tasks": 1,
+        "program_expectations_met": 1,
+        "model_calls": 1,
+        "tool_calls": 1,
+        "invalid_calls": 0,
+        "failed_tool_calls": 0,
+        "prompt_tokens": 10880,
+        "completion_tokens": 792,
+        "unreported_calls": 0,
+        "total_latency_ms": 4798.074
+      },
+      "dynamic": {
+        "tasks": 1,
+        "program_expectations_met": 1,
+        "model_calls": 2,
+        "tool_calls": 2,
+        "invalid_calls": 0,
+        "failed_tool_calls": 0,
+        "prompt_tokens": 22261,
+        "completion_tokens": 941,
+        "unreported_calls": 0,
+        "total_latency_ms": 6028.197
+      }
+    },
+    "validation": {
+      "single-prompt": {
+        "tasks": 18,
+        "program_expectations_met": 10,
+        "model_calls": 18,
+        "tool_calls": 0,
+        "invalid_calls": 8,
+        "failed_tool_calls": 0,
+        "prompt_tokens": 186793,
+        "completion_tokens": 10911,
+        "unreported_calls": 0,
+        "total_latency_ms": 65054.18
+      },
+      "fixed-plus-synthesis": {
+        "tasks": 18,
+        "program_expectations_met": 9,
+        "model_calls": 18,
+        "tool_calls": 18,
+        "invalid_calls": 9,
+        "failed_tool_calls": 1,
+        "prompt_tokens": 153396,
+        "completion_tokens": 11604,
+        "unreported_calls": 0,
+        "total_latency_ms": 66098.084
+      },
+      "dynamic": {
+        "tasks": 18,
+        "program_expectations_met": 12,
+        "model_calls": 52,
+        "tool_calls": 34,
+        "invalid_calls": 22,
+        "failed_tool_calls": 2,
+        "prompt_tokens": 531707,
+        "completion_tokens": 25480,
+        "unreported_calls": 0,
+        "total_latency_ms": 141638.973
+      }
+    },
+    "repair-v3": {
+      "single-prompt": {
+        "tasks": 2,
+        "program_expectations_met": 1,
+        "model_calls": 2,
+        "tool_calls": 0,
+        "invalid_calls": 1,
+        "failed_tool_calls": 0,
+        "prompt_tokens": 21940,
+        "completion_tokens": 1460,
+        "unreported_calls": 0,
+        "total_latency_ms": 8784.973
+      },
+      "fixed-plus-synthesis": {
+        "tasks": 2,
+        "program_expectations_met": 1,
+        "model_calls": 2,
+        "tool_calls": 2,
+        "invalid_calls": 1,
+        "failed_tool_calls": 0,
+        "prompt_tokens": 21940,
+        "completion_tokens": 1406,
+        "unreported_calls": 0,
+        "total_latency_ms": 8558.859
+      },
+      "dynamic": {
+        "tasks": 2,
+        "program_expectations_met": 2,
+        "model_calls": 4,
+        "tool_calls": 4,
+        "invalid_calls": 0,
+        "failed_tool_calls": 0,
+        "prompt_tokens": 32922,
+        "completion_tokens": 1730,
+        "unreported_calls": 0,
+        "total_latency_ms": 11507.801
+      }
+    },
+    "repair-v3-spot": {
+      "dynamic": {
+        "tasks": 1,
+        "program_expectations_met": 0,
+        "model_calls": 6,
+        "tool_calls": 2,
+        "invalid_calls": 4,
+        "failed_tool_calls": 0,
+        "prompt_tokens": 69375,
+        "completion_tokens": 3759,
+        "unreported_calls": 0,
+        "total_latency_ms": 17017.524
+      }
+    },
+    "repair-v4-schema": {
+      "single-prompt": {
+        "tasks": 1,
+        "program_expectations_met": 1,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "invalid_calls": 0,
+        "failed_tool_calls": 0,
+        "prompt_tokens": 10989,
+        "completion_tokens": 635,
+        "unreported_calls": 0,
+        "total_latency_ms": 3438.857
+      }
+    }
+  },
+  "evaluation_scope": "Program terminal/constraint checks. Semantic notes are coding-assistant review, not independent human labels.",
+  "dataset_errata": {
+    "initial_dataset_kept_unchanged": true,
+    "scope": "Initial constructed goals retained three hours while numeric fields were reduced. These cases exercise conflicting text/form constraints, not clean short-budget input.",
+    "cases": [
+      "real-val-youka-60",
+      "real-val-tuyou-30",
+      "real-val-15-minutes",
+      "real-val-no-knowledge",
+      "real-val-empty-retrieval",
+      "real-val-retrieval-outage",
+      "real-val-no-project-material"
+    ],
+    "builder_fixed_for_future_datasets": true,
+    "true_reviews": 0
+  },
+  "latest_dynamic_model_validation": "v3 targeted reruns: version conflict and 60-minute task pass; 15-minute dynamic v3 fails. v4 schema single-prompt passes, full real dynamic v4 not rerun.",
+  "network_or_unknown_failures": 0,
+  "original_archive_available_at_end": false,
+  "original_material_snapshot_kept": true
+}

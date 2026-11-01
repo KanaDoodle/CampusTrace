@@ -1,0 +1,1 @@
+ok  	github.com/KanaDoodle/CampusTrace/internal/analysis	3.089s

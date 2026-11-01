@@ -1,0 +1,55 @@
+{
+  "receipt": {
+    "plan": {
+      "items": [
+        {
+          "id": "go",
+          "day": 1,
+          "basis": "JD",
+          "title": "Go 并发与取消",
+          "action": "按冻结材料解释实现、约束，并做一次口头演练",
+          "minutes": 60,
+          "references": [
+            {
+              "quote": "岗位要求：熟悉 Go 并发、context 取消、MySQL 索引与事务。",
+              "source_id": "s_00f270c4749c9a58225ecdf4"
+            }
+          ],
+          "deliverable": "一份实现与故障处理提纲"
+        },
+        {
+          "id": "mysql",
+          "day": 1,
+          "basis": "JD",
+          "title": "MySQL 索引与事务",
+          "action": "按冻结材料解释实现、约束，并做一次口头演练",
+          "minutes": 60,
+          "references": [
+            {
+              "quote": "岗位要求：熟悉 Go 并发、context 取消、MySQL 索引与事务。",
+              "source_id": "s_00f270c4749c9a58225ecdf4"
+            }
+          ],
+          "deliverable": "一份实现与故障处理提纲"
+        },
+        {
+          "id": "project",
+          "day": 1,
+          "basis": "GENERAL",
+          "title": "项目实现与取舍",
+          "action": "按冻结材料解释实现、约束，并做一次口头演练",
+          "minutes": 60,
+          "references": [],
+          "deliverable": "一份实现与故障处理提纲"
+        }
+      ],
+      "summary": "结合留档材料，在剩余时间内完成优先复习和回答演练。"
+    },
+    "revision": 1,
+    "saved_at": "2026-10-31T21:39:27.020838Z",
+    "execution_id": "a04cf9bb0b57577b42f18c0afff11c52",
+    "application_id": "16dc0f3a4cb39df5bb4843aea800165b"
+  },
+  "receipt_rows": 1,
+  "saved_at_in_mysql": true
+}

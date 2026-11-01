@@ -1,0 +1,10 @@
+Traceback (most recent call last):
+  File "/Users/kana/Projects/campustrace/scripts/verify-preparation-agent.py", line 213, in <module>
+    if __name__=='__main__':main()
+                            ~~~~^^
+  File "/Users/kana/Projects/campustrace/scripts/verify-preparation-agent.py", line 126, in main
+    child=c.request('/api/agent/preparation',{'input':supplement,'confirm':True,'request_key':uuid.uuid4().hex,'review_hash':supplement_review['review_hash']})
+  File "/Users/kana/Projects/campustrace/scripts/verify-preparation-agent.py", line 69, in request
+    data=r.read();assert r.status==expected,(path,r.status,expected,data.decode());return json.loads(data) if data else None
+                         ^^^^^^^^^^^^^^^^^^
+AssertionError: ('/api/agent/preparation', 503, 200, '{"code":"QUEUE_BUSY","error":"QUEUE_BUSY"}\n')

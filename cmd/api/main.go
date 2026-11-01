@@ -71,6 +71,19 @@ func run() error {
 		slots = configured.Sem
 	}
 	a := &transport.API{Store: app.Store, Queue: app.Queue, Tools: app.Tools, Agent: app.Agent, Auth: auth.Service{Store: app.Store, Secret: []byte(app.Config.JWT)}, Metrics: app.Metrics, ResumeModel: app.ResumeModel, ResumeModelName: app.Config.LLMModel, CustomModelSlots: slots}
+	switch os.Getenv("PREPARATION_EXECUTOR") {
+	case "", "langgraph":
+		a.Preparations = agent.NewPreparationRunner(ctx, app.Store)
+	case "legacy":
+		slog.Warn("explicit preparation rollback: historical Go executor selected")
+		a.Preparations = agent.NewLegacyPreparationRunner(ctx, app.Store)
+	default:
+		return errors.New("PREPARATION_EXECUTOR must be langgraph or explicit legacy rollback")
+	}
+	a.Preparations.Allow = func(call context.Context, owner string) (bool, error) {
+		return app.Queue.Allow(call, "agent:preparation:"+owner, 5, time.Minute)
+	}
+	defer a.Preparations.Close()
 	runner := a.StartMatchTasks(ctx, app.Config.LLMConcurrency)
 	narrator, err := inferencebridge.FromEnvironment([]byte(app.Config.JWT), configured)
 	if err != nil {

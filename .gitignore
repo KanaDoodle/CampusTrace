@@ -68,3 +68,26 @@ __pycache__/
 /release-repair-report.md
 /repair-report.md
 /release-final-report.md
+
+!/docs/kanarpc-migration.md
+!/docs/verification/kanarpc-migration-20261101/
+
+# Application-scoped preparation Agent documentation and controlled evidence.
+!/docs/application-preparation-agent.md
+!/docs/verification/preparation-agent-20261101/
+
+# Sanitized aggregate reports only; personal task inputs remain outside Git.
+!/docs/verification/preparation-agent-live-20261101/
+!/docs/verification/preparation-agent-real-materials-20261101/
+!/docs/verification/preparation-agent-followup-20261101/
+
+# Preparation service environment and private graph checkpoints
+/services/preparation/.venv/
+/services/preparation/__pycache__/
+/var/preparation/
+/services/preparation/**/__pycache__/
+!/docs/verification/preparation-langgraph-20261101/
+!/docs/preparation-langgraph.md
+!/docs/verification/preparation-langgraph-20261101/*.log
+*.sqlite-wal
+*.sqlite-shm

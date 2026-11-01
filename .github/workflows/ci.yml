@@ -35,8 +35,13 @@ jobs:
       - name: Performance acceptance contracts
         run: make performance-test
 
-      # Fails if the module resolves KanaRPC-Go through a replace directive or
-      # anything other than the published v0.1.0 tag.
+      - name: Preparation graph tests with locked Python dependencies
+        run: |
+          docker build -f services/preparation/Dockerfile -t campustrace-preparation:local .
+          docker run --rm -v "$PWD/services/preparation/tests:/app/tests:ro" \
+            campustrace-preparation:local python -m unittest discover -s tests -v
+
+      # Requires the pinned public KanaRPC module, with no sibling workspace or replace.
       - name: Verify published dependency boundary
         run: ./scripts/verify-release-boundary.sh
 

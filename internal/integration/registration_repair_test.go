@@ -29,7 +29,7 @@ func TestRepairAnalysisRegistrationReadiness(t *testing.T) {
 	cli, err := clientv3.New(clientv3.Config{Endpoints: endpoints})
 	must(t, err)
 	defer cli.Close()
-	key := "/kanarpc/services/" + name + "/" + srv.Server.Addr().String()
+	key := srv.RegistrationKey()
 	before, err := cli.Get(ctx, key)
 	must(t, err)
 	if len(before.Kvs) != 1 {

@@ -1,0 +1,4 @@
+ok  	github.com/KanaDoodle/CampusTrace/internal/integration	0.634s
+PASS: independent Search dependency boundary.
+PASS: workspace disabled; published KanaRPC v0.0.0-20261031172914-7b63b80f0544; public API boundary.
+Remote clean-clone startup and dogfood must be verified separately.

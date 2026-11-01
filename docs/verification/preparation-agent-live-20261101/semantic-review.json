@@ -1,0 +1,68 @@
+{
+  "reviewer": "current coding assistant",
+  "review_type": "agent-assisted qualitative inspection; not independent human labels",
+  "observations": [
+    {
+      "run": "initial",
+      "case": "normal-go-180",
+      "arm": "single-prompt",
+      "verdict": "USEFUL_WITH_REVIEW",
+      "evidence": "180 minutes over 3 days; literal sources include frozen JD/resume/project/review and notes; prioritizes context cancellation loss. No observed quality advantage from dynamic on this case."
+    },
+    {
+      "run": "initial",
+      "case": "normal-go-180",
+      "arm": "fixed-plus-synthesis",
+      "verdict": "INVALID_PLAN",
+      "evidence": "Rejected candidate missing from initial report; no specific semantic cause inferred."
+    },
+    {
+      "run": "initial",
+      "case": "normal-go-180",
+      "arm": "dynamic",
+      "verdict": "USEFUL_WITH_REVIEW",
+      "evidence": "180 minutes; explicit actions/deliverables, owned knowledge/reviews queried; 3 provider and 3 retrieval calls versus 1 provider call for single prompt."
+    },
+    {
+      "run": "initial",
+      "case": "feedback-mastered-and-one-hour",
+      "arm": "all",
+      "verdict": "FAILED",
+      "evidence": "No accepted plan. Dynamic receives one plan rejection then ends on malformed tool call; original candidate payloads were not recorded."
+    },
+    {
+      "run": "initial",
+      "case": "legacy-no-snapshot",
+      "arm": "all",
+      "verdict": "APPROPRIATE_CLARIFICATION",
+      "evidence": "Ask for frozen job/resume/project evidence; no plan inventing missing snapshots. Dynamic also asks to confirm daily allocation although total time/days were supplied."
+    },
+    {
+      "run": "followup",
+      "case": "feedback-mastered-and-one-hour",
+      "arm": "single-prompt",
+      "verdict": "PARTIAL_SEMANTIC_CONSTRAINT_VIOLATION",
+      "evidence": "Program-valid mysql-only 60-minute item, but its action reserves 10 minutes for context cancellation/goroutine cleanup despite mastered Go. IDs alone do not establish semantic exclusion.",
+      "source": "followup/feedback-mastered-and-one-hour.json results[0].plan.items[0].action"
+    },
+    {
+      "run": "followup",
+      "case": "feedback-mastered-and-one-hour",
+      "arm": "fixed-plus-synthesis",
+      "verdict": "USEFUL_WITH_MINOR_WRITING_ISSUE",
+      "evidence": "One 60-minute MySQL item; no Go restudy. Deliverable unnecessarily repeats a generic PLANNED label not present in source material."
+    },
+    {
+      "run": "followup",
+      "case": "feedback-mastered-and-one-hour",
+      "arm": "dynamic",
+      "verdict": "USEFUL_WITH_MINOR_TECHNICAL_GROUPING_ISSUE",
+      "evidence": "mysql ID/title/JD basis retained, Go restudy omitted, 60 minutes with 15/20/25 segments and literal references including other-application review. Leftmost-prefix index material grouped under transaction segment; should be moved to index review.",
+      "source": "followup/feedback-mastered-and-one-hour.json results[2].plan.items[0]"
+    }
+  ],
+  "dataset_notes": [
+    "All materials are synthetic and short; this does not measure individual interview readiness.",
+    "Original previous mysql item quotes Go concurrency; literal citation passes program checks but is semantically unrelated. Dataset kept unchanged for the comparison."
+  ]
+}

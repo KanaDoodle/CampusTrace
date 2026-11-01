@@ -1,0 +1,78 @@
+{
+  "evidence": "controlled-model-responses-real-Go-Python-LangGraph",
+  "external_model_calls": 0,
+  "graph_version": "preparation-langgraph-v1",
+  "reports": {
+    "development": {
+      "dynamic": {
+        "failed_tool_calls": 0,
+        "invalid_calls": 0,
+        "model_calls": 9,
+        "p50_ms": 5.972,
+        "p95_ms": 19.643,
+        "program_expectations_met": 6,
+        "quantile_method": "nearest-rank",
+        "tasks": 6,
+        "tool_calls": 3
+      },
+      "fixed-plus-synthesis": {
+        "failed_tool_calls": 0,
+        "invalid_calls": 0,
+        "model_calls": 6,
+        "p50_ms": 0.105,
+        "p95_ms": 0.371,
+        "program_expectations_met": 6,
+        "quantile_method": "nearest-rank",
+        "tasks": 6,
+        "tool_calls": 6
+      },
+      "single-prompt": {
+        "failed_tool_calls": 0,
+        "invalid_calls": 0,
+        "model_calls": 6,
+        "p50_ms": 0.073,
+        "p95_ms": 0.257,
+        "program_expectations_met": 6,
+        "quantile_method": "nearest-rank",
+        "tasks": 6,
+        "tool_calls": 0
+      }
+    },
+    "validation": {
+      "dynamic": {
+        "failed_tool_calls": 1,
+        "invalid_calls": 0,
+        "model_calls": 29,
+        "p50_ms": 6.779,
+        "p95_ms": 9.216,
+        "program_expectations_met": 18,
+        "quantile_method": "nearest-rank",
+        "tasks": 18,
+        "tool_calls": 13
+      },
+      "fixed-plus-synthesis": {
+        "failed_tool_calls": 1,
+        "invalid_calls": 0,
+        "model_calls": 16,
+        "p50_ms": 0.097,
+        "p95_ms": 0.275,
+        "program_expectations_met": 18,
+        "quantile_method": "nearest-rank",
+        "tasks": 18,
+        "tool_calls": 16
+      },
+      "single-prompt": {
+        "failed_tool_calls": 0,
+        "invalid_calls": 0,
+        "model_calls": 16,
+        "p50_ms": 0.093,
+        "p95_ms": 0.269,
+        "program_expectations_met": 18,
+        "quantile_method": "nearest-rank",
+        "tasks": 18,
+        "tool_calls": 0
+      }
+    }
+  },
+  "semantic_quality": "NOT_MEASURED; controlled responses do not prove model reasoning"
+}

@@ -1,0 +1,147 @@
+{
+  "baseline_adaptation": "Fixed path uses existing literal preparationQuery plus BM25, then one structured synthesis. All arms receive the same goal and constraints; the single prompt gets the entire allowed small corpus.",
+  "business_writes": "No writes in CLI arms; SQL confirmation, ownership, stale input and idempotency are separately tested",
+  "cost": "Reported usage and optional user-supplied prices; absent usage or prices leaves cost null. Controlled responses are not actual token/cost measurements.",
+  "dataset_sha256": "c94724634e3650aa16583ecea0d0960a7a17b13bd1de7391218915598bce8507",
+  "elapsed_ms": 4929,
+  "external_model_attempts": 3,
+  "max_calls": 8,
+  "mode": "real-model-on-explicitly-authorized-materials",
+  "model": "deepseek-flash",
+  "model_config": {
+    "max_output_tokens": 2048,
+    "request_policy": "existing ChatClient provider-specific defaults",
+    "requested_model": "deepseek-flash",
+    "url": "https://api.deepseek.com/chat/completions"
+  },
+  "results": [
+    {
+      "case_id": "legacy-no-snapshot",
+      "arm": "single-prompt",
+      "state": "PAUSED",
+      "program_expectation_met": true,
+      "plan_valid": false,
+      "sources_used": [],
+      "model_calls": 1,
+      "tool_calls": 0,
+      "invalid_calls": 0,
+      "failed_tool_calls": 0,
+      "repeated_queries": 0,
+      "latency_ms": 1477.72,
+      "usage": {
+        "limit": 128000,
+        "charged": 1549,
+        "prompt_tokens": 1439,
+        "completion_tokens": 110,
+        "unreported_calls": 0
+      },
+      "estimated_cost_usd": null,
+      "question": "当前缺少本次申请的冻结 JD、简历和项目快照，无法把计划对齐到具体岗位要求与你的真实经历。请问能否提供本次 Go 后端岗位的 JD 原文（或核心要求）以及你的简历/项目要点？若暂时无法提供，也请说明，我会仅基于现有笔记与历史复盘安排通用准备计划。",
+      "trace": null,
+      "business_state": "NOT_SAVED; SQL confirmation/isolation verified separately"
+    },
+    {
+      "case_id": "legacy-no-snapshot",
+      "arm": "fixed-plus-synthesis",
+      "state": "PAUSED",
+      "program_expectation_met": true,
+      "plan_valid": false,
+      "sources_used": [],
+      "model_calls": 1,
+      "tool_calls": 1,
+      "invalid_calls": 0,
+      "failed_tool_calls": 0,
+      "repeated_queries": 0,
+      "latency_ms": 1731.489,
+      "usage": {
+        "limit": 128000,
+        "charged": 1258,
+        "prompt_tokens": 1115,
+        "completion_tokens": 143,
+        "unreported_calls": 0
+      },
+      "estimated_cost_usd": null,
+      "question": "当前缺少本次申请的冻结 JD、简历和项目快照，sources 为空，无法引用岗位要求或历史失分原文。请问能否提供本次 Go 后端岗位的 JD 原文（至少职责与要求部分）和你的简历要点（含项目经历）？若暂时无法提供，请告知：这 3 天 180 分钟是否按通用 Go 后端准备（Go 并发/GC、HTTP 服务、MySQL/Redis、项目复盘与自我介绍）来安排？",
+      "trace": null,
+      "business_state": "NOT_SAVED; SQL confirmation/isolation verified separately"
+    },
+    {
+      "case_id": "legacy-no-snapshot",
+      "arm": "dynamic",
+      "state": "PAUSED",
+      "program_expectation_met": true,
+      "plan_valid": false,
+      "sources_used": [],
+      "model_calls": 1,
+      "tool_calls": 0,
+      "invalid_calls": 0,
+      "failed_tool_calls": 0,
+      "repeated_queries": 0,
+      "latency_ms": 1720.578,
+      "usage": {
+        "limit": 128000,
+        "charged": 1437,
+        "prompt_tokens": 1304,
+        "completion_tokens": 133,
+        "unreported_calls": 0
+      },
+      "estimated_cost_usd": null,
+      "question": "当前缺少本次申请的冻结 JD、简历和项目快照，我无法据此生成有依据的 JD 项和项目项。请提供其中至少一项：本次岗位的 JD 原文（或核心职责/要求），以及你的简历/项目要点（尤其是 Go 相关经历、PLANNED 或未核验部分）。另外确认：3 天共 180 分钟是否按天分配（如 60/60/60）？",
+      "trace": [
+        {
+          "kind": "model",
+          "status": "DISPATCHED",
+          "call_id": "model-1"
+        },
+        {
+          "kind": "model",
+          "status": "RETURNED",
+          "call_id": "model-1",
+          "latency_ms": 1720
+        },
+        {
+          "kind": "question",
+          "name": "ask_preparation_question",
+          "status": "WAITING_INPUT",
+          "call_id": "call_00_6ovoRji7IJsZj3ui1HOG9499",
+          "detail": "当前缺少本次申请的冻结 JD、简历和项目快照，我无法据此生成有依据的 JD 项和项目项。请提供其中至少一项：本次岗位的 JD 原文（或核心职责/要求），以及你的简历/项目要点（尤其是 Go 相关经历、PLANNED 或未核验部分）。另外确认：3 天共 180 分钟是否按天分配（如 60/60/60）？"
+        }
+      ],
+      "business_state": "NOT_SAVED; SQL confirmation/isolation verified separately"
+    }
+  ],
+  "semantic_quality": "REQUIRES_HUMAN_REVIEW; citation substring checks do not prove factual entailment",
+  "split": "development",
+  "summary": {
+    "dynamic": {
+      "failed_tool_calls": 0,
+      "invalid_calls": 0,
+      "model_calls": 1,
+      "p50_ms": 1720.578,
+      "p95_ms": 1720.578,
+      "program_expectations_met": 1,
+      "tasks": 1,
+      "tool_calls": 0
+    },
+    "fixed-plus-synthesis": {
+      "failed_tool_calls": 0,
+      "invalid_calls": 0,
+      "model_calls": 1,
+      "p50_ms": 1731.489,
+      "p95_ms": 1731.489,
+      "program_expectations_met": 1,
+      "tasks": 1,
+      "tool_calls": 1
+    },
+    "single-prompt": {
+      "failed_tool_calls": 0,
+      "invalid_calls": 0,
+      "model_calls": 1,
+      "p50_ms": 1477.72,
+      "p95_ms": 1477.72,
+      "program_expectations_met": 1,
+      "tasks": 1,
+      "tool_calls": 0
+    }
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "state": "COMPLETED",
+  "completed": [
+    {
+      "case": "feedback-mastered-and-one-hour",
+      "attempts": 4,
+      "summary": {
+        "dynamic": {
+          "failed_tool_calls": 0,
+          "invalid_calls": 0,
+          "model_calls": 2,
+          "p50_ms": 4710.359,
+          "p95_ms": 4710.359,
+          "program_expectations_met": 1,
+          "tasks": 1,
+          "tool_calls": 2
+        },
+        "fixed-plus-synthesis": {
+          "failed_tool_calls": 0,
+          "invalid_calls": 0,
+          "model_calls": 1,
+          "p50_ms": 3364.206,
+          "p95_ms": 3364.206,
+          "program_expectations_met": 1,
+          "tasks": 1,
+          "tool_calls": 1
+        },
+        "single-prompt": {
+          "failed_tool_calls": 0,
+          "invalid_calls": 0,
+          "model_calls": 1,
+          "p50_ms": 3660.888,
+          "p95_ms": 3660.888,
+          "program_expectations_met": 1,
+          "tasks": 1,
+          "tool_calls": 0
+        }
+      }
+    }
+  ],
+  "max_provider_attempts": 8,
+  "previous_attempts": 13,
+  "whole_session_limit": 24,
+  "cases": [
+    "feedback-mastered-and-one-hour"
+  ],
+  "current_case": "feedback-mastered-and-one-hour"
+}

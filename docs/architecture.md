@@ -135,15 +135,17 @@ go run ./cmd/dlq -redrive TASK_ID
 
 ## Analysis 服务与 KanaRPC
 
-KanaRPC 是本项目维护者基于上游 KamaRPC-Go 历史持续实现与维护的**自研轻量 RPC / 服务治理框架**，属于学习与工程实践项目；来源与许可见 [KanaRPC 仓库](https://github.com/KanaDoodle/KanaRPC-Go) 和 [dependency audit](dependency-audit.md)。CampusTrace Analysis Service 是它的真实业务消费者。
+[KanaRPC](https://github.com/KanaDoodle/KanaRPC) 提供 Context 优先的 RPC 内核、etcd 注册发现和连接管理。CampusTrace 的岗位分析通过它调用独立 Analysis 进程；Kafka 负责后台任务投递，RPC 承担 Worker 到分析服务的请求与响应。
 
-CampusTrace 是独立 module `github.com/KanaDoodle/CampusTrace`，固定依赖已发布的 `github.com/KanaDoodle/KanaRPC-Go v0.1.0`，仅导入公开的 `/rpc` facade。`go.mod` 无 replace，正常构建使用 `GOWORK=off`，无需 sibling checkout。Transport、codec、pool 与 breaker 实现类型留在 KanaRPC internal 内。依赖升级需核对 v0.x facade 的接口兼容性。
+CampusTrace 是独立 module `github.com/KanaDoodle/CampusTrace`，固定依赖 `github.com/KanaDoodle/KanaRPC v0.0.0-20261031172914-7b63b80f0544`，导入根包、`discovery` 和 `routing` 的公开 API。`go.mod` 无 replace，正常构建使用 `GOWORK=off`，无需 sibling checkout。新版独立仓库与旧框架的沿革、许可见[依赖说明](dependency-audit.md)。
 
-两个 Analysis 实例注册到 etcd。已知 breaker-open 实例在负载均衡前被排除；admission race 下每个已发现地址最多尝试一次选择，远程业务方法不自动重放。本地取消不计入 breaker 失败，后端 deadline 仍计入。
+两个 Analysis 实例以稳定 instance ID 注册到 `/campustrace/kanarpc/v2/services/CampusTraceAnalysis/`。Worker 从新鲜发现快照轮转选址，以有界连接池复用连接；节点撤出后退休连接，在途调用结束后回收。建连失败采用退避，失效连接在后续调用重新建立；一次业务调用只发送一次。快照保留 3 秒新鲜度门槛，过期时通过 SDK 公开 API 有界重建 watch，并校验集群与 revision 后替换；发现失去新鲜度时停止派发，不继续使用过期地址。
 
-KeepAlive/lease 丢失会降低 readiness，并以有上限的指数退避和 jitter 创建新 lease、恢复注册。`/healthz`、`/readyz` 使用 `ANALYSIS_HEALTH_ADDR`，本地两实例默认为 `127.0.0.1:19191` / `19192`；测试包含真实 lease revoke 与关闭 KeepAlive channel。
+服务端按 `ANALYSIS_CONCURRENCY` 限制执行数量，等待队列容量与并发值一致，排队上限 100 ms；请求总时限最多 30 秒。客户端保留执行并发限制，启用短效压力反馈。远程 CANCEL 和 deadline 进入处理器 Context，继续传播到规则提取或模型 HTTP 请求。请求保留业务 deadline、traceparent 与任务 IDs，延续跨进程追踪及相关日志。
 
-RPC wire protocol 没有提前远程取消信号；CampusTrace 传递显式 deadline 和 IDs，服务端工作到 deadline 或服务关闭时停止。调用方取消由本地上下文处理，远端执行由显式 deadline 控制。
+KeepAlive/lease 丢失会降低 readiness，注册器重新获取 lease 并验证归属。启动等待 listener 与注册共同就绪；`/healthz`、`/readyz` 使用 `ANALYSIS_HEALTH_ADDR`，本地两实例默认为 `127.0.0.1:19191` / `19192`。关闭先降低 readiness、撤销注册，再在 5 秒预算内 drain 在途调用和协议回执；超时取消工作，日志保留资源完成状态与交付故障。协议回执表示 RPC 交付，业务是否持久化以 SQL 回执为准。
+
+SQL 调用凭据继续保护付费分析。明确的提供商拒绝、连接池派发前拒绝及已确认的本地发送前准入拒绝允许后续任务重试；其他连接错误、超时或仅有状态码的远端拒绝保持结果未知，进入核对流程。RPC 层不因故障自动重复模型调用。
 
 请求与响应携带 claims 语义版本。新客户端只接受当前语义版本的响应，旧服务缺少版本或返回旧版本时不将其 claims 写进新缓存。新服务在调用 Extractor 前拒绝显式不匹配的版本；旧调用方省略请求字段仍可被接收，但响应始终标识实际实现。升级时需要协调 Analysis 与 Worker；不匹配按现有失败/未知结果处理，不以自动重放潜在付费调用来修复部署差异。
 
@@ -247,3 +249,8 @@ make loadgen               # 100 个 synthetic Observation，经实际 Worker/Ka
 - **会话与认证**：SSE 无 replay/reconnect；MCP 认证仅在启动时进行；浏览器 Redis 会话支持注销撤销，JWT 尚无撤销服务；没有邮箱验证或密码重置。Redis 故障可影响会话、短期状态与 trace 保存。
 - **队列与运维**：Kafka 与 SQL 任务传输历史分别设置保留策略；Redis 使用 standalone 部署；DLQ 仅通过 operator CLI 管理。进程内计数重启重置；队列和共享池另提供实时聚合指标。API 与 Worker 保留 `/metrics` JSON 和 `/metrics/prometheus`，任务阶段事件保存在 MySQL；可选 OpenTelemetry / Prometheus / Grafana / Tempo 连接本地服务追踪并提供面板与本地告警，不包含外部告警投递或生产高可用，见[监控与排障](operations.md#可选的完整观测栈)。
 - **UI**：中文优先，使用结构化资料与复盘表单；岗位雷达最多 10,000 条、每页 50 条；独立普通搜索最多 100 条。没有使用前端框架。
+
+
+## 申请准备状态图
+
+申请专属准备主链路使用 Python / LangGraph，图节点及条件边组织模型、检索、计划校验、澄清和恢复。Go 内部单步接口绑定当前执行能力令牌，保留账号范围、材料、预算与 SQL 租约权威；Python 不复制 SQL 领域逻辑。SQLite 持久卷只保存编排元数据，完整消息与来源仍在 MySQL。保存通过原用户确认及事务回执，不由模型或图直接提交。[职责图、部署和恢复边界](preparation-langgraph.md)。

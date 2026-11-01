@@ -1,0 +1,48 @@
+{
+  "initial_dirty_and_untracked_file_count": 154,
+  "unchanged_preexisting_file_count": 129,
+  "changed_preexisting_files": [
+    "cmd/preparation-eval/main.go",
+    "docs/application-preparation-agent.md",
+    "internal/agent/preparation_agent.go",
+    "internal/agent/preparation_agent_loop.go",
+    "internal/agent/preparation_evaluation.go",
+    "internal/domain/preparation_agent.go",
+    "internal/integration/preparation_agent_test.go",
+    "internal/transport/preparation_agent.go",
+    "scripts/verify-preparation-agent.py",
+    "web/preparation_agent.js",
+    "web/preparation_agent.test.cjs",
+    ".gitignore",
+    "Makefile",
+    "README.md",
+    "README_EN.md",
+    "cmd/api/main.go",
+    "compose.app.yml",
+    "configs/local.env.example",
+    "docs/agent-evaluation.md",
+    "docs/agent-harness.md",
+    "docs/agent-workspace.md",
+    "docs/architecture.md",
+    "docs/model-backends.md",
+    "internal/transport/http.go",
+    "web/display.js"
+  ],
+  "missing_preexisting_files": [],
+  "rpc_files_verified_byte_identical": [
+    "go.mod",
+    "go.sum",
+    "internal/analysis/rpc.go",
+    "internal/analysis/discovery.go",
+    "internal/integration/kanarpc_migration_test.go",
+    "docs/kanarpc-migration.md",
+    "internal/pipeline/worker.go",
+    "cmd/seed/main.go"
+  ],
+  "historical_preparation_reports_unchanged": true,
+  "existing_user_containers_preserved": [
+    "campustrace-journey-redis-94185",
+    "campustrace-journey-mysql-94185"
+  ],
+  "committed_or_pushed": false
+}

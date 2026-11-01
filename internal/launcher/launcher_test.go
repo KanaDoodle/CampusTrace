@@ -89,7 +89,7 @@ func TestFailedStartOnlyStopsNewApplicationServices(t *testing.T) {
 			}
 		}
 	}
-	if !reflect.DeepEqual(stop, []string{"worker", "analysis-1", "analysis-2"}) {
+	if !reflect.DeepEqual(stop, []string{"worker", "analysis-1", "analysis-2", "preparation"}) {
 		t.Fatal("rollback stopped preexisting service or dependency", stop)
 	}
 }

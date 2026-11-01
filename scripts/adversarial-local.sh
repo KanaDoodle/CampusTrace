@@ -28,5 +28,5 @@ export MYSQL_DSN="synthetic:synthetic-test-only@tcp(127.0.0.1:$mysql_port)/campu
 export MYSQL_TEST_CONTAINER="$mysql_name"
 export MYSQL_TEST_DSN="$MYSQL_DSN" REDIS_ADDR="127.0.0.1:$redis_port" ETCD_ENDPOINTS="127.0.0.1:$etcd_port"
 export MYSQL_TEST_ADMIN_DSN="root:synthetic-test-only@tcp(127.0.0.1:$mysql_port)/mysql?parseTime=true&loc=UTC"
-go test -race -count=1 -v ./internal/integration -run "${ADVERSARIAL_TESTS:-Test(Adversarial|Scheduler|Application|Campaign|Durable|ExpiredTask|Whole|Company|MatchingV2|Decision|InventoryCampaign|MyRPC|RunningWorkerOutboxRPC|RepairAnalysisRegistrationReadiness)}"
+go test -race -count=1 -v ./internal/integration -run "${ADVERSARIAL_TESTS:-Test(Adversarial|Scheduler|Application|Campaign|Durable|ExpiredTask|Whole|Company|MatchingV2|Decision|InventoryCampaign|KanaRPC|RunningWorkerOutboxRPC|RepairAnalysisRegistrationReadiness)}"
 go test -race -count=1 -v ./internal/pipeline ./internal/scheduling ./internal/recruitmentmail

@@ -1,0 +1,59 @@
+?   	github.com/KanaDoodle/CampusTrace/bin/backups/sample-cleanup-20260928	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/bin/verification	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/bin/verification/deadlines-20261018	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/bin/verification/usability	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/analysis	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/api	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/benchmark	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/campustrace	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/dlq	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/eval	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/events	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/ingest	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/journey-demo	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/loadgen	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/match-eval	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/mcp-server	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/notify	[no test files]
+ok  	github.com/KanaDoodle/CampusTrace/cmd/preparation-eval	0.953s
+?   	github.com/KanaDoodle/CampusTrace/cmd/retrieval-eval	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/scheduler-bench	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/search	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/seed	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/tasks	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/worker	[no test files]
+ok  	github.com/KanaDoodle/CampusTrace/internal/agent	1.627s
+ok  	github.com/KanaDoodle/CampusTrace/internal/analysis	0.727s
+?   	github.com/KanaDoodle/CampusTrace/internal/auth	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/internal/bootstrap	[no test files]
+ok  	github.com/KanaDoodle/CampusTrace/internal/config	(cached)
+?   	github.com/KanaDoodle/CampusTrace/internal/demo	[no test files]
+ok  	github.com/KanaDoodle/CampusTrace/internal/domain	0.359s
+ok  	github.com/KanaDoodle/CampusTrace/internal/eventbus	0.467s
+ok  	github.com/KanaDoodle/CampusTrace/internal/inferencebridge	0.484s
+ok  	github.com/KanaDoodle/CampusTrace/internal/integration	1.498s
+ok  	github.com/KanaDoodle/CampusTrace/internal/jobevent	0.935s
+ok  	github.com/KanaDoodle/CampusTrace/internal/launcher	0.963s
+ok  	github.com/KanaDoodle/CampusTrace/internal/matcheval	0.452s
+ok  	github.com/KanaDoodle/CampusTrace/internal/matching	0.437s
+ok  	github.com/KanaDoodle/CampusTrace/internal/mcpclient	0.401s
+ok  	github.com/KanaDoodle/CampusTrace/internal/modelconfig	(cached)
+?   	github.com/KanaDoodle/CampusTrace/internal/modelcontrol	[no test files]
+ok  	github.com/KanaDoodle/CampusTrace/internal/observability	0.919s
+ok  	github.com/KanaDoodle/CampusTrace/internal/persistence	(cached)
+ok  	github.com/KanaDoodle/CampusTrace/internal/pipeline	0.970s
+ok  	github.com/KanaDoodle/CampusTrace/internal/rag	0.992s
+ok  	github.com/KanaDoodle/CampusTrace/internal/recruitmentmail	0.366s
+ok  	github.com/KanaDoodle/CampusTrace/internal/resume	0.379s
+ok  	github.com/KanaDoodle/CampusTrace/internal/rules	0.348s
+ok  	github.com/KanaDoodle/CampusTrace/internal/scheduling	(cached)
+ok  	github.com/KanaDoodle/CampusTrace/internal/searchapi	2.433s
+ok  	github.com/KanaDoodle/CampusTrace/internal/searchservice	0.457s
+ok  	github.com/KanaDoodle/CampusTrace/internal/source	4.053s
+ok  	github.com/KanaDoodle/CampusTrace/internal/taskmigration	0.484s
+ok  	github.com/KanaDoodle/CampusTrace/internal/taskqueue	0.469s
+?   	github.com/KanaDoodle/CampusTrace/internal/testsupport/sqlfixture	[no test files]
+ok  	github.com/KanaDoodle/CampusTrace/internal/transport	0.504s
+?   	github.com/KanaDoodle/CampusTrace/migrations	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/scripts/performance/tracecapture	[no test files]
+ok  	github.com/KanaDoodle/CampusTrace/web	0.561s

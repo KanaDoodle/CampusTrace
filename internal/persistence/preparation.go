@@ -46,15 +46,26 @@ func (s *Store) applicationPreparationIdentity(ctx context.Context, user, id str
 		return "", 0, err
 	}
 	defer tx.Rollback()
-	app, err := One[d.Application](ctx, tx, "SELECT body FROM applications WHERE id=? AND user_id=?", id, user)
+	value, revision, err := applicationPreparationIdentityQuery(ctx, tx, user, id)
 	if err != nil {
 		return "", 0, err
 	}
-	revision, err := memoryRevision(ctx, tx, user)
+	if err := tx.Commit(); err != nil {
+		return "", 0, err
+	}
+	return value, revision, nil
+}
+
+func applicationPreparationIdentityQuery(ctx context.Context, q Queryer, user, id string) (string, uint64, error) {
+	app, err := One[d.Application](ctx, q, "SELECT body FROM applications WHERE id=? AND user_id=?", id, user)
 	if err != nil {
 		return "", 0, err
 	}
-	notes, err := Many[AgentMemory](ctx, tx, "SELECT body FROM agent_memories WHERE user_id=? AND deleted=FALSE AND expires_at>UTC_TIMESTAMP(6) ORDER BY id LIMIT 100", user)
+	revision, err := memoryRevision(ctx, q, user)
+	if err != nil {
+		return "", 0, err
+	}
+	notes, err := Many[AgentMemory](ctx, q, "SELECT body FROM agent_memories WHERE user_id=? AND deleted=FALSE AND expires_at>UTC_TIMESTAMP(6) ORDER BY id LIMIT 100", user)
 	if err != nil {
 		return "", 0, err
 	}
@@ -65,7 +76,7 @@ func (s *Store) applicationPreparationIdentity(ctx context.Context, user, id str
 		"SELECT JSON_OBJECT('id',r.id,'hash',SHA2(CAST(r.body AS CHAR),256)) FROM reviews r JOIN interviews i ON i.id=r.interview_id AND i.user_id=r.user_id WHERE r.user_id=? AND i.application_id=? ORDER BY r.id LIMIT 2001",
 		"SELECT JSON_OBJECT('id',id,'hash',SHA2(CAST(body AS CHAR),256)) FROM recruitment_notices WHERE user_id=? AND application_id=? ORDER BY id LIMIT 2001",
 	} {
-		rows, e := Many[map[string]any](ctx, tx, query, user, id)
+		rows, e := Many[map[string]any](ctx, q, query, user, id)
 		if e != nil {
 			return "", 0, e
 		}
@@ -75,13 +86,10 @@ func (s *Store) applicationPreparationIdentity(ctx context.Context, user, id str
 		parts = append(parts, rows)
 	}
 	var knowledge uint64
-	err = tx.QueryRowContext(ctx, "SELECT revision FROM knowledge_state WHERE user_id=?", user).Scan(&knowledge)
+	err = q.QueryRowContext(ctx, "SELECT revision FROM knowledge_state WHERE user_id=?", user).Scan(&knowledge)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return "", 0, err
 	}
 	parts = append(parts, knowledge)
-	if err := tx.Commit(); err != nil {
-		return "", 0, err
-	}
 	return d.Hash(d.JSON(parts)), revision, nil
 }

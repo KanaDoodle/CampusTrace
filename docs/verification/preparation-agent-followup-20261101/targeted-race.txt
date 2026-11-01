@@ -1,0 +1,3 @@
+ok  	github.com/KanaDoodle/CampusTrace/internal/agent	9.035s
+ok  	github.com/KanaDoodle/CampusTrace/cmd/preparation-eval	(cached)
+ok  	github.com/KanaDoodle/CampusTrace/internal/transport	(cached)

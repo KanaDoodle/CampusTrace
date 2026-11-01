@@ -1,0 +1,21 @@
+{
+  "go.mod": "613b5d48be0a4efebbeb4027b7473d2ad3781b9297655bc9653d730d0eae61f1",
+  "go.sum": "a4effb4038a731cb5134754d6a1594d4ceda43c090772bd46aa3327061fd3c31",
+  "Makefile": "cbd94bc7f96c7fdb15285a9f733dccf2b8d544fdeafbbda797693b09dfcbae76",
+  "compose.app.yml": "f2513aeaa405f9579744a792083145c777f74f0803e4d145f0eeb7c863eb4ac4",
+  "configs/local.env.example": "48087240537147a198bf4e712315c5dc66ff3422aa6d81af37f44f281b57d57d",
+  "internal/analysis/rpc.go": "411a8966f08ef024d4a5844a4362903853f89121803731358a9f1eeb0006327d",
+  "internal/analysis/discovery.go": "fb4220c474cd09fb4e41615bf616188b8a300e19dfe1517f3106c160ad54a9ac",
+  "internal/analysis/discovery_test.go": "0ae37c6eb5b33b79212dd4ca81cf04ce99824550d0f3f6717d74c093e24cfd89",
+  "internal/analysis/rpc_test.go": "d0fdeabf67c6d1c5855540a0c4cb26c3b2583b36a6ffa466c81cba5aa6ef05b3",
+  "internal/analysis/version_test.go": "7ee6fd78e8513ce4cb41b03235ceb3edead1ea815e3af25266940cfea8b96677",
+  "internal/pipeline/worker.go": "8bd33d0fc53aa9ca021bc853a4f2ab2cb3fdebe36f6df5160b9760aabe45f562",
+  "internal/integration/kanarpc_migration_test.go": "481ec4011d4ec0e29990d971ea54cbf9f8da5b0f0b4514725e9f564405a28a7d",
+  "internal/integration/registration_repair_test.go": "0d7f58bca64540365e00580834bca95368568d63705174a6c93e1979b52ec273",
+  "internal/integration/system_test.go": "d9105f2a142eac893177e0a6a41c0f35f71fda68d398e75ac58b35206f480696",
+  "internal/integration/boundary_repair_test.go": "cd94972139f3246910a8ca01b26abd3dc9f8d75c857b60f0b17000af887aa924",
+  "scripts/verify-release-boundary.sh": "a046a81796fb1d33eca62356e016a40a77a9ed1e123f6b4009cb1b539e7917bd",
+  "scripts/adversarial-local.sh": "e837e05f78275abd0c133f001fa9ed18415618c3a9187ca962d1cbe03078a7fb",
+  "cmd/seed/main.go": "28e454c53f94c40fa69f40b7fa7d66d15e3e3eb8bda6d14a92209eb56e275c5e",
+  "web/display.js": "25b719f0d436562111c66e05a140550366abea1bf12c4ddd03c02a7d85a1a2a9"
+}

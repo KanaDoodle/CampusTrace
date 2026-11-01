@@ -1,0 +1,35 @@
+{
+  "status": "PASS",
+  "date": "2026-11-01",
+  "go_top_level": {
+    "pass": 631,
+    "skip": 35
+  },
+  "package_counts": {
+    "agent": {
+      "pass": 38
+    },
+    "integration": {
+      "pass": 208,
+      "skip": 17
+    },
+    "transport": {
+      "pass": 17
+    }
+  },
+  "all_package_race": true,
+  "adversarial_process_tests": true,
+  "frontend_tests_passed": 458,
+  "api_browser_process_acceptance": "PASS",
+  "controlled_http_calls": 6,
+  "external_model_calls": 0,
+  "go_vet": "PASS",
+  "build_and_public_dependency_boundary": "PASS",
+  "module_tidy_diff": "empty",
+  "go_mod_verify": "PASS",
+  "preexisting_rpc_work_preserved": true,
+  "new_tables_services_dependencies": 0,
+  "real_model_effect": "NOT_VALIDATED",
+  "source_scope": "Owned local SQL/Redis/Kafka and synthetic controls; no personal DB/model API used",
+  "raw_go_events_sha256": "a8b72963368351185912bb4d97efe45fd9a810bf73deba3d342d6d99ba0749a2"
+}

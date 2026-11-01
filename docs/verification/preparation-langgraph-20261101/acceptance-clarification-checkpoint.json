@@ -1,0 +1,20 @@
+{
+  "next": [],
+  "values": {
+    "execution_id": "d5b77078ce4f63a43c8640e3e093844b",
+    "parent_id": "",
+    "view": {
+      "sequence": 2,
+      "phase": "PAUSED",
+      "preparation": {
+        "provider_state": "READY",
+        "question": "请在申请准备页面补充本轮信息",
+        "model_calls": 1,
+        "tool_calls": 1,
+        "search_calls": 0
+      }
+    },
+    "last_node": "continued",
+    "continuation": "144cea43e196d43b5d034bc025f47b42"
+  }
+}

@@ -1,0 +1,46 @@
+[
+  {
+    "run": "ct-kanarpc-focused-20261101",
+    "Time": "2026-11-01T01:36:50.271198+08:00",
+    "Action": "output",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+    "Test": "TestRepairAnalysisRegistrationReadiness",
+    "Output": "    registration_repair_test.go:27: initial ready\n"
+  },
+  {
+    "run": "ct-kanarpc-focused-20261101",
+    "Time": "2026-11-01T01:36:50.332461+08:00",
+    "Action": "fail",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+    "Test": "TestRepairAnalysisRegistrationReadiness",
+    "Elapsed": 0.27
+  },
+  {
+    "run": "ct-kanarpc-full-final-20261101",
+    "Time": "2026-11-01T01:53:15.794773+08:00",
+    "Action": "output",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+    "Test": "TestKanaRPCDiscoveryRemainsFreshAfterIdle",
+    "Output": "    kanarpc_migration_test.go:219: idle discovery lost freshness {true false 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 9 14841639068965178418}\n"
+  },
+  {
+    "run": "ct-kanarpc-full-final-20261101",
+    "Time": "2026-11-01T01:53:15.963209+08:00",
+    "Action": "fail",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+    "Test": "TestKanaRPCDiscoveryRemainsFreshAfterIdle",
+    "Elapsed": 0.57
+  },
+  {
+    "run": "ct-kanarpc-stack-20261101",
+    "failure": "background RPC result did not converge"
+  },
+  {
+    "run": "ct-kanarpc-stack-final-20261101",
+    "failure": "background RPC result did not converge"
+  },
+  {
+    "run": "ct-kanarpc-stack-progress-20261101",
+    "failure": "background RPC result did not converge"
+  }
+]

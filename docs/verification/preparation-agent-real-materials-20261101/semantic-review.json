@@ -1,0 +1,71 @@
+{
+  "reviewer": "current coding assistant",
+  "independent_human_labels": false,
+  "scope": "Selected returned plans; no claim of full semantic annotation for all 21 tasks.",
+  "observations": [
+    {
+      "case": "real-val-no-invented-history",
+      "arm": "dynamic",
+      "observation": "Explicitly omits historical-loss items; references JD and actual supplied materials without turning the handbook into an interview record.",
+      "status": "SUPPORTED_SAMPLE"
+    },
+    {
+      "case": "real-val-cpp-portable-skills",
+      "arm": "dynamic",
+      "observation": "Identifies C++ language gap and portable network/performance preparation; does not claim C++ project experience. Goal and skill-gap setup are constructed, not an actual interview.",
+      "status": "SUPPORTED_SAMPLE"
+    },
+    {
+      "case": "real-val-feedback-mastered",
+      "arm": "dynamic",
+      "observation": "Keeps only network ID and title, 60 minutes; uses request cancellation in a networking context rather than repeating Go primitives.",
+      "status": "SUPPORTED_SAMPLE"
+    },
+    {
+      "case": "real-val-feedback-completed",
+      "arm": "dynamic",
+      "observation": "Keeps remaining network item at 30 minutes and preserves prior identity. Prior plan is controlled setup, not real user history.",
+      "status": "SUPPORTED_SAMPLE"
+    },
+    {
+      "case": "real-val-no-production-experience",
+      "arm": "dynamic",
+      "observation": "Maintains local-measurement scope rather than claiming production capacity. Some attached citations establish general measurement principles but do not directly support the quoted numeric project measurements.",
+      "status": "PARTIAL_CITATION_SUPPORT"
+    },
+    {
+      "case": "real-val-retrieval-outage",
+      "arm": "dynamic",
+      "observation": "Continues from supplied material after injected retrieval failure. A 30-minute segment includes two medium algorithm problems plus several topic sheets, which is likely too dense; program-valid time totals do not establish practical workload feasibility.",
+      "status": "WORKLOAD_REVIEW_NEEDED"
+    },
+    {
+      "case": "real-dev-youka-180",
+      "phase": "development-fixed",
+      "arm": "dynamic",
+      "observation": "Actionable project/concurrency/network plan, but explicit JD algorithms/data-structures coverage is limited. Repeated verification/limitation wording consumes part of the preparation plan.",
+      "status": "PRIORITIZATION_REVIEW_NEEDED"
+    },
+    {
+      "case": "real-val-version-conflict",
+      "phase": "repair-v3",
+      "arm": "dynamic",
+      "observation": "Separates older résumé task-queue description from current README, quotes each separately, preserves current-snapshot scope. First response is prose, not a rejected tool call; subsequent structural reminder leads to accepted plan.",
+      "status": "SUPPORTED_SAMPLE"
+    },
+    {
+      "case": "real-val-15-minutes",
+      "phase": "repair-v3-spot",
+      "arm": "dynamic",
+      "observation": "Failed with 5/4/4/2 minute items and malformed JSON. Failure retained.",
+      "status": "FAILED"
+    },
+    {
+      "case": "real-val-15-minutes",
+      "phase": "repair-v4-schema",
+      "arm": "single-prompt",
+      "observation": "3 items of 5 minutes pass the latest program constraints. One direct call does not validate the full dynamic loop on this case.",
+      "status": "PROGRAM_PASS_ONLY"
+    }
+  ]
+}

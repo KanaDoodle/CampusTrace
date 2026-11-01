@@ -1,0 +1,16 @@
+{
+  "go_packages": "PASS",
+  "targeted_race": "PASS",
+  "python_tests": 8,
+  "frontend_tests": 458,
+  "controlled_browser": "PASS",
+  "controlled_browser_external_model_calls": 0,
+  "live_provider_attempts": 101,
+  "clarification_score_regression": "PASS; provider disconnect cannot satisfy missing-information expectation",
+  "recorded_outcomes_rescored": 54,
+  "recorded_outcomes_changed": 0,
+  "actual_clarification_questions_in_regression": 9,
+  "citation_candidate_tests": "PASS; exact already-read sources only, no automatic rebinding, no approximate quote acceptance",
+  "model_key_persisted": false,
+  "real_account_writes": 0
+}

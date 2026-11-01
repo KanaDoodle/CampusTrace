@@ -43,6 +43,7 @@ type API struct {
 	CustomModelSlots chan struct{}
 	MatchTasks       *MatchTaskRunner
 	ModelControl     *modelcontrol.Controller
+	Preparations     *agent.PreparationRunner
 	Narrations       *agent.NarrationRunner
 }
 
@@ -207,6 +208,16 @@ func (a *API) protected(h http.HandlerFunc) http.HandlerFunc {
 }
 func (a *API) Handler() http.Handler {
 	mux := http.NewServeMux()
+	if a.Preparations != nil && a.Preparations.Graph != nil {
+		mux.HandleFunc("POST /internal/preparation/step", a.Preparations.Graph.InternalStep)
+		mux.HandleFunc("GET /internal/preparation/health", func(w http.ResponseWriter, r *http.Request) {
+			if a.Preparations.Graph.Health(r.Context()) != nil {
+				codedError(w, 503, "PREPARATION_SERVICE_UNAVAILABLE")
+				return
+			}
+			write(w, map[string]string{"status": "ready", "executor": "langgraph"}, nil)
+		})
+	}
 	mux.Handle("GET /", http.FileServer(http.FS(web.Files)))
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) { write(w, map[string]string{"status": "ok"}, nil) })
 	mux.HandleFunc("GET /readyz", func(w http.ResponseWriter, r *http.Request) {

@@ -48,6 +48,7 @@ type AgentExecution struct {
 	LeaseUntil     *time.Time             `json:"lease_until,omitempty"`
 	CanResume      bool                   `json:"can_resume"`
 	SourceIdentity string                 `json:"source_identity,omitempty"`
+	Preparation    *d.PreparationState    `json:"preparation_agent,omitempty"`
 	Narration      *NarrationState        `json:"narration,omitempty"`
 }
 
@@ -69,6 +70,7 @@ type NarrationState struct {
 type NarrationClaim struct {
 	AttemptKey   string
 	RetryUnknown bool
+	Kind         string
 }
 
 func validExecutionKey(key string) bool {
@@ -111,6 +113,15 @@ func (s *Store) AgentExecutions(ctx context.Context, user string) ([]AgentExecut
 	for i := range rows {
 		rows[i].Observations = nil
 		rows[i].Input = nil
+		if rows[i].Preparation != nil {
+			c := *rows[i].Preparation
+			c.Messages = nil
+			c.Sources = nil
+			c.Trace = nil
+			c.Plan = nil
+			c.PreviousPlan = nil
+			rows[i].Preparation = &c
+		}
 		if rows[i].Narration != nil {
 			copyNarration := *rows[i].Narration
 			copyNarration.Draft = ""
@@ -178,6 +189,7 @@ func (s *Store) ClaimAgentExecution(ctx context.Context, user, id string) (Agent
 	return s.claimAgentExecution(ctx, user, id, nil)
 }
 func (s *Store) ClaimAgentNarration(ctx context.Context, user, id string, claim NarrationClaim) (AgentExecution, string, error) {
+	claim.Kind = NarrationSkillID
 	return s.claimAgentExecution(ctx, user, id, &claim)
 }
 func (s *Store) claimAgentExecution(ctx context.Context, user, id string, claim *NarrationClaim) (AgentExecution, string, error) {
@@ -199,18 +211,27 @@ func (s *Store) claimAgentExecution(ctx context.Context, user, id string, claim 
 			return e
 		}
 		if claim != nil {
-			if v.SkillID != NarrationSkillID || v.Narration == nil || !validExecutionKey(claim.AttemptKey) {
+			if !validExecutionKey(claim.AttemptKey) {
 				return ErrValidation
 			}
-			for _, key := range v.Narration.AttemptKeys {
+			var keys []string
+			if claim.Kind == NarrationSkillID && v.SkillID == NarrationSkillID && v.Narration != nil {
+				keys = v.Narration.AttemptKeys
+			} else if claim.Kind == d.PreparationAgentSkill && v.SkillID == d.PreparationAgentSkill && v.Preparation != nil {
+				keys = v.Preparation.AttemptKeys
+			} else {
+				return ErrValidation
+			}
+			for _, key := range keys {
 				if key == claim.AttemptKey {
 					token = ""
 					return nil
 				}
 			}
-		} else if v.Narration != nil {
+		} else if v.Narration != nil || v.Preparation != nil {
 			return ErrConflict
 		}
+
 		if v.State == "COMPLETED" || v.State == "STALE" || v.State == "CANCELLED" || v.State == "FAILED" {
 			token = ""
 			return nil
@@ -218,7 +239,7 @@ func (s *Store) claimAgentExecution(ctx context.Context, user, id string, claim 
 		if lease.Valid && lease.Time.After(time.Now()) {
 			return ErrConflict
 		}
-		if claim != nil && (v.Narration.ProviderState == "DISPATCHED" || v.Narration.ProviderState == "UNKNOWN") && !claim.RetryUnknown {
+		if claim != nil && !claim.RetryUnknown && ((v.Narration != nil && (v.Narration.ProviderState == "DISPATCHED" || v.Narration.ProviderState == "UNKNOWN")) || (v.Preparation != nil && (v.Preparation.ProviderState == "DISPATCHED" || v.Preparation.ProviderState == "UNKNOWN"))) {
 			return ErrConflict
 		}
 		var running int
@@ -236,12 +257,19 @@ func (s *Store) claimAgentExecution(ctx context.Context, user, id string, claim 
 			return e
 		}
 		v.Resumes++
-		if claim != nil {
+		if claim != nil && v.Narration != nil {
 			v.Narration.AttemptKeys = append(v.Narration.AttemptKeys, claim.AttemptKey)
 			v.Narration.ProviderState = "NOT_DISPATCHED"
 			v.Narration.Draft = ""
 			v.Narration.Failure = ""
 			v.Narration.Revision++
+		}
+		if claim != nil && v.Preparation != nil {
+			v.Preparation.AttemptKeys = append(v.Preparation.AttemptKeys, claim.AttemptKey)
+			if v.Preparation.ProviderState == "DISPATCHED" || v.Preparation.ProviderState == "UNKNOWN" {
+				v.Preparation.Trace = append(v.Preparation.Trace, d.PreparationTrace{Kind: "model", Status: "UNKNOWN_ACKNOWLEDGED", Detail: "用户明确授权新的模型尝试，旧请求结果仍未知"})
+			}
+			v.Preparation.ProviderState = "READY"
 		}
 		v.State = "RUNNING"
 		v.UpdatedAt = time.Now().UTC()

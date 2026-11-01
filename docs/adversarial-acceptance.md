@@ -1,5 +1,7 @@
 # 反例驱动验收：2026-10-30
 
+本文保留原版本的验收与测量；新版 KanaRPC 分析链路及对应测试见[迁移验收](kanarpc-migration.md)。
+
 本文保留 2026-10-30 Redis 队列版本的反例与验收记录。后台任务现通过 Kafka 投递，运行机制及对应验收入口见[可靠任务调度](task-scheduling.md)。
 本轮在上轮未提交交付上继续验证，没有 reset、提交、推送或公开部署。恢复基线为 `bin/backups/adversarial-before-20261030/`，含 HEAD、状态、196698 字节 tracked.patch 与 63597 字节 untracked.tar.gz；归档已列目录检查。HEAD 仍是 `93c6fbebd872f0db0ea11f08531d838c5782f075`，原三个 company_auto 文件 SHA-256 未改变。
 

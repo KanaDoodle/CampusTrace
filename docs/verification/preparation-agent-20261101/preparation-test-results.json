@@ -1,0 +1,765 @@
+[
+  {
+    "Time": "2026-11-01T02:57:30.029539+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationTerminalBatchDoesNotLeaveHiddenPendingTools",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.032058+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationUpgradeBaseline",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.047467+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationFeedbackTime",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.047533+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationBoundsAndClarification/six_model_calls",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.047559+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationBoundsAndClarification/ask_instead_of_inventing",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.051807+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationBoundsAndClarification/write_tool_never_executed",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.060279+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationBoundsAndClarification/cancel_propagates_to_model",
+    "Elapsed": 0.01
+  },
+  {
+    "Time": "2026-11-01T02:57:30.063481+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationBoundsAndClarification",
+    "Elapsed": 0.02
+  },
+  {
+    "Time": "2026-11-01T02:57:30.063789+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationDispatchReservesUnknownBudgetBeforeExternalCall",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.064786+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationPlanConstraintsAndCitationBinding/time_overrun",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.065174+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationPlanConstraintsAndCitationBinding/day_overrun",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.065961+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationPlanConstraintsAndCitationBinding/invented_quote",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.066985+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationPlanConstraintsAndCitationBinding/foreign_source",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.067732+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationPlanConstraintsAndCitationBinding/wrong_basis",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.068733+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationPlanConstraintsAndCitationBinding/source_required",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.070186+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationPlanConstraintsAndCitationBinding/duplicate_item",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.070634+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationPlanConstraintsAndCitationBinding/mastered_must_not_reappear",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.07102+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationPlanConstraintsAndCitationBinding/completed_must_not_reappear",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.071079+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationPlanConstraintsAndCitationBinding/needs_minutes",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.072302+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationPlanConstraintsAndCitationBinding",
+    "Elapsed": 0.01
+  },
+  {
+    "Time": "2026-11-01T02:57:30.186451+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationRetrievalUsesActualQuestionsAndLateJDRequirements",
+    "Elapsed": 0.01
+  },
+  {
+    "Time": "2026-11-01T02:57:30.225666+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationRedactsAllQuerySourcesWithoutChangingSavedInputs",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.233028+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/normal-go-180/single-prompt",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.23634+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/normal-go-180/fixed-plus-synthesis",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.241668+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/normal-go-180/dynamic",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.242481+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/missing-time/single-prompt",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.24372+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/missing-time/fixed-plus-synthesis",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.244598+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/missing-time/dynamic",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.245132+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/legacy-no-snapshot/single-prompt",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.245607+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/legacy-no-snapshot/fixed-plus-synthesis",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.246529+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/legacy-no-snapshot/dynamic",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.25019+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/feedback-mastered-and-one-hour/single-prompt",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.252168+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/feedback-mastered-and-one-hour/fixed-plus-synthesis",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.254397+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/feedback-mastered-and-one-hour/dynamic",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.256768+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/retrieval-rewrite/single-prompt",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.260352+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/retrieval-rewrite/fixed-plus-synthesis",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.266757+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/retrieval-rewrite/dynamic",
+    "Elapsed": 0.01
+  },
+  {
+    "Time": "2026-11-01T02:57:30.267201+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/unknown-model-response/single-prompt",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.268006+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/unknown-model-response/fixed-plus-synthesis",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.270986+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/unknown-model-response/dynamic",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.274407+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/normal-go-60/single-prompt",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.278144+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/normal-go-60/fixed-plus-synthesis",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.28228+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/normal-go-60/dynamic",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.285468+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/normal-go-30/single-prompt",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.288122+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/normal-go-30/fixed-plus-synthesis",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.293054+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/normal-go-30/dynamic",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.29588+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/missing-resume/single-prompt",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.298417+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/missing-resume/fixed-plus-synthesis",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.302694+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/missing-resume/dynamic",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.304946+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/missing-project/single-prompt",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.308206+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/missing-project/fixed-plus-synthesis",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.3124+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/missing-project/dynamic",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.314835+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/no-review/single-prompt",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.316962+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/no-review/fixed-plus-synthesis",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.320619+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/no-review/dynamic",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.322854+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/no-notes/single-prompt",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.325693+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/no-notes/fixed-plus-synthesis",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.3294+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/no-notes/dynamic",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.332015+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/retrieval-all-empty/single-prompt",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.334394+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/retrieval-all-empty/fixed-plus-synthesis",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.33822+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/retrieval-all-empty/dynamic",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.340806+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/retrieval-temporary-failure/single-prompt",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.343321+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/retrieval-temporary-failure/fixed-plus-synthesis",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.347238+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/retrieval-temporary-failure/dynamic",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.347925+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/missing-days/single-prompt",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.348936+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/missing-days/fixed-plus-synthesis",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.350049+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/missing-days/dynamic",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.351441+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/completed-mysql/single-prompt",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.3535+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/completed-mysql/fixed-plus-synthesis",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.355439+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/completed-mysql/dynamic",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.356413+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/all-items-mastered/single-prompt",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.357723+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/all-items-mastered/fixed-plus-synthesis",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.359133+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/all-items-mastered/dynamic",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.361828+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/one-day-window/single-prompt",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.372036+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/one-day-window/fixed-plus-synthesis",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.372082+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/one-day-window/dynamic",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.382171+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/three-day-low-budget/single-prompt",
+    "Elapsed": 0.01
+  },
+  {
+    "Time": "2026-11-01T02:57:30.383663+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/three-day-low-budget/fixed-plus-synthesis",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.387534+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/three-day-low-budget/dynamic",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.390495+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/current-material-changed/single-prompt",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.393145+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/current-material-changed/fixed-plus-synthesis",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.398327+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/current-material-changed/dynamic",
+    "Elapsed": 0.01
+  },
+  {
+    "Time": "2026-11-01T02:57:30.400637+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/knowledge-prompt-injection/single-prompt",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.403551+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/knowledge-prompt-injection/fixed-plus-synthesis",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.40755+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/knowledge-prompt-injection/dynamic",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.409689+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/jd-prompt-injection/single-prompt",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.412027+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/jd-prompt-injection/fixed-plus-synthesis",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.415146+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/jd-prompt-injection/dynamic",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.415292+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/source-deleted-before-commit/single-prompt",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.415406+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/source-deleted-before-commit/fixed-plus-synthesis",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.415497+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/source-deleted-before-commit/dynamic",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.415593+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/foreign-application/single-prompt",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.415683+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/foreign-application/fixed-plus-synthesis",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.415767+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix/foreign-application/dynamic",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.415795+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationReviewedEvaluationMatrix",
+    "Elapsed": 0.19
+  },
+  {
+    "Time": "2026-11-01T02:57:30.416121+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationUnknownModelAndDurablePendingTools/unknown_model_no_internal_retry",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.417024+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationUnknownModelAndDurablePendingTools/resume_completed_reads_without_replay",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:30.417043+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationUnknownModelAndDurablePendingTools",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:32.277073+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/matching",
+    "Test": "TestPreparationSeparatesEvidenceAbsenceAbilityGapsAndSoftOrBonusTasks",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:32.938465+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/matching",
+    "Test": "TestPreparationAlternativeUnitMatchesScoreAndKeepsOnlySelectedEvidence",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:34.043405+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+    "Test": "TestPreparationAgentPlanFeedbackAndConfirmedSave",
+    "Elapsed": 0.99
+  },
+  {
+    "Time": "2026-11-01T02:57:38.036947+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationDynamicRewriteAndPlan",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T02:57:38.235886+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/agent",
+    "Test": "TestPreparationQueryIsBoundedAndDoesNotRewriteSourceIntoClaims",
+    "Elapsed": 0.06
+  },
+  {
+    "Time": "2026-11-01T03:00:13.035939+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+    "Test": "TestPreparationAgentFrozenProfileAndOwnerSaveFence",
+    "Elapsed": 0.41
+  },
+  {
+    "Time": "2026-11-01T03:00:44.998386+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+    "Test": "TestPreparationAgentUnknownCancelAndClarification/unknown_requires_new_explicit_attempt",
+    "Elapsed": 0.38
+  },
+  {
+    "Time": "2026-11-01T03:00:45.315432+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+    "Test": "TestPreparationAgentUnknownCancelAndClarification/cancel_fences_late_model",
+    "Elapsed": 0.32
+  },
+  {
+    "Time": "2026-11-01T03:00:45.726015+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+    "Test": "TestPreparationAgentUnknownCancelAndClarification/missing_time_is_clarified",
+    "Elapsed": 0.41
+  },
+  {
+    "Time": "2026-11-01T03:00:45.726039+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+    "Test": "TestPreparationAgentUnknownCancelAndClarification",
+    "Elapsed": 1.11
+  },
+  {
+    "Time": "2026-11-01T03:01:07.272696+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+    "Test": "TestPreparationCohesionFrozenApplicationReviewsAndKnowledgeFencing",
+    "Elapsed": 0.39
+  }
+]

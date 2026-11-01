@@ -1,0 +1,145 @@
+{
+  "date": "2026-11-01",
+  "requested_model": "deepseek-flash",
+  "url": "https://api.deepseek.com/chat/completions",
+  "dataset_sha256": "941ee0b0f07a8ed9ca7ed08ed2d0e309f6a01211d1059a39ca9a26f07e1c0263",
+  "material_scope": "Same authorized sanitized résumé, archived real JDs and project/learning material. Seven goal texts aligned with their numeric budgets; no material text changed. User has no authentic interview reviews.",
+  "actual_provider_attempts": 101,
+  "cap": 120,
+  "reported_tokens": 894229,
+  "cost_usd": null,
+  "phases": {
+    "pilot-v4": {
+      "dynamic": {
+        "tasks": 4,
+        "program_expectations_met": 3,
+        "model_calls": 12,
+        "read_calls": 9,
+        "prompt_tokens": 93906,
+        "completion_tokens": 5260,
+        "unreported_calls": 0
+      }
+    },
+    "target-v5": {
+      "dynamic": {
+        "tasks": 1,
+        "program_expectations_met": 1,
+        "model_calls": 1,
+        "read_calls": 0,
+        "prompt_tokens": 5115,
+        "completion_tokens": 616,
+        "unreported_calls": 0
+      }
+    },
+    "regression-v5": {
+      "single-prompt": {
+        "tasks": 18,
+        "program_expectations_met": 14,
+        "model_calls": 18,
+        "read_calls": 0,
+        "prompt_tokens": 188811,
+        "completion_tokens": 10602,
+        "unreported_calls": 0
+      },
+      "fixed-plus-synthesis": {
+        "tasks": 18,
+        "program_expectations_met": 16,
+        "model_calls": 18,
+        "read_calls": 18,
+        "prompt_tokens": 155414,
+        "completion_tokens": 10769,
+        "unreported_calls": 0
+      },
+      "dynamic": {
+        "tasks": 18,
+        "program_expectations_met": 18,
+        "model_calls": 36,
+        "read_calls": 28,
+        "prompt_tokens": 265390,
+        "completion_tokens": 14163,
+        "unreported_calls": 0
+      }
+    },
+    "repeat-v5-1": {
+      "dynamic": {
+        "tasks": 1,
+        "program_expectations_met": 1,
+        "model_calls": 1,
+        "read_calls": 0,
+        "prompt_tokens": 5115,
+        "completion_tokens": 629,
+        "unreported_calls": 0
+      }
+    },
+    "repeat-v5-2": {
+      "dynamic": {
+        "tasks": 1,
+        "program_expectations_met": 1,
+        "model_calls": 1,
+        "read_calls": 0,
+        "prompt_tokens": 5115,
+        "completion_tokens": 614,
+        "unreported_calls": 0
+      }
+    },
+    "repeat-v5-3": {
+      "dynamic": {
+        "tasks": 1,
+        "program_expectations_met": 1,
+        "model_calls": 1,
+        "read_calls": 0,
+        "prompt_tokens": 5115,
+        "completion_tokens": 616,
+        "unreported_calls": 0
+      }
+    },
+    "id-contract-v5": {
+      "single-prompt": {
+        "tasks": 3,
+        "program_expectations_met": 2,
+        "model_calls": 3,
+        "read_calls": 0,
+        "prompt_tokens": 31808,
+        "completion_tokens": 2199,
+        "unreported_calls": 0
+      },
+      "fixed-plus-synthesis": {
+        "tasks": 3,
+        "program_expectations_met": 3,
+        "model_calls": 3,
+        "read_calls": 3,
+        "prompt_tokens": 28012,
+        "completion_tokens": 2133,
+        "unreported_calls": 0
+      },
+      "dynamic": {
+        "tasks": 3,
+        "program_expectations_met": 3,
+        "model_calls": 7,
+        "read_calls": 6,
+        "prompt_tokens": 59612,
+        "completion_tokens": 3215,
+        "unreported_calls": 0
+      }
+    }
+  },
+  "real_citation_repairs": [
+    {
+      "phase": "id-contract-v5",
+      "case_id": "real-val-15-minutes",
+      "arm": "dynamic",
+      "outcome": "COMPLETED",
+      "candidate_count": 1,
+      "candidate_kinds": [
+        "RESUME"
+      ],
+      "reference_reselected_by_model": true,
+      "automatic_rebinding": false
+    }
+  ],
+  "business_writes_in_live_evaluation": 0,
+  "network_error_turns": 0,
+  "semantic_labels": "No independent human labels; program checks and selective assistant review reported separately.",
+  "regression_status": "Previously exposed cases reused for regression; not a new blind heldout benchmark.",
+  "comparability": "Within regression-v5 all arms share corrected inputs and model. Earlier v2 used seven inconsistent goal texts, so before/after scores are not attributable solely to code. ID schema clarification was tested afterwards in a separate phase."
+}

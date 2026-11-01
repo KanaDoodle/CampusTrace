@@ -1,0 +1,12 @@
+{
+  "status": "PASS",
+  "checks": [
+    "natural_entry",
+    "review_before_call",
+    "mastered_omitted",
+    "sixty_minute_budget",
+    "explicit_save",
+    "refresh_persisted",
+    "no_page_errors"
+  ]
+}

@@ -1,0 +1,1843 @@
+{
+  "report_sha256": "eeb4f208b27a0d4cac39cb5692ef519905630e4fa5ed97aa84150659a9095d2f",
+  "evidence_kind": "controlled-response-program-regression",
+  "scale": "0=violated, 1=partial, 2=meets, N/A=not applicable; null=not reviewed",
+  "reviews": [
+    {
+      "case_id": "normal-go-60",
+      "arm": "single-prompt",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "normal-go-60",
+      "arm": "fixed-plus-synthesis",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "normal-go-60",
+      "arm": "dynamic",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "normal-go-30",
+      "arm": "single-prompt",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "normal-go-30",
+      "arm": "fixed-plus-synthesis",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "normal-go-30",
+      "arm": "dynamic",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "missing-resume",
+      "arm": "single-prompt",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "missing-resume",
+      "arm": "fixed-plus-synthesis",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "missing-resume",
+      "arm": "dynamic",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "missing-project",
+      "arm": "single-prompt",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "missing-project",
+      "arm": "fixed-plus-synthesis",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "missing-project",
+      "arm": "dynamic",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "no-review",
+      "arm": "single-prompt",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "no-review",
+      "arm": "fixed-plus-synthesis",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "no-review",
+      "arm": "dynamic",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "no-notes",
+      "arm": "single-prompt",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "no-notes",
+      "arm": "fixed-plus-synthesis",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "no-notes",
+      "arm": "dynamic",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "retrieval-all-empty",
+      "arm": "single-prompt",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "retrieval-all-empty",
+      "arm": "fixed-plus-synthesis",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "retrieval-all-empty",
+      "arm": "dynamic",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "retrieval-temporary-failure",
+      "arm": "single-prompt",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "retrieval-temporary-failure",
+      "arm": "fixed-plus-synthesis",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "retrieval-temporary-failure",
+      "arm": "dynamic",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "missing-days",
+      "arm": "single-prompt",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "missing-days",
+      "arm": "fixed-plus-synthesis",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "missing-days",
+      "arm": "dynamic",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "completed-mysql",
+      "arm": "single-prompt",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "completed-mysql",
+      "arm": "fixed-plus-synthesis",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "completed-mysql",
+      "arm": "dynamic",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "all-items-mastered",
+      "arm": "single-prompt",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "all-items-mastered",
+      "arm": "fixed-plus-synthesis",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "all-items-mastered",
+      "arm": "dynamic",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "one-day-window",
+      "arm": "single-prompt",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "one-day-window",
+      "arm": "fixed-plus-synthesis",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "one-day-window",
+      "arm": "dynamic",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "three-day-low-budget",
+      "arm": "single-prompt",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "three-day-low-budget",
+      "arm": "fixed-plus-synthesis",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "three-day-low-budget",
+      "arm": "dynamic",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "current-material-changed",
+      "arm": "single-prompt",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "current-material-changed",
+      "arm": "fixed-plus-synthesis",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "current-material-changed",
+      "arm": "dynamic",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "knowledge-prompt-injection",
+      "arm": "single-prompt",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "knowledge-prompt-injection",
+      "arm": "fixed-plus-synthesis",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "knowledge-prompt-injection",
+      "arm": "dynamic",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "jd-prompt-injection",
+      "arm": "single-prompt",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "jd-prompt-injection",
+      "arm": "fixed-plus-synthesis",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "jd-prompt-injection",
+      "arm": "dynamic",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "source-deleted-before-commit",
+      "arm": "single-prompt",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "source-deleted-before-commit",
+      "arm": "fixed-plus-synthesis",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "source-deleted-before-commit",
+      "arm": "dynamic",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "foreign-application",
+      "arm": "single-prompt",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "foreign-application",
+      "arm": "fixed-plus-synthesis",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    },
+    {
+      "case_id": "foreign-application",
+      "arm": "dynamic",
+      "program_expectation_met": true,
+      "reviewer": "",
+      "reviewer_kind": "UNREVIEWED",
+      "scores": {
+        "target_requirement_coverage": {
+          "score": null,
+          "evidence": ""
+        },
+        "citation_entailment": {
+          "score": null,
+          "evidence": ""
+        },
+        "feasible_workload": {
+          "score": null,
+          "evidence": ""
+        },
+        "feedback_compliance": {
+          "score": null,
+          "evidence": ""
+        },
+        "no_fabricated_experience": {
+          "score": null,
+          "evidence": ""
+        },
+        "retrieval_added_value": {
+          "score": null,
+          "evidence": ""
+        }
+      },
+      "notes": "For interrupted tasks judge the actual question/failure; N/A where no plan exists. A literal citation or newly retrieved source alone does not establish semantic support or usefulness."
+    }
+  ]
+}

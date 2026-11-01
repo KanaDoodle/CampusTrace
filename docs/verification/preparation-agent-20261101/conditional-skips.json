@@ -1,0 +1,142 @@
+[
+  {
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+    "Test": "TestKafkaRecoveryEpochIgnoresRetainedFutureEvents"
+  },
+  {
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/searchservice",
+    "Test": "TestOpenSearchContract"
+  },
+  {
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/source",
+    "Test": "TestAdditionalCampusLiveReadOnly"
+  },
+  {
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/source",
+    "Test": "TestSGMCampusLiveReadOnly"
+  },
+  {
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/source",
+    "Test": "TestNextCampusLiveReadOnly"
+  },
+  {
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/source",
+    "Test": "TestKuaishouLiveReadOnly"
+  },
+  {
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/source",
+    "Test": "TestBilibiliLiveReadOnly"
+  },
+  {
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/source",
+    "Test": "TestCtripCampusLiveReadOnly"
+  },
+  {
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/source",
+    "Test": "TestSectorCampusLiveReadOnly"
+  },
+  {
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/source",
+    "Test": "TestGraduateLiveReadOnly"
+  },
+  {
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/source",
+    "Test": "TestFinanceCampusLiveReadOnly"
+  },
+  {
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/source",
+    "Test": "TestPortalCampusLiveReadOnly"
+  },
+  {
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/source",
+    "Test": "TestXiaohongshuLiveReadOnly"
+  },
+  {
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/source",
+    "Test": "TestTencentCampusLiveReadOnly"
+  },
+  {
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/source",
+    "Test": "TestBankCampusLiveReadOnly"
+  },
+  {
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/source",
+    "Test": "TestSAPCampusLiveReadOnly"
+  },
+  {
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/source",
+    "Test": "TestMoreCampusLiveReadOnly"
+  },
+  {
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/source",
+    "Test": "TestExpandedCampusLiveReadOnly"
+  },
+  {
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/source",
+    "Test": "TestAlibabaLiveReadOnly"
+  },
+  {
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+    "Test": "TestRadarLiveSources"
+  },
+  {
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+    "Test": "TestSearchProjectionIsolationRecovery"
+  },
+  {
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+    "Test": "TestSearchAcknowledgementAndTombstone"
+  },
+  {
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+    "Test": "TestSearchOnlineRebuildSurvivesProcessesAndLostAliasReply"
+  },
+  {
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+    "Test": "TestSearchOnlineLostLeaseCannotRegressPhase"
+  },
+  {
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+    "Test": "TestSGMLivePrivateIngest"
+  },
+  {
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+    "Test": "TestSearchOnlineProcessHelper"
+  },
+  {
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+    "Test": "TestAdversarialChild"
+  },
+  {
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+    "Test": "TestSearchOnlineAbortAndCandidateUUIDFence"
+  },
+  {
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+    "Test": "TestSearchReadCircuitPreservesACLAndProjectionRecovery"
+  },
+  {
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+    "Test": "TestKafkaNotificationAudienceAndCurrentStatus"
+  },
+  {
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+    "Test": "TestKafkaSearchAndNotificationsIndependentRecovery"
+  },
+  {
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+    "Test": "TestSearchOnlineVerificationRejectsSameCountWrongHash"
+  },
+  {
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+    "Test": "TestSearchInitialBackfillAcrossPages"
+  },
+  {
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+    "Test": "TestSearchReadDetachedRecoveryKeepsCurrentACL"
+  },
+  {
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+    "Test": "TestSearchOnlineInFlightReadAcrossCutover"
+  }
+]

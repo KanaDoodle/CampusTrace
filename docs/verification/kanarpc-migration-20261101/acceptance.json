@@ -1,0 +1,38 @@
+{
+  "status": "PASS",
+  "date": "2026-11-01",
+  "base_commit": "ea0f048d6d020535a25e32e4c4f7b69970293c44",
+  "module": {
+    "Path": "github.com/KanaDoodle/KanaRPC",
+    "Version": "v0.0.0-20261031172914-7b63b80f0544",
+    "Time": "2026-10-31T17:29:14Z",
+    "GoVersion": "1.26.10",
+    "Sum": "h1:BWDjMMOHnwl32vtwsJw8MObTeaLQsbBqGwIYH/FMGZQ=",
+    "GoModSum": "h1:ip51We9bSqaVVvF47To7CYfX617EyuES6ofAoCXnCkQ=",
+    "commit": "7b63b80f05449c2033b6b3a18648a510b43a6d2c"
+  },
+  "toolchain": "go version go1.27.3 darwin/arm64",
+  "node": "v26.7.0",
+  "top_level_go_tests": {
+    "pass": 619,
+    "skip": 35
+  },
+  "integration_top_level_tests": {
+    "pass": 205,
+    "skip": 17
+  },
+  "all_packages_race": true,
+  "adversarial_process_tests": true,
+  "go_vet": "PASS",
+  "go_build_and_dependency_boundary": "PASS",
+  "go_mod_verify": "PASS",
+  "go_mod_tidy_diff": "empty",
+  "standalone_loopback_race_repetitions": 10,
+  "frontend_tests_passed": 453,
+  "python_tests_passed": 5,
+  "container_core_and_search_builds": "PASS",
+  "observability_search_kafka_fault_acceptance": "PASS",
+  "external_model_calls": 0,
+  "validation_scope": "Owned single-host synthetic fixtures; no production deployment, throughput or model-quality claim.",
+  "raw_go_test_sha256": "dee3a2aad9ffd923960767449a514e4e11b8821e703b8a6cad4ac249f99a107c"
+}

@@ -1,0 +1,22 @@
+{
+  "status": "PASS",
+  "evidence": "controlled-response-no-model",
+  "external_model_calls": 0,
+  "controlled_http_calls": 6,
+  "checks": [
+    "preview_zero_calls",
+    "structured_plan_and_literal_sources",
+    "start_idempotency",
+    "unconfirmed_start_rejected",
+    "owner_isolation",
+    "confirmed_save_and_receipt_replay",
+    "chromium_plan_feedback_save",
+    "sigkill_durable_model_dispatch",
+    "lease_expiry_injected_not_elapsed",
+    "unknown_resume_requires_ack",
+    "completed_tool_not_repeated",
+    "unknown_budget_reservation_retained"
+  ],
+  "real_model_effect": "NOT_VALIDATED",
+  "browser": "PASS"
+}

@@ -1,0 +1,128 @@
+[
+  {
+    "Time": "2026-11-01T01:57:30.706692+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/analysis",
+    "Test": "TestKanaRPCLocalWaitNeverMarksInvocationUncertain",
+    "Elapsed": 0.01
+  },
+  {
+    "Time": "2026-11-01T01:57:30.820349+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/analysis",
+    "Test": "TestKanaRPCRemoteCancellationAndReuse",
+    "Elapsed": 0.02
+  },
+  {
+    "Time": "2026-11-01T01:57:32.369461+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/analysis",
+    "Test": "TestKanaRPCDiscoveryRebuildsClosedWatch",
+    "Elapsed": 1.38
+  },
+  {
+    "Time": "2026-11-01T01:57:32.589385+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/analysis",
+    "Test": "TestKanaRPCDeadlineStopsExtractor",
+    "Elapsed": 0.06
+  },
+  {
+    "Time": "2026-11-01T01:57:32.597495+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/analysis",
+    "Test": "TestAnalysisResponseRejectsUnversionedOrOlderServers",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T01:57:32.759189+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/analysis",
+    "Test": "TestAnalysisSemanticVersionCheckedBeforeExtractor",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T01:57:32.786718+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/analysis",
+    "Test": "TestKanaRPCOverloadDoesNotInvokeOrReplay",
+    "Elapsed": 0.01
+  },
+  {
+    "Time": "2026-11-01T01:57:32.791041+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/analysis",
+    "Test": "TestKanaRPCRefusalClassification",
+    "Elapsed": 0
+  },
+  {
+    "Time": "2026-11-01T01:57:32.832549+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/analysis",
+    "Test": "TestKanaRPCDrainPreservesInFlightResult",
+    "Elapsed": 0.01
+  },
+  {
+    "Time": "2026-11-01T01:57:56.357229+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+    "Test": "TestKanaRPCTwoInstances",
+    "Elapsed": 0.5
+  },
+  {
+    "Time": "2026-11-01T01:58:39.384406+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+    "Test": "TestKanaRPCDiscoveryRemainsFreshAfterIdle",
+    "Elapsed": 7.87
+  },
+  {
+    "Time": "2026-11-01T01:58:43.781597+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+    "Test": "TestRepairPublicDependencyBoundary",
+    "Elapsed": 0.09
+  },
+  {
+    "Time": "2026-11-01T01:59:29.345375+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+    "Test": "TestRunningWorkerOutboxRPC",
+    "Elapsed": 2.9
+  },
+  {
+    "Time": "2026-11-01T01:59:44.930272+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+    "Test": "TestKanaRPCInvocationFenceAndDiscovery/not_dispatched_can_retry_after_registration",
+    "Elapsed": 0.34
+  },
+  {
+    "Time": "2026-11-01T01:59:45.530596+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+    "Test": "TestKanaRPCInvocationFenceAndDiscovery/dispatched_timeout_cancels_and_stays_uncertain",
+    "Elapsed": 0.6
+  },
+  {
+    "Time": "2026-11-01T01:59:45.53065+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+    "Test": "TestKanaRPCInvocationFenceAndDiscovery",
+    "Elapsed": 0.94
+  },
+  {
+    "Time": "2026-11-01T02:00:04.357671+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+    "Test": "TestRepairAnalysisRegistrationReadiness",
+    "Elapsed": 4.27
+  },
+  {
+    "Time": "2026-11-01T02:00:40.559613+08:00",
+    "Action": "pass",
+    "Package": "github.com/KanaDoodle/CampusTrace/internal/integration",
+    "Test": "TestKanaRPCRegisteredShutdownDrainsAfterParentSignal",
+    "Elapsed": 0.29
+  }
+]

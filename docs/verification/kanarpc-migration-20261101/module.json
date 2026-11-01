@@ -1,0 +1,9 @@
+{
+  "Path": "github.com/KanaDoodle/KanaRPC",
+  "Version": "v0.0.0-20261031172914-7b63b80f0544",
+  "Time": "2026-10-31T17:29:14Z",
+  "GoVersion": "1.26.10",
+  "Sum": "h1:BWDjMMOHnwl32vtwsJw8MObTeaLQsbBqGwIYH/FMGZQ=",
+  "GoModSum": "h1:ip51We9bSqaVVvF47To7CYfX617EyuES6ofAoCXnCkQ=",
+  "commit": "7b63b80f05449c2033b6b3a18648a510b43a6d2c"
+}

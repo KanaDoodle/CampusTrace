@@ -1,0 +1,10 @@
+Traceback (most recent call last):
+  File "/Users/kana/Projects/campustrace/scripts/verify-preparation-agent.py", line 218, in <module>
+    if __name__=='__main__':main()
+                            ~~~~^^
+  File "/Users/kana/Projects/campustrace/scripts/verify-preparation-agent.py", line 105, in main
+    known_application=known_client.request('/api/applications',{'job_id':observation['job_id'],'submitted':True,'resume_version':'synthetic-known-receipt','resume_text':'Synthetic Go context and MySQL project.'})
+  File "/Users/kana/Projects/campustrace/scripts/verify-preparation-agent.py", line 69, in request
+    data=r.read();assert r.status==expected,(path,r.status,expected,data.decode());return json.loads(data) if data else None
+                         ^^^^^^^^^^^^^^^^^^
+AssertionError: ('/api/applications', 404, 200, '{"error":"Not Found"}\n')

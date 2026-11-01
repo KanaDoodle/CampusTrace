@@ -1,0 +1,406 @@
+{
+  "baseline_adaptation": "Fixed path uses existing literal preparationQuery plus BM25, then one structured synthesis. All arms receive the same goal and constraints; the single prompt gets the entire allowed small corpus.",
+  "business_writes": "No writes in CLI arms; SQL confirmation, ownership, stale input and idempotency are separately tested",
+  "cost": "Reported usage and optional user-supplied prices; absent usage or prices leaves cost null. Controlled responses are not actual token/cost measurements.",
+  "dataset_sha256": "c94724634e3650aa16583ecea0d0960a7a17b13bd1de7391218915598bce8507",
+  "elapsed_ms": 11735,
+  "external_model_attempts": 4,
+  "max_calls": 8,
+  "mode": "real-model-on-explicitly-authorized-materials",
+  "model": "deepseek-flash",
+  "model_config": {
+    "max_output_tokens": 2048,
+    "request_policy": "existing ChatClient provider-specific defaults",
+    "requested_model": "deepseek-flash",
+    "url": "https://api.deepseek.com/chat/completions"
+  },
+  "results": [
+    {
+      "case_id": "feedback-mastered-and-one-hour",
+      "arm": "single-prompt",
+      "state": "COMPLETED",
+      "program_expectation_met": true,
+      "plan_valid": true,
+      "sources_used": [
+        "s_2f07e4cfe64a446c2a7a091b",
+        "s_54868f187539a650bdbaa4de",
+        "s_08f1f1ca2ca501d795c8641c",
+        "s_a693e862eacedc23bed05e7a"
+      ],
+      "model_calls": 1,
+      "tool_calls": 0,
+      "invalid_calls": 0,
+      "failed_tool_calls": 0,
+      "repeated_queries": 0,
+      "latency_ms": 3660.888,
+      "usage": {
+        "limit": 128000,
+        "charged": 2667,
+        "prompt_tokens": 2069,
+        "completion_tokens": 598,
+        "unreported_calls": 0
+      },
+      "estimated_cost_usd": null,
+      "plan": {
+        "summary": "总预算 60 分钟、3 天。Go 并发已标记掌握，故不再安排；上一版 go 项删除。仅保留未完成的 mysql 项（沿用原 id 与标题），聚焦 JD 要求的索引与事务，并结合本申请上一轮复盘暴露的取消/泄漏问题做一次口头串联。另一申请的历史复盘（复合索引最左前缀、隔离级别）不属于本申请范围，不作为依据。",
+        "items": [
+          {
+            "id": "mysql",
+            "title": "MySQL 索引与事务",
+            "minutes": 60,
+            "day": 1,
+            "basis": "JD",
+            "action": "1) 用 15 分钟对照 JD 原文“MySQL 索引与事务”梳理索引与事务两条主线，写出各 3 个要点；2) 用 20 分钟针对留档项目“MySQL 事务发件箱与有界后台任务”手写一段发件箱写入+事务提交的伪代码，并标注“未测生产吞吐量”这一限制，不得声称有实测指标；3) 用 15 分钟准备 EXPLAIN 讲解：说明如何用 EXPLAIN 查看访问路径与回表（引用索引笔记原文），并说明事务原子提交的含义；4) 用 10 分钟口头自述，把“context 超时后任务仍运行”这一本申请复盘遗漏点与事务/后台任务的收尾逻辑串起来，明确取消后如何退出阻塞并回收 goroutine。",
+            "deliverable": "一页 A4 提纲：索引要点 3 条 + 事务要点 3 条 + 发件箱伪代码（含“未测生产吞吐量”标注）+ EXPLAIN 讲解口径 + 取消收尾 3 句话；完成后自评是否能在 2 分钟内讲完。",
+            "references": [
+              {
+                "source_id": "s_2f07e4cfe64a446c2a7a091b",
+                "quote": "MySQL 索引与事务"
+              },
+              {
+                "source_id": "s_54868f187539a650bdbaa4de",
+                "quote": "MySQL 事务发件箱与有界后台任务；未测生产吞吐量"
+              },
+              {
+                "source_id": "s_08f1f1ca2ca501d795c8641c",
+                "quote": "使用 EXPLAIN 查看访问路径与回表；事务保证原子提交"
+              },
+              {
+                "source_id": "s_a693e862eacedc23bed05e7a",
+                "quote": "context 超时后任务仍运行"
+              }
+            ]
+          }
+        ]
+      },
+      "trace": null,
+      "business_state": "NOT_SAVED; SQL confirmation/isolation verified separately",
+      "candidate_plan": {
+        "summary": "总预算 60 分钟、3 天。Go 并发已标记掌握，故不再安排；上一版 go 项删除。仅保留未完成的 mysql 项（沿用原 id 与标题），聚焦 JD 要求的索引与事务，并结合本申请上一轮复盘暴露的取消/泄漏问题做一次口头串联。另一申请的历史复盘（复合索引最左前缀、隔离级别）不属于本申请范围，不作为依据。",
+        "items": [
+          {
+            "id": "mysql",
+            "title": "MySQL 索引与事务",
+            "minutes": 60,
+            "day": 1,
+            "basis": "JD",
+            "action": "1) 用 15 分钟对照 JD 原文“MySQL 索引与事务”梳理索引与事务两条主线，写出各 3 个要点；2) 用 20 分钟针对留档项目“MySQL 事务发件箱与有界后台任务”手写一段发件箱写入+事务提交的伪代码，并标注“未测生产吞吐量”这一限制，不得声称有实测指标；3) 用 15 分钟准备 EXPLAIN 讲解：说明如何用 EXPLAIN 查看访问路径与回表（引用索引笔记原文），并说明事务原子提交的含义；4) 用 10 分钟口头自述，把“context 超时后任务仍运行”这一本申请复盘遗漏点与事务/后台任务的收尾逻辑串起来，明确取消后如何退出阻塞并回收 goroutine。",
+            "deliverable": "一页 A4 提纲：索引要点 3 条 + 事务要点 3 条 + 发件箱伪代码（含“未测生产吞吐量”标注）+ EXPLAIN 讲解口径 + 取消收尾 3 句话；完成后自评是否能在 2 分钟内讲完。",
+            "references": [
+              {
+                "source_id": "s_2f07e4cfe64a446c2a7a091b",
+                "quote": "MySQL 索引与事务"
+              },
+              {
+                "source_id": "s_54868f187539a650bdbaa4de",
+                "quote": "MySQL 事务发件箱与有界后台任务；未测生产吞吐量"
+              },
+              {
+                "source_id": "s_08f1f1ca2ca501d795c8641c",
+                "quote": "使用 EXPLAIN 查看访问路径与回表；事务保证原子提交"
+              },
+              {
+                "source_id": "s_a693e862eacedc23bed05e7a",
+                "quote": "context 超时后任务仍运行"
+              }
+            ]
+          }
+        ]
+      },
+      "model_turns": [
+        {
+          "calls": [
+            {
+              "id": "call_00_zyHFslUdnOYGtovoRvI26810",
+              "name": "finish_preparation_plan",
+              "arguments": "{\"summary\": \"总预算 60 分钟、3 天。Go 并发已标记掌握，故不再安排；上一版 go 项删除。仅保留未完成的 mysql 项（沿用原 id 与标题），聚焦 JD 要求的索引与事务，并结合本申请上一轮复盘暴露的取消/泄漏问题做一次口头串联。另一申请的历史复盘（复合索引最左前缀、隔离级别）不属于本申请范围，不作为依据。\", \"items\": [{\"id\": \"mysql\", \"title\": \"MySQL 索引与事务\", \"minutes\": 60, \"day\": 1, \"basis\": \"JD\", \"action\": \"1) 用 15 分钟对照 JD 原文“MySQL 索引与事务”梳理索引与事务两条主线，写出各 3 个要点；2) 用 20 分钟针对留档项目“MySQL 事务发件箱与有界后台任务”手写一段发件箱写入+事务提交的伪代码，并标注“未测生产吞吐量”这一限制，不得声称有实测指标；3) 用 15 分钟准备 EXPLAIN 讲解：说明如何用 EXPLAIN 查看访问路径与回表（引用索引笔记原文），并说明事务原子提交的含义；4) 用 10 分钟口头自述，把“context 超时后任务仍运行”这一本申请复盘遗漏点与事务/后台任务的收尾逻辑串起来，明确取消后如何退出阻塞并回收 goroutine。\", \"deliverable\": \"一页 A4 提纲：索引要点 3 条 + 事务要点 3 条 + 发件箱伪代码（含“未测生产吞吐量”标注）+ EXPLAIN 讲解口径 + 取消收尾 3 句话；完成后自评是否能在 2 分钟内讲完。\", \"references\": [{\"source_id\": \"s_2f07e4cfe64a446c2a7a091b\", \"quote\": \"MySQL 索引与事务\"}, {\"source_id\": \"s_54868f187539a650bdbaa4de\", \"quote\": \"MySQL 事务发件箱与有界后台任务；未测生产吞吐量\"}, {\"source_id\": \"s_08f1f1ca2ca501d795c8641c\", \"quote\": \"使用 EXPLAIN 查看访问路径与回表；事务保证原子提交\"}, {\"source_id\": \"s_a693e862eacedc23bed05e7a\", \"quote\": \"context 超时后任务仍运行\"}]}]}"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 2069,
+            "completion_tokens": 598,
+            "known": true
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "feedback-mastered-and-one-hour",
+      "arm": "fixed-plus-synthesis",
+      "state": "COMPLETED",
+      "program_expectation_met": true,
+      "plan_valid": true,
+      "sources_used": [
+        "s_2f07e4cfe64a446c2a7a091b",
+        "s_08f1f1ca2ca501d795c8641c",
+        "s_54868f187539a650bdbaa4de"
+      ],
+      "model_calls": 1,
+      "tool_calls": 1,
+      "invalid_calls": 0,
+      "failed_tool_calls": 0,
+      "repeated_queries": 0,
+      "latency_ms": 3364.206,
+      "usage": {
+        "limit": 128000,
+        "charged": 2520,
+        "prompt_tokens": 1954,
+        "completion_tokens": 566,
+        "unreported_calls": 0
+      },
+      "estimated_cost_usd": null,
+      "plan": {
+        "summary": "总预算 60 分钟、3 天。Go 并发已标记掌握，故不再安排；上一版 MySQL 项保留原 id 与标题，聚焦 JD 中的索引与事务，并结合留档项目材料（含未测吞吐量等限制标签）与索引笔记形成可检查产物。HISTORY 中的 goroutine 泄漏/context 超时失分点因 Go 已掌握且预算仅剩 60 分钟，本轮不单列，仅在 MySQL 项中不涉及。",
+        "items": [
+          {
+            "id": "mysql",
+            "title": "MySQL 索引与事务",
+            "minutes": 60,
+            "day": 2,
+            "basis": "JD",
+            "action": "1) 用 15 分钟按索引笔记复述 EXPLAIN 的访问路径与回表判断，写出 3 条自查清单（是否走索引、是否回表、事务是否原子提交）。2) 用 25 分钟结合留档项目材料中的“MySQL 事务发件箱与有界后台任务”，画出一次写入+发件箱提交的时序，明确哪些步骤在同一事务内、幂等键放在哪里；对“未测生产吞吐量”如实标注为未验证，不编造指标。3) 用 20 分钟做口头自测：针对“索引失效场景”“事务隔离与原子提交”“发件箱重复投递如何幂等”各写 1 段 5 句以内的回答提纲，并标注每条结论的依据来源（笔记/项目材料/待核验）。",
+            "deliverable": "一页纸：EXPLAIN 自查清单 3 条 + 发件箱事务时序图（含 PLANNED/未测吞吐量标签）+ 3 段回答提纲（每段标注依据与核验状态）。",
+            "references": [
+              {
+                "source_id": "s_2f07e4cfe64a446c2a7a091b",
+                "quote": "MySQL 索引与事务"
+              },
+              {
+                "source_id": "s_08f1f1ca2ca501d795c8641c",
+                "quote": "使用 EXPLAIN 查看访问路径与回表；事务保证原子提交"
+              },
+              {
+                "source_id": "s_54868f187539a650bdbaa4de",
+                "quote": "MySQL 事务发件箱与有界后台任务；未测生产吞吐量"
+              }
+            ]
+          }
+        ]
+      },
+      "trace": null,
+      "business_state": "NOT_SAVED; SQL confirmation/isolation verified separately",
+      "candidate_plan": {
+        "summary": "总预算 60 分钟、3 天。Go 并发已标记掌握，故不再安排；上一版 MySQL 项保留原 id 与标题，聚焦 JD 中的索引与事务，并结合留档项目材料（含未测吞吐量等限制标签）与索引笔记形成可检查产物。HISTORY 中的 goroutine 泄漏/context 超时失分点因 Go 已掌握且预算仅剩 60 分钟，本轮不单列，仅在 MySQL 项中不涉及。",
+        "items": [
+          {
+            "id": "mysql",
+            "title": "MySQL 索引与事务",
+            "minutes": 60,
+            "day": 2,
+            "basis": "JD",
+            "action": "1) 用 15 分钟按索引笔记复述 EXPLAIN 的访问路径与回表判断，写出 3 条自查清单（是否走索引、是否回表、事务是否原子提交）。2) 用 25 分钟结合留档项目材料中的“MySQL 事务发件箱与有界后台任务”，画出一次写入+发件箱提交的时序，明确哪些步骤在同一事务内、幂等键放在哪里；对“未测生产吞吐量”如实标注为未验证，不编造指标。3) 用 20 分钟做口头自测：针对“索引失效场景”“事务隔离与原子提交”“发件箱重复投递如何幂等”各写 1 段 5 句以内的回答提纲，并标注每条结论的依据来源（笔记/项目材料/待核验）。",
+            "deliverable": "一页纸：EXPLAIN 自查清单 3 条 + 发件箱事务时序图（含 PLANNED/未测吞吐量标签）+ 3 段回答提纲（每段标注依据与核验状态）。",
+            "references": [
+              {
+                "source_id": "s_2f07e4cfe64a446c2a7a091b",
+                "quote": "MySQL 索引与事务"
+              },
+              {
+                "source_id": "s_08f1f1ca2ca501d795c8641c",
+                "quote": "使用 EXPLAIN 查看访问路径与回表；事务保证原子提交"
+              },
+              {
+                "source_id": "s_54868f187539a650bdbaa4de",
+                "quote": "MySQL 事务发件箱与有界后台任务；未测生产吞吐量"
+              }
+            ]
+          }
+        ]
+      },
+      "model_turns": [
+        {
+          "calls": [
+            {
+              "id": "call_00_T968frDwqp1UFWNqX6JE4425",
+              "name": "finish_preparation_plan",
+              "arguments": "{\"summary\": \"总预算 60 分钟、3 天。Go 并发已标记掌握，故不再安排；上一版 MySQL 项保留原 id 与标题，聚焦 JD 中的索引与事务，并结合留档项目材料（含未测吞吐量等限制标签）与索引笔记形成可检查产物。HISTORY 中的 goroutine 泄漏/context 超时失分点因 Go 已掌握且预算仅剩 60 分钟，本轮不单列，仅在 MySQL 项中不涉及。\", \"items\": [{\"id\": \"mysql\", \"title\": \"MySQL 索引与事务\", \"minutes\": 60, \"day\": 2, \"basis\": \"JD\", \"action\": \"1) 用 15 分钟按索引笔记复述 EXPLAIN 的访问路径与回表判断，写出 3 条自查清单（是否走索引、是否回表、事务是否原子提交）。2) 用 25 分钟结合留档项目材料中的“MySQL 事务发件箱与有界后台任务”，画出一次写入+发件箱提交的时序，明确哪些步骤在同一事务内、幂等键放在哪里；对“未测生产吞吐量”如实标注为未验证，不编造指标。3) 用 20 分钟做口头自测：针对“索引失效场景”“事务隔离与原子提交”“发件箱重复投递如何幂等”各写 1 段 5 句以内的回答提纲，并标注每条结论的依据来源（笔记/项目材料/待核验）。\", \"deliverable\": \"一页纸：EXPLAIN 自查清单 3 条 + 发件箱事务时序图（含 PLANNED/未测吞吐量标签）+ 3 段回答提纲（每段标注依据与核验状态）。\", \"references\": [{\"source_id\": \"s_2f07e4cfe64a446c2a7a091b\", \"quote\": \"MySQL 索引与事务\"}, {\"source_id\": \"s_08f1f1ca2ca501d795c8641c\", \"quote\": \"使用 EXPLAIN 查看访问路径与回表；事务保证原子提交\"}, {\"source_id\": \"s_54868f187539a650bdbaa4de\", \"quote\": \"MySQL 事务发件箱与有界后台任务；未测生产吞吐量\"}]}]}"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 1954,
+            "completion_tokens": 566,
+            "known": true
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "feedback-mastered-and-one-hour",
+      "arm": "dynamic",
+      "state": "COMPLETED",
+      "program_expectation_met": true,
+      "plan_valid": true,
+      "sources_used": [
+        "s_2f07e4cfe64a446c2a7a091b",
+        "s_54868f187539a650bdbaa4de",
+        "s_274c1a87e09ce62357d2f1f9",
+        "s_08f1f1ca2ca501d795c8641c",
+        "s_939eebbe496dea26bfed9624"
+      ],
+      "model_calls": 2,
+      "tool_calls": 2,
+      "invalid_calls": 0,
+      "failed_tool_calls": 0,
+      "repeated_queries": 0,
+      "latency_ms": 4710.359,
+      "usage": {
+        "limit": 128000,
+        "charged": 4894,
+        "prompt_tokens": 4195,
+        "completion_tokens": 699,
+        "unreported_calls": 0
+      },
+      "estimated_cost_usd": null,
+      "plan": {
+        "summary": "Go 并发已掌握，按你的要求从上一版计划中移除；剩余 60 分钟全部用于 MySQL 索引与事务（上一版未完成项，保留原 id 与标题）。本申请上一轮复盘记录的实际问题「怎样避免 goroutine 泄漏」与遗漏点「context 超时后任务仍运行」属于 Go 并发范围，已随 mastered 一并略去，若你希望仍花时间巩固请告知。另：另一申请复盘中的「复合索引最左前缀和隔离级别」仅作参考，不代表本岗位真实考题。",
+        "items": [
+          {
+            "id": "mysql",
+            "title": "MySQL 索引与事务",
+            "minutes": 60,
+            "day": 1,
+            "basis": "JD",
+            "action": "分三段执行：①15 分钟对照 JD 原文「MySQL 索引与事务」梳理索引部分，用 EXPLAIN 说明访问路径与回表（依据学习笔记，非亲身经历，不得当作已实现经验陈述）；②20 分钟梳理事务部分：原子提交、隔离级别与最左前缀（后者来自另一申请复盘，仅作自查清单，不声称是本岗位考题）；③25 分钟把简历中「实现过 Go 任务调度与 SQL 幂等」与项目材料「MySQL 事务发件箱与有界后台任务」写成口述稿，明确标注「未测生产吞吐量」这一 LIMITATION，不编造指标。",
+            "deliverable": "一页口述提纲：索引/事务各 3 条要点 + EXPLAIN 示例说明 + 发件箱幂等案例稿（含「未测生产吞吐量」标注与待核验标签）",
+            "references": [
+              {
+                "source_id": "s_2f07e4cfe64a446c2a7a091b",
+                "quote": "MySQL 索引与事务"
+              },
+              {
+                "source_id": "s_54868f187539a650bdbaa4de",
+                "quote": "MySQL 事务发件箱与有界后台任务；未测生产吞吐量"
+              },
+              {
+                "source_id": "s_274c1a87e09ce62357d2f1f9",
+                "quote": "实现过 Go 任务调度与 SQL 幂等"
+              },
+              {
+                "source_id": "s_08f1f1ca2ca501d795c8641c",
+                "quote": "使用 EXPLAIN 查看访问路径与回表；事务保证原子提交"
+              },
+              {
+                "source_id": "s_939eebbe496dea26bfed9624",
+                "quote": "复合索引最左前缀和隔离级别"
+              }
+            ]
+          }
+        ]
+      },
+      "trace": [
+        {
+          "kind": "model",
+          "status": "DISPATCHED",
+          "call_id": "model-1"
+        },
+        {
+          "kind": "model",
+          "status": "RETURNED",
+          "call_id": "model-1",
+          "latency_ms": 1017
+        },
+        {
+          "kind": "tool",
+          "name": "search_related_reviews",
+          "status": "SUCCESS",
+          "call_id": "call_00_5o8s9WZXLquzFIgVTYwL6356"
+        },
+        {
+          "kind": "tool",
+          "name": "search_preparation_knowledge",
+          "status": "SUCCESS",
+          "call_id": "call_01_003duX9Q2ggA9Jy6C54K0702"
+        },
+        {
+          "kind": "model",
+          "status": "DISPATCHED",
+          "call_id": "model-2"
+        },
+        {
+          "kind": "model",
+          "status": "RETURNED",
+          "call_id": "model-2",
+          "latency_ms": 3691
+        },
+        {
+          "kind": "plan",
+          "name": "finish_preparation_plan",
+          "status": "VALIDATED",
+          "call_id": "call_00_5ABGqQCsE8ciXaBhbdlc8826",
+          "detail": "用户确认前不保存业务计划"
+        }
+      ],
+      "business_state": "NOT_SAVED; SQL confirmation/isolation verified separately",
+      "answer": "Go 并发已掌握，按你的要求从上一版计划中移除；剩余 60 分钟全部用于 MySQL 索引与事务（上一版未完成项，保留原 id 与标题）。本申请上一轮复盘记录的实际问题「怎样避免 goroutine 泄漏」与遗漏点「context 超时后任务仍运行」属于 Go 并发范围，已随 mastered 一并略去，若你希望仍花时间巩固请告知。另：另一申请复盘中的「复合索引最左前缀和隔离级别」仅作参考，不代表本岗位真实考题。",
+      "model_turns": [
+        {
+          "calls": [
+            {
+              "id": "call_00_5o8s9WZXLquzFIgVTYwL6356",
+              "name": "search_related_reviews",
+              "arguments": "{\"query\": \"MySQL 索引 事务 失分\"}"
+            },
+            {
+              "id": "call_01_003duX9Q2ggA9Jy6C54K0702",
+              "name": "search_preparation_knowledge",
+              "arguments": "{\"query\": \"MySQL 索引 事务 隔离级别 发件箱\"}"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 1934,
+            "completion_tokens": 90,
+            "known": true
+          }
+        },
+        {
+          "calls": [
+            {
+              "id": "call_00_5ABGqQCsE8ciXaBhbdlc8826",
+              "name": "finish_preparation_plan",
+              "arguments": "{\"summary\": \"Go 并发已掌握，按你的要求从上一版计划中移除；剩余 60 分钟全部用于 MySQL 索引与事务（上一版未完成项，保留原 id 与标题）。本申请上一轮复盘记录的实际问题「怎样避免 goroutine 泄漏」与遗漏点「context 超时后任务仍运行」属于 Go 并发范围，已随 mastered 一并略去，若你希望仍花时间巩固请告知。另：另一申请复盘中的「复合索引最左前缀和隔离级别」仅作参考，不代表本岗位真实考题。\", \"items\": [{\"id\": \"mysql\", \"title\": \"MySQL 索引与事务\", \"minutes\": 60, \"day\": 1, \"basis\": \"JD\", \"action\": \"分三段执行：①15 分钟对照 JD 原文「MySQL 索引与事务」梳理索引部分，用 EXPLAIN 说明访问路径与回表（依据学习笔记，非亲身经历，不得当作已实现经验陈述）；②20 分钟梳理事务部分：原子提交、隔离级别与最左前缀（后者来自另一申请复盘，仅作自查清单，不声称是本岗位考题）；③25 分钟把简历中「实现过 Go 任务调度与 SQL 幂等」与项目材料「MySQL 事务发件箱与有界后台任务」写成口述稿，明确标注「未测生产吞吐量」这一 LIMITATION，不编造指标。\", \"deliverable\": \"一页口述提纲：索引/事务各 3 条要点 + EXPLAIN 示例说明 + 发件箱幂等案例稿（含「未测生产吞吐量」标注与待核验标签）\", \"references\": [{\"source_id\": \"s_2f07e4cfe64a446c2a7a091b\", \"quote\": \"MySQL 索引与事务\"}, {\"source_id\": \"s_54868f187539a650bdbaa4de\", \"quote\": \"MySQL 事务发件箱与有界后台任务；未测生产吞吐量\"}, {\"source_id\": \"s_274c1a87e09ce62357d2f1f9\", \"quote\": \"实现过 Go 任务调度与 SQL 幂等\"}, {\"source_id\": \"s_08f1f1ca2ca501d795c8641c\", \"quote\": \"使用 EXPLAIN 查看访问路径与回表；事务保证原子提交\"}, {\"source_id\": \"s_939eebbe496dea26bfed9624\", \"quote\": \"复合索引最左前缀和隔离级别\"}]}]}"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 2261,
+            "completion_tokens": 609,
+            "known": true
+          }
+        }
+      ]
+    }
+  ],
+  "semantic_quality": "REQUIRES_HUMAN_REVIEW; citation substring checks do not prove factual entailment",
+  "split": "development",
+  "summary": {
+    "dynamic": {
+      "failed_tool_calls": 0,
+      "invalid_calls": 0,
+      "model_calls": 2,
+      "p50_ms": 4710.359,
+      "p95_ms": 4710.359,
+      "program_expectations_met": 1,
+      "tasks": 1,
+      "tool_calls": 2
+    },
+    "fixed-plus-synthesis": {
+      "failed_tool_calls": 0,
+      "invalid_calls": 0,
+      "model_calls": 1,
+      "p50_ms": 3364.206,
+      "p95_ms": 3364.206,
+      "program_expectations_met": 1,
+      "tasks": 1,
+      "tool_calls": 1
+    },
+    "single-prompt": {
+      "failed_tool_calls": 0,
+      "invalid_calls": 0,
+      "model_calls": 1,
+      "p50_ms": 3660.888,
+      "p95_ms": 3660.888,
+      "program_expectations_met": 1,
+      "tasks": 1,
+      "tool_calls": 0
+    }
+  }
+}

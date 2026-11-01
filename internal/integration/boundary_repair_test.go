@@ -48,10 +48,10 @@ func TestRepairPublicDependencyBoundary(t *testing.T) {
 				return true
 			}
 			v, _ := strconv.Unquote(imp.Path.Value)
-			if strings.HasPrefix(v, "github.com/KanaDoodle/KanaRPC-Go/internal/") {
+			if strings.HasPrefix(v, "github.com/KanaDoodle/KanaRPC-Go") || strings.HasPrefix(v, "github.com/KanaDoodle/KanaRPC/internal/") {
 				t.Errorf("F01: forbidden dependency in %s: %s", path, v)
 			}
-			if v == "github.com/KanaDoodle/KanaRPC-Go/rpc" {
+			if v == "github.com/KanaDoodle/KanaRPC" {
 				found = true
 			}
 			return true
@@ -62,6 +62,6 @@ func TestRepairPublicDependencyBoundary(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !found {
-		t.Fatal("real facade import absent")
+		t.Fatal("public KanaRPC root import absent")
 	}
 }

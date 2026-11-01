@@ -21,7 +21,7 @@ Go 的支持周期覆盖最近两个大版本；1.27.3 包含官方发布的安�
 - 学习资料使用 BM25，可按用户授权启用语义检索；岗位全文搜索维护另一份派生索引，数据和用途不同。
 - 岗位事件的直接同步／独立消费是部署选项；后台任务运行模式统一为 Kafka。切换岗位事件模式仍需协调 API、Worker 与通知消费者。
 - Redis 旧队列读取器属于一次性升级工具，正常任务生产者和 Worker 不再使用 Streams。兼容旧数据的迁移代码保留。
-- `gogo/protobuf` 和 `golang/protobuf` 由 etcd 间接引入，`go mod why` 已核对；`go mod tidy -diff` 为空。公开 KanaRPC v0.1.0 与独立 Search 的依赖边界保持有效。
+- 分析链路已升级到独立仓库 KanaRPC 的公开提交，移除旧 KanaRPC-Go；etcd 客户端、Protobuf 与 gRPC 版本随模块图更新。依赖边界与验收见[迁移说明](kanarpc-migration.md)。历史栈审查报告保留其原始依赖快照。
 
 ## 复核方式
 

@@ -22,8 +22,8 @@ import (
 	"time"
 )
 
-var appServices = []string{"api", "worker", "analysis-1", "analysis-2"}
-var allServices = []string{"mysql", "redis", "etcd", "kafka", "api", "worker", "analysis-1", "analysis-2"}
+var appServices = []string{"api", "worker", "analysis-1", "analysis-2", "preparation"}
+var allServices = []string{"mysql", "redis", "etcd", "kafka", "api", "worker", "analysis-1", "analysis-2", "preparation"}
 
 type Container struct {
 	Name    string
@@ -217,7 +217,7 @@ func (m *manager) restoreLegacy() error {
 }
 func (m *manager) build(ctx context.Context) error {
 	fmt.Fprintln(m.out, "正在构建应用镜像；数据库和模型密钥不会放入镜像。首次构建需要下载依赖。")
-	return m.run(ctx, m.compose("build", "api")...)
+	return m.run(ctx, m.compose("build", "api", "preparation")...)
 }
 func acquire(root string) (func(), error) {
 	dir := filepath.Join(root, "bin")
@@ -496,7 +496,7 @@ const help = `CampusTrace — 统一启动入口
   restart [--build]        重启应用；--build 先构建更新再停旧服务
   status                  查看所有组件状态
   resources               查看本项目各组件的 CPU 与内存占用
-  logs [组件] [--follow]   查看日志；组件为 api/worker/analysis-1/analysis-2/mysql/redis/etcd/kafka
+  logs [组件] [--follow]   查看日志；组件为 api/worker/analysis-1/analysis-2/preparation/mysql/redis/etcd/kafka
   doctor                  检查 Docker、配置与服务状态
   backup [--file 路径] [--verify] 备份数据库；可同时验证恢复
   verify-backup --file 路径 将备份恢复到隔离库，验证后删除隔离库

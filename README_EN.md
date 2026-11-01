@@ -26,7 +26,7 @@ Applications freeze the materials used for that submission. Reviewed interview n
 ## Architecture
 
 - **Core API / Worker:** Go, MySQL, Kafka and Redis. Owns authoritative records, authorization, task scheduling and the application workflow.
-- **Analysis:** separate Go processes, discovered through etcd and called through the public [KanaRPC-Go](https://github.com/KanaDoodle/KanaRPC-Go) facade. The module pins a published release; no sibling checkout is required. See [dependency provenance](docs/dependency-audit.md).
+- **Analysis:** separate Go processes, discovered through etcd and called through the public [KanaRPC](https://github.com/KanaDoodle/KanaRPC) APIs over KNR2, with remote cancellation, bounded scheduling, discovery-driven connection reuse and graceful drain. The module pins a public commit using a Go pseudo-version; no sibling checkout is required. See [dependency provenance](docs/dependency-audit.md) and [migration acceptance](docs/kanarpc-migration.md).
 - **Optional Search:** independent HTTP service owning only the derived OpenSearch index. Core retains permission and content checks.
 - **Optional job-event consumers / Notify:** independent Search and notification consumer groups. Notify remains in the Core business domain and shares its SQL database.
 - **Observability and regression:** OpenTelemetry, Prometheus/Grafana/Tempo, pprof, k6, race/fuzz checks and GitHub Actions.
@@ -105,3 +105,7 @@ Optional stacks: `make search-stack`, `make kafka-stack`, `make observability`. 
 - Keep resumes, API keys and database backups outside the public repository. See [operations](docs/operations.md) and [backup and recovery](docs/recovery.md) for deployment and data management.
 
 License: [AGPL-3.0](LICENSE).
+
+### Application interview preparation
+
+The application dossier's preparation entry uses an in-repository Python / LangGraph service for conditional model/tool routing, clarification interrupts and persistent checkpoints. Go owns authorization, frozen materials, retrieval, model budgets, validation and confirmed idempotent saves. Ordinary Q&A, fixed Skills and analysis keep their existing responsibilities. Compose and the local launcher include the service. [Deployment, recovery and evaluation scope](docs/preparation-langgraph.md).

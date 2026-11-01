@@ -1,0 +1,97 @@
+{
+  "date": "2026-11-01",
+  "model_requested": "deepseek-flash",
+  "provider_url": "https://api.deepseek.com/chat/completions",
+  "material_kind": "synthetic-control",
+  "split": "development",
+  "selected_cases": [
+    "normal-go-180",
+    "feedback-mastered-and-one-hour",
+    "legacy-no-snapshot"
+  ],
+  "heldout_real_model_tasks": 0,
+  "private_job_material_sent": false,
+  "authorized_total_attempt_cap": 24,
+  "actual_provider_attempts": 17,
+  "initial": {
+    "single-prompt": {
+      "tasks": 3,
+      "program_expectations_met": 2,
+      "provider_attempts": 3,
+      "retrieval_calls": 0,
+      "prompt_tokens": 5377,
+      "completion_tokens": 2823,
+      "unreported_calls": 0,
+      "total_latency_ms": 15873.826
+    },
+    "fixed-plus-synthesis": {
+      "tasks": 3,
+      "program_expectations_met": 1,
+      "provider_attempts": 3,
+      "retrieval_calls": 3,
+      "prompt_tokens": 4823,
+      "completion_tokens": 2670,
+      "unreported_calls": 0,
+      "total_latency_ms": 15025.989
+    },
+    "dynamic": {
+      "tasks": 3,
+      "program_expectations_met": 2,
+      "provider_attempts": 7,
+      "retrieval_calls": 5,
+      "prompt_tokens": 15045,
+      "completion_tokens": 3802,
+      "unreported_calls": 0,
+      "total_latency_ms": 20860.082
+    }
+  },
+  "followup": {
+    "single-prompt": {
+      "tasks": 1,
+      "program_expectations_met": 1,
+      "provider_attempts": 1,
+      "retrieval_calls": 0,
+      "prompt_tokens": 2069,
+      "completion_tokens": 598,
+      "unreported_calls": 0,
+      "total_latency_ms": 3660.888
+    },
+    "fixed-plus-synthesis": {
+      "tasks": 1,
+      "program_expectations_met": 1,
+      "provider_attempts": 1,
+      "retrieval_calls": 1,
+      "prompt_tokens": 1954,
+      "completion_tokens": 566,
+      "unreported_calls": 0,
+      "total_latency_ms": 3364.206
+    },
+    "dynamic": {
+      "tasks": 1,
+      "program_expectations_met": 1,
+      "provider_attempts": 2,
+      "retrieval_calls": 2,
+      "prompt_tokens": 4195,
+      "completion_tokens": 699,
+      "unreported_calls": 0,
+      "total_latency_ms": 4710.359
+    }
+  },
+  "cost_usd": null,
+  "cost_reason": "No authorized pricing supplied; provider usage recorded instead.",
+  "business_writes": 0,
+  "independent_human_labels": false,
+  "semantic_review": "Agent-assisted inspection of available outputs, not an independent human-labelled benchmark.",
+  "initial_evaluator_errata": [
+    "The reported max_output_tokens=2048 was not passed to the provider: limitedModel hid LiveModel from capModel. All arms shared this defect; initial and followup are separate runs.",
+    "Baseline invalid candidates and the last malformed dynamic call were not retained. Initial rejection subtype cannot be reconstructed.",
+    "The dynamic initial invalid_calls count omits its final malformed envelope; trace and state must be read together."
+  ],
+  "followup_changes": [
+    "Explicit 2048 token cap before provider-call limiter.",
+    "State-specific tool schema publishes actual time and remaining item choices to all arms.",
+    "Specific per-item validation feedback and malformed-call trace.",
+    "Returned tool arguments and rejected candidates retained; baseline clarification/schema validation aligned."
+  ],
+  "followup_scope": "One repeated development case after changes, no repeated trials or heldout effectiveness claim."
+}

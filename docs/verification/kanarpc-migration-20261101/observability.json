@@ -1,0 +1,42 @@
+{
+  "kind": "local-disposable-controlled-acceptance",
+  "external_model_calls": 0,
+  "first_trace": {
+    "trace_id": "196d6123ca309458381670c40dd41fe4",
+    "spans": 141,
+    "services": [
+      "campustrace-analysis",
+      "campustrace-api",
+      "campustrace-notify",
+      "campustrace-search",
+      "campustrace-worker"
+    ]
+  },
+  "recovered_trace": {
+    "trace_id": "839db9266916779eebc86b3b7033415c",
+    "spans": 85,
+    "services": [
+      "campustrace-analysis",
+      "campustrace-api",
+      "campustrace-notify",
+      "campustrace-search",
+      "campustrace-worker"
+    ]
+  },
+  "prometheus_targets": [
+    "campustrace-api",
+    "campustrace-search",
+    "campustrace-notify",
+    "campustrace-worker"
+  ],
+  "dashboard_panels": 14,
+  "alert_rules": 4,
+  "queue_lanes": 10,
+  "observer_outage_business_completed": true,
+  "api_ingest_seconds": {
+    "first": 0.02705220808275044,
+    "observer_down": 0.02233141695614904,
+    "recovered": 0.007853875053115189
+  },
+  "limits": "Single-host synthetic inputs. This is not a production latency, HA, privacy proof or model-quality benchmark."
+}

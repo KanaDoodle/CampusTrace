@@ -1,0 +1,8 @@
+{
+  "cmd/preparation-eval/main.go": "5c013e41398dc8128e3b16578d17c7ac63e99d358ad83d4b41b6c083acea82de",
+  "internal/agent/preparation_evaluation.go": "c460b50aaa095e7c57b790baa1d290dd0e083c3bee94287f4ed6370d2b653252",
+  "internal/agent/preparation_agent_loop.go": "4daeecddd5959341afa5ad2568988dcc9997d965c2039a3c33e2311348df452b",
+  "internal/agent/preparation_agent_sources.go": "70f26a5d78530f48bb37a80820307f98c5a34bf7d3bf0da630107a838b5fc986",
+  "internal/agent/testdata/preparation-tasks.json": "c94724634e3650aa16583ecea0d0960a7a17b13bd1de7391218915598bce8507",
+  "web/models.js": "ab83dd6f1b39437418d6a0c3319000dfc67f51a30621053730f7b63e97e0777b"
+}

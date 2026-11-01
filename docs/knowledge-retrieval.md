@@ -82,3 +82,8 @@ go run ./cmd/retrieval-eval -dataset /absolute/path/to/retrieval-labels.json -li
 普通材料保存、批量导入和旧版 `POST /api/documents` 现在共用去重写入流程：同账号、同来源、同标题正文的重试返回已有材料，不重复创建片段或增加知识库版本。旧接口保留完整 Document 返回格式，新界面使用 `/api/documents/import` 的简短回执。复盘来源在持有用户锁后用一次联合查询读取并校验，保持原有归属、版本与事务校验。
 
 五项收敛及兼容验收见[修复记录](verification/redundancy-fixes-20261031/README.md)。
+
+
+## 申请准备的 LangGraph 编排
+
+申请档案的“生成面试准备计划”由同仓库 Python / LangGraph 服务组织模型与工具循环、澄清中断和检查点恢复；Go 继续负责账号、材料、检索、模型预算及确认保存。普通问答、固定 Skills 和其他模型业务保留原职责。该场景的检索仍为已授权本人材料的 BM25，不隐式启用 Embedding、重排序或外部 MCP。[部署、恢复与证据范围](preparation-langgraph.md)。

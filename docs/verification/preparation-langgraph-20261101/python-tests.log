@@ -1,0 +1,8 @@
+test_clarification_survives_checkpointer_close_and_reopen (test_graph.GraphTests.test_clarification_survives_checkpointer_close_and_reopen) ... ok
+test_routes_observation_to_rewrite_then_finish (test_graph.GraphTests.test_routes_observation_to_rewrite_then_finish) ... ok
+test_unknown_interrupt_does_not_auto_dispatch (test_graph.GraphTests.test_unknown_interrupt_does_not_auto_dispatch) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.064s
+
+OK

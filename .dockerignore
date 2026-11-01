@@ -12,3 +12,6 @@ go.work.sum
 *.sqlite*
 *.prof
 *.test
+services/preparation/.venv
+**/__pycache__
+var/preparation

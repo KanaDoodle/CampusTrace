@@ -1,0 +1,29 @@
+{
+  "starting_uncommitted_files": 135,
+  "modified_existing_files": [
+    "docs/application-preparation-agent.md",
+    "internal/agent/preparation_agent_loop.go",
+    "internal/agent/preparation_agent_sources.go",
+    "internal/agent/preparation_evaluation.go",
+    "internal/agent/preparation_live_regression_test.go",
+    ".gitignore",
+    "docs/agent-evaluation.md",
+    "docs/model-backends.md"
+  ],
+  "unexpected_modifications": [],
+  "original_rpc_files_unchanged": 44,
+  "original_rpc_prefixes_preserved": [
+    {
+      "path": ".gitignore",
+      "prefix_bytes": 1747
+    },
+    {
+      "path": "docs/model-backends.md",
+      "prefix_bytes": 2410
+    }
+  ],
+  "resume_unchanged": true,
+  "real_account_writes": 0,
+  "model_config_mutated": false,
+  "temporary_model_bridge_stopped": true
+}

@@ -13,6 +13,7 @@ x-app: &app
     CAMPUS_REDIS_PREFIX: ${CAMPUS_REDIS_PREFIX:-ct:}
     REDIS_ADDR: redis:6379
     ETCD_ENDPOINTS: etcd:2379
+    ANALYSIS_RPC_NAMESPACE: ${ANALYSIS_RPC_NAMESPACE:-/campustrace/kanarpc/v2}
     JWT_SECRET: ${JWT_SECRET:-local-campus-demo-secret-change-me-2027}
     LLM_URL: ${LLM_URL:-}
     LLM_API_KEY: ${LLM_API_KEY:-}
@@ -43,15 +44,39 @@ x-app: &app
     start_period: 10s
 
 services:
+  preparation:
+    image: campustrace-preparation:local
+    build:
+      context: .
+      dockerfile: services/preparation/Dockerfile
+    restart: unless-stopped
+    stop_grace_period: 15s
+    environment:
+      PREPARATION_GO_URL: http://api:8080
+      PREPARATION_SERVICE_TOKEN: ${PREPARATION_SERVICE_TOKEN:-local-preparation-service-change-this-2027}
+      PREPARATION_CHECKPOINT_DB: /data/checkpoints.sqlite
+      LANGSMITH_TRACING: "false"
+      LANGGRAPH_STRICT_MSGPACK: "true"
+    volumes: [preparation-checkpoints:/data]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:18110/healthz', timeout=3)"]
+      interval: 15s
+      timeout: 4s
+      retries: 10
+      start_period: 10s
   api:
     <<: *app
     command: ["/app/api"]
     environment:
       <<: *environment
       HTTP_ADDR: 0.0.0.0:8080
+      PREPARATION_EXECUTOR: ${PREPARATION_EXECUTOR:-langgraph}
+      PREPARATION_GRAPH_URL: http://preparation:18110
+      PREPARATION_SERVICE_TOKEN: ${PREPARATION_SERVICE_TOKEN:-local-preparation-service-change-this-2027}
       NARRATION_BACKEND: ${NARRATION_BACKEND:-api}
     ports: ["127.0.0.1:${CAMPUS_HTTP_PORT:-8080}:8080"]
     depends_on:
+      preparation: {condition: service_healthy}
       mysql: {condition: service_healthy}
       redis: {condition: service_healthy}
   analysis-1:
@@ -109,3 +134,6 @@ services:
       api: {condition: service_healthy}
       analysis-1: {condition: service_healthy}
       analysis-2: {condition: service_healthy}
+
+volumes:
+  preparation-checkpoints:

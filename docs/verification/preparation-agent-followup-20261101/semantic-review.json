@@ -1,0 +1,46 @@
+{
+  "reviewer": "current coding assistant",
+  "independent_human_labels": false,
+  "scope": "Selected boundary and correction records, not all plan semantics.",
+  "findings": [
+    {
+      "phase": "pilot-v4",
+      "case": "real-val-15-minutes",
+      "result": "FAILED",
+      "observation": "Time total valid, but a résumé excerpt was attributed to a project README; repeated feedback did not resolve it."
+    },
+    {
+      "phase": "regression-v5",
+      "case": "all eighteen regression cases",
+      "result": "PROGRAM_PASS",
+      "observation": "All dynamic outputs satisfy program expectations; this does not score prioritization, workload feasibility or complete semantic entailment."
+    },
+    {
+      "phase": "repeat-v5-1..3",
+      "case": "real-val-15-minutes",
+      "result": "THREE_PROGRAM_PASSES",
+      "observation": "Three direct completions with the same material and goal. Same-input repetition is not population-level reliability."
+    },
+    {
+      "phase": "regression-v5",
+      "case": "real-val-tuyou-30",
+      "arm": "single-prompt",
+      "result": "FAILED",
+      "observation": "An internal ID contains Chinese characters. Validation rule was not exposed in generation schema; schema and feedback subsequently clarified while Chinese titles remain allowed."
+    },
+    {
+      "phase": "id-contract-v5",
+      "case": "real-val-15-minutes",
+      "arm": "dynamic",
+      "result": "RECOVERED",
+      "observation": "One rejected literal citation, then already-read résumé candidate feedback; the model selects that source and a new literal excerpt, and resubmits a valid 5/5/5-minute plan. No program-side reference rebinding."
+    },
+    {
+      "phase": "id-contract-v5",
+      "case": "real-val-15-minutes",
+      "arm": "single-prompt",
+      "result": "FAILED",
+      "observation": "A literal citation mismatch remains in the one-shot result; retained rather than repaired by the evaluator."
+    }
+  ]
+}

@@ -80,7 +80,7 @@ func main() {
 	must(err)
 	_, err = app.Store.FinishInterview(ctx, user, interview.ID, "PASS", "Synthetic review completed")
 	must(err)
-	review := d.Review{InterviewID: interview.ID, Questions: []string{"How do Redis Streams recover pending messages?"}, Evaluation: "Need to revisit PEL recovery", Missed: []string{"PEL recovery"}, FollowUp: "Read worker recovery integration tests", Topics: []d.WeakCandidate{{Topic: "Redis Streams", Weight: 4, Evidence: "PEL recovery"}}}
+	review := d.Review{InterviewID: interview.ID, Questions: []string{"How do Kafka consumers recover unfinished tasks?"}, Evaluation: "Review execution leases and offset commits", Missed: []string{"Kafka execution lease recovery"}, FollowUp: "Read worker recovery integration tests", Topics: []d.WeakCandidate{{Topic: "Kafka", Weight: 4, Evidence: "Kafka execution lease recovery"}}}
 	_, err = app.Store.ApplyAction(ctx, user, d.ID(), "record_interview_review", []byte(d.JSON(review)))
 	must(err)
 	project, err := app.Store.SaveProject(ctx, user, d.Project{Name: "Synthetic Learning Backend"})
@@ -89,7 +89,7 @@ func main() {
 		_, err = app.Store.SaveFact(ctx, user, f)
 		must(err)
 	}
-	for _, doc := range []rag.Document{{Title: "Synthetic Go backend handbook", Text: "Redis Streams consumer groups retain unacknowledged messages in the PEL. XAUTOCLAIM transfers idle pending entries. ACK only after transaction commit. Unique database keys make duplicate processing safe. Context cancellation bounds request lifetimes."}, {Title: "MyRPC integration notes", Text: "KanaRPC uses etcd lease registration and round-robin discovery. Timeout cancellation exists on the client. The server supports net/rpc signatures and needs explicit deadline envelopes. This is an educational RPC framework."}, {Title: "Synthetic interview review", Text: "Weak point: Redis Streams PEL recovery and retry ZSET atomic scheduling. Review database unique constraints and failure after persistence before ACK."}} {
+	for _, doc := range []rag.Document{{Title: "Synthetic Go backend handbook", Text: "Kafka consumer groups track partition offsets. Commit only after durable task handling. MySQL execution leases and unique business receipts make recovery and duplicate delivery explicit. Context cancellation bounds request lifetimes."}, {Title: "KanaRPC integration notes", Text: "KanaRPC Analysis uses Context-first unary handlers over KNR2, fresh etcd discovery snapshots and bounded reusable connections. Cancellation reaches the remote handler. Shutdown withdraws registration before draining accepted calls; SQL receipts determine business completion."}, {Title: "Synthetic interview review", Text: "Review Kafka consumer offset commits, MySQL task leases, retry scheduling and business receipts. Examine failure after persistence before offset commit."}} {
 		_, err = app.Tools.RAG.Ingest(ctx, user, doc)
 		must(err)
 	}

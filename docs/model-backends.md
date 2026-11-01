@@ -19,4 +19,19 @@ python3 -m unittest discover -s scripts -p 'test_*.py'
 
 真实服务验收入口为 `scripts/verify-agent-explanation-live.py --help`，需要明确同意向已配置模型发送所选任务材料；不在普通回归中运行。默认回归使用本地 HTTP 模型桩验证流式协议与任务恢复；真实服务按显式授权的材料单独验收。
 
-RPC/vLLM 与未发布流式 SDK 已移至[独立实验归档](../experiments/README.md)，不再作为当前部署选项。现有 Analysis 服务使用的已发布 KanaRPC-Go v0.1.0 不受影响。
+RPC/vLLM 与未发布流式 SDK 已移至[独立实验归档](../experiments/README.md)，不再作为当前部署选项。岗位证据分析使用新的 KanaRPC 普通调用，见[分析链路迁移](kanarpc-migration.md)；它与归档的模型推理实验分别维护。
+
+## 申请准备的模型调用
+
+新[申请准备 Agent](application-preparation-agent.md)使用现有 Chat Completions 工具调用适配器，可选择当前浏览器配置或服务器模型。启动前单独核对冻结材料、检索范围、模型和预算；这与上文固定任务后的流式依据说明是不同入口。学习检索使用本地 BM25，不隐式增加其他付费服务。
+
+每次派发前保存未知调用保护与预算预留，返回 usage 后结算。进程中断或网络错误不会自动重新发送模型请求；用户明确授权新尝试后继续，并保留已有读取与历史未知标记。密钥只在活动请求/执行器内存中使用，不保存进检查点。恢复和界面使用本地 HTTP 受控响应验收；[真实模型记录](verification/preparation-agent-live-20261101/README.md)另以授权的网页 DeepSeek Flash 配置运行三个合成调试任务及一次调整复测，记录失败、usage 和单次观察，不包含个人求职材料。
+
+后续[真实材料评测](verification/preparation-agent-real-materials-20261101/README.md)沿用明确授权的网页配置，发送已脱敏的现有简历、归档 JD 和项目材料，累计 120 次请求。完整输入和返回保存在仓库外的私有目录，密钥未写入报告或命令参数。已返回参数的格式修正有独立预算和检查点；结果未知仍沿用核对确认流程。
+
+再下一轮[一致输入回归](verification/preparation-agent-followup-20261101/README.md)新增 101 次真实请求，补齐完整动态与重复验证，模型及地址保持原配置。引用失败反馈只提供已读材料的精确匹配候选，模型需明确重新选择；原文校验、来源范围与用户确认规则保持不变。
+
+
+## 申请准备的 LangGraph 编排
+
+申请档案的“生成面试准备计划”由同仓库 Python / LangGraph 服务组织模型与工具循环、澄清中断和检查点恢复；Go 继续负责账号、材料、检索、模型预算及确认保存。普通问答、固定 Skills 和其他模型业务保留原职责。该场景的检索仍为已授权本人材料的 BM25，不隐式启用 Embedding、重排序或外部 MCP。[部署、恢复与证据范围](preparation-langgraph.md)。
