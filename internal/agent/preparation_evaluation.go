@@ -29,31 +29,34 @@ type PreparationEvalCase struct {
 	ReviewNote   string                `json:"review_note"`
 }
 type PreparationEvalResult struct {
-	RetrievalNewSources   int                   `json:"retrieval_new_sources"`
-	RetrievalCitedSources int                   `json:"retrieval_cited_sources"`
-	CaseID                string                `json:"case_id"`
-	Arm                   string                `json:"arm"`
-	State                 string                `json:"state"`
-	ProgramExpectationMet bool                  `json:"program_expectation_met"`
-	PlanValid             bool                  `json:"plan_valid"`
-	SourcesUsed           []string              `json:"sources_used"`
-	Calls                 int                   `json:"model_calls"`
-	ToolCalls             int                   `json:"tool_calls"`
-	InvalidCalls          int                   `json:"invalid_calls"`
-	FailedToolCalls       int                   `json:"failed_tool_calls"`
-	RepeatedQueries       int                   `json:"repeated_queries"`
-	LatencyMS             float64               `json:"latency_ms"`
-	Usage                 TokenBudget           `json:"usage"`
-	EstimatedCostUSD      *float64              `json:"estimated_cost_usd"`
-	Plan                  *d.PreparationPlan    `json:"plan,omitempty"`
-	Question              string                `json:"question,omitempty"`
-	Trace                 []d.PreparationTrace  `json:"trace"`
-	BusinessState         string                `json:"business_state"`
-	Error                 string                `json:"error,omitempty"`
-	Answer                string                `json:"answer,omitempty"`
-	CandidatePlan         *d.PreparationPlan    `json:"candidate_plan,omitempty"`
-	ValidationError       string                `json:"validation_error,omitempty"`
-	ModelTurns            []PreparationEvalTurn `json:"model_turns,omitempty"`
+	Defense               *d.DefenseState          `json:"defense,omitempty"`
+	PromptSHA             string                   `json:"prompt_sha256,omitempty"`
+	Retrievals            []d.PreparationRetrieval `json:"retrievals,omitempty"`
+	RetrievalNewSources   int                      `json:"retrieval_new_sources"`
+	RetrievalCitedSources int                      `json:"retrieval_cited_sources"`
+	CaseID                string                   `json:"case_id"`
+	Arm                   string                   `json:"arm"`
+	State                 string                   `json:"state"`
+	ProgramExpectationMet bool                     `json:"program_expectation_met"`
+	PlanValid             bool                     `json:"plan_valid"`
+	SourcesUsed           []string                 `json:"sources_used"`
+	Calls                 int                      `json:"model_calls"`
+	ToolCalls             int                      `json:"tool_calls"`
+	InvalidCalls          int                      `json:"invalid_calls"`
+	FailedToolCalls       int                      `json:"failed_tool_calls"`
+	RepeatedQueries       int                      `json:"repeated_queries"`
+	LatencyMS             float64                  `json:"latency_ms"`
+	Usage                 TokenBudget              `json:"usage"`
+	EstimatedCostUSD      *float64                 `json:"estimated_cost_usd"`
+	Plan                  *d.PreparationPlan       `json:"plan,omitempty"`
+	Question              string                   `json:"question,omitempty"`
+	Trace                 []d.PreparationTrace     `json:"trace"`
+	BusinessState         string                   `json:"business_state"`
+	Error                 string                   `json:"error,omitempty"`
+	Answer                string                   `json:"answer,omitempty"`
+	CandidatePlan         *d.PreparationPlan       `json:"candidate_plan,omitempty"`
+	ValidationError       string                   `json:"validation_error,omitempty"`
+	ModelTurns            []PreparationEvalTurn    `json:"model_turns,omitempty"`
 }
 
 // Evaluation records returned candidates, including rejected ones. These files
@@ -105,19 +108,40 @@ func (m *preparationEvalRecorder) Next(ctx context.Context, messages []Message, 
 }
 
 func EvalPreparationCase(ctx context.Context, c PreparationEvalCase, arm string, model Model) PreparationEvalResult {
-	return evalPreparationCase(ctx, c, arm, model, nil)
+	return evalPreparationCase(ctx, c, arm, model, nil, false, 6)
 }
 
 // EvalPreparationGraphCase exercises the deployed graph over HTTP. Its tools
 // use the labelled case corpus; business writes remain a separate SQL/API test.
 func EvalPreparationGraphCase(ctx context.Context, c PreparationEvalCase, arm string, model Model, graph *PreparationGraphClient) PreparationEvalResult {
-	return evalPreparationCase(ctx, c, arm, model, graph)
+	return evalPreparationCase(ctx, c, arm, model, graph, true, 6)
 }
-func evalPreparationCase(ctx context.Context, c PreparationEvalCase, arm string, model Model, graph *PreparationGraphClient) PreparationEvalResult {
+func EvalPreparationGraphCaseWithLimit(ctx context.Context, c PreparationEvalCase, arm string, model Model, graph *PreparationGraphClient, limit int) PreparationEvalResult {
+	return evalPreparationCase(ctx, c, arm, model, graph, true, max(1, min(6, limit)))
+}
+func evalPreparationCase(ctx context.Context, c PreparationEvalCase, arm string, model Model, graph *PreparationGraphClient, quality bool, modelLimit int) PreparationEvalResult {
 	started := time.Now()
 	in := NormalizePreparationInput(c.Input)
 	v := p.AgentExecution{ID: d.ID(), State: "RUNNING", Preparation: &d.PreparationState{Input: in, Sources: append([]d.PreparationSource{}, c.Sources...), Missing: c.Missing, PreviousPlan: c.PreviousPlan, ProviderState: "READY", Usage: json.RawMessage(`{"limit":128000}`)}}
+	v.Preparation.ModelCallLimit = modelLimit
+	if quality {
+		v.Preparation.QualityVersion = PreparationQualityVersion
+	}
 	result := PreparationEvalResult{CaseID: c.ID, Arm: arm, SourcesUsed: []string{}, BusinessState: "NOT_SAVED; SQL confirmation/isolation verified separately"}
+	if in.Defense != nil {
+		if arm != "dynamic" || graph == nil {
+			result.State = "FAILED"
+			result.Error = "PROJECT_DEFENSE_REQUIRES_LANGGRAPH_DYNAMIC"
+			return result
+		}
+		var e error
+		v.Preparation.Defense, e = newDefenseState(in, nil)
+		if e != nil {
+			result.State = "FAILED"
+			result.Error = "INVALID_DEFENSE_INPUT"
+			return result
+		}
+	}
 	if c.Control == "stale" || c.Control == "unauthorized" {
 		result.State = map[string]string{"stale": "STALE", "unauthorized": "DENIED"}[c.Control]
 		result.ProgramExpectationMet = result.State == c.Expected
@@ -154,7 +178,14 @@ func evalPreparationCase(ctx context.Context, c PreparationEvalCase, arm string,
 	}
 	v.Preparation.Sources = sources
 	messages := preparationMessages(in, sources, c.Missing, c.PreviousPlan)
+	if v.Preparation.Defense != nil {
+		messages = defenseMessages(in, sources, c.Missing, v.Preparation.Defense)
+	}
+	if quality {
+		messages[0].Content += preparationQualityContext(v.Preparation)
+	}
 	v.Preparation.Messages = json.RawMessage(d.JSON(messages))
+	result.PromptSHA = d.Hash(messages[0].Content)
 	var err error
 	if arm == "dynamic" {
 		if graph != nil {
@@ -167,7 +198,7 @@ func evalPreparationCase(ctx context.Context, c PreparationEvalCase, arm string,
 	} else {
 		// Baselines get the same goal, constraints and allowed material scope. They
 		// synthesize once; the fixed arm receives its one preselected search result.
-		defs := preparationDefinitionsForState(v.Preparation)[2:]
+		defs := preparationTerminalDefinitions(preparationDefinitionsForState(v.Preparation))
 		budget := TokenBudget{Limit: 128000}
 		estimate := requestEstimate(messages, defs)
 		if estimate > 96000 || !budget.admit(estimate, 2048) {
@@ -229,11 +260,13 @@ func evalPreparationCase(ctx context.Context, c PreparationEvalCase, arm string,
 	result.Answer = v.Answer
 	result.ModelTurns = recorder.turns
 	result.Plan = v.Preparation.Plan
+	result.Defense = v.Preparation.Defense
 	result.Question = v.Preparation.Question
 	result.Calls = v.Preparation.ModelCalls
 	result.ToolCalls = tools.calls
 	result.RepeatedQueries = tools.repeated
 	result.Trace = v.Preparation.Trace
+	result.Retrievals = v.Preparation.Retrievals
 	for _, trace := range result.Trace {
 		if trace.Status == "INVALID_TOOL_CALL" {
 			result.InvalidCalls++
@@ -260,6 +293,20 @@ func evalPreparationCase(ctx context.Context, c PreparationEvalCase, arm string,
 			}
 		}
 	}
+	if result.Defense != nil && result.Defense.Review != nil {
+		used := map[string]bool{}
+		for _, id := range result.SourcesUsed {
+			used[id] = true
+		}
+		for _, finding := range result.Defense.Review.Findings {
+			for _, ref := range finding.References {
+				if !used[ref.SourceID] {
+					used[ref.SourceID] = true
+					result.SourcesUsed = append(result.SourcesUsed, ref.SourceID)
+				}
+			}
+		}
+	}
 	initial := map[string]bool{}
 	for _, source := range c.Sources {
 		initial[source.ID] = true
@@ -277,6 +324,10 @@ func evalPreparationCase(ctx context.Context, c PreparationEvalCase, arm string,
 				result.RetrievalCitedSources++
 			}
 		}
+	}
+	if v.Preparation.Defense != nil {
+		result.ToolCalls = v.Preparation.ToolCalls
+		result.PlanValid = v.Preparation.Defense.Review != nil && validateDefenseReview(v.Preparation, *v.Preparation.Defense.Review) == nil
 	}
 	result.ProgramExpectationMet = result.State == c.Expected && (c.Expected != "COMPLETED" || result.PlanValid)
 	if result.ProgramExpectationMet && c.Expected == "PAUSED" {
@@ -376,6 +427,24 @@ func (m *ControlledPreparationModel) Next(ctx context.Context, messages []Messag
 	emit := func(name string, args any) (Reply, error) {
 		return Reply{Calls: []Call{{ID: fmt.Sprintf("controlled-%d", m.Calls), Name: name, Args: json.RawMessage(d.JSON(args))}}}, nil
 	}
+	if data.Goal.Defense != nil {
+		return controlledDefenseReply(messages, m.Control, emit)
+	}
+	quality := false
+	for _, def := range defs {
+		if def.Name == "finish_preparation_plan" {
+			props := def.Parameters["properties"].(map[string]any)["items"].(map[string]any)["items"].(map[string]any)["properties"].(map[string]any)
+			quality = props["workload"] != nil
+		}
+	}
+	searchArgs := func(query string) map[string]string {
+		out := map[string]string{"query": query}
+		if quality {
+			out["gap"] = "缺少可核对的学习例子"
+			out["expected_use"] = "支持下一项口述准备"
+		}
+		return out
+	}
 	has := func(name string) bool {
 		for _, def := range defs {
 			if def.Name == name {
@@ -404,10 +473,10 @@ func (m *ControlledPreparationModel) Next(ctx context.Context, messages []Messag
 		if m.Control == "rewrite" {
 			query = "unmatched-initial-query"
 		}
-		return emit("search_preparation_knowledge", map[string]string{"query": query})
+		return emit("search_preparation_knowledge", searchArgs(query))
 	}
 	if m.Control == "rewrite" && has("search_preparation_knowledge") && m.Calls == 2 {
-		return emit("search_preparation_knowledge", map[string]string{"query": "MySQL 索引"})
+		return emit("search_preparation_knowledge", searchArgs("MySQL 索引"))
 	}
 	plan := d.PreparationPlan{Summary: "在时间约束内准备实际实现和口头演练", Items: []d.PreparationItem{}}
 	if data.Previous != nil {
@@ -430,8 +499,26 @@ func (m *ControlledPreparationModel) Next(ctx context.Context, messages []Messag
 			plan.Items = append(plan.Items, d.PreparationItem{ID: "review", Title: "复盘失分项", Basis: "HISTORY", Day: 1, Action: "针对原问题练习并核对答案", Deliverable: "复盘改进清单", References: []d.PreparationReference{{SourceID: history.ID, Quote: prefixUTF8(history.Text, 200)}}})
 		}
 	}
+	if quality {
+		for _, def := range defs {
+			if def.Name == "finish_preparation_plan" {
+				limit := def.Parameters["properties"].(map[string]any)["items"].(map[string]any)["maxItems"].(int)
+				if len(plan.Items) > limit {
+					plan.Items = plan.Items[:limit]
+				}
+			}
+		}
+	}
 	for i := range plan.Items {
 		plan.Items[i].Minutes = data.Goal.Minutes / max(1, len(plan.Items))
+		if quality {
+			plan.Items[i].Workload = &d.PreparationWorkload{Mode: "ORAL", Units: 1, Scope: "1个问题：已有主题的口述与核对提纲"}
+			plan.Items[i].Action = "围绕一个已有主题口述实现与边界，不新增代码"
+			plan.Items[i].Deliverable = "一份口述提纲与自查点"
+			for j := range plan.Items[i].References {
+				plan.Items[i].References[j].Supports = "原文要求该主题，支持本次口述重点选择"
+			}
+		}
 	}
 	return emit("finish_preparation_plan", plan)
 }

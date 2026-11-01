@@ -1,0 +1,9 @@
+{
+  "private_file_mode": "0600",
+  "git_ignored": true,
+  "compose_api_configured": true,
+  "python_has_model_key": false,
+  "requested_model": "deepseek-flash",
+  "model_url": "https://api.deepseek.com/chat/completions",
+  "no_model_request_in_config_check": true
+}

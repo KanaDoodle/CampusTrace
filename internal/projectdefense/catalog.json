@@ -1,0 +1,149 @@
+{
+  "base_commit": "61aaa5699b2ad4e487b31c9fc204438323ad1c57",
+  "snapshot_kind": "reviewed-working-tree-excerpts; file hashes identify exact input; not historical application material",
+  "topics": [
+    {
+      "id": "go-langgraph",
+      "title": "Go 与 LangGraph 怎样配合准备面试",
+      "question": "从核对申请材料到确认保存计划，Go 和 LangGraph 分别做什么？真正的模型请求由谁发出？",
+      "points": [
+        {
+          "id": "business",
+          "text": "Go核对材料与账号、执行受控操作，并校验业务保存",
+          "evidence_ids": [
+            "plan-save",
+            "go-bridge"
+          ]
+        },
+        {
+          "id": "routing",
+          "text": "LangGraph根据操作结果衔接模型、工具、等待与结束",
+          "evidence_ids": [
+            "graph-routing"
+          ]
+        },
+        {
+          "id": "model",
+          "text": "模型请求由Go发送；模型选择动作，框架本身不生成答案",
+          "evidence_ids": [
+            "model-dispatch",
+            "go-bridge"
+          ]
+        }
+      ],
+      "evidence": [
+        {
+          "id": "graph-routing",
+          "path": "services/preparation/graph.py",
+          "start_line": 36,
+          "end_line": 89,
+          "kind": "CODE",
+          "text": "    async def hydrate(state, runtime: Runtime[Bridge]):\n        return await operation(state, runtime, 'sync', 'materials')\n\n    async def model(state, runtime: Runtime[Bridge]):\n        return await operation(state, runtime, 'model', 'model')\n\n    async def retrieve(state, runtime: Runtime[Bridge]):\n        return await operation(state, runtime, 'tool', 'retrieve')\n\n    async def validate(state, runtime: Runtime[Bridge]):\n        return await operation(state, runtime, 'tool', 'validate')\n\n    async def review_answer(state, runtime: Runtime[Bridge]):\n        return await operation(state, runtime, 'tool', 'review_answer')\n\n    async def question(state, runtime: Runtime[Bridge]):\n        return await operation(state, runtime, 'tool', 'question')\n\n    def wait_input(state):\n        # This node is deliberately side-effect-free before interrupt: resume\n        # re-enters it. A reviewed child revision continues with fresh Go scope.\n        value = interrupt({'kind': 'clarification', 'question': state['view']['preparation']['question']})\n        return {'continuation': value['execution_id'], 'last_node': 'continued'}\n\n    def wait_recovery(state):\n        value = interrupt({'kind': 'recovery', 'provider_state': state['view']['preparation']['provider_state']})\n        return {'view': value['view'], 'last_node': 'resumed'}\n\n    def feedback(state):\n        # Inputs are already re-reviewed by Go. This node records the parent\n        # revision explicitly rather than treating feedback as new source facts.\n        return {'last_node': 'feedback'}\n\n    def route(state):\n        view = state['view']\n        prep = view['preparation']\n        if prep.get('question'):\n            return 'wait_input'\n        if view['phase'] == 'PAUSED':\n            return 'wait_recovery'\n        if view['phase'] != 'RUNNING':\n            return END\n        pending = view.get('pending')\n        if pending == 'ask_preparation_question':\n            return 'question'\n        if pending == 'finish_preparation_plan':\n            return 'validate'\n        if pending == 'finish_project_defense_review':\n            return 'review_answer'\n        if pending:\n            return 'retrieve'\n        return 'model'\n\n",
+          "sha256": "05713713a302a416e79022778083ca042241d8269ab8a10f81eba2fa63f4f839",
+          "file_sha256": "fb9b14adfce052c50b8a507e2614b6af0e23d5ae6db7996e3c61a63b377777bf"
+        },
+        {
+          "id": "go-bridge",
+          "path": "internal/agent/preparation_graph.go",
+          "start_line": 169,
+          "end_line": 246,
+          "kind": "CODE",
+          "text": "func (g *PreparationGraphClient) InternalStep(w http.ResponseWriter, r *http.Request) {\n\tw.Header().Set(\"Content-Type\", \"application/json\")\n\tw.Header().Set(\"Cache-Control\", \"no-store\")\n\tcapability := strings.TrimPrefix(r.Header.Get(\"Authorization\"), \"Bearer \")\n\tg.mu.Lock()\n\ts := g.sessions[capability]\n\tg.mu.Unlock()\n\tif s == nil {\n\t\thttp.Error(w, \"invalid execution capability\", 401)\n\t\treturn\n\t}\n\tvar in struct {\n\t\tAction   string `json:\"action\"`\n\t\tSequence int    `json:\"sequence\"`\n\t}\n\tdec := json.NewDecoder(io.LimitReader(r.Body, 1025))\n\tdec.DisallowUnknownFields()\n\tif dec.Decode(&in) != nil || in.Sequence < 0 || (in.Action != \"sync\" && in.Action != \"model\" && in.Action != \"tool\") {\n\t\thttp.Error(w, \"invalid operation\", 400)\n\t\treturn\n\t}\n\ts.mu.Lock()\n\tdefer s.mu.Unlock()\n\tif s.closed || s.ctx.Err() != nil {\n\t\thttp.Error(w, \"execution stopped\", 409)\n\t\treturn\n\t}\n\t// Replayed nodes receive the durable receipt, not another provider call/read.\n\tif in.Action == \"sync\" || in.Sequence < s.v.Preparation.GraphSequence {\n\t\tjson.NewEncoder(w).Encode(preparationGraphSnapshot(s.v))\n\t\treturn\n\t}\n\tif in.Sequence != s.v.Preparation.GraphSequence || s.v.State != \"RUNNING\" {\n\t\thttp.Error(w, \"stale graph cursor\", 409)\n\t\treturn\n\t}\n\tif s.v.Preparation.ProviderState != \"READY\" {\n\t\thttp.Error(w, \"model outcome unknown\", 409)\n\t\treturn\n\t}\n\tctx, cancel := context.WithCancel(s.ctx)\n\tdefer cancel()\n\tstop := context.AfterFunc(r.Context(), cancel)\n\tdefer stop()\n\t// Fence every operation before dispatch, including reads and model admission.\n\tif err := s.checkpoint(); err != nil {\n\t\thttp.Error(w, \"stale execution\", 409)\n\t\treturn\n\t}\n\tvar checkpointErr error\n\tpersist := func() error {\n\t\terr := s.checkpoint()\n\t\tif err != nil {\n\t\t\tcheckpointErr = err\n\t\t}\n\t\treturn err\n\t}\n\terr := runPreparationStep(ctx, s.user, s.v, s.model, s.tools, persist, in.Action)\n\tif checkpointErr != nil {\n\t\thttp.Error(w, \"checkpoint not durable\", 409)\n\t\treturn\n\t}\n\tif err != nil && s.v.State == \"RUNNING\" {\n\t\ts.v.State = \"PAUSED\"\n\t\ts.v.Answer = \"执行中断，已完成步骤已保存。\"\n\t\tif s.v.Preparation.ProviderState == \"DISPATCHED\" {\n\t\t\ts.v.Preparation.ProviderState = \"UNKNOWN\"\n\t\t}\n\t\tif !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {\n\t\t\ts.v.Answer = \"本轮未完成，请检查执行过程后继续。\"\n\t\t}\n\t\t// A failed SQL fence must never be turned into a successful graph response.\n\t\tif saveErr := s.checkpoint(); saveErr != nil {\n\t\t\thttp.Error(w, \"execution fenced\", 409)\n\t\t\treturn\n\t\t}\n\t}\n\tjson.NewEncoder(w).Encode(preparationGraphSnapshot(s.v))",
+          "sha256": "50bc6642b756f350cfecbf4cb078bdcc21d816ae7155300dd454179f3f3e3896",
+          "file_sha256": "8676d51a5aa8ee899f8d9b007e442c82849952a9a3841019df136c2bb900d559"
+        },
+        {
+          "id": "plan-save",
+          "path": "internal/persistence/preparation_agent.go",
+          "start_line": 60,
+          "end_line": 97,
+          "kind": "CODE",
+          "text": "func savePreparationTx(ctx context.Context, tx *sql.Tx, user string, a SavePreparationArgs) (json.RawMessage, error) {\n\tv, err := One[AgentExecution](ctx, tx, \"SELECT body FROM agent_executions WHERE id=? AND user_id=? FOR UPDATE\", a.ExecutionID, user)\n\tif err != nil {\n\t\treturn nil, err\n\t}\n\tstate := v.Preparation\n\tif state != nil && state.Defense != nil && (a.EvidenceVersion != state.Defense.Version || state.Defense.Version != projectdefense.Version()) {\n\t\treturn nil, ErrStaleInput\n\t}\n\tif v.State != \"COMPLETED\" || state == nil || state.Plan == nil || state.Revision != a.Revision || d.Hash(d.JSON(state.Plan)) != a.PlanHash {\n\t\treturn nil, ErrConflict\n\t}\n\tapp, err := One[d.Application](ctx, tx, \"SELECT body FROM applications WHERE id=? AND user_id=? FOR UPDATE\", state.Input.ApplicationID, user)\n\tif err != nil {\n\t\treturn nil, err\n\t}\n\tif app.Version != a.ApplicationVersion {\n\t\treturn nil, ErrConflict\n\t}\n\tidentity, _, err := preparationAgentIdentityQuery(ctx, tx, user, state.Input.ApplicationID, state.Input.OtherReviews)\n\tif err != nil {\n\t\treturn nil, err\n\t}\n\tif identity != v.SourceIdentity {\n\t\treturn nil, ErrStaleInput\n\t}\n\n\tif state.SavedAt == nil {\n\t\tnow := time.Now().UTC()\n\t\tstate.SavedAt = &now\n\t\t_, err = tx.ExecContext(ctx, \"UPDATE agent_executions SET body=? WHERE id=? AND user_id=? AND state='COMPLETED'\", d.JSON(v), v.ID, user)\n\t\tif err != nil {\n\t\t\treturn nil, err\n\t\t}\n\t}\n\treturn json.RawMessage(d.JSON(map[string]any{\"execution_id\": v.ID, \"application_id\": app.ID, \"revision\": state.Revision, \"saved_at\": state.SavedAt, \"plan\": state.Plan})), nil\n}\n",
+          "sha256": "28f9b02d0a52a17f3283235b9cd6ea4ee1210b0cade038150c4ae5bcec4f5a5b",
+          "file_sha256": "db81bf2915e7849ea1e0c84023bb5fb127c73083a72cd078f8227592ba15b8fb"
+        },
+        {
+          "id": "model-dispatch",
+          "path": "internal/agent/preparation_agent_loop.go",
+          "start_line": 370,
+          "end_line": 395,
+          "kind": "CODE",
+          "text": "\t\tstate.ModelCalls++\n\t\treserved := estimate + 2048\n\t\tbudget.Charged += reserved\n\t\tbudget.UnreportedCalls++\n\t\tstate.ProviderState = \"DISPATCHED\"\n\t\tcallID := fmt.Sprintf(\"model-%d\", state.ModelCalls)\n\t\ttrace(\"model\", \"\", \"DISPATCHED\", callID, \"\", 0)\n\t\tif err := intent(); err != nil {\n\t\t\treturn err\n\t\t}\n\t\tstarted := time.Now()\n\t\treply, err := capModel(model, 2048).Next(ctx, messages, defs)\n\t\tbudget.Charged -= reserved\n\t\tbudget.UnreportedCalls--\n\t\tbudget.charge(reply.Usage, estimate, 2048)\n\t\tif err != nil {\n\t\t\tstate.ProviderState = \"UNKNOWN\"\n\t\t\tv.State = \"PAUSED\"\n\t\t\tv.Answer = \"模型请求结果未知。已完成的读取保留；核对后可明确授权一次新尝试。\"\n\t\t\ttrace(\"model\", \"\", \"UNKNOWN\", callID, \"未自动重试\", time.Since(started).Milliseconds())\n\t\t\tif e := save(); e != nil {\n\t\t\t\treturn e\n\t\t\t}\n\t\t\treturn err\n\t\t}\n",
+          "sha256": "f071ab2b9731db9e8ccc9890a2a248e180f3384289ca89ead66f48ee6513d7ef",
+          "file_sha256": "f32b8ed37d727e31767278ee01f770cb256d47fcd1fb24515f4d5af13eeb62fb"
+        }
+      ]
+    },
+    {
+      "id": "unknown-recovery",
+      "title": "模型结果未知时，为什么不能直接重试",
+      "question": "模型请求已发出，但服务中断后没有保存响应。为什么不自动重试？已完成读取和用户授权的新尝试怎样处理？",
+      "points": [
+        {
+          "id": "unknown",
+          "text": "没有保存响应不能证明请求未执行；保留UNKNOWN，避免自动重复付费调用",
+          "evidence_ids": [
+            "model-dispatch"
+          ]
+        },
+        {
+          "id": "reuse",
+          "text": "已完成步骤复用回执，未完成步骤与未知请求分别处理",
+          "evidence_ids": [
+            "step-receipt",
+            "recovery-test"
+          ]
+        },
+        {
+          "id": "consent",
+          "text": "新的未知请求尝试需要用户明确授权，并继续受权限和版本约束",
+          "evidence_ids": [
+            "unknown-ack"
+          ]
+        }
+      ],
+      "evidence": [
+        {
+          "id": "model-dispatch",
+          "path": "internal/agent/preparation_agent_loop.go",
+          "start_line": 370,
+          "end_line": 395,
+          "kind": "CODE",
+          "text": "\t\tstate.ModelCalls++\n\t\treserved := estimate + 2048\n\t\tbudget.Charged += reserved\n\t\tbudget.UnreportedCalls++\n\t\tstate.ProviderState = \"DISPATCHED\"\n\t\tcallID := fmt.Sprintf(\"model-%d\", state.ModelCalls)\n\t\ttrace(\"model\", \"\", \"DISPATCHED\", callID, \"\", 0)\n\t\tif err := intent(); err != nil {\n\t\t\treturn err\n\t\t}\n\t\tstarted := time.Now()\n\t\treply, err := capModel(model, 2048).Next(ctx, messages, defs)\n\t\tbudget.Charged -= reserved\n\t\tbudget.UnreportedCalls--\n\t\tbudget.charge(reply.Usage, estimate, 2048)\n\t\tif err != nil {\n\t\t\tstate.ProviderState = \"UNKNOWN\"\n\t\t\tv.State = \"PAUSED\"\n\t\t\tv.Answer = \"模型请求结果未知。已完成的读取保留；核对后可明确授权一次新尝试。\"\n\t\t\ttrace(\"model\", \"\", \"UNKNOWN\", callID, \"未自动重试\", time.Since(started).Milliseconds())\n\t\t\tif e := save(); e != nil {\n\t\t\t\treturn e\n\t\t\t}\n\t\t\treturn err\n\t\t}\n",
+          "sha256": "f071ab2b9731db9e8ccc9890a2a248e180f3384289ca89ead66f48ee6513d7ef",
+          "file_sha256": "f32b8ed37d727e31767278ee01f770cb256d47fcd1fb24515f4d5af13eeb62fb"
+        },
+        {
+          "id": "step-receipt",
+          "path": "internal/agent/preparation_graph.go",
+          "start_line": 196,
+          "end_line": 209,
+          "kind": "CODE",
+          "text": "\t// Replayed nodes receive the durable receipt, not another provider call/read.\n\tif in.Action == \"sync\" || in.Sequence < s.v.Preparation.GraphSequence {\n\t\tjson.NewEncoder(w).Encode(preparationGraphSnapshot(s.v))\n\t\treturn\n\t}\n\tif in.Sequence != s.v.Preparation.GraphSequence || s.v.State != \"RUNNING\" {\n\t\thttp.Error(w, \"stale graph cursor\", 409)\n\t\treturn\n\t}\n\tif s.v.Preparation.ProviderState != \"READY\" {\n\t\thttp.Error(w, \"model outcome unknown\", 409)\n\t\treturn\n\t}\n",
+          "sha256": "d9af980db7c1e6362884cff2de3eade912554a396b2feb1c10256d1f1588869d",
+          "file_sha256": "8676d51a5aa8ee899f8d9b007e442c82849952a9a3841019df136c2bb900d559"
+        },
+        {
+          "id": "unknown-ack",
+          "path": "internal/persistence/agent_execution.go",
+          "start_line": 248,
+          "end_line": 264,
+          "kind": "CODE",
+          "text": "\t\tif claim != nil && !claim.RetryUnknown && ((v.Narration != nil && (v.Narration.ProviderState == \"DISPATCHED\" || v.Narration.ProviderState == \"UNKNOWN\")) || (v.Preparation != nil && (v.Preparation.ProviderState == \"DISPATCHED\" || v.Preparation.ProviderState == \"UNKNOWN\"))) {\n\t\t\treturn ErrConflict\n\t\t}\n\t\tvar running int\n\t\tif e := tx.QueryRowContext(ctx, \"SELECT COUNT(*) FROM agent_executions WHERE user_id=? AND id<>? AND state='RUNNING' AND lease_until>UTC_TIMESTAMP(6)\", user, id).Scan(&running); e != nil {\n\t\t\treturn e\n\t\t}\n\t\tif running >= 2 {\n\t\t\treturn ErrConflict\n\t\t}\n\t\tif v.Resumes >= MaxAgentExecutionAttempts {\n\t\t\tv.State = \"FAILED\"\n\t\t\tv.Answer = \"已达到本次任务的尝试上限，请核对原因后发起新任务。\"\n\t\t\ttoken = \"\"\n\t\t\t_, e := tx.ExecContext(ctx, \"UPDATE agent_executions SET state='FAILED',lease_token='',lease_until=NULL,body=? WHERE id=? AND user_id=?\", d.JSON(v), id, user)\n\t\t\treturn e\n\t\t}",
+          "sha256": "fc4b83c1ddfd0cc87f6cbbf9532c6827991a70b26e55513274da00e9aa48d2f6",
+          "file_sha256": "c9f174630887d8f9683c6a9a9f75419224b51f18e430b8cec221ddbc462bf3c0"
+        },
+        {
+          "id": "recovery-test",
+          "path": "internal/agent/preparation_agent_test.go",
+          "start_line": 122,
+          "end_line": 155,
+          "kind": "TEST",
+          "text": "func TestPreparationUnknownModelAndDurablePendingTools(t *testing.T) {\n\tt.Run(\"unknown_model_no_internal_retry\", func(t *testing.T) {\n\t\tv := p.AgentExecution{State: \"RUNNING\", Preparation: prepTestState()}\n\t\tcalls := 0\n\t\terr := RunPreparationLoop(context.Background(), \"owner\", &v, prepModelFunc(func(context.Context, []Message, []Definition) (Reply, error) {\n\t\t\tcalls++\n\t\t\treturn Reply{}, errors.New(\"provider disconnected\")\n\t\t}), nil, func() error { return nil })\n\t\tif err == nil || calls != 1 || v.State != \"PAUSED\" || v.Preparation.ProviderState != \"UNKNOWN\" {\n\t\t\tt.Fatal(v, err, calls)\n\t\t}\n\t})\n\tt.Run(\"resume_completed_reads_without_replay\", func(t *testing.T) {\n\t\tstate := prepTestState()\n\t\tv := p.AgentExecution{State: \"RUNNING\", Preparation: state, Next: 1, Calls: []p.ExecutionCall{{ID: \"done\", Name: \"search_preparation_knowledge\", Args: json.RawMessage(`{\"query\":\"already-read\"}`)}, {ID: \"pending\", Name: \"search_preparation_knowledge\", Args: json.RawMessage(`{\"query\":\"Go\"}`)}}}\n\t\ttools := 0\n\t\ttoolset := prepToolsFunc(func(ctx context.Context, user, name string, args json.RawMessage) (any, error) {\n\t\t\tif strings.Contains(string(args), \"already-read\") {\n\t\t\t\tt.Fatal(\"completed read repeated\")\n\t\t\t}\n\t\t\ttools++\n\t\t\treturn []d.PreparationSource{}, nil\n\t\t})\n\t\tmodel := prepModelFunc(func(context.Context, []Message, []Definition) (Reply, error) {\n\t\t\treturn Reply{Calls: []Call{{ID: \"finish\", Name: \"finish_preparation_plan\", Args: json.RawMessage(d.JSON(prepTestPlan(state)))}}}, nil\n\t\t})\n\t\tif err := RunPreparationLoop(context.Background(), \"owner\", &v, model, toolset, func() error { return nil }); err != nil {\n\t\t\tt.Fatal(err)\n\t\t}\n\t\tif tools != 1 || v.State != \"COMPLETED\" {\n\t\t\tt.Fatal(v, tools)\n\t\t}\n\t})\n}",
+          "sha256": "5ffb71bc06d41488ba4837267ac5201c5dcb6d5b382d6d27d14c0022b511b9f2",
+          "file_sha256": "a034bf0396fbde84b65e7ce243e332e797b7bbd15c7b526b0b72bae88076557f"
+        }
+      ]
+    }
+  ]
+}

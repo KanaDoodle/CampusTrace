@@ -92,3 +92,8 @@ __pycache__/
 *.sqlite-wal
 *.sqlite-shm
 !/docs/verification/release-20261101/
+!/docs/verification/preparation-quality-20261101/
+!/docs/preparation-quality.md
+!/docs/preparation-first-run.md
+!/docs/project-defense.md
+!/docs/verification/project-defense-20261101/

@@ -10,10 +10,11 @@ import (
 
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
 	p "github.com/KanaDoodle/CampusTrace/internal/persistence"
+	"github.com/KanaDoodle/CampusTrace/internal/projectdefense"
 	"github.com/KanaDoodle/CampusTrace/internal/resume"
 )
 
-const PreparationAgentVersion = "application-preparation-agent-v5"
+const PreparationAgentVersion = "application-preparation-agent-v7"
 const preparationItemIDPattern = `^[A-Za-z0-9_-]{1,40}$`
 
 var preparationItemID = regexp.MustCompile(preparationItemIDPattern)
@@ -31,7 +32,12 @@ func preparationMessages(input d.PreparationInput, sources []d.PreparationSource
 }
 
 func ValidatePreparationInput(in d.PreparationInput) error {
-	if !regexp.MustCompile(`^[a-f0-9]{32}$`).MatchString(in.ApplicationID) || len(strings.TrimSpace(in.Goal)) == 0 || len(in.Goal) > 2000 || len(in.Feedback) > 2000 || in.Minutes < 0 || in.Minutes > 1440 || in.Days < 0 || in.Days > 30 || len(in.Mastered)+len(in.Completed) > 24 {
+	if in.Defense != nil {
+		if _, ok := projectdefense.Find(in.Defense.Topic); !ok || strings.TrimSpace(in.Defense.Answer) == "" || len(in.Defense.Answer) > 6000 || in.Minutes < 5 || in.Days < 1 || len(in.Mastered)+len(in.Completed) > 0 {
+			return p.ErrValidation
+		}
+	}
+	if (in.RetrievalMode != "" && in.RetrievalMode != "auto" && in.RetrievalMode != "off") || !regexp.MustCompile(`^[a-f0-9]{32}$`).MatchString(in.ApplicationID) || len(strings.TrimSpace(in.Goal)) == 0 || len(in.Goal) > 2000 || len(in.Feedback) > 2000 || in.Minutes < 0 || in.Minutes > 1440 || in.Days < 0 || in.Days > 30 || len(in.Mastered)+len(in.Completed) > 24 {
 		return p.ErrValidation
 	}
 	if in.ParentID != "" && !regexp.MustCompile(`^[a-f0-9]{32}$`).MatchString(in.ParentID) {
@@ -48,6 +54,9 @@ func ValidatePreparationPlan(state *d.PreparationState, plan d.PreparationPlan) 
 	}
 	if (len(plan.Items) == 0 && state.PreviousPlan == nil) || len(plan.Items) > 12 || strings.TrimSpace(plan.Summary) == "" || len(plan.Summary) > 2000 || resume.HasSensitive(plan.Summary) {
 		return p.ErrValidation
+	}
+	if state.QualityVersion != "" && (len(plan.Items) > 4 || (state.Input.Minutes <= 15 && len(plan.Items) > 2)) {
+		return fmt.Errorf("%w: WORKLOAD plans permit at most four items, and short tasks at most two", p.ErrValidation)
 	}
 	sources := map[string]d.PreparationSource{}
 	for _, s := range state.Sources {
@@ -66,6 +75,9 @@ func ValidatePreparationPlan(state *d.PreparationState, plan d.PreparationPlan) 
 	total := 0
 	seen := map[string]bool{}
 	for index, item := range plan.Items {
+		if err := validatePreparationQuality(state, item, index); err != nil {
+			return err
+		}
 		if !preparationItemID.MatchString(item.ID) {
 			return fmt.Errorf("%w: item %d id must use 1..40 ASCII letters, digits, underscores or hyphens; Chinese display text belongs in title", p.ErrValidation, index)
 		}
@@ -175,6 +187,24 @@ func runPreparationStep(ctx context.Context, user string, v *p.AgentExecution, m
 				return save()
 			}
 			state.ToolCalls++
+			if state.Defense != nil {
+				value, _, err := defenseTool(state, call)
+				if err != nil {
+					appendFailure(call, "INVALID_DEFENSE: "+err.Error())
+				} else {
+					messages = append(messages, Message{Role: "tool", ToolCallID: call.ID, Content: d.JSON(value)})
+					if call.Name == "read_project_defense_evidence" {
+						v.Observations = append(v.Observations, p.ExecutionObservation{Tool: call.Name, Data: json.RawMessage(d.JSON(value))})
+					}
+					trace("tool", call.Name, "SUCCESS", call.ID, "模拟练习；材料绑定校验通过，语义反馈由模型生成", 0)
+					if call.Name == "finish_project_defense_review" {
+						v.State = "COMPLETED"
+						v.Answer = state.Defense.Review.Summary
+					}
+				}
+				v.Next++
+				return save()
+			}
 			if call.Name == "finish_preparation_plan" {
 				var plan d.PreparationPlan
 				validation := d.StrictLimit(call.Args, &plan, 32768)
@@ -189,6 +219,7 @@ func runPreparationStep(ctx context.Context, user string, v *p.AgentExecution, m
 					}
 					return nil
 				}
+				preparationRecordUse(state, plan)
 				state.Plan = &plan
 				state.Question = ""
 				v.Next++
@@ -225,7 +256,7 @@ func runPreparationStep(ctx context.Context, user string, v *p.AgentExecution, m
 				}
 				return nil
 			}
-			if state.SearchCalls >= 3 {
+			if state.SearchCalls >= preparationSearchLimit(state) || preparationNoNewEvidence(state) {
 				appendFailure(call, "SEARCH_LIMIT: use existing evidence or ask the user")
 				v.Next++
 				if err := save(); err != nil {
@@ -233,24 +264,51 @@ func runPreparationStep(ctx context.Context, user string, v *p.AgentExecution, m
 				}
 				return nil
 			}
+			readArgs, audit, validation := preparationSearchArgs(state, call.Args)
+			if validation != nil {
+				appendFailure(call, validation.Error())
+				v.Next++
+				return save()
+			}
+			auditIndex := -1
+			if state.QualityVersion != "" {
+				audit.CallID = call.ID
+				audit.Step = v.Next
+				for i, prior := range state.Retrievals {
+					if prior.Step == v.Next {
+						auditIndex = i
+						break
+					}
+				}
+				if auditIndex < 0 {
+					state.Retrievals = append(state.Retrievals, audit)
+					auditIndex = len(state.Retrievals) - 1
+				}
+			}
 			state.SearchCalls++
 			if err := intent(); err != nil {
 				return err
 			} // read starts only after intent is durable
 			start := time.Now()
 			toolCtx, cancel := context.WithTimeout(ctx, 8*time.Second)
-			value, err := tools.Execute(toolCtx, user, call.Name, call.Args)
+			value, err := tools.Execute(toolCtx, user, call.Name, readArgs)
 			if err == nil {
 				err = toolCtx.Err()
 			}
 			cancel()
 			if err != nil {
 				failure := ClassifyToolFailure(err)
+				if auditIndex >= 0 {
+					state.Retrievals[auditIndex].Outcome = "ERROR"
+				}
 				appendFailure(call, failure.Code)
 			} else {
 				raw, err := json.Marshal(value)
 				var sources []d.PreparationSource
 				if err != nil || len(raw) > 32768 || json.Unmarshal(raw, &sources) != nil {
+					if auditIndex >= 0 {
+						state.Retrievals[auditIndex].Outcome = "ERROR"
+					}
 					appendFailure(call, "OUTPUT_LIMIT_OR_INVALID_SOURCES")
 				} else {
 					known := map[string]bool{}
@@ -266,6 +324,9 @@ func runPreparationStep(ctx context.Context, user string, v *p.AgentExecution, m
 						}
 						if !known[s.ID] && (s.Kind == "KNOWLEDGE" || s.Kind == "HISTORY") && s.ID == preparationSource(s.Kind, s.Title, s.Text, s.RecordID, s.ApplicationID).ID {
 							state.Sources = append(state.Sources, s)
+							if auditIndex >= 0 {
+								state.Retrievals[auditIndex].NewSourceIDs = append(state.Retrievals[auditIndex].NewSourceIDs, s.ID)
+							}
 							newSources = append(newSources, s)
 							known[s.ID] = true
 						}
@@ -279,6 +340,9 @@ func runPreparationStep(ctx context.Context, user string, v *p.AgentExecution, m
 					if len(sources) == 0 {
 						status = "EMPTY"
 					}
+					if auditIndex >= 0 {
+						state.Retrievals[auditIndex].Outcome = status
+					}
 					trace("tool", call.Name, status, call.ID, "", time.Since(start).Milliseconds())
 				}
 			}
@@ -291,7 +355,7 @@ func runPreparationStep(ctx context.Context, user string, v *p.AgentExecution, m
 		if action != "model" || v.Next < len(v.Calls) {
 			return p.ErrConflict
 		}
-		if state.ModelCalls >= 6 {
+		if state.ModelCalls >= preparationModelLimit(state) {
 			v.State = "FAILED"
 			v.Answer = "已达到模型调用预算，已取得的资料与轨迹可查看。"
 			return save()
@@ -331,7 +395,11 @@ func runPreparationStep(ctx context.Context, user string, v *p.AgentExecution, m
 		state.ProviderState = "READY"
 		trace("model", "", "RETURNED", callID, "", time.Since(started).Milliseconds())
 		if len(reply.Calls) == 0 {
-			messages = append(messages, Message{Role: "assistant", Content: prefixUTF8(resume.Redact(reply.Text), 4096)}, Message{Role: "user", Content: "程序要求：请调用 finish_preparation_plan 形成可校验计划，或 ask_preparation_question 询问关键缺失信息。"})
+			instruction := "程序要求：请调用 finish_preparation_plan 形成可校验计划，或 ask_preparation_question 询问关键缺失信息。"
+			if state.Defense != nil {
+				instruction = "程序要求：请调用 finish_project_defense_review 提交结构化反馈；缺少依据时按索引读取当前主题证据。"
+			}
+			messages = append(messages, Message{Role: "assistant", Content: prefixUTF8(resume.Redact(reply.Text), 4096)}, Message{Role: "user", Content: instruction})
 			if err := save(); err != nil {
 				return err
 			}
@@ -378,7 +446,7 @@ func runPreparationStep(ctx context.Context, user string, v *p.AgentExecution, m
 		}
 		terminalBatch := false
 		for _, c := range clean {
-			terminalBatch = terminalBatch || c.Name == "finish_preparation_plan" || c.Name == "ask_preparation_question"
+			terminalBatch = terminalBatch || c.Name == "finish_preparation_plan" || c.Name == "ask_preparation_question" || c.Name == "finish_project_defense_review"
 		}
 		if len(clean) > 1 && terminalBatch {
 			messages = append(messages, Message{Role: "assistant", Calls: clean})

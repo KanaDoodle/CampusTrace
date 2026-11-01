@@ -1,0 +1,68 @@
+{
+  "status": "PASS",
+  "evidence": "controlled-model-real-Go-Python-SQL",
+  "external_model_calls": 0,
+  "checks": [
+    "defense_catalog_and_preview_zero_calls",
+    "frozen_and_current_evidence_separate",
+    "defense_owner_isolation",
+    "unfamiliar_answer_reads_evidence_then_short_plan",
+    "defense_start_idempotency",
+    "defense_plan_confirmed_sql_receipt_and_replay",
+    "reanswer_reuses_prior_question_and_evidence",
+    "finish_never_declares_mastery_or_saves_empty_plan",
+    "five_minute_replan_without_repeated_read",
+    "defense-invalid-quote_feedback_and_repair",
+    "defense-bad-read_feedback_and_repair",
+    "injected_evidence_version_rejects_pending_save",
+    "no_changes_to_real_reviews_project_facts_or_memories"
+  ],
+  "semantic_quality": "NOT_MEASURED",
+  "receipt": {
+    "plan": {
+      "items": [
+        {
+          "id": "read-one",
+          "day": 1,
+          "basis": "GENERAL",
+          "title": "读一个执行片段",
+          "action": "展开这条依据，阅读对应函数，记下该函数做的一个动作。",
+          "minutes": 10,
+          "workload": {
+            "mode": "READ",
+            "scope": "1个片段：对应执行函数",
+            "units": 1
+          },
+          "references": [
+            {
+              "quote": "func savePreparationTx(ctx context.Context, tx *sql.Tx, user",
+              "supports": "用于找到实际阅读入口",
+              "source_id": "s_0eb7ea4a39589424d22d42a9"
+            }
+          ],
+          "deliverable": "一句话说明这个动作发生在哪里"
+        },
+        {
+          "id": "retell-one",
+          "day": 1,
+          "basis": "GENERAL",
+          "title": "复述一个要点",
+          "action": "用自己的话解释刚才片段中的一个动作，并标出仍不清楚的地方。",
+          "minutes": 5,
+          "workload": {
+            "mode": "ORAL",
+            "scope": "1个问题：刚才片段中的动作",
+            "units": 1
+          },
+          "references": [],
+          "deliverable": "一段自己的说明或一个具体疑问"
+        }
+      ],
+      "summary": "按当前缺口安排阅读和复述。"
+    },
+    "revision": 1,
+    "saved_at": "2026-11-01T11:01:26.845131Z",
+    "execution_id": "90c6a35ed4dd5acd9bf1d32c9277663b",
+    "application_id": "5e0accbcf7d711ace1d10397fe8d64a7"
+  }
+}

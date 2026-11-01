@@ -1,0 +1,70 @@
+{
+  "evidence": "controlled-model-real-Go-Python-SQL-with-SIGKILL-and-durable-SQLite",
+  "external_model_calls": 0,
+  "state": "COMPLETED",
+  "topic": "unknown-recovery",
+  "model_calls": 3,
+  "evidence_reads": 1,
+  "trace": [
+    {
+      "kind": "context",
+      "status": "FROZEN",
+      "detail": "已绑定本申请留档与授权资料范围"
+    },
+    {
+      "kind": "model",
+      "status": "DISPATCHED",
+      "call_id": "model-1"
+    },
+    {
+      "kind": "model",
+      "status": "RETURNED",
+      "call_id": "model-1"
+    },
+    {
+      "kind": "tool",
+      "name": "read_project_defense_evidence",
+      "status": "SUCCESS",
+      "call_id": "call_d99e3db0f1c14d65b3e170741f73ce5c",
+      "detail": "模拟练习；材料绑定校验通过，语义反馈由模型生成"
+    },
+    {
+      "kind": "model",
+      "status": "DISPATCHED",
+      "call_id": "model-2"
+    },
+    {
+      "kind": "model",
+      "status": "UNKNOWN",
+      "call_id": "model-2",
+      "detail": "未自动重试",
+      "latency_ms": 11
+    },
+    {
+      "kind": "model",
+      "status": "UNKNOWN_ACKNOWLEDGED",
+      "detail": "用户明确授权新的模型尝试，旧请求结果仍未知"
+    },
+    {
+      "kind": "model",
+      "status": "DISPATCHED",
+      "call_id": "model-3"
+    },
+    {
+      "kind": "model",
+      "status": "RETURNED",
+      "call_id": "model-3"
+    },
+    {
+      "kind": "tool",
+      "name": "finish_project_defense_review",
+      "status": "SUCCESS",
+      "call_id": "call_f1ff863803044a23a14326dd941ea3c5",
+      "detail": "模拟练习；材料绑定校验通过，语义反馈由模型生成"
+    }
+  ],
+  "injections": [
+    "lease expiry is injected, not wall-clock expiry"
+  ],
+  "checkpoint": "checkpoint-restart.json"
+}

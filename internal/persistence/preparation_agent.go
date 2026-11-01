@@ -7,6 +7,7 @@ import (
 	"time"
 
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
+	"github.com/KanaDoodle/CampusTrace/internal/projectdefense"
 )
 
 func (s *Store) ClaimAgentPreparation(ctx context.Context, user, id string, claim NarrationClaim) (AgentExecution, string, error) {
@@ -42,6 +43,7 @@ func (s *Store) RelatedPreparationReviews(ctx context.Context, user string) ([]P
 }
 
 type SavePreparationArgs struct {
+	EvidenceVersion    string `json:"evidence_version,omitempty"`
 	ExecutionID        string `json:"execution_id"`
 	Revision           int    `json:"revision"`
 	PlanHash           string `json:"plan_hash"`
@@ -61,6 +63,9 @@ func savePreparationTx(ctx context.Context, tx *sql.Tx, user string, a SavePrepa
 		return nil, err
 	}
 	state := v.Preparation
+	if state != nil && state.Defense != nil && (a.EvidenceVersion != state.Defense.Version || state.Defense.Version != projectdefense.Version()) {
+		return nil, ErrStaleInput
+	}
 	if v.State != "COMPLETED" || state == nil || state.Plan == nil || state.Revision != a.Revision || d.Hash(d.JSON(state.Plan)) != a.PlanHash {
 		return nil, ErrConflict
 	}

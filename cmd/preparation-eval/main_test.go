@@ -9,10 +9,30 @@ import (
 	"testing"
 
 	"github.com/KanaDoodle/CampusTrace/internal/agent"
+	d "github.com/KanaDoodle/CampusTrace/internal/domain"
 	"github.com/KanaDoodle/CampusTrace/internal/modelconfig"
+	"github.com/KanaDoodle/CampusTrace/internal/projectdefense"
 )
 
 type evalRoundTrip func(*http.Request) (*http.Response, error)
+
+func TestDefenseEvaluationRequiresExplicitCodeAuthorizationAndProductGraph(t *testing.T) {
+	tasks := []agent.PreparationEvalCase{{Input: d.PreparationInput{Defense: &d.DefenseInput{Topic: "go-langgraph", Answer: "回答"}}}}
+	if err := validateDefenseEvaluation(tasks, []string{"dynamic"}, false, true, ""); err == nil {
+		t.Fatal("code sent without exact evidence authorization")
+	}
+	if err := validateDefenseEvaluation(tasks, []string{"dynamic"}, false, true, projectdefense.Version()); err != nil {
+		t.Fatal(err)
+	}
+	for _, arms := range [][]string{{"single-prompt"}, {"dynamic", "fixed-plus-synthesis"}} {
+		if err := validateDefenseEvaluation(tasks, arms, false, false, ""); err == nil {
+			t.Fatal("wrong execution path accepted")
+		}
+	}
+	if err := validateDefenseEvaluation(tasks, []string{"dynamic"}, true, false, ""); err == nil {
+		t.Fatal("legacy defense executor accepted")
+	}
+}
 
 func (f evalRoundTrip) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 

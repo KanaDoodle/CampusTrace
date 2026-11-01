@@ -1,0 +1,8 @@
+const {test}=require('node:test'),assert=require('node:assert/strict');
+const A=require('./project_defense.js');
+const esc=s=>String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
+function state(){return {input:{minutes:15},sources:[{id:'e',title:'当前代码'}],defense:{title:'主题',round:1,question:'谁发模型请求？',answer:'<script>bad()</script>',points:[{id:'go',text:'Go负责执行'}],review:{next_action:'READ',next_question:'请解释请求链路',findings:[{point:'go',verdict:'NOT_COVERED',answer_quote:'',explanation:'本次未说明，不代表不会',references:[{source_id:'e',quote:'model.Next',supports:'这里发出请求'}]}]}}};}
+test('defense review preserves the actual answer, separates evidence and avoids mastery scores',()=>{const html=A.reviewHTML(state(),esc);assert.ok(html.includes('模拟项目答辩'));assert.ok(html.includes('本次未说明'));assert.ok(html.includes('model.Next'));assert.ok(!html.includes('<script>'));assert.ok(!html.includes('已掌握'));});
+test('re-answer has its own reviewed continuation and time constraint',()=>{const html=A.feedbackHTML(state(),esc);assert.ok(html.includes('defense-feedback'));assert.ok(html.includes('核对这次回答'));assert.ok(html.includes('min="5"'));assert.ok(!html.includes('status-go'));});
+test('four-round boundary gives an explicit next step',()=>{const s=state();s.defense.round=4;assert.ok(!A.feedbackHTML(s,esc).includes('<form'));assert.ok(A.feedbackHTML(s,esc).includes('新的练习'));});
+test('feedback changes compare model judgments without declaring permanent mastery',()=>{const s=state();s.defense.previous_review={findings:[{point:'go',verdict:'SUPPORTED'}]};const html=A.reviewHTML(s,esc);assert.ok(html.includes('上一轮：回答有依据 → 本轮：本次未说明'));assert.ok(!html.includes('已经掌握'));});

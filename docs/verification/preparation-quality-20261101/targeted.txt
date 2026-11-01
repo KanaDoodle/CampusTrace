@@ -1,0 +1,1 @@
+ok  	github.com/KanaDoodle/CampusTrace/internal/agent	1.584s

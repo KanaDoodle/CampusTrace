@@ -9,6 +9,7 @@ import (
 
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
 	p "github.com/KanaDoodle/CampusTrace/internal/persistence"
+	"github.com/KanaDoodle/CampusTrace/internal/projectdefense"
 )
 
 type PreparationEnvironment struct {
@@ -21,6 +22,7 @@ type PreparationEnvironment struct {
 	Budget        int
 }
 type PreparationReview struct {
+	Defense        *d.DefenseState       `json:"defense,omitempty"`
 	Input          d.PreparationInput    `json:"input"`
 	Sources        []d.PreparationSource `json:"sources"`
 	Missing        []string              `json:"missing"`
@@ -87,6 +89,11 @@ func (r *PreparationRunner) Preview(ctx context.Context, user string, in d.Prepa
 	tools := Tools{MaskName: env.MaskName}
 	in.Goal = tools.memoryText(in.Goal)
 	in.Feedback = tools.memoryText(in.Feedback)
+	if in.Defense != nil {
+		copyInput := *in.Defense
+		copyInput.Answer = tools.memoryText(copyInput.Answer)
+		in.Defense = &copyInput
+	}
 	identity, rev, err := r.Store.PreparationAgentIdentity(ctx, user, in.ApplicationID, in.OtherReviews)
 	if err != nil {
 		return out, err
@@ -96,6 +103,7 @@ func (r *PreparationRunner) Preview(ctx context.Context, user string, in d.Prepa
 		return out, err
 	}
 	var previous *d.PreparationPlan
+	var previousDefense *d.DefenseState
 	if in.ParentID != "" {
 		parent, err := r.Store.AgentExecution(ctx, user, in.ParentID)
 		if err != nil {
@@ -105,6 +113,13 @@ func (r *PreparationRunner) Preview(ctx context.Context, user string, in d.Prepa
 			return out, p.ErrStaleInput
 		}
 		previous = parent.Preparation.Plan
+		if (in.Defense != nil) != (parent.Preparation.Defense != nil) {
+			return out, p.ErrValidation
+		}
+		if in.Defense != nil {
+			previousDefense = parent.Preparation.Defense
+			previous = nil
+		}
 		if previous == nil && len(in.Mastered)+len(in.Completed) > 0 {
 			return out, p.ErrValidation
 		}
@@ -127,6 +142,10 @@ func (r *PreparationRunner) Preview(ctx context.Context, user string, in d.Prepa
 		// unknown model requests from a predecessor never become completed evidence.
 		sources = append([]d.PreparationSource{}, parent.Preparation.Sources...)
 	}
+	defense, err := newDefenseState(in, previousDefense)
+	if err != nil {
+		return out, err
+	}
 	after, _, err := r.Store.PreparationAgentIdentity(ctx, user, in.ApplicationID, in.OtherReviews)
 	if err != nil {
 		return out, err
@@ -141,7 +160,7 @@ func (r *PreparationRunner) Preview(ctx context.Context, user string, in d.Prepa
 	if budget < 4096 {
 		return out, p.ErrValidation
 	}
-	out = PreparationReview{Input: in, Sources: sources, Missing: missing, Model: env.ModelLabel, EvidenceKind: env.EvidenceKind, Budget: budget, SourceIdentity: identity, MemoryRevision: rev, PreviousPlan: previous}
+	out = PreparationReview{Defense: defense, Input: in, Sources: sources, Missing: missing, Model: env.ModelLabel, EvidenceKind: env.EvidenceKind, Budget: budget, SourceIdentity: identity, MemoryRevision: rev, PreviousPlan: previous}
 	version := PreparationAgentVersion
 	if r.Graph != nil {
 		version += "+" + PreparationGraphVersion
@@ -150,6 +169,9 @@ func (r *PreparationRunner) Preview(ctx context.Context, user string, in d.Prepa
 	return out, nil
 }
 func (r *PreparationRunner) Start(ctx context.Context, user string, req PreparationRequest, env PreparationEnvironment) (p.AgentExecution, error) {
+	if req.Input.Defense != nil && r.Graph == nil {
+		return p.AgentExecution{}, p.ErrBackendUnavailable
+	}
 	if !req.Confirm || !pExecutionKey(req.RequestKey) || env.Model == nil {
 		return p.AgentExecution{}, p.ErrValidation
 	}
@@ -167,7 +189,15 @@ func (r *PreparationRunner) Start(ctx context.Context, user string, req Preparat
 	}
 	messages := preparationMessages(review.Input, review.Sources, review.Missing, review.PreviousPlan)
 	state := &d.PreparationState{Input: review.Input, ModelIdentity: d.Hash(env.ModelIdentity + env.MaskName), ModelLabel: review.Model, EvidenceKind: review.EvidenceKind, ReviewHash: review.ReviewHash, Revision: 1, ProviderState: "READY", AttemptKeys: []string{}, Messages: json.RawMessage(d.JSON(messages)), Sources: review.Sources, Missing: review.Missing, PreviousPlan: review.PreviousPlan, Usage: json.RawMessage(d.JSON(TokenBudget{Limit: review.Budget})), Trace: []d.PreparationTrace{{Kind: "context", Status: "FROZEN", Detail: "已绑定本申请留档与授权资料范围"}}}
+	state.Defense = review.Defense
+	if state.Defense != nil {
+		messages = defenseMessages(review.Input, review.Sources, review.Missing, state.Defense)
+		state.Messages = json.RawMessage(d.JSON(messages))
+	}
 	if r.Graph != nil {
+		state.QualityVersion = PreparationQualityVersion
+		messages[0].Content += preparationQualityContext(state)
+		state.Messages = json.RawMessage(d.JSON(messages))
 		state.Engine = "langgraph"
 		state.GraphVersion = PreparationGraphVersion
 	}
@@ -215,6 +245,9 @@ func (r *PreparationRunner) Resume(ctx context.Context, user, id string, req Pre
 		return v, p.ErrValidation
 	}
 	state := v.Preparation
+	if state.Defense != nil && state.Defense.Version != projectdefense.Version() {
+		return v, p.ErrStaleInput
+	}
 	if req.ReviewHash != state.ReviewHash || state.ModelIdentity != d.Hash(env.ModelIdentity+env.MaskName) {
 		return v, p.ErrStaleInput
 	}
@@ -308,6 +341,10 @@ func (r *PreparationRunner) run(user, lease string, v p.AgentExecution, env Prep
 	}()
 	defer func() { stop(); <-watched }()
 	checkpoint := func() error {
+		if v.Preparation.Defense != nil && v.Preparation.Defense.Version != projectdefense.Version() {
+			v.State = "STALE"
+			return p.ErrStaleInput
+		}
 		identity, _, err := r.Store.PreparationAgentIdentity(ctx, user, v.Preparation.Input.ApplicationID, v.Preparation.Input.OtherReviews)
 		if err != nil {
 			return err
@@ -347,6 +384,12 @@ func (r *PreparationRunner) SavePreview(ctx context.Context, user, id string) (p
 	if v.Preparation == nil || v.State != "COMPLETED" || v.Preparation.Plan == nil {
 		return p.SavePreparationArgs{}, p.ErrConflict
 	}
+	if v.Preparation.Defense != nil && v.Preparation.Defense.Version != projectdefense.Version() {
+		return p.SavePreparationArgs{}, p.ErrStaleInput
+	}
+	if v.Preparation.Defense != nil && len(v.Preparation.Plan.Items) == 0 {
+		return p.SavePreparationArgs{}, p.ErrConflict
+	}
 	identity, _, err := r.Store.PreparationAgentIdentity(ctx, user, v.Preparation.Input.ApplicationID, v.Preparation.Input.OtherReviews)
 	if err != nil {
 		return p.SavePreparationArgs{}, err
@@ -358,5 +401,9 @@ func (r *PreparationRunner) SavePreview(ctx context.Context, user, id string) (p
 	if err != nil {
 		return p.SavePreparationArgs{}, err
 	}
-	return p.SavePreparationArgs{ExecutionID: id, Revision: v.Preparation.Revision, PlanHash: d.Hash(d.JSON(v.Preparation.Plan)), ApplicationVersion: dossier.Application.Version}, nil
+	args := p.SavePreparationArgs{ExecutionID: id, Revision: v.Preparation.Revision, PlanHash: d.Hash(d.JSON(v.Preparation.Plan)), ApplicationVersion: dossier.Application.Version}
+	if v.Preparation.Defense != nil {
+		args.EvidenceVersion = v.Preparation.Defense.Version
+	}
+	return args, nil
 }

@@ -1,5 +1,6 @@
 SHELL := /bin/sh
-APP_COMPOSE = docker compose --file docker-compose.yml --file compose.app.yml
+MODEL_ENV_FILES = $(if $(wildcard .env.model.local),$(if $(wildcard .env),--env-file .env) --env-file .env.model.local)
+APP_COMPOSE = docker compose $(MODEL_ENV_FILES) --file docker-compose.yml --file compose.app.yml
 SEARCH_COMPOSE = $(APP_COMPOSE) --file compose.search.yml
 OBSERVABILITY_COMPOSE = $(APP_COMPOSE) --file compose.observability.yml
 KAFKA_COMPOSE = $(SEARCH_COMPOSE) --file compose.kafka.yml
@@ -137,6 +138,11 @@ preparation-install:
 	python3 -m venv services/preparation/.venv
 	services/preparation/.venv/bin/pip install --require-hashes -r services/preparation/requirements.lock
 preparation-test:
+	python3 scripts/build-project-defense-evidence.py --check
 	cd services/preparation && .venv/bin/python -m unittest discover -s tests -v
+
+.PHONY: project-defense-eval
+project-defense-eval:
+	python3 scripts/evaluate-preparation-langgraph.py --dataset internal/agent/testdata/project-defense-tasks.json --arms dynamic --output /tmp/ct-project-defense-eval
 preparation-eval:
 	python3 scripts/evaluate-preparation-langgraph.py --output /tmp/ct-preparation-langgraph-eval

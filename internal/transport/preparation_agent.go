@@ -9,6 +9,7 @@ import (
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
 	"github.com/KanaDoodle/CampusTrace/internal/modelconfig"
 	p "github.com/KanaDoodle/CampusTrace/internal/persistence"
+	"github.com/KanaDoodle/CampusTrace/internal/projectdefense"
 )
 
 type preparationAPIRequest struct {
@@ -37,6 +38,10 @@ func (a *API) preparationEnvironment(in preparationAPIRequest) (agent.Preparatio
 	return agent.PreparationEnvironment{Model: agent.LiveModel{Client: client}, ModelIdentity: d.Hash(client.URL + "\x00" + client.Model), ModelLabel: client.Model, EvidenceKind: "model-api", MaskName: in.MaskName, Tools: &tools, Budget: in.Budget}, nil
 }
 func (a *API) preparationAgentRoutes(on func(string, http.HandlerFunc)) {
+	on("GET /api/agent/preparation/defense-topics", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		write(w, map[string]any{"version": projectdefense.Version(), "catalog": projectdefense.Load()}, nil)
+	})
 	for _, path := range []string{"POST /api/agent/preparation/preview", "POST /api/agent/preparation", "POST /api/agent/preparation/{id}/resume"} {
 		on(path, func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Cache-Control", "no-store")

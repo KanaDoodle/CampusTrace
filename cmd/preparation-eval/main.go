@@ -19,6 +19,7 @@ import (
 	"github.com/KanaDoodle/CampusTrace/internal/analysis"
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
 	"github.com/KanaDoodle/CampusTrace/internal/modelconfig"
+	"github.com/KanaDoodle/CampusTrace/internal/projectdefense"
 )
 
 type limitedModel struct {
@@ -77,6 +78,21 @@ func main() {
 		os.Exit(1)
 	}
 }
+
+func validateDefenseEvaluation(tasks []agent.PreparationEvalCase, arms []string, legacy, live bool, evidenceSHA string) error {
+	for _, task := range tasks {
+		if task.Input.Defense == nil {
+			continue
+		}
+		if legacy || len(arms) != 1 || arms[0] != "dynamic" {
+			return fmt.Errorf("project defense requires the LangGraph dynamic arm")
+		}
+		if live && evidenceSHA != projectdefense.Version() {
+			return fmt.Errorf("live project defense requires explicit authorization of the embedded project evidence SHA-256")
+		}
+	}
+	return nil
+}
 func run() error {
 	dataset := flag.String("dataset", "internal/agent/testdata/preparation-tasks.json", "reviewable task file")
 	split := flag.String("split", "development", "development or validation")
@@ -92,6 +108,7 @@ func run() error {
 	name := flag.String("model", "", "model name")
 	keyEnv := flag.String("key-env", "", "explicit key environment variable")
 	authorize := flag.String("authorize-material-sha256", "", "exact authorized dataset SHA-256")
+	authorizeEvidence := flag.String("authorize-project-evidence-sha256", "", "exact authorized embedded project evidence SHA-256 for live defense tasks")
 	maxCalls := flag.Int("max-calls", 24, "hard total provider-call cap")
 	inputPrice := flag.Float64("input-usd-per-million", 0, "optional user supplied input token price")
 	outputPrice := flag.Float64("output-usd-per-million", 0, "optional output token price")
@@ -132,6 +149,14 @@ func run() error {
 		if task.MaterialKind != "synthetic-control" && task.MaterialKind != "human-approved-desensitized" {
 			return fmt.Errorf("all selected materials require an authorized classification before any request")
 		}
+	}
+	perTaskLimit := 6
+	if err := validateDefenseEvaluation(selected, arms, *legacy, *live, *authorizeEvidence); err != nil {
+		return err
+	}
+	if !*legacy && len(selected) == 1 && len(arms) == 1 && arms[0] == "dynamic" && *maxCalls > 0 && *maxCalls < 6 {
+		perTaskLimit = *maxCalls
+		perTaskCalls = *maxCalls
 	}
 	if *live && *maxCalls < len(selected)*perTaskCalls {
 		return fmt.Errorf("call cap must cover all selected arms (at most %d per task); narrow with -only/-limit/-arms", perTaskCalls)
@@ -183,7 +208,12 @@ func run() error {
 				model = real
 			}
 			ctx, cancel := context.WithTimeout(context.Background(), 35*time.Second)
-			result := agent.EvalPreparationGraphCase(ctx, task, arm, model, graph)
+			var result agent.PreparationEvalResult
+			if *legacy {
+				result = agent.EvalPreparationCase(ctx, task, arm, model)
+			} else {
+				result = agent.EvalPreparationGraphCaseWithLimit(ctx, task, arm, model, graph, perTaskLimit)
+			}
 			cancel()
 			if *live && result.Usage.UnreportedCalls == 0 && *inputPrice > 0 && *outputPrice > 0 {
 				cost := (float64(result.Usage.PromptTokens)**inputPrice + float64(result.Usage.CompletionTokens)**outputPrice) / 1e6
@@ -232,7 +262,22 @@ func run() error {
 		report["framework_versions"] = graph.Framework()
 	}
 	report["prompt_sha256"] = d.Hash(agent.PreparationPolicy)
-	report["tools_version"] = "preparation-tools-v1-bm25"
+	if !*legacy {
+		report["prompt_sha256"] = d.Hash(agent.PreparationPolicy + agent.PreparationQualityPolicy)
+		report["quality_version"] = agent.PreparationQualityVersion
+	}
+	report["tools_version"] = "preparation-tools-v2-bm25-quality"
+	for _, task := range selected {
+		if task.Input.Defense != nil {
+			delete(report, "prompt_sha256")
+			report["prompt_hash_scope"] = "actual system message SHA-256 recorded on each result"
+			report["defense_prompt_version"] = agent.DefensePromptVersion
+			report["project_evidence_sha256"] = projectdefense.Version()
+			report["baseline_adaptation"] = "Project defense runs the product LangGraph dynamic path; legacy and single/fixed comparisons are explicitly rejected."
+			break
+		}
+	}
+	report["per_task_model_limit"] = perTaskLimit
 	report["semantic_rubric"] = map[string]any{"status": "UNREVIEWED", "scale": "0=violated/unsupported, 1=partial, 2=meets; null=not reviewed; N/A=not applicable", "dimensions": []string{"target_requirement_coverage", "citation_entailment", "feasible_workload", "feedback_compliance", "no_fabricated_experience", "retrieval_added_value"}, "reviewer": "No independent human labels; use scripts/review-preparation-evaluation.py to record reviewer and evidence"}
 	report["arms"] = arms
 	encoded, err := json.MarshalIndent(report, "", "  ")

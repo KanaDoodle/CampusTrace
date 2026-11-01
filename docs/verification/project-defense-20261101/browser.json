@@ -1,0 +1,17 @@
+{
+  "status": "PASS",
+  "external_model_calls": 0,
+  "checks": [
+    "dossier_entry",
+    "topic_and_question",
+    "review_scope",
+    "answer_feedback",
+    "five_minute_reanswer",
+    "no_automatic_mastery",
+    "explicit_save",
+    "refresh_persisted",
+    "read_receipt_reuse",
+    "topic_outage_explicit_no_plan_fallback",
+    "no_page_errors"
+  ]
+}

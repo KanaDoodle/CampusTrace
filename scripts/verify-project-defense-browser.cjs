@@ -1,0 +1,47 @@
+'use strict';
+const fs=require('node:fs'),path=require('node:path');
+(async()=>{
+ const {chromium}=require(process.env.PREP_PLAYWRIGHT_MODULE),browser=await chromium.launch({headless:true});
+ try{
+  const page=await browser.newPage({viewport:{width:1360,height:1000}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
+  await page.goto(process.env.PREP_BROWSER_URL);
+  await page.locator('#login input[name=email]').fill(process.env.PREP_BROWSER_EMAIL);
+  await page.locator('#login input[name=password]').fill(process.env.PREP_BROWSER_PASSWORD);
+  await page.locator('#auth-submit').click();await page.locator('#workspace').waitFor({state:'visible'});
+  await page.evaluate(async app=>{await page('dossier',{applicationID:app});},process.env.PREP_BROWSER_APPLICATION);
+  await page.locator('#dossier-project-defense').click();
+  if(await page.locator('#prep-goal select[name=mode]').inputValue()!=='defense')throw Error('direct entry did not select defense');
+  await page.locator('#prep-goal select[name=defense_topic]').selectOption('go-langgraph');
+  await page.locator('#defense-question').getByText(/Go 和 LangGraph/).waitFor();
+  await page.locator('#prep-goal textarea[name=defense_answer]').fill('我还不熟悉项目，只知道有 Go 和 LangGraph。');
+  await page.locator('#prep-goal button[type=submit],#prep-goal button.btn-primary').first().click();
+  await page.locator('#prep-review').getByText(/与原投递留档分开/).waitFor();
+  await page.locator('#prep-consent').check();await page.locator('#prep-start').click();
+  await page.getByRole('heading',{name:'答辩反馈已生成',exact:true}).waitFor();
+  await page.locator('.defense-review').getByText('本次未说明',{exact:true}).first().waitFor();
+  if(await page.locator('#prep-feedback').count())throw Error('normal mastery controls leaked into simulated practice');
+  await page.locator('#defense-feedback textarea[name=answer]').fill('已经读过这个片段，但还不确定模型请求在哪里发出。');
+  await page.locator('#defense-feedback input[name=minutes]').fill('5');
+  await page.locator('#defense-feedback button').click();
+  await page.locator('#prep-review').getByText(/5 分钟/).waitFor();
+  await page.locator('#prep-consent').check();await page.locator('#prep-start').click();
+  await page.locator('.prep-result').getByText('第 2 版',{exact:false}).waitFor();
+  await page.getByRole('heading',{name:'答辩反馈已生成',exact:true}).waitFor();
+  const total=await page.locator('.prep-total').textContent();if(!total.includes('5 / 5 分钟'))throw Error('remaining time not used');
+  await page.locator('[data-prep-save]').click();await page.locator('#prep-confirm-save').click();
+  await page.getByRole('heading',{name:'答辩反馈已生成 · 已保存',exact:true}).waitFor();
+  const saved=await page.evaluate(async app=>{const rows=await fetch('/api/agent/preparation?application_id='+encodeURIComponent(app)).then(r=>r.json());return rows.find(x=>x.preparation_agent?.defense?.round===2);},process.env.PREP_BROWSER_APPLICATION);
+  if(!saved?.preparation_agent.saved_at||saved.preparation_agent.defense.evidence_read!==0)throw Error('saved state or evidence reuse missing');
+  fs.writeFileSync(path.join(process.env.PREP_BROWSER_OUTPUT,'project-defense-browser-state.json'),JSON.stringify({execution_id:saved.id,revision:2,saved_at:saved.preparation_agent.saved_at,evidence_reads:0},null,2));
+  await page.screenshot({path:path.join(process.env.PREP_BROWSER_OUTPUT,'project-defense.png'),fullPage:true});
+  await page.reload();await page.locator('#workspace').waitFor();
+  await page.evaluate(async app=>{await page('preparation',{applicationID:app});},process.env.PREP_BROWSER_APPLICATION);
+  await page.getByRole('heading',{name:'答辩反馈已生成 · 已保存',exact:true}).waitFor();
+  await page.route('**/api/agent/preparation/defense-topics',route=>route.fulfill({status:503,contentType:'application/json',body:'{"code":"UNAVAILABLE"}'}));
+  await page.evaluate(async app=>{await page('dossier',{applicationID:app});},process.env.PREP_BROWSER_APPLICATION);
+  await page.locator('#dossier-project-defense').click();await page.getByRole('status').getByText(/项目答辩主题暂时无法读取/).waitFor();
+  if(await page.locator('#prep-goal').count())throw Error('unavailable defense silently switched to a normal plan');
+  if(errors.length)throw Error(JSON.stringify(errors));
+  fs.writeFileSync(path.join(process.env.PREP_BROWSER_OUTPUT,'project-defense-browser.json'),JSON.stringify({status:'PASS',external_model_calls:0,checks:['dossier_entry','topic_and_question','review_scope','answer_feedback','five_minute_reanswer','no_automatic_mastery','explicit_save','refresh_persisted','read_receipt_reuse','topic_outage_explicit_no_plan_fallback','no_page_errors']},null,2));
+ }finally{await browser.close()}
+})().catch(e=>{console.error(e);process.exit(1)});

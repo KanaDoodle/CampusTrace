@@ -82,6 +82,9 @@ func preparationDefinitions() []Definition {
 // Publish the constraints already enforced by ValidatePreparationPlan before
 // generation, so revision choices are limited to the actual remaining items.
 func preparationDefinitionsForState(state *d.PreparationState) []Definition {
+	if state.Defense != nil {
+		return defenseDefinitions(state)
+	}
 	defs := preparationDefinitions()
 	items := defs[2].Parameters["properties"].(map[string]any)["items"].(map[string]any)
 	fields := items["items"].(map[string]any)["properties"].(map[string]any)
@@ -101,7 +104,7 @@ func preparationDefinitionsForState(state *d.PreparationState) []Definition {
 	fields["minutes"].(map[string]any)["maximum"] = state.Input.Minutes
 	fields["day"].(map[string]any)["maximum"] = state.Input.Days
 	if state.PreviousPlan == nil {
-		return defs
+		return preparationQualityDefinitions(state, defs)
 	}
 	excluded := map[string]bool{}
 	for _, id := range append(append([]string{}, state.Input.Mastered...), state.Input.Completed...) {
@@ -128,7 +131,7 @@ func preparationDefinitionsForState(state *d.PreparationState) []Definition {
 		fields["title"].(map[string]any)["enum"] = titles
 		fields["basis"].(map[string]any)["enum"] = bases
 	}
-	return defs
+	return preparationQualityDefinitions(state, defs)
 }
 func preparationPlanSchema() map[string]any {
 	reference := object(map[string]any{"source_id": str(), "quote": str()}, "source_id", "quote")

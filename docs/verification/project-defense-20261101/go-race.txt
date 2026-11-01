@@ -1,0 +1,33 @@
+ok  	github.com/KanaDoodle/CampusTrace/internal/agent	9.819s
+ok  	github.com/KanaDoodle/CampusTrace/internal/analysis	1.919s
+?   	github.com/KanaDoodle/CampusTrace/internal/auth	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/internal/bootstrap	[no test files]
+ok  	github.com/KanaDoodle/CampusTrace/internal/config	1.368s
+?   	github.com/KanaDoodle/CampusTrace/internal/demo	[no test files]
+ok  	github.com/KanaDoodle/CampusTrace/internal/domain	1.390s
+ok  	github.com/KanaDoodle/CampusTrace/internal/eventbus	2.474s
+ok  	github.com/KanaDoodle/CampusTrace/internal/inferencebridge	1.502s
+ok  	github.com/KanaDoodle/CampusTrace/internal/integration	7.420s
+ok  	github.com/KanaDoodle/CampusTrace/internal/jobevent	1.449s
+ok  	github.com/KanaDoodle/CampusTrace/internal/launcher	1.519s
+ok  	github.com/KanaDoodle/CampusTrace/internal/matcheval	1.574s
+ok  	github.com/KanaDoodle/CampusTrace/internal/matching	2.379s
+ok  	github.com/KanaDoodle/CampusTrace/internal/mcpclient	1.448s
+ok  	github.com/KanaDoodle/CampusTrace/internal/modelconfig	1.404s
+?   	github.com/KanaDoodle/CampusTrace/internal/modelcontrol	[no test files]
+ok  	github.com/KanaDoodle/CampusTrace/internal/observability	1.475s
+ok  	github.com/KanaDoodle/CampusTrace/internal/persistence	1.651s
+ok  	github.com/KanaDoodle/CampusTrace/internal/pipeline	1.478s
+?   	github.com/KanaDoodle/CampusTrace/internal/projectdefense	[no test files]
+ok  	github.com/KanaDoodle/CampusTrace/internal/rag	1.560s
+ok  	github.com/KanaDoodle/CampusTrace/internal/recruitmentmail	1.351s
+ok  	github.com/KanaDoodle/CampusTrace/internal/resume	1.413s
+ok  	github.com/KanaDoodle/CampusTrace/internal/rules	1.357s
+ok  	github.com/KanaDoodle/CampusTrace/internal/scheduling	1.338s
+ok  	github.com/KanaDoodle/CampusTrace/internal/searchapi	21.853s
+ok  	github.com/KanaDoodle/CampusTrace/internal/searchservice	1.468s
+ok  	github.com/KanaDoodle/CampusTrace/internal/source	8.641s
+ok  	github.com/KanaDoodle/CampusTrace/internal/taskmigration	1.525s
+ok  	github.com/KanaDoodle/CampusTrace/internal/taskqueue	1.508s
+?   	github.com/KanaDoodle/CampusTrace/internal/testsupport/sqlfixture	[no test files]
+ok  	github.com/KanaDoodle/CampusTrace/internal/transport	1.556s

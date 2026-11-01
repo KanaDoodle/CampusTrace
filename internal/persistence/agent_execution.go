@@ -120,6 +120,12 @@ func (s *Store) AgentExecutions(ctx context.Context, user string) ([]AgentExecut
 			c.Trace = nil
 			c.Plan = nil
 			c.PreviousPlan = nil
+			c.Defense = nil
+			if c.Input.Defense != nil {
+				copyInput := *c.Input.Defense
+				copyInput.Answer = ""
+				c.Input.Defense = &copyInput
+			}
 			rows[i].Preparation = &c
 		}
 		if rows[i].Narration != nil {

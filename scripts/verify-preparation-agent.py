@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Owned API/SQL/Redis/Kafka and browser acceptance; no real model or personal DB."""
 import argparse,contextlib,http.cookiejar,json,os,pathlib,socket,subprocess,sys,tempfile,time,urllib.error,urllib.request,uuid
+from project_defense_acceptance import verify as verify_defense
 sys.dont_write_bytecode=True
 
 def main():
@@ -103,6 +104,16 @@ def main():
    browser_env=dict(env,PREP_BROWSER_URL=base,PREP_BROWSER_EMAIL=credentials['email'],PREP_BROWSER_PASSWORD=credentials['password'],PREP_BROWSER_APPLICATION=app,PREP_BROWSER_EXECUTION=v['id'],PREP_BROWSER_OUTPUT=str(work),PREP_PLAYWRIGHT_MODULE=args.playwright_module)
    subprocess.run(['node',str(root/'scripts/verify-preparation-browser.cjs')],cwd=root,env=browser_env,check=True)
    checks.append('chromium_plan_feedback_save')
+  defense_checks,defense_credentials,defense_app=verify_defense(Client,raw,fixture_url,sql,wait,work)
+  checks.extend(defense_checks)
+  if args.playwright_module:
+   defense_env=dict(env,PREP_BROWSER_URL=base,PREP_BROWSER_EMAIL=defense_credentials['email'],PREP_BROWSER_PASSWORD=defense_credentials['password'],PREP_BROWSER_APPLICATION=defense_app,PREP_BROWSER_OUTPUT=str(work),PREP_PLAYWRIGHT_MODULE=args.playwright_module)
+   subprocess.run(['node',str(root/'scripts/verify-project-defense-browser.cjs')],cwd=root,env=defense_env,check=True)
+   browser_state=json.loads((work/'project-defense-browser-state.json').read_text());browser_execution=browser_state['execution_id']
+   assert len(browser_execution)==32 and all(ch in '0123456789abcdef' for ch in browser_execution)
+   assert sql("SELECT JSON_EXTRACT(body,'$.preparation_agent.saved_at') IS NOT NULL FROM agent_executions WHERE id='"+browser_execution+"'")=='1'
+   assert sql("SELECT COUNT(*) FROM action_receipts WHERE JSON_UNQUOTE(JSON_EXTRACT(CONVERT(result USING utf8mb4),'$.execution_id'))='"+browser_execution+"'")=='1'
+   checks.append('project_defense_browser_reanswer_and_sql_save')
   # Lose a known model response between Go's durable receipt and Python's
   # checkpoint. Resume the pending graph node without paying for it twice.
   outage_review=c.request('/api/agent/preparation/preview',{'input':goal})
@@ -169,7 +180,7 @@ def main():
   recovery=Client();recovery.register()
   recovery_observation=recovery.request('/api/ingest',{'company':'Synthetic Recovery','title':'Go backend recovery','job_type':'FULL_TIME','external_id':uuid.uuid4().hex,'text':'Go 并发与 MySQL 索引。','fetch_status':'SUCCESS'})
   recovery_app=recovery.request('/api/applications',{'job_id':recovery_observation['job_id'],'submitted':True,'resume_version':'synthetic','resume_text':'Synthetic Go worker.'})
-  recovery_input={'application_id':recovery_app['id'],'goal':'安排准备计划','minutes':60,'days':1,'other_reviews':False}
+  recovery_input={'application_id':recovery_app['id'],'goal':'核对项目答辩回答并安排复习','minutes':15,'days':1,'other_reviews':False,'defense':{'topic':'unknown-recovery','answer':'我还不熟悉中断后的恢复。'}}
   recovery_preview=recovery.request('/api/agent/preparation/preview',{'input':recovery_input})
   recovery_request={'input':recovery_input,'confirm':True,'request_key':uuid.uuid4().hex,'review_hash':recovery_preview['review_hash']}
   raw(fixture_url+'/fixture/mode',{'mode':'hang-after-read'})

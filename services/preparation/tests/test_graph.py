@@ -9,6 +9,24 @@ from langgraph.types import Command
 from graph import Bridge, build_graph
 
 class GraphTests(unittest.IsolatedAsyncioTestCase):
+    async def test_project_answer_uses_review_node(self):
+        operations=[]
+        sequence=0
+        def handle(request):
+            nonlocal sequence
+            action=json.loads(request.content)['action'];operations.append(action)
+            if action!='sync':sequence+=1
+            pending,phase={0:('', 'RUNNING'),1:('read_project_defense_evidence','RUNNING'),
+                           2:('', 'RUNNING'),3:('finish_project_defense_review','RUNNING'),4:('', 'COMPLETED')}[sequence]
+            return httpx.Response(200,json={'sequence':sequence,'phase':phase,'pending':pending,'preparation':{'provider_state':'READY'}})
+        with tempfile.TemporaryDirectory() as directory:
+            async with AsyncSqliteSaver.from_conn_string(str(Path(directory)/'graph.sqlite')) as saver:
+                graph=build_graph(saver)
+                async with httpx.AsyncClient(base_url='http://go.test',transport=httpx.MockTransport(handle)) as client:
+                    result=await graph.ainvoke({'execution_id':'e'*32},{'configurable':{'thread_id':'e'*32}},context=Bridge(client,'runtime-only-secret'))
+                self.assertEqual(result['last_node'],'review_answer')
+                self.assertEqual(operations,['sync','model','tool','model','tool'])
+
     async def test_routes_observation_to_rewrite_then_finish(self):
         operations=[]
         sequence=0

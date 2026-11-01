@@ -19,3 +19,10 @@ test('clarification explicitly collects both minutes and days in reviewed feedba
  const html=A.render(v,esc);assert.ok(html.includes('name="days"'));assert.ok(html.includes('几天内完成'));
  const source=fs.readFileSync(__dirname+'/preparation_agent.js','utf8');assert.ok(source.includes('days:Number(feedback.elements.days.value)'));
 });
+
+test('quality plans explain evidence use and bounded work without asserting semantic verification',()=>{
+ const v=task();v.preparation_agent.result.items[0].workload={mode:'ORAL',units:1,scope:'一个问题的口述与自查'};
+ v.preparation_agent.result.items[0].references[0].supports='岗位要求并发，对应取消传播复习';
+ v.preparation_agent.retrievals=[{gap:'缺少核对点',expected_use:'用于口述自查',new_source_ids:['k'],cited_source_ids:[]}];
+ const html=A.render(v,esc);assert.ok(html.includes('练习规模'));assert.ok(html.includes('用于说明'));assert.ok(html.includes('最终计划引用 0 份'));assert.ok(!html.includes('语义验证通过'));
+});

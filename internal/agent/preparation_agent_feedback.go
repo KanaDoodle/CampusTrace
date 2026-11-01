@@ -29,6 +29,29 @@ func preparationPlanRepair(state *d.PreparationState, plan d.PreparationPlan, er
 	out := map[string]any{
 		"constraints": map[string]int{"total_minutes": state.Input.Minutes, "days": state.Input.Days, "minimum_item_minutes": 5},
 	}
+	if state.QualityVersion != "" {
+		workloads := []map[string]any{}
+		for i, item := range plan.Items {
+			row := map[string]any{"item": i, "minutes": item.Minutes}
+			if item.Workload != nil {
+				w := item.Workload
+				floor := preparationWorkloadFloor(w.Mode)
+				row["mode"] = w.Mode
+				row["units"] = w.Units
+				row["minimum_minutes_per_unit"] = floor
+				row["scope_declared_count"] = preparationScopeCount(w.Scope)
+				if floor > 0 {
+					row["maximum_units_in_item_minutes"] = item.Minutes / floor
+				}
+				if state.Input.Minutes <= 15 {
+					row["maximum_units_in_item_minutes"] = 1
+				}
+			}
+			workloads = append(workloads, row)
+		}
+		out["workloads"] = workloads
+		out["instruction"] = "Correct ALL item quantities and minutes together. Scope count must equal units. Reduce concrete topics, not just declared units. For <=15 minutes keep at most two ORAL/READ items with one unit each; do not bundle topics. Generate one complete valid JSON tool call."
+	}
 	var refError *preparationReferenceError
 	if !errors.As(err, &refError) || refError.Item >= len(plan.Items) || refError.Reference >= len(plan.Items[refError.Item].References) {
 		return out

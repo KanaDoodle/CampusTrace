@@ -45,6 +45,9 @@ def build_graph(checkpointer):
     async def validate(state, runtime: Runtime[Bridge]):
         return await operation(state, runtime, 'tool', 'validate')
 
+    async def review_answer(state, runtime: Runtime[Bridge]):
+        return await operation(state, runtime, 'tool', 'review_answer')
+
     async def question(state, runtime: Runtime[Bridge]):
         return await operation(state, runtime, 'tool', 'question')
 
@@ -77,17 +80,19 @@ def build_graph(checkpointer):
             return 'question'
         if pending == 'finish_preparation_plan':
             return 'validate'
+        if pending == 'finish_project_defense_review':
+            return 'review_answer'
         if pending:
             return 'retrieve'
         return 'model'
 
     for name, node in [('materials', hydrate), ('feedback', feedback), ('model', model),
-                       ('retrieve', retrieve), ('validate', validate), ('question', question),
+                       ('retrieve', retrieve), ('validate', validate), ('review_answer', review_answer), ('question', question),
                        ('wait_input', wait_input), ('wait_recovery', wait_recovery)]:
         builder.add_node(name, node)
     builder.add_conditional_edges(START, lambda s: 'feedback' if s.get('parent_id') else 'materials')
     builder.add_edge('feedback', 'materials')
-    for node in ['materials', 'model', 'retrieve', 'validate', 'question', 'wait_recovery']:
+    for node in ['materials', 'model', 'retrieve', 'validate', 'review_answer', 'question', 'wait_recovery']:
         builder.add_conditional_edges(node, route)
     builder.add_edge('wait_input', END)
     return builder.compile(checkpointer=checkpointer, name=GRAPH_VERSION)

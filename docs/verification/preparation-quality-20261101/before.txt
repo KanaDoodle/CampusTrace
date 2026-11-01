@@ -1,0 +1,14 @@
+--- FAIL: TestPreparationQualityRejectsOversizedWorkloadAndUnexplainedCitations (0.00s)
+    --- FAIL: TestPreparationQualityRejectsOversizedWorkloadAndUnexplainedCitations/three_programs_in_35_minutes (0.00s)
+        preparation_quality_test.go:36: unbounded or unexplained plan accepted
+    --- FAIL: TestPreparationQualityRejectsOversizedWorkloadAndUnexplainedCitations/no_support_explanation (0.00s)
+        preparation_quality_test.go:36: unbounded or unexplained plan accepted
+    --- FAIL: TestPreparationQualityRejectsOversizedWorkloadAndUnexplainedCitations/code_in_fifteen_minutes (0.00s)
+        preparation_quality_test.go:36: unbounded or unexplained plan accepted
+--- FAIL: TestPreparationQualityRepairsWorkloadBeforeCompleting (0.00s)
+    preparation_quality_test.go:62: COMPLETED 1
+--- FAIL: TestPreparationQualityShortTaskDoesNotExecuteTwoSearches (0.00s)
+    preparation_quality_test.go:91: short task read bound 2 2 COMPLETED
+FAIL
+FAIL	github.com/KanaDoodle/CampusTrace/internal/agent	0.981s
+FAIL
