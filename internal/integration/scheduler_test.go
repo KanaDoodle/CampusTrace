@@ -229,22 +229,33 @@ func TestSchedulerWorkerRestartReclaimsPendingWithoutRepeatingUnknownCall(t *tes
 	}
 	cancel()
 	must(t, <-done)
+	var taskID string
+	must(t, s.DB.QueryRowContext(ctx, "SELECT task_id FROM analysis_invocations WHERE observation_id=?", o.ID).Scan(&taskID))
 	restarted := &schedulerAnalyzer{onlyObservation: o.ID}
 	cancel, done = startWorker(restarted)
 	defer func() { cancel(); must(t, <-done) }()
-	deadline := time.Now().Add(5 * time.Second)
+	// This checks eventual recovery and no duplicate paid call, not a 5s SLO.
+	// A real consumer rejoin can span the broker's 10s session timeout; use the
+	// same bounded window as the other Kafka integration assertions.
+	started := time.Now()
+	deadline := started.Add(25 * time.Second)
 	for time.Now().Before(deadline) {
 		v, e := s.Observation(ctx, o.ID)
 		must(t, e)
-		if v.ErrorCategory == "ANALYSIS_OUTCOME_UNKNOWN" {
-			if restarted.calls.Load() != 0 {
-				t.Fatal("unknown paid invocation replayed")
-			}
+		if restarted.calls.Load() != 0 || initial.calls.Load() != 1 {
+			t.Fatal("unknown paid invocation replayed", initial.calls.Load(), restarted.calls.Load())
+		}
+		var journalState string
+		must(t, s.DB.QueryRowContext(ctx, "SELECT state FROM kafka_tasks WHERE task_id=?", taskID).Scan(&journalState))
+		if v.ErrorCategory == "ANALYSIS_OUTCOME_UNKNOWN" && journalState == "DEAD" {
+			t.Logf("unknown invocation recovered into manual review and terminal SQL journal in %s; no repeated call", time.Since(started))
 			return
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	t.Fatal("pending unknown analysis did not recover into manual review")
+	var journal string
+	must(t, s.DB.QueryRowContext(ctx, `SELECT JSON_OBJECT('state',state,'revision',revision,'category',category,'lease_remaining_ms',TIMESTAMPDIFF(MICROSECOND,UTC_TIMESTAMP(6),lease_until)/1000) FROM kafka_tasks WHERE task_id=?`, taskID).Scan(&journal))
+	t.Fatalf("pending unknown analysis did not recover into manual review: journal=%s initial_calls=%d restarted_calls=%d", journal, initial.calls.Load(), restarted.calls.Load())
 }
 
 func (m *schedulerModel) Complete(ctx context.Context, messages, schema any) (json.RawMessage, error) {

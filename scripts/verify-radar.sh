@@ -12,6 +12,9 @@ mkdir -p "$logs"
 mysql_admin() { docker compose exec -T mysql mysql -uroot -plocal-root-only "$@"; }
 mysql_admin -e "CREATE DATABASE $radar_db; CREATE DATABASE $legacy_db; CREATE DATABASE $upgrade_db; GRANT ALL ON $radar_db.* TO 'campus'@'%'; GRANT ALL ON $legacy_db.* TO 'campus'@'%'; GRANT ALL ON $upgrade_db.* TO 'campus'@'%';" >"$logs/database.log" 2>&1
 export CAMPUS_INTEGRATION=1 TASK_QUEUE_MODE=kafka
+# Package-level fixtures also read REDIS_ADDR directly. Match the Compose host
+# mapping instead of letting go-redis silently fall back to localhost:6379.
+export REDIS_ADDR="${REDIS_ADDR:-127.0.0.1:16379}"
 export KAFKA_BROKERS="${KAFKA_BROKERS:-127.0.0.1:19092}"
 export KAFKA_TEST_BROKERS="$KAFKA_BROKERS"
 export MYSQL_TEST_ADMIN_DSN="root:local-root-only@tcp(127.0.0.1:13306)/mysql?parseTime=true&loc=UTC"
@@ -26,5 +29,7 @@ if go test "$@" -count=1 -v ./... >"$logs/integration.log" 2>&1; then
 else
  code=$?
  printf 'integration exit=%s logs=%s schemas retained for diagnosis=%s\n' "$code" "$logs" "$radar_db" >&2
+ # Keep complete logs as artifacts and surface the failed test names in Actions.
+ awk '/^--- FAIL:|^FAIL([[:space:]]|$)|^panic:|^fatal error:/ {print}' "$logs/integration.log" >&2
  exit "$code"
 fi
