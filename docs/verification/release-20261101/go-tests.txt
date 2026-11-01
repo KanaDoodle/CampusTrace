@@ -1,0 +1,55 @@
+?   	github.com/KanaDoodle/CampusTrace/cmd/analysis	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/api	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/benchmark	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/campustrace	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/dlq	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/eval	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/events	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/ingest	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/journey-demo	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/loadgen	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/match-eval	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/mcp-server	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/notify	[no test files]
+ok  	github.com/KanaDoodle/CampusTrace/cmd/preparation-eval	0.524s
+?   	github.com/KanaDoodle/CampusTrace/cmd/retrieval-eval	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/scheduler-bench	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/search	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/seed	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/tasks	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/cmd/worker	[no test files]
+ok  	github.com/KanaDoodle/CampusTrace/internal/agent	1.016s
+ok  	github.com/KanaDoodle/CampusTrace/internal/analysis	0.700s
+?   	github.com/KanaDoodle/CampusTrace/internal/auth	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/internal/bootstrap	[no test files]
+ok  	github.com/KanaDoodle/CampusTrace/internal/config	0.365s
+?   	github.com/KanaDoodle/CampusTrace/internal/demo	[no test files]
+ok  	github.com/KanaDoodle/CampusTrace/internal/domain	0.386s
+ok  	github.com/KanaDoodle/CampusTrace/internal/eventbus	0.417s
+ok  	github.com/KanaDoodle/CampusTrace/internal/inferencebridge	0.432s
+ok  	github.com/KanaDoodle/CampusTrace/internal/integration	0.641s
+ok  	github.com/KanaDoodle/CampusTrace/internal/jobevent	0.390s
+ok  	github.com/KanaDoodle/CampusTrace/internal/launcher	0.456s
+ok  	github.com/KanaDoodle/CampusTrace/internal/matcheval	0.425s
+ok  	github.com/KanaDoodle/CampusTrace/internal/matching	0.427s
+ok  	github.com/KanaDoodle/CampusTrace/internal/mcpclient	0.373s
+ok  	github.com/KanaDoodle/CampusTrace/internal/modelconfig	0.343s
+?   	github.com/KanaDoodle/CampusTrace/internal/modelcontrol	[no test files]
+ok  	github.com/KanaDoodle/CampusTrace/internal/observability	0.411s
+ok  	github.com/KanaDoodle/CampusTrace/internal/persistence	0.486s
+ok  	github.com/KanaDoodle/CampusTrace/internal/pipeline	0.417s
+ok  	github.com/KanaDoodle/CampusTrace/internal/rag	0.443s
+ok  	github.com/KanaDoodle/CampusTrace/internal/recruitmentmail	0.334s
+ok  	github.com/KanaDoodle/CampusTrace/internal/resume	0.343s
+ok  	github.com/KanaDoodle/CampusTrace/internal/rules	0.816s
+ok  	github.com/KanaDoodle/CampusTrace/internal/scheduling	0.800s
+ok  	github.com/KanaDoodle/CampusTrace/internal/searchapi	2.096s
+ok  	github.com/KanaDoodle/CampusTrace/internal/searchservice	0.401s
+ok  	github.com/KanaDoodle/CampusTrace/internal/source	3.875s
+ok  	github.com/KanaDoodle/CampusTrace/internal/taskmigration	0.472s
+ok  	github.com/KanaDoodle/CampusTrace/internal/taskqueue	0.438s
+?   	github.com/KanaDoodle/CampusTrace/internal/testsupport/sqlfixture	[no test files]
+ok  	github.com/KanaDoodle/CampusTrace/internal/transport	0.455s
+?   	github.com/KanaDoodle/CampusTrace/migrations	[no test files]
+?   	github.com/KanaDoodle/CampusTrace/scripts/performance/tracecapture	[no test files]
+ok  	github.com/KanaDoodle/CampusTrace/web	0.462s

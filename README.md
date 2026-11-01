@@ -2,7 +2,7 @@
 
 **基于 Go 的校招求职工作台，串联招聘追踪、岗位分析、投递管理与面试复盘。**
 
-**中文** | [English](README_EN.md) · [架构](docs/architecture.md) · [工程证据](docs/engineering-evidence.md) · [版本验收](docs/verification/release-20261031/README.md)
+**中文** | [English](README_EN.md) · [架构](docs/architecture.md) · [工程证据](docs/engineering-evidence.md) · [版本验收](docs/verification/release-20261101/README.md)
 
 ```text
 招聘观察 / 手动导入 → 搜索与岗位取舍 → 投递计划与材料留档
@@ -107,7 +107,7 @@ make performance-test
 
 | 范围 | 可复现记录 |
 |---|---|
-| 版本验收 | [完整流程、固定版本与验收入口](docs/verification/release-20261031/README.md) |
+| 版本验收 | [完整流程、固定版本与验收入口](docs/verification/release-20261101/README.md) |
 | 岗位搜索诊断 | [1,000 / 5,000 / 10,000 岗位、Trace/EXPLAIN/pprof、冻结前后源码](docs/verification/search-diagnosis-20261031/README.md) |
 | 故障恢复等待 | [A/B/B/A 短时对照、原始失败与全部分位数](docs/verification/search-recovery-20261031/README.md) |
 | 技术要求解析 | [历史片段、合成控制、RPC 版本与旧缓存/代际隔离](docs/verification/technology-requirements-20261031/README.md) |

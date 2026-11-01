@@ -1,0 +1,29 @@
+{
+  "status": "PASS",
+  "evidence": "controlled-response-Go-Python-LangGraph",
+  "external_model_calls": 0,
+  "controlled_http_calls": 12,
+  "checks": [
+    "preview_zero_calls",
+    "structured_plan_and_literal_sources",
+    "start_idempotency",
+    "unconfirmed_start_rejected",
+    "owner_isolation",
+    "confirmed_save_mysql_state_receipt_and_idempotency",
+    "chromium_plan_feedback_save",
+    "service_unavailable_explicit_no_legacy_fallback_or_new_task",
+    "known_model_receipt_reused_after_lost_callback_response",
+    "clarification_interrupt_reviewed_child_15_minutes",
+    "cancel_propagates_to_provider_and_blocks_save",
+    "source_revision_blocks_final_confirm_no_business_write",
+    "python_only_sigkill_persistent_checkpoint_reopened",
+    "sigkill_durable_model_dispatch",
+    "lease_expiry_injected_not_elapsed",
+    "unknown_resume_requires_ack",
+    "completed_tool_not_repeated",
+    "unknown_budget_reservation_retained",
+    "clarification_command_resumes_parent_to_reviewed_child"
+  ],
+  "real_model_effect": "NOT_VALIDATED",
+  "browser": "PASS"
+}

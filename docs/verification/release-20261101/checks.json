@@ -1,0 +1,14 @@
+{
+  "source_delivery_commit": "5114a0502105f2bfdadf7dd9616436aa5d8a52b4",
+  "metric_fix_commit": "a611fcc39064f08063fbbb991a597bb24aca38a1",
+  "test_tree_clean": true,
+  "public_dependency_fresh_cache": true,
+  "go_workspace": "off",
+  "python_install": "fresh venv, require-hashes lock",
+  "product_acceptance_commit": "5114a0502105f2bfdadf7dd9616436aa5d8a52b4",
+  "compose_acceptance_commit": "a611fcc39064f08063fbbb991a597bb24aca38a1",
+  "real_model_commit": "5114a0502105f2bfdadf7dd9616436aa5d8a52b4",
+  "real_model_calls": 7,
+  "private_reports_remain_outside_repository": true,
+  "old_reports_preserved": true
+}

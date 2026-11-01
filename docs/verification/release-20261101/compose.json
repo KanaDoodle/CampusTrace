@@ -1,0 +1,74 @@
+{
+  "status": "PASS",
+  "source_commit": "a611fcc39064f08063fbbb991a597bb24aca38a1",
+  "services": [
+    {
+      "Service": "analysis-1",
+      "State": "running",
+      "Health": "healthy",
+      "ExitCode": 0
+    },
+    {
+      "Service": "analysis-2",
+      "State": "running",
+      "Health": "healthy",
+      "ExitCode": 0
+    },
+    {
+      "Service": "api",
+      "State": "running",
+      "Health": "healthy",
+      "ExitCode": 0
+    },
+    {
+      "Service": "etcd",
+      "State": "running",
+      "Health": "healthy",
+      "ExitCode": 0
+    },
+    {
+      "Service": "kafka",
+      "State": "running",
+      "Health": "healthy",
+      "ExitCode": 0
+    },
+    {
+      "Service": "kafka-init",
+      "State": "exited",
+      "Health": "",
+      "ExitCode": 0
+    },
+    {
+      "Service": "mysql",
+      "State": "running",
+      "Health": "healthy",
+      "ExitCode": 0
+    },
+    {
+      "Service": "preparation",
+      "State": "running",
+      "Health": "healthy",
+      "ExitCode": 0
+    },
+    {
+      "Service": "redis",
+      "State": "running",
+      "Health": "healthy",
+      "ExitCode": 0
+    },
+    {
+      "Service": "worker",
+      "State": "running",
+      "Health": "healthy",
+      "ExitCode": 0
+    }
+  ],
+  "graph_health": {
+    "executor": "langgraph",
+    "status": "ready"
+  },
+  "rpc_pipeline_observation_complete": true,
+  "external_model_calls": 0,
+  "isolated_project": "ct-delivery-421408e5b2",
+  "personal_services_modified": false
+}

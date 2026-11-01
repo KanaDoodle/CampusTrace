@@ -1,0 +1,5 @@
+ok  	github.com/KanaDoodle/CampusTrace/internal/agent	9.247s
+ok  	github.com/KanaDoodle/CampusTrace/internal/analysis	2.066s
+ok  	github.com/KanaDoodle/CampusTrace/internal/transport	1.755s
+ok  	github.com/KanaDoodle/CampusTrace/internal/launcher	1.707s
+ok  	github.com/KanaDoodle/CampusTrace/cmd/preparation-eval	1.691s

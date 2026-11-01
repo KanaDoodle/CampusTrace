@@ -1,0 +1,8 @@
+--- FAIL: TestPreparationEvaluationCountsRetrievedAndCitedSourcesAfterExecution (0.00s)
+    --- FAIL: TestPreparationEvaluationCountsRetrievedAndCitedSourcesAfterExecution/dynamic (0.00s)
+        preparation_agent_feedback_test.go:174: actual retrieved=0 cited=0; want 1
+    --- FAIL: TestPreparationEvaluationCountsRetrievedAndCitedSourcesAfterExecution/fixed-plus-synthesis (0.00s)
+        preparation_agent_feedback_test.go:174: actual retrieved=0 cited=0; want 1
+FAIL
+FAIL	github.com/KanaDoodle/CampusTrace/internal/agent	0.646s
+FAIL

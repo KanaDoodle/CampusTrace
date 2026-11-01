@@ -2,7 +2,7 @@
 
 **A Go-based campus recruitment workspace for tracking roles, comparing opportunities, managing applications, and preparing from interview reviews.**
 
-[中文](README.md) | **English** · [Architecture](docs/architecture.md) · [Engineering evidence](docs/engineering-evidence.md) · [Release acceptance](docs/verification/release-20261031/README.md)
+[中文](README.md) | **English** · [Architecture](docs/architecture.md) · [Engineering evidence](docs/engineering-evidence.md) · [Release acceptance](docs/verification/release-20261101/README.md)
 
 ```text
 Sources / manual imports → Search and role selection → Application plans and frozen materials
@@ -84,7 +84,7 @@ make verify-boundary
 make performance-test
 ```
 
-- [Release acceptance](docs/verification/release-20261031/README.md): end-to-end scenario and verification entry points.
+- [Release acceptance](docs/verification/release-20261101/README.md): end-to-end scenario and verification entry points.
 - [Search diagnosis](docs/verification/search-diagnosis-20261031/README.md): 1,000/5,000/10,000 synthetic jobs, trace/SQL/profile evidence and frozen sources.
 - [Recovery probes](docs/verification/search-recovery-20261031/README.md): paired short runs, complete quantiles, failures and excluded host-interfered attempts.
 - [Technical requirements](docs/verification/technology-requirements-20261031/README.md): historical excerpts, synthetic controls, RPC semantics and cache/generation fencing.

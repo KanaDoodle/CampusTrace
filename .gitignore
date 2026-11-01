@@ -91,3 +91,4 @@ __pycache__/
 !/docs/verification/preparation-langgraph-20261101/*.log
 *.sqlite-wal
 *.sqlite-shm
+!/docs/verification/release-20261101/

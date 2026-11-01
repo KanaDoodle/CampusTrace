@@ -1,0 +1,105 @@
+{
+  "evidence": "real-model-authorized-sanitized-materials-over-Go-Python-LangGraph",
+  "source_commit": "5114a0502105f2bfdadf7dd9616436aa5d8a52b4",
+  "framework": {
+    "langgraph": "1.2.19",
+    "langgraph-checkpoint-sqlite": "3.1.3"
+  },
+  "requested_model": "deepseek-flash",
+  "prompt_sha256": "a12817ced679ad86664fdd92a375fd3d5fce9f84cdfb4c2fc070b8a9178eb2e6",
+  "tools_version": "preparation-tools-v1-bm25",
+  "cases": [
+    {
+      "case_id": "release-normal-180",
+      "state": "COMPLETED",
+      "plan_valid": true,
+      "planned_minutes": 180,
+      "budget_minutes": 180,
+      "model_calls": 2,
+      "read_tool_calls": 2,
+      "latency_ms": 5740.93,
+      "prompt_tokens": 16591,
+      "completion_tokens": 837,
+      "semantic_scores": {
+        "target_requirement_coverage": 1,
+        "citation_entailment": 1,
+        "feasible_workload": 2,
+        "feedback_compliance": "N/A",
+        "no_fabricated_experience": 2,
+        "retrieval_added_value": 1
+      }
+    },
+    {
+      "case_id": "release-feedback-60",
+      "state": "COMPLETED",
+      "plan_valid": true,
+      "planned_minutes": 60,
+      "budget_minutes": 60,
+      "model_calls": 1,
+      "read_tool_calls": 0,
+      "latency_ms": 2341.222,
+      "prompt_tokens": 8503,
+      "completion_tokens": 567,
+      "semantic_scores": {
+        "target_requirement_coverage": 1,
+        "citation_entailment": 1,
+        "feasible_workload": 2,
+        "feedback_compliance": 2,
+        "no_fabricated_experience": 2,
+        "retrieval_added_value": "N/A"
+      }
+    },
+    {
+      "case_id": "release-15-minutes",
+      "state": "COMPLETED",
+      "plan_valid": true,
+      "planned_minutes": 15,
+      "budget_minutes": 15,
+      "model_calls": 2,
+      "read_tool_calls": 2,
+      "latency_ms": 4458.314,
+      "prompt_tokens": 16621,
+      "completion_tokens": 754,
+      "semantic_scores": {
+        "target_requirement_coverage": 1,
+        "citation_entailment": 2,
+        "feasible_workload": 2,
+        "feedback_compliance": "N/A",
+        "no_fabricated_experience": 2,
+        "retrieval_added_value": 0
+      }
+    },
+    {
+      "case_id": "release-missing-resume",
+      "state": "COMPLETED",
+      "plan_valid": true,
+      "planned_minutes": 180,
+      "budget_minutes": 180,
+      "model_calls": 2,
+      "read_tool_calls": 2,
+      "latency_ms": 5551.377,
+      "prompt_tokens": 13978,
+      "completion_tokens": 895,
+      "semantic_scores": {
+        "target_requirement_coverage": 1,
+        "citation_entailment": 1,
+        "feasible_workload": 1,
+        "feedback_compliance": "N/A",
+        "no_fabricated_experience": 2,
+        "retrieval_added_value": 1
+      }
+    }
+  ],
+  "total_provider_attempts": 7,
+  "reported_prompt_tokens": 55693,
+  "reported_completion_tokens": 3053,
+  "cost_usd": null,
+  "monetary_cost_reason": "No provider pricing supplied; usage is recorded without inventing a bill.",
+  "business_writes": "NONE; CLI quality tasks are read-only. Clean-product SQL receipts checked separately.",
+  "quota_used_before": 101,
+  "quota_used_after": 108,
+  "historical_cap": 120,
+  "new_quota_created": false,
+  "semantic_review": "current coding assistant, not independent human labels; weaknesses retained",
+  "old_retrieval_counter_erratum": "Counts in these raw reports are invalid; actual terminal states, literal validation, token usage and traces unaffected. Fixed and regression-tested at a611fcc."
+}
