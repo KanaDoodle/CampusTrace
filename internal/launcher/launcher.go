@@ -47,7 +47,16 @@ func command(ctx context.Context, dir string, args []string, out, errOut io.Writ
 	return cmd.Run()
 }
 func (m *manager) compose(args ...string) []string {
-	return append([]string{"docker", "compose", "--project-name", "campustrace", "--file", filepath.Join(m.root, "docker-compose.yml"), "--file", filepath.Join(m.root, "compose.app.yml")}, args...)
+	base := []string{"docker", "compose", "--project-name", "campustrace"}
+	// Read values through Compose, never put model credentials in argv or logs.
+	if info, err := os.Stat(filepath.Join(m.root, ".env.model.local")); err == nil && !info.IsDir() {
+		if _, err := os.Stat(filepath.Join(m.root, ".env")); err == nil {
+			base = append(base, "--env-file", filepath.Join(m.root, ".env"))
+		}
+		base = append(base, "--env-file", filepath.Join(m.root, ".env.model.local"))
+	}
+	base = append(base, "--file", filepath.Join(m.root, "docker-compose.yml"), "--file", filepath.Join(m.root, "compose.app.yml"))
+	return append(base, args...)
 }
 func (m *manager) run(ctx context.Context, args ...string) error {
 	return m.execute(ctx, m.root, args, m.out, m.errOut)

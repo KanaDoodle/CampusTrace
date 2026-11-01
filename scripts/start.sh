@@ -1,6 +1,12 @@
 #!/bin/sh
 set -eu
 cd "$(dirname "$0")/.."
+# Optional user-authorized model settings; ignored by Git and image builds.
+if [ -f .env.model.local ]; then
+  set -a
+  . ./.env.model.local
+  set +a
+fi
 mkdir -p bin
 if [ -f bin/api.pid ] && kill -0 "$(cat bin/api.pid)" 2>/dev/null; then echo 'CampusTrace is already running'; exit 1; fi
 for name in api worker analysis-1 analysis-2 preparation; do
@@ -10,7 +16,7 @@ export PREPARATION_SERVICE_TOKEN="${PREPARATION_SERVICE_TOKEN:-local-preparation
 export PREPARATION_GRAPH_URL="${PREPARATION_GRAPH_URL:-http://127.0.0.1:18110}"
 export PREPARATION_GO_URL="${PREPARATION_GO_URL:-http://${HTTP_ADDR:-127.0.0.1:8080}}"
 if [ ! -x services/preparation/.venv/bin/python ]; then echo 'Run make preparation-install first' >&2; exit 1; fi
-services/preparation/.venv/bin/python -m uvicorn app:app --app-dir services/preparation --host 127.0.0.1 --port 18110 --workers 1 --no-access-log >bin/preparation.log 2>&1 & echo $! >bin/preparation.pid
+env -u LLM_API_KEY -u LLM_URL -u LLM_MODEL services/preparation/.venv/bin/python -m uvicorn app:app --app-dir services/preparation --host 127.0.0.1 --port 18110 --workers 1 --no-access-log >bin/preparation.log 2>&1 & echo $! >bin/preparation.pid
 export JWT_SECRET="${JWT_SECRET:-local-campus-demo-secret-change-me-2027}"
 INSTANCE_ID=analysis-1 ANALYSIS_HEALTH_ADDR=127.0.0.1:19191 ANALYSIS_ADDR=127.0.0.1:19091 ./bin/analysis >bin/analysis-1.log 2>&1 & echo $! >bin/analysis-1.pid
 INSTANCE_ID=analysis-2 ANALYSIS_HEALTH_ADDR=127.0.0.1:19192 ANALYSIS_ADDR=127.0.0.1:19092 ./bin/analysis >bin/analysis-2.log 2>&1 & echo $! >bin/analysis-2.pid

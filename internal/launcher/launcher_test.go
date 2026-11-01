@@ -355,3 +355,25 @@ func fakeDatabaseSQL(_ context.Context, _ string, _ []string, in io.Reader, out,
 	_, err = io.WriteString(out, value)
 	return err
 }
+
+func TestComposeLoadsPrivateModelFileWithoutPuttingSecretsInArguments(t *testing.T) {
+	root := t.TempDir()
+	m := manager{root: root}
+	baseline := strings.Join(m.compose("config", "--quiet"), " ")
+	if strings.Contains(baseline, "--env-file") {
+		t.Fatal("unexpected missing config")
+	}
+	if err := os.WriteFile(filepath.Join(root, ".env"), []byte("CAMPUS_HTTP_PORT=18080\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, ".env.model.local"), []byte("LLM_API_KEY=synthetic-secret-only\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	args := strings.Join(m.compose("up", "--detach"), " ")
+	if strings.Contains(args, "synthetic-secret-only") || strings.Count(args, "--env-file") != 2 {
+		t.Fatal("config handling", args)
+	}
+	if strings.Index(args, ".env.model.local") < strings.Index(args, "--env-file "+filepath.Join(root, ".env")+" ") {
+		t.Fatal("dedicated model config should follow general defaults")
+	}
+}

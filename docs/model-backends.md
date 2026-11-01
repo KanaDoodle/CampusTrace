@@ -35,3 +35,8 @@ RPC/vLLM 与未发布流式 SDK 已移至[独立实验归档](../experiments/REA
 ## 申请准备的 LangGraph 编排
 
 申请档案的“生成面试准备计划”由同仓库 Python / LangGraph 服务组织模型与工具循环、澄清中断和检查点恢复；Go 继续负责账号、材料、检索、模型预算及确认保存。普通问答、固定 Skills 和其他模型业务保留原职责。该场景的检索仍为已授权本人材料的 BM25，不隐式启用 Embedding、重排序或外部 MCP。[部署、恢复与证据范围](preparation-langgraph.md)。
+
+
+## 本机共用API配置
+
+`.env.model.local`为用户授权的私有模型配置文件，包含LLM_URL、LLM_MODEL、LLM_API_KEY，权限0600且被Git和镜像构建忽略。统一CLI、应用Compose及本机启动读取它，命令行评测可导出同一环境，Python编排进程不接收模型Key。配置不进入检查点或报告。[使用与验证](preparation-quality.md#本机后端模型配置)。
