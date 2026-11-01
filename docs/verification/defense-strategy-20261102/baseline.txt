@@ -1,0 +1,5 @@
+--- FAIL: TestDefenseTeachingStrategyReachesActualPrompt (0.00s)
+    defense_strategy_test.go:14: candidate teaching strategy never reaches product model prompt
+FAIL
+FAIL	github.com/KanaDoodle/CampusTrace/internal/agent	0.897s
+FAIL

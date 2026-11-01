@@ -133,6 +133,9 @@ func defenseMemoryInput(ctx context.Context, q Queryer, user string, a SaveDefen
 			return MemoryInput{}, ErrConflict
 		}
 		episode = &d.DefenseEpisode{ExecutionID: v.ID, ApplicationID: s.Input.ApplicationID, Revision: s.Revision, Topic: s.Defense.Topic, Title: s.Defense.Title, EvidenceVersion: s.Defense.Version, PromptVersion: s.Defense.PromptVersion, RecordedAt: v.UpdatedAt, Question: s.Defense.Question, Answer: s.Defense.Answer, Review: *s.Defense.Review, Sources: sources}
+		if s.Defense.TeachingStrategy != nil {
+			episode.StrategyID = s.Defense.TeachingStrategy.ID()
+		}
 	}
 	note := strings.TrimSpace(a.Note)
 	if note == "" {

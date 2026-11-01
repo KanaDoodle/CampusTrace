@@ -1,0 +1,10 @@
+✔ browse views identify one common range without disguising combined advanced conditions (0.187916ms)
+✔ current overview separates technical strengths from qualifications and withdrawn evidence (0.612125ms)
+ℹ tests 467
+ℹ suites 0
+ℹ pass 467
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1377.1535

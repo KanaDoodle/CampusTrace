@@ -1,0 +1,13 @@
+test_defense_review_includes_memory_original_answer_and_unscored_quality (test_preparation_human_review.HumanReviewTests.test_defense_review_includes_memory_original_answer_and_unscored_quality) ... ok
+test_never_overwrites_annotations (test_preparation_human_review.HumanReviewTests.test_never_overwrites_annotations) ... ok
+test_preserves_output_provenance_and_unreviewed_scores (test_preparation_human_review.HumanReviewTests.test_preserves_output_provenance_and_unreviewed_scores) ... ok
+test_rejects_changed_material_before_writing (test_preparation_human_review.HumanReviewTests.test_rejects_changed_material_before_writing) ... ok
+test_rejects_private_output_inside_repository (test_preparation_human_review.HumanReviewTests.test_rejects_private_output_inside_repository) ... ok
+test_contact_scrubbing_preserves_technical_numbers (test_preparation_real_eval.RealPreparationMaterialTests.test_contact_scrubbing_preserves_technical_numbers) ... ok
+test_private_output_is_exclusive_and_owner_readable (test_preparation_real_eval.RealPreparationMaterialTests.test_private_output_is_exclusive_and_owner_readable) ... ok
+test_real_material_scenarios_never_invent_interview_history (test_preparation_real_eval.RealPreparationMaterialTests.test_real_material_scenarios_never_invent_interview_history) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 0.130s
+
+OK

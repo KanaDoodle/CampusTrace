@@ -1,0 +1,32 @@
+{
+  "product_registry": {
+    "schema": "defense-strategy-registry-v1",
+    "generation": 0,
+    "active": "934bfd2662dc5ae7820d2919ea07b47a65e96b007f51b6a1c133f4de33af9081",
+    "history": []
+  },
+  "isolated_verification_registry": {
+    "schema": "defense-strategy-registry-v1",
+    "generation": 2,
+    "active": "934bfd2662dc5ae7820d2919ea07b47a65e96b007f51b6a1c133f4de33af9081",
+    "history": [
+      {
+        "action": "ADOPT",
+        "previous": "934bfd2662dc5ae7820d2919ea07b47a65e96b007f51b6a1c133f4de33af9081",
+        "active": "6f633be7f4c1712d5ca851488bf6db3a18af16bcb4b42f136407cd9930843349",
+        "decision_sha256": "df9cfc7ee4f216eb9f7a928e72d5b3215bd651e00425a12f7d8e27badd35b2e5",
+        "experiment_sha256": "6c368a9563f3937caced8b58cb0bf198b7054422ff2c0b9a2e6cc125c9654381"
+      },
+      {
+        "action": "ROLLBACK",
+        "previous": "6f633be7f4c1712d5ca851488bf6db3a18af16bcb4b42f136407cd9930843349",
+        "active": "934bfd2662dc5ae7820d2919ea07b47a65e96b007f51b6a1c133f4de33af9081",
+        "reason": "合成回滚验收，保留候选与决策"
+      }
+    ],
+    "verification_only": true
+  },
+  "product_rejected_verification_registry": true,
+  "official_adoption_performed": false,
+  "note": "Synthetic approval exercised adoption/rollback only outside the repository; product files stayed unchanged."
+}

@@ -3,7 +3,7 @@
 import argparse, json, os, pathlib, socket, subprocess, time, urllib.request
 
 def main():
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--output',type=pathlib.Path,required=True);p.add_argument('--dataset',default='internal/agent/testdata/preparation-tasks.json');p.add_argument('--arms',default='single-prompt,fixed-plus-synthesis,dynamic');args=p.parse_args()
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--output',type=pathlib.Path,required=True);p.add_argument('--dataset',default='internal/agent/testdata/preparation-tasks.json');p.add_argument('--arms',default='single-prompt,fixed-plus-synthesis,dynamic');p.add_argument('--splits',choices=['both','development','validation'],default='both');p.add_argument('--defense-strategy',type=pathlib.Path);args=p.parse_args()
     work=args.output.resolve();work.mkdir(parents=True,exist_ok=True)
     if any(work.iterdir()):raise SystemExit('use a new empty output directory')
     root=pathlib.Path(__file__).resolve().parents[1]
@@ -19,11 +19,12 @@ def main():
                     urllib.request.urlopen(url+'/healthz',timeout=1).close();break
                 except OSError:time.sleep(.1)
             else:raise RuntimeError('LangGraph not ready')
-            for split in ['development','validation']:
-                subprocess.run(['go','run','./cmd/preparation-eval','-split',split,'-dataset',args.dataset,'-arms',args.arms,'-graph-url',url,'-graph-callback-addr',f'127.0.0.1:{cp}','-output',str(work/(split+'.json'))],cwd=root,env=env,check=True)
-            reports=[json.loads((work/(x+'.json')).read_text()) for x in ['development','validation']]
+            splits=['development','validation'] if args.splits=='both' else [args.splits]
+            for split in splits:
+                subprocess.run(['go','run','./cmd/preparation-eval','-split',split,'-dataset',args.dataset,'-arms',args.arms,'-graph-url',url,'-graph-callback-addr',f'127.0.0.1:{cp}','-output',str(work/(split+'.json'))]+(['-defense-strategy',str(args.defense_strategy.resolve())] if args.defense_strategy else []),cwd=root,env=env,check=True)
+            reports=[json.loads((work/(x+'.json')).read_text()) for x in splits]
             tasks=json.loads((root/args.dataset).read_text())
-            if any('expected_memory_ids' in t for t in tasks):
+            if args.splits=='both' and any('expected_memory_ids' in t for t in tasks):
                 results={r['case_id']:r for report in reports for r in report['results']}
                 pairs=[]
                 for task in tasks:

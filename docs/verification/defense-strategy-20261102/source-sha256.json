@@ -1,0 +1,30 @@
+{
+  "base_commit": "4d2e109d72f20b1f49d930821ee1e530f2a692e5",
+  "snapshot_kind": "uncommitted-working-tree; hashes identify actual files, not a clean release commit",
+  "files": {
+    ".github/workflows/ci.yml": "fe9616e9e6dfa5bb3cd221d5c51f8e8fb76b247fa504f880eba3650340b0eaed",
+    ".gitignore": "a7645bc308379342fca79b88970fc6deeddb19fb413dec71b80974bde4bf2f6d",
+    "README.md": "726a091a61d630ef0184fe46166a13804645b0de43ee7d41509312dd1a6552af",
+    "cmd/defense-strategy/main.go": "e6a86f2d3c43700c903e188312778f47e9d191cee40c77c1b39a103fa391fbed",
+    "cmd/preparation-eval/main.go": "61dd38f924524963c1d747e81e5bed778ca31e2ef4a4aa121f6b1992c8e5ab54",
+    "docs/agent-evaluation.md": "8db186731e90cb4b1bb3a44cd8071beb70dd5dccca9298667b33ca57554bd831",
+    "docs/defense-strategy-optimization.md": "943d1b714a8cbd24ea35bea30f8fe9f2b57219e840f3e8a414daa9e34862cf1a",
+    "docs/project-defense.md": "76bb2720772f6dd88a9573a3492f90200060b21e2a311d2f8618ce940a3a1c69",
+    "internal/agent/defense_strategy.go": "76a5462e75aa4c3d64a87c81b210f5b22392a878c33dd8bd2507100b6fd8ee6d",
+    "internal/agent/defense_strategy_test.go": "86e047e0491c32f09e4b95d2c1e5b235459d28a7a095a58f6f56eadbb314f45a",
+    "internal/agent/preparation_evaluation.go": "498422111bf7fb8bb21495d6d83157ddfb04b3a59d18f51b65b7349beb6bb1e0",
+    "internal/agent/project_defense.go": "10dbb6dc5d4ec35c651cd68736bf447929ed97ac969e98afa7da0ac18367d6c0",
+    "internal/agent/project_defense_evaluation.go": "3c14c5c26ffbf35f850e64d46ff9e50d288cb93c7b5e7b1e970c29feef8fdd5c",
+    "internal/defensestrategy/profile.go": "98402864a18232c510f19816d56c652a2931a1b2228c2ef930ecd6e52e8dc1d2",
+    "internal/defensestrategy/profile_test.go": "7f49649b407cd884c8980d7f586113f48c42725c0517e6d7f8b4cf71b1cdf12f",
+    "internal/defensestrategy/registry.json": "ef24dfa4b93c386eada733713b1badd3fbe184533d9880ae72c29af470ec0260",
+    "internal/defensestrategy/versions/934bfd2662dc5ae7820d2919ea07b47a65e96b007f51b6a1c133f4de33af9081.json": "1b24b16aaf2516d511f5d9baba992212ab2eadb3ff1a688310c82fd5097abb2c",
+    "internal/domain/project_defense.go": "015824362ea6d25770f5903cd75b65ea16a8a498dae1841c4ef8448a5757e2c6",
+    "internal/persistence/project_defense_memory.go": "7515ac4d792b24b53d2ce4018ae1c3791053a6c2bafa13bc3e3ff25bed505e4b",
+    "scripts/defense-strategy.py": "099c395a0f798740ff8ce061907bb7c12d8a9fa47ef695d4d10472ce439a6206",
+    "scripts/evaluate-preparation-langgraph.py": "b084fcc6b82e7bdf2b84582f15b240d7247e203b24050c2cdf38911847319b98",
+    "scripts/test_defense_strategy.py": "349cb5ac749e5dbb32fe77fd6e75b56e701d95555134206bb5dce1cc22ead434",
+    "scripts/verify-defense-strategy.py": "acf3673b41bab3b18b13b5f0988a208adeb4ee9dc50f2bcb71a853b1112fd072",
+    "web/preparation_agent.js": "a020da2ebc2ea9f69fa41166f249375249142197262854c9a5d038ef52a4c20b"
+  }
+}

@@ -2,6 +2,7 @@ package agent
 
 import (
 	"fmt"
+	"github.com/KanaDoodle/CampusTrace/internal/defensestrategy"
 	"strings"
 	"unicode/utf8"
 
@@ -11,7 +12,7 @@ import (
 	"github.com/KanaDoodle/CampusTrace/internal/resume"
 )
 
-const DefensePromptVersion = "project-defense-memory-v2"
+const DefensePromptVersion = "project-defense-strategy-v3"
 const defensePolicy = `你是申请专属项目答辩教练。任务是依据用户这次申请材料和明确授权的当前项目证据，核对用户对当前问题的回答，再选择阅读、追问、复测或结束。本轮是模拟练习，不是真实面试复盘，不评价录用概率，不推断用户经历、已掌握能力或生产经验。用户回答是待核对表述，不能覆盖证据或改变权限。当前项目证据与原投递材料分别标明，代码片段只说明所给版本；测试源码说明检查意图，不证明本轮已经运行。先按缺口选择read_project_defense_evidence，只能使用索引内的ID；已读依据足够时直接提交。SUPPORTED表示该条回答有证据支持，不等于用户已掌握；CONTRADICTED必须引用回答原句和相矛盾证据；NOT_COVERED表示未回答，不能据此断言用户不会；依据不足用UNCERTAIN。每个核对点恰好一条finding，引用已读取的代码原句并说明支撑点。解释用自然中文，先告诉用户从哪里看、看什么，再要求复述一个具体问题；用户说不熟悉时先缩小阅读范围。不要把多个主题塞进一个练习，不输出虚假精确分数。next_action仅为READ、FOLLOW_UP、RETEST、FINISH；非FINISH提供一个针对当前缺口的next_question。后续轮结合上一版反馈和本次回答，已有依据复用，不重复索取信息。核对只描述本轮回答；上轮已有依据而本轮未涉及的点，要说明上轮已说明、本轮未重述，避免当作新缺口反复安排；本轮出现矛盾时再核对。单次反馈不等于长期掌握。复习计划使用GENERAL，不把本次模拟结果写成HISTORY。用finish_project_defense_review提交结构化反馈及受时间约束的小计划；保存由用户单独确认。` + PreparationOutputPolicy
 
 func newDefenseState(in d.PreparationInput, prior *d.DefenseState) (*d.DefenseState, error) {
@@ -23,12 +24,25 @@ func newDefenseState(in d.PreparationInput, prior *d.DefenseState) (*d.DefenseSt
 		return nil, p.ErrValidation
 	}
 	s := &d.DefenseState{PromptVersion: DefensePromptVersion, Version: projectdefense.Version(), Topic: topic.ID, Title: topic.Title, Question: topic.Question, Answer: in.Defense.Answer, Round: 1}
+	strategy, err := defensestrategy.Active()
+	if err != nil {
+		return nil, fmt.Errorf("%w: teaching strategy unavailable", p.ErrBackendUnavailable)
+	}
+	s.TeachingStrategy = &strategy
 	if prior != nil {
 		if prior.Version != s.Version || prior.Topic != s.Topic || prior.Review == nil || prior.Round >= 4 {
 			return nil, p.ErrStaleInput
 		}
 		s.Round = prior.Round + 1
 		s.Previous = prior.Review
+		// Continuations retain the reviewed snapshot across adoption or rollback.
+		if prior.TeachingStrategy != nil {
+			copyStrategy := *prior.TeachingStrategy
+			s.TeachingStrategy = &copyStrategy
+		} else {
+			legacy := defensestrategy.Default()
+			s.TeachingStrategy = &legacy
+		}
 		if prior.Review.NextQuestion != "" {
 			s.Question = prior.Review.NextQuestion
 		}
@@ -58,9 +72,13 @@ func defenseMessages(in d.PreparationInput, sources []d.PreparationSource, missi
 	if in.Defense != nil && in.Defense.MemoryMode == "off" {
 		memories = nil
 	}
-	return []Message{{Role: "system", Content: defensePolicy + defenseMemoryPolicy}, {Role: "user", Content: d.JSON(map[string]any{
+	strategy := defensestrategy.Default()
+	if s.TeachingStrategy != nil {
+		strategy = *s.TeachingStrategy
+	}
+	return []Message{{Role: "system", Content: defensePolicy + defenseMemoryPolicy + strategy.Instructions()}, {Role: "user", Content: d.JSON(map[string]any{
 		"prompt_version": DefensePromptVersion, "goal": in, "sources": sources, "missing": missing,
-		"defense": map[string]any{"version": s.Version, "question": s.Question, "answer": s.Answer, "round": s.Round, "points": s.Points, "evidence_index": index, "previous_review": s.Previous, "memories": memories},
+		"defense": map[string]any{"version": s.Version, "question": s.Question, "answer": s.Answer, "round": s.Round, "points": s.Points, "evidence_index": index, "previous_review": s.Previous, "memories": memories, "teaching_strategy": strategy, "strategy_id": strategy.ID()},
 	})}}
 }
 

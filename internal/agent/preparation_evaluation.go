@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/KanaDoodle/CampusTrace/internal/defensestrategy"
 	"strings"
 	"time"
 
@@ -112,18 +113,26 @@ func (m *preparationEvalRecorder) Next(ctx context.Context, messages []Message, 
 }
 
 func EvalPreparationCase(ctx context.Context, c PreparationEvalCase, arm string, model Model) PreparationEvalResult {
-	return evalPreparationCase(ctx, c, arm, model, nil, false, 6)
+	return evalPreparationCase(ctx, c, arm, model, nil, false, 6, nil)
 }
 
 // EvalPreparationGraphCase exercises the deployed graph over HTTP. Its tools
 // use the labelled case corpus; business writes remain a separate SQL/API test.
 func EvalPreparationGraphCase(ctx context.Context, c PreparationEvalCase, arm string, model Model, graph *PreparationGraphClient) PreparationEvalResult {
-	return evalPreparationCase(ctx, c, arm, model, graph, true, 6)
+	return evalPreparationCase(ctx, c, arm, model, graph, true, 6, nil)
 }
 func EvalPreparationGraphCaseWithLimit(ctx context.Context, c PreparationEvalCase, arm string, model Model, graph *PreparationGraphClient, limit int) PreparationEvalResult {
-	return evalPreparationCase(ctx, c, arm, model, graph, true, max(1, min(6, limit)))
+	return evalPreparationCase(ctx, c, arm, model, graph, true, max(1, min(6, limit)), nil)
 }
-func evalPreparationCase(ctx context.Context, c PreparationEvalCase, arm string, model Model, graph *PreparationGraphClient, quality bool, modelLimit int) PreparationEvalResult {
+
+// Evaluation pins a validated profile; product input cannot choose a strategy.
+func EvalPreparationGraphCaseWithStrategy(ctx context.Context, c PreparationEvalCase, arm string, model Model, graph *PreparationGraphClient, limit int, strategy defensestrategy.Profile) PreparationEvalResult {
+	if strategy.Validate() != nil {
+		return PreparationEvalResult{CaseID: c.ID, Arm: arm, State: "FAILED", Error: "INVALID_TEACHING_STRATEGY"}
+	}
+	return evalPreparationCase(ctx, c, arm, model, graph, true, max(1, min(6, limit)), &strategy)
+}
+func evalPreparationCase(ctx context.Context, c PreparationEvalCase, arm string, model Model, graph *PreparationGraphClient, quality bool, modelLimit int, strategy *defensestrategy.Profile) PreparationEvalResult {
 	started := time.Now()
 	in := NormalizePreparationInput(c.Input)
 	v := p.AgentExecution{ID: d.ID(), State: "RUNNING", Preparation: &d.PreparationState{Input: in, Sources: append([]d.PreparationSource{}, c.Sources...), Missing: c.Missing, PreviousPlan: c.PreviousPlan, ProviderState: "READY", Usage: json.RawMessage(`{"limit":128000}`)}}
@@ -144,6 +153,10 @@ func evalPreparationCase(ctx context.Context, c PreparationEvalCase, arm string,
 			result.State = "FAILED"
 			result.Error = "INVALID_DEFENSE_INPUT"
 			return result
+		}
+		if strategy != nil {
+			copyStrategy := *strategy
+			v.Preparation.Defense.TeachingStrategy = &copyStrategy
 		}
 		if in.Defense.MemoryMode != "off" {
 			v.Preparation.Defense.Memories, v.Preparation.Defense.MemoryExcluded = p.SelectDefenseMemories(c.MemoryCandidates, in.Defense.Topic, v.Preparation.Defense.Version, time.Now().UTC())

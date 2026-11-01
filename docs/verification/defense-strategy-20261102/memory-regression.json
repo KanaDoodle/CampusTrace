@@ -1,0 +1,28 @@
+{
+  "evidence": "controlled-model-responses-real-Go-Python-LangGraph",
+  "external_model_calls": 0,
+  "graph_version": "preparation-langgraph-v1",
+  "reports": {
+    "development": {
+      "dynamic": {
+        "failed_tool_calls": 0,
+        "invalid_calls": 0,
+        "model_calls": 12,
+        "program_expectations_met": 6,
+        "tasks": 6,
+        "tool_calls": 12
+      }
+    },
+    "validation": {
+      "dynamic": {
+        "failed_tool_calls": 0,
+        "invalid_calls": 0,
+        "model_calls": 34,
+        "program_expectations_met": 18,
+        "tasks": 18,
+        "tool_calls": 32
+      }
+    }
+  },
+  "semantic_quality": "NOT_MEASURED; controlled responses do not prove model reasoning"
+}

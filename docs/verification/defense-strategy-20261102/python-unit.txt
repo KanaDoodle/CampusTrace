@@ -1,0 +1,15 @@
+test_controlled_adoption_is_isolated_and_rollback_is_recorded (test_defense_strategy.StrategyTests.test_controlled_adoption_is_isolated_and_rollback_is_recorded) ... ok
+test_empty_reviews_are_pending_and_no_gain_is_preserved (test_defense_strategy.StrategyTests.test_empty_reviews_are_pending_and_no_gain_is_preserved) ... ok
+test_lock_and_rollback_target_are_checked (test_defense_strategy.StrategyTests.test_lock_and_rollback_target_are_checked) ... ok
+test_material_snapshots_preserve_exact_authorized_bytes (test_defense_strategy.StrategyTests.test_material_snapshots_preserve_exact_authorized_bytes) ... ok
+test_profiles_cannot_add_tools_or_permissions (test_defense_strategy.StrategyTests.test_profiles_cannot_add_tools_or_permissions) ... ok
+test_program_failure_and_additional_calls_block (test_defense_strategy.StrategyTests.test_program_failure_and_additional_calls_block) ... ok
+test_proposer_rejects_validation_or_wrong_dataset (test_defense_strategy.StrategyTests.test_proposer_rejects_validation_or_wrong_dataset) ... ok
+test_review_changes_invalidate_old_decision (test_defense_strategy.StrategyTests.test_review_changes_invalidate_old_decision) ... ok
+test_semantic_regression_blocks_even_when_other_scores_improve (test_defense_strategy.StrategyTests.test_semantic_regression_blocks_even_when_other_scores_improve) ... ok
+test_tamper_model_and_missing_report_cannot_be_approved (test_defense_strategy.StrategyTests.test_tamper_model_and_missing_report_cannot_be_approved) ... ok
+
+----------------------------------------------------------------------
+Ran 10 tests in 0.098s
+
+OK

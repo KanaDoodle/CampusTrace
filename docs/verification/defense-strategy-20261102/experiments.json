@@ -1,0 +1,1418 @@
+{
+  "evidence": "controlled-Go-Python-LangGraph; semantic decision fixtures explicitly synthetic",
+  "external_model_calls": 0,
+  "comparison_case_executions": 104,
+  "scripted_comparison_model_turns": 247,
+  "source_development_seed_cases": 24,
+  "quality_conclusion": "NOT_MEASURED",
+  "experiments": [
+    {
+      "name": "pending",
+      "status": "PENDING_HUMAN_REVIEW",
+      "program_failures": [],
+      "budget_regressions": [],
+      "reports": {
+        "baseline-development": {
+          "tasks": 6,
+          "program_expectations_met": 6,
+          "scripted_model_turns": 16,
+          "report_sha256": "680bc0c904560d0184cb0c5b40390c7e18f3b886654f3cffb979796d96a26b99",
+          "strategy_sha256": "934bfd2662dc5ae7820d2919ea07b47a65e96b007f51b6a1c133f4de33af9081",
+          "prompt_hashes": [
+            "1beb2d002d41abe0682175181a0e1da91c966c35534b4951abba97682ac787f7"
+          ]
+        },
+        "candidate-development": {
+          "tasks": 6,
+          "program_expectations_met": 6,
+          "scripted_model_turns": 16,
+          "report_sha256": "61418e19ca28131c7897209e7b4dd9de6004128c73e46f98a089fc1b8e62e893",
+          "strategy_sha256": "6f633be7f4c1712d5ca851488bf6db3a18af16bcb4b42f136407cd9930843349",
+          "prompt_hashes": [
+            "d1c77e3dd69a49292a39ebc3b54a802bb02aa8832a2e6325241439ec6ef2596f"
+          ]
+        },
+        "baseline-validation": {
+          "tasks": 14,
+          "program_expectations_met": 14,
+          "scripted_model_turns": 28,
+          "report_sha256": "fc71e98d29afc7b68dd77aff9b284e4a0ef1112c60cdd758c17f86807df12b6d",
+          "strategy_sha256": "934bfd2662dc5ae7820d2919ea07b47a65e96b007f51b6a1c133f4de33af9081",
+          "prompt_hashes": [
+            "1beb2d002d41abe0682175181a0e1da91c966c35534b4951abba97682ac787f7",
+            "3b6365edbc1faac370127b8afbd876c542af9374dd5e3d8e11c1f293de667079",
+            "eca7de6b60237e923b8e066559c00bec2a5e071907fa0eb919a919ab22295a8c"
+          ]
+        },
+        "candidate-validation": {
+          "tasks": 14,
+          "program_expectations_met": 14,
+          "scripted_model_turns": 28,
+          "report_sha256": "3eafe8a0b35b63ae122b5f238c93f8622348c5a09cb04f06c619ffe7d0624166",
+          "strategy_sha256": "6f633be7f4c1712d5ca851488bf6db3a18af16bcb4b42f136407cd9930843349",
+          "prompt_hashes": [
+            "093c6ed03c475f529016e649b2ce4c4d43be3fa59ecb2c9c5a311d2fc7a4198b",
+            "6799800dd6c24fc749ba1274f2c13ce809b3b639b335c29cdf79c584762fb6f7",
+            "d1c77e3dd69a49292a39ebc3b54a802bb02aa8832a2e6325241439ec6ef2596f"
+          ]
+        }
+      },
+      "source_report_sha256": "74aa1190f0100222d3d7cc07f6024e3ff8b21bb233afb10e32a11b1a6b6dd25a",
+      "code_sha256": "737ae9bbb857756e656c54de11cb1d959000b4108c8c073e65ce25ce5e447edc",
+      "validation_skipped": null
+    },
+    {
+      "name": "development-regression",
+      "status": "REJECTED_PROGRAM_OR_BUDGET",
+      "program_failures": [
+        {
+          "split": "development",
+          "case_id": "go-langgraph-1",
+          "state": "PAUSED",
+          "baseline_met": true
+        }
+      ],
+      "budget_regressions": [
+        {
+          "split": "development",
+          "case_id": "go-langgraph-1",
+          "baseline_calls": 2,
+          "candidate_calls": 5
+        }
+      ],
+      "reports": {
+        "baseline-development": {
+          "tasks": 6,
+          "program_expectations_met": 6,
+          "scripted_model_turns": 16,
+          "report_sha256": "46a7bf5d677052cae16046c29a7a7b661c9ee2ef3810c8d15405386064aafd69",
+          "strategy_sha256": "934bfd2662dc5ae7820d2919ea07b47a65e96b007f51b6a1c133f4de33af9081",
+          "prompt_hashes": [
+            "1beb2d002d41abe0682175181a0e1da91c966c35534b4951abba97682ac787f7"
+          ]
+        },
+        "candidate-development": {
+          "tasks": 6,
+          "program_expectations_met": 5,
+          "scripted_model_turns": 19,
+          "report_sha256": "9385ca9cc9cccbefe0e516bc9de1b083a7b144019224537007f21e3ab0c0032c",
+          "strategy_sha256": "349c7dec7b272eb5d64721c5378d41cbc358b3279721f80add2e917288b17ff2",
+          "prompt_hashes": [
+            "98f55cf2b770e72d5f2feea5f71241c4fce4158165814dcde48662ce7a1b73e4"
+          ]
+        }
+      },
+      "source_report_sha256": "baf04c78043d5798330c45d57e75c10dae10b8fa6fd1dc673f4e729b6eb10184",
+      "code_sha256": "737ae9bbb857756e656c54de11cb1d959000b4108c8c073e65ce25ce5e447edc",
+      "validation_skipped": "candidate rejected on development; validation not exposed to proposer"
+    },
+    {
+      "name": "budget-regression",
+      "status": "REJECTED_PROGRAM_OR_BUDGET",
+      "program_failures": [],
+      "budget_regressions": [
+        {
+          "split": "development",
+          "case_id": "go-langgraph-1",
+          "baseline_calls": 2,
+          "candidate_calls": 3
+        }
+      ],
+      "reports": {
+        "baseline-development": {
+          "tasks": 6,
+          "program_expectations_met": 6,
+          "scripted_model_turns": 16,
+          "report_sha256": "cedbb6ddd00ca16d7dcc4a60137b737955b0468f1770c235b2a5bd7ecf36c691",
+          "strategy_sha256": "934bfd2662dc5ae7820d2919ea07b47a65e96b007f51b6a1c133f4de33af9081",
+          "prompt_hashes": [
+            "1beb2d002d41abe0682175181a0e1da91c966c35534b4951abba97682ac787f7"
+          ]
+        },
+        "candidate-development": {
+          "tasks": 6,
+          "program_expectations_met": 6,
+          "scripted_model_turns": 17,
+          "report_sha256": "d5dda511cccabf47283f7a4192168ed6faf5532e8198f67a82c80072d4b921bb",
+          "strategy_sha256": "899c83f612adb17c3933ad04df58dfcafc371670ec8d72f8317f6341b21ab473",
+          "prompt_hashes": [
+            "cfd6b2f8ec5dd10e221fdaaf406f4f9744c86e063de042bb822ce57d8a9727bc"
+          ]
+        }
+      },
+      "source_report_sha256": "0534bcdfc6f463cc3d55698aedd27c59ae15c553f7e3da77c332b9c3d7d527c1",
+      "code_sha256": "737ae9bbb857756e656c54de11cb1d959000b4108c8c073e65ce25ce5e447edc",
+      "validation_skipped": "candidate rejected on development; validation not exposed to proposer"
+    },
+    {
+      "name": "validation-regression",
+      "status": "REJECTED_PROGRAM_OR_BUDGET",
+      "program_failures": [
+        {
+          "split": "validation",
+          "case_id": "go-langgraph-4",
+          "state": "PAUSED",
+          "baseline_met": true
+        }
+      ],
+      "budget_regressions": [
+        {
+          "split": "validation",
+          "case_id": "go-langgraph-4",
+          "baseline_calls": 2,
+          "candidate_calls": 5
+        }
+      ],
+      "reports": {
+        "baseline-development": {
+          "tasks": 6,
+          "program_expectations_met": 6,
+          "scripted_model_turns": 16,
+          "report_sha256": "a071878500c65c3f88a5956e5cada5978d2230be94f66cb3113a99a828cd6cc3",
+          "strategy_sha256": "934bfd2662dc5ae7820d2919ea07b47a65e96b007f51b6a1c133f4de33af9081",
+          "prompt_hashes": [
+            "1beb2d002d41abe0682175181a0e1da91c966c35534b4951abba97682ac787f7"
+          ]
+        },
+        "candidate-development": {
+          "tasks": 6,
+          "program_expectations_met": 6,
+          "scripted_model_turns": 16,
+          "report_sha256": "7ce31e2760343b2ae8d7a5abadd33a8ff651bf0cffafc9f8bb27878b31f4c516",
+          "strategy_sha256": "6f633be7f4c1712d5ca851488bf6db3a18af16bcb4b42f136407cd9930843349",
+          "prompt_hashes": [
+            "d1c77e3dd69a49292a39ebc3b54a802bb02aa8832a2e6325241439ec6ef2596f"
+          ]
+        },
+        "baseline-validation": {
+          "tasks": 14,
+          "program_expectations_met": 14,
+          "scripted_model_turns": 28,
+          "report_sha256": "42d46ffd8d079d1e6958c37aa5471a8c680dbda6cf1c37878ce1e733a6488ada",
+          "strategy_sha256": "934bfd2662dc5ae7820d2919ea07b47a65e96b007f51b6a1c133f4de33af9081",
+          "prompt_hashes": [
+            "1beb2d002d41abe0682175181a0e1da91c966c35534b4951abba97682ac787f7",
+            "3b6365edbc1faac370127b8afbd876c542af9374dd5e3d8e11c1f293de667079",
+            "eca7de6b60237e923b8e066559c00bec2a5e071907fa0eb919a919ab22295a8c"
+          ]
+        },
+        "candidate-validation": {
+          "tasks": 14,
+          "program_expectations_met": 13,
+          "scripted_model_turns": 31,
+          "report_sha256": "9ccaeef31c099dbbec851e602c74b9ac76168bd044208ca614572471e7239469",
+          "strategy_sha256": "6f633be7f4c1712d5ca851488bf6db3a18af16bcb4b42f136407cd9930843349",
+          "prompt_hashes": [
+            "093c6ed03c475f529016e649b2ce4c4d43be3fa59ecb2c9c5a311d2fc7a4198b",
+            "6799800dd6c24fc749ba1274f2c13ce809b3b639b335c29cdf79c584762fb6f7",
+            "d1c77e3dd69a49292a39ebc3b54a802bb02aa8832a2e6325241439ec6ef2596f"
+          ]
+        }
+      },
+      "source_report_sha256": "17cbcb3662842167cfee45d676e751cf89b886eddd5ad4a5ba5422c1d620f17f",
+      "code_sha256": "737ae9bbb857756e656c54de11cb1d959000b4108c8c073e65ce25ce5e447edc",
+      "validation_skipped": null
+    },
+    {
+      "name": "no-gain",
+      "status": "NO_GAIN",
+      "evidence": "SYNTHETIC_CONTROL score fixtures over actual controlled reports; not human judgments",
+      "semantic_regressions": [],
+      "validation_improvements": []
+    },
+    {
+      "name": "semantic-regression",
+      "status": "REJECTED_SEMANTIC_REGRESSION",
+      "evidence": "SYNTHETIC_CONTROL score fixtures over actual controlled reports; not human judgments",
+      "semantic_regressions": [
+        {
+          "split": "validation",
+          "case_id": "go-langgraph-4",
+          "dimension": "citation_entailment",
+          "baseline": 1,
+          "candidate": 0
+        }
+      ],
+      "validation_improvements": [
+        {
+          "case_id": "go-langgraph-4",
+          "dimension": "answer_feedback_correctness",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-4",
+          "dimension": "feasible_workload",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-4",
+          "dimension": "feedback_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-4",
+          "dimension": "no_fabricated_experience",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-4",
+          "dimension": "memory_added_value",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-4",
+          "dimension": "correction_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-5",
+          "dimension": "answer_feedback_correctness",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-5",
+          "dimension": "citation_entailment",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-5",
+          "dimension": "feasible_workload",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-5",
+          "dimension": "feedback_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-5",
+          "dimension": "no_fabricated_experience",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-5",
+          "dimension": "memory_added_value",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-5",
+          "dimension": "correction_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-6",
+          "dimension": "answer_feedback_correctness",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-6",
+          "dimension": "citation_entailment",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-6",
+          "dimension": "feasible_workload",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-6",
+          "dimension": "feedback_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-6",
+          "dimension": "no_fabricated_experience",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-6",
+          "dimension": "memory_added_value",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-6",
+          "dimension": "correction_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-7",
+          "dimension": "answer_feedback_correctness",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-7",
+          "dimension": "citation_entailment",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-7",
+          "dimension": "feasible_workload",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-7",
+          "dimension": "feedback_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-7",
+          "dimension": "no_fabricated_experience",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-7",
+          "dimension": "memory_added_value",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-7",
+          "dimension": "correction_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-8",
+          "dimension": "answer_feedback_correctness",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-8",
+          "dimension": "citation_entailment",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-8",
+          "dimension": "feasible_workload",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-8",
+          "dimension": "feedback_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-8",
+          "dimension": "no_fabricated_experience",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-8",
+          "dimension": "memory_added_value",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-8",
+          "dimension": "correction_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-9",
+          "dimension": "answer_feedback_correctness",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-9",
+          "dimension": "citation_entailment",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-9",
+          "dimension": "feasible_workload",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-9",
+          "dimension": "feedback_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-9",
+          "dimension": "no_fabricated_experience",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-9",
+          "dimension": "memory_added_value",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-9",
+          "dimension": "correction_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-10",
+          "dimension": "answer_feedback_correctness",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-10",
+          "dimension": "citation_entailment",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-10",
+          "dimension": "feasible_workload",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-10",
+          "dimension": "feedback_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-10",
+          "dimension": "no_fabricated_experience",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-10",
+          "dimension": "memory_added_value",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-10",
+          "dimension": "correction_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-4",
+          "dimension": "answer_feedback_correctness",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-4",
+          "dimension": "citation_entailment",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-4",
+          "dimension": "feasible_workload",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-4",
+          "dimension": "feedback_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-4",
+          "dimension": "no_fabricated_experience",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-4",
+          "dimension": "memory_added_value",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-4",
+          "dimension": "correction_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-5",
+          "dimension": "answer_feedback_correctness",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-5",
+          "dimension": "citation_entailment",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-5",
+          "dimension": "feasible_workload",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-5",
+          "dimension": "feedback_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-5",
+          "dimension": "no_fabricated_experience",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-5",
+          "dimension": "memory_added_value",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-5",
+          "dimension": "correction_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-6",
+          "dimension": "answer_feedback_correctness",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-6",
+          "dimension": "citation_entailment",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-6",
+          "dimension": "feasible_workload",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-6",
+          "dimension": "feedback_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-6",
+          "dimension": "no_fabricated_experience",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-6",
+          "dimension": "memory_added_value",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-6",
+          "dimension": "correction_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-7",
+          "dimension": "answer_feedback_correctness",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-7",
+          "dimension": "citation_entailment",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-7",
+          "dimension": "feasible_workload",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-7",
+          "dimension": "feedback_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-7",
+          "dimension": "no_fabricated_experience",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-7",
+          "dimension": "memory_added_value",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-7",
+          "dimension": "correction_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-8",
+          "dimension": "answer_feedback_correctness",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-8",
+          "dimension": "citation_entailment",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-8",
+          "dimension": "feasible_workload",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-8",
+          "dimension": "feedback_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-8",
+          "dimension": "no_fabricated_experience",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-8",
+          "dimension": "memory_added_value",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-8",
+          "dimension": "correction_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-9",
+          "dimension": "answer_feedback_correctness",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-9",
+          "dimension": "citation_entailment",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-9",
+          "dimension": "feasible_workload",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-9",
+          "dimension": "feedback_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-9",
+          "dimension": "no_fabricated_experience",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-9",
+          "dimension": "memory_added_value",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-9",
+          "dimension": "correction_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-10",
+          "dimension": "answer_feedback_correctness",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-10",
+          "dimension": "citation_entailment",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-10",
+          "dimension": "feasible_workload",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-10",
+          "dimension": "feedback_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-10",
+          "dimension": "no_fabricated_experience",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-10",
+          "dimension": "memory_added_value",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-10",
+          "dimension": "correction_compliance",
+          "baseline": 1,
+          "candidate": 2
+        }
+      ]
+    },
+    {
+      "name": "controlled-approval",
+      "status": "APPROVABLE",
+      "evidence": "SYNTHETIC_CONTROL score fixtures over actual controlled reports; not human judgments",
+      "semantic_regressions": [],
+      "validation_improvements": [
+        {
+          "case_id": "go-langgraph-4",
+          "dimension": "answer_feedback_correctness",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-4",
+          "dimension": "citation_entailment",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-4",
+          "dimension": "feasible_workload",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-4",
+          "dimension": "feedback_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-4",
+          "dimension": "no_fabricated_experience",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-4",
+          "dimension": "memory_added_value",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-4",
+          "dimension": "correction_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-5",
+          "dimension": "answer_feedback_correctness",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-5",
+          "dimension": "citation_entailment",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-5",
+          "dimension": "feasible_workload",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-5",
+          "dimension": "feedback_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-5",
+          "dimension": "no_fabricated_experience",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-5",
+          "dimension": "memory_added_value",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-5",
+          "dimension": "correction_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-6",
+          "dimension": "answer_feedback_correctness",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-6",
+          "dimension": "citation_entailment",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-6",
+          "dimension": "feasible_workload",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-6",
+          "dimension": "feedback_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-6",
+          "dimension": "no_fabricated_experience",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-6",
+          "dimension": "memory_added_value",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-6",
+          "dimension": "correction_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-7",
+          "dimension": "answer_feedback_correctness",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-7",
+          "dimension": "citation_entailment",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-7",
+          "dimension": "feasible_workload",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-7",
+          "dimension": "feedback_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-7",
+          "dimension": "no_fabricated_experience",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-7",
+          "dimension": "memory_added_value",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-7",
+          "dimension": "correction_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-8",
+          "dimension": "answer_feedback_correctness",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-8",
+          "dimension": "citation_entailment",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-8",
+          "dimension": "feasible_workload",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-8",
+          "dimension": "feedback_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-8",
+          "dimension": "no_fabricated_experience",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-8",
+          "dimension": "memory_added_value",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-8",
+          "dimension": "correction_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-9",
+          "dimension": "answer_feedback_correctness",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-9",
+          "dimension": "citation_entailment",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-9",
+          "dimension": "feasible_workload",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-9",
+          "dimension": "feedback_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-9",
+          "dimension": "no_fabricated_experience",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-9",
+          "dimension": "memory_added_value",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-9",
+          "dimension": "correction_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-10",
+          "dimension": "answer_feedback_correctness",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-10",
+          "dimension": "citation_entailment",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-10",
+          "dimension": "feasible_workload",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-10",
+          "dimension": "feedback_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-10",
+          "dimension": "no_fabricated_experience",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-10",
+          "dimension": "memory_added_value",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "go-langgraph-10",
+          "dimension": "correction_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-4",
+          "dimension": "answer_feedback_correctness",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-4",
+          "dimension": "citation_entailment",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-4",
+          "dimension": "feasible_workload",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-4",
+          "dimension": "feedback_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-4",
+          "dimension": "no_fabricated_experience",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-4",
+          "dimension": "memory_added_value",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-4",
+          "dimension": "correction_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-5",
+          "dimension": "answer_feedback_correctness",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-5",
+          "dimension": "citation_entailment",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-5",
+          "dimension": "feasible_workload",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-5",
+          "dimension": "feedback_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-5",
+          "dimension": "no_fabricated_experience",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-5",
+          "dimension": "memory_added_value",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-5",
+          "dimension": "correction_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-6",
+          "dimension": "answer_feedback_correctness",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-6",
+          "dimension": "citation_entailment",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-6",
+          "dimension": "feasible_workload",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-6",
+          "dimension": "feedback_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-6",
+          "dimension": "no_fabricated_experience",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-6",
+          "dimension": "memory_added_value",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-6",
+          "dimension": "correction_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-7",
+          "dimension": "answer_feedback_correctness",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-7",
+          "dimension": "citation_entailment",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-7",
+          "dimension": "feasible_workload",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-7",
+          "dimension": "feedback_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-7",
+          "dimension": "no_fabricated_experience",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-7",
+          "dimension": "memory_added_value",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-7",
+          "dimension": "correction_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-8",
+          "dimension": "answer_feedback_correctness",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-8",
+          "dimension": "citation_entailment",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-8",
+          "dimension": "feasible_workload",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-8",
+          "dimension": "feedback_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-8",
+          "dimension": "no_fabricated_experience",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-8",
+          "dimension": "memory_added_value",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-8",
+          "dimension": "correction_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-9",
+          "dimension": "answer_feedback_correctness",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-9",
+          "dimension": "citation_entailment",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-9",
+          "dimension": "feasible_workload",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-9",
+          "dimension": "feedback_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-9",
+          "dimension": "no_fabricated_experience",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-9",
+          "dimension": "memory_added_value",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-9",
+          "dimension": "correction_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-10",
+          "dimension": "answer_feedback_correctness",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-10",
+          "dimension": "citation_entailment",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-10",
+          "dimension": "feasible_workload",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-10",
+          "dimension": "feedback_compliance",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-10",
+          "dimension": "no_fabricated_experience",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-10",
+          "dimension": "memory_added_value",
+          "baseline": 1,
+          "candidate": 2
+        },
+        {
+          "case_id": "unknown-recovery-10",
+          "dimension": "correction_compliance",
+          "baseline": 1,
+          "candidate": 2
+        }
+      ]
+    }
+  ]
+}

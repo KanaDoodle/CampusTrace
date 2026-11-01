@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/KanaDoodle/CampusTrace/internal/defensestrategy"
 	"math"
 	"net"
 	"net/http"
@@ -112,7 +113,19 @@ func run() error {
 	maxCalls := flag.Int("max-calls", 24, "hard total provider-call cap")
 	inputPrice := flag.Float64("input-usd-per-million", 0, "optional user supplied input token price")
 	outputPrice := flag.Float64("output-usd-per-million", 0, "optional output token price")
+	strategyFile := flag.String("defense-strategy", "", "optional validated teaching profile for defense-only evaluation")
 	flag.Parse()
+	strategy := defensestrategy.Default()
+	if *strategyFile != "" {
+		raw, e := os.ReadFile(*strategyFile)
+		if e != nil {
+			return e
+		}
+		strategy, e = defensestrategy.Parse(raw)
+		if e != nil {
+			return e
+		}
+	}
 	arms, perTaskCalls, err := evaluationArms(*armsFlag)
 	if err != nil {
 		return err
@@ -148,6 +161,9 @@ func run() error {
 	for _, task := range selected {
 		if task.MaterialKind != "synthetic-control" && task.MaterialKind != "human-approved-desensitized" {
 			return fmt.Errorf("all selected materials require an authorized classification before any request")
+		}
+		if *strategyFile != "" && task.Input.Defense == nil {
+			return fmt.Errorf("teaching profile evaluation requires defense-only tasks")
 		}
 	}
 	perTaskLimit := 6
@@ -212,7 +228,7 @@ func run() error {
 			if *legacy {
 				result = agent.EvalPreparationCase(ctx, task, arm, model)
 			} else {
-				result = agent.EvalPreparationGraphCaseWithLimit(ctx, task, arm, model, graph, perTaskLimit)
+				result = agent.EvalPreparationGraphCaseWithStrategy(ctx, task, arm, model, graph, perTaskLimit, strategy)
 			}
 			cancel()
 			if *live && result.Usage.UnreportedCalls == 0 && *inputPrice > 0 && *outputPrice > 0 {
@@ -277,6 +293,8 @@ func run() error {
 			break
 		}
 	}
+	report["defense_teaching_strategy"] = strategy
+	report["defense_teaching_strategy_sha256"] = strategy.ID()
 	report["per_task_model_limit"] = perTaskLimit
 	report["semantic_rubric"] = map[string]any{"status": "UNREVIEWED", "scale": "0=violated/unsupported, 1=partial, 2=meets; null=not reviewed; N/A=not applicable", "dimensions": []string{"target_requirement_coverage", "citation_entailment", "feasible_workload", "feedback_compliance", "no_fabricated_experience", "retrieval_added_value"}, "reviewer": "No independent human labels; use scripts/review-preparation-evaluation.py to record reviewer and evidence"}
 	for _, task := range selected {

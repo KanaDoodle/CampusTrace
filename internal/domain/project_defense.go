@@ -1,6 +1,9 @@
 package domain
 
-import "time"
+import (
+	"github.com/KanaDoodle/CampusTrace/internal/defensestrategy"
+	"time"
+)
 
 // Simulated project answers are not interview history or verified profile facts.
 type DefenseInput struct {
@@ -26,24 +29,26 @@ type DefenseReview struct {
 }
 
 type DefenseState struct {
-	PromptVersion  string              `json:"prompt_version"`
-	Version        string              `json:"version"`
-	Topic          string              `json:"topic"`
-	Title          string              `json:"title"`
-	Question       string              `json:"question"`
-	Answer         string              `json:"answer"`
-	Round          int                 `json:"round"`
-	EvidenceRead   int                 `json:"evidence_read"`
-	Points         []DefensePoint      `json:"points"`
-	Evidence       []PreparationSource `json:"evidence"`
-	Review         *DefenseReview      `json:"review,omitempty"`
-	Previous       *DefenseReview      `json:"previous_review,omitempty"`
-	Memories       []DefenseMemory     `json:"memories,omitempty"`
-	MemoryExcluded int                 `json:"memory_excluded,omitempty"`
+	TeachingStrategy *defensestrategy.Profile `json:"teaching_strategy,omitempty"`
+	PromptVersion    string                   `json:"prompt_version"`
+	Version          string                   `json:"version"`
+	Topic            string                   `json:"topic"`
+	Title            string                   `json:"title"`
+	Question         string                   `json:"question"`
+	Answer           string                   `json:"answer"`
+	Round            int                      `json:"round"`
+	EvidenceRead     int                      `json:"evidence_read"`
+	Points           []DefensePoint           `json:"points"`
+	Evidence         []PreparationSource      `json:"evidence"`
+	Review           *DefenseReview           `json:"review,omitempty"`
+	Previous         *DefenseReview           `json:"previous_review,omitempty"`
+	Memories         []DefenseMemory          `json:"memories,omitempty"`
+	MemoryExcluded   int                      `json:"memory_excluded,omitempty"`
 }
 
 // User-confirmed practice evidence, never an inferred skill or real interview.
 type DefenseEpisode struct {
+	StrategyID      string              `json:"strategy_id,omitempty"`
 	ExecutionID     string              `json:"execution_id"`
 	ApplicationID   string              `json:"application_id"`
 	Revision        int                 `json:"revision"`

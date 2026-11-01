@@ -41,6 +41,9 @@ func controlledDefenseReply(messages []Message, control string, emit func(string
 	if control == "defense-bad-read" && !rejected {
 		return emit("read_project_defense_evidence", map[string]any{"ids": []string{"../../.env"}})
 	}
+	if control == "strategy-cost-probe" && data.Defense.TeachingStrategy != nil && data.Defense.TeachingStrategy.Reading == "read-one" && !rejected {
+		return emit("read_project_defense_evidence", map[string]any{"ids": []string{"controlled-forbidden-id"}})
+	}
 	missing := []string{}
 	seen := map[string]bool{}
 	for _, point := range data.Defense.Points {
@@ -57,11 +60,20 @@ func controlledDefenseReply(messages []Message, control string, emit func(string
 	if len(data.Defense.Memories) > 0 {
 		r.NextQuestion = "上次练习留下了一个待核对点，请用当前代码重新解释这个动作。"
 	}
+	// Explicit controlled probes exercise the offline gate, never production
+	// semantics. These choices are not evidence that a teaching style is worse.
+	probe := data.Defense.TeachingStrategy
+	if probe != nil && probe.Followup == "contrast" && strings.HasPrefix(control, "strategy-") {
+		r.NextQuestion = "请对照解释：选择下一步与实际发送模型请求，分别由谁负责？"
+	}
 	for _, point := range data.Defense.Points {
 		src := known[point.Sources[0]]
 		quote := strings.TrimSpace(strings.Split(src.Text, "\n")[0])
 		if control == "defense-invalid-quote" && !rejected {
 			quote = "invented-not-in-source"
+		}
+		if probe != nil && ((control == "strategy-contract-probe" && probe.Explain == "observation-first") || (control == "strategy-validation-probe" && probe.Followup == "contrast")) {
+			quote = "controlled-invalid-citation"
 		}
 		r.Findings = append(r.Findings, d.DefenseFinding{Point: point.ID, Verdict: "NOT_COVERED", AnswerQuote: "", Explanation: "脚本化反馈用于验证缺口、引用和下一步结构，不是模型质量评分。", References: []d.PreparationReference{{SourceID: src.ID, Quote: quote, Supports: "用于定位对应核对点的代码片段"}}})
 	}

@@ -1,0 +1,21 @@
+{
+  "status": "PASS",
+  "evidence": "controlled-Go-Python-LangGraph-and-synthetic-review-fixtures",
+  "external_model_calls": 0,
+  "checks": [
+    "controlled_proposer_consumes_only_development_trajectories",
+    "candidate_reaches_real_go_python_langgraph",
+    "empty_reviews_block_adoption",
+    "no_gain_retained",
+    "semantic_regression_blocks_aggregate_gain",
+    "synthetic_scores_cannot_authorize_product_adoption",
+    "isolated_adoption_and_rollback_keep_history",
+    "product_rejects_verification_registry",
+    "development_regression_skips_validation",
+    "extra_model_call_rejected_even_when_plan_valid",
+    "heldout_regression_retained_and_not_fed_to_proposer",
+    "actual_product_registry_unchanged"
+  ],
+  "semantic_quality": "UNREVIEWED; synthetic labels test gates only",
+  "product_strategy": "934bfd2662dc5ae7820d2919ea07b47a65e96b007f51b6a1c133f4de33af9081"
+}
