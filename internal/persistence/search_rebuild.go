@@ -120,7 +120,10 @@ func (s *Store) rebuildHandoff(ctx context.Context, status a.Status, generation 
 	return dataset == r.Dataset
 }
 func (s *Store) syncOnlineRebuild(ctx context.Context, owned func() error) error {
-	transport, ok := s.Search.(a.OnlineRebuilder)
+	transport, ok := s.Search.(interface {
+		a.Transport
+		a.OnlineRebuilder
+	})
 	if !ok {
 		return nil
 	}
@@ -218,7 +221,7 @@ func (s *Store) syncOnlineRebuild(ctx context.Context, owned func() error) error
 			return e
 		}
 		if len(docs) > 0 {
-			if e = s.Search.Apply(ctx, a.Batch{Protocol: a.Protocol, Generation: r.Target, Documents: docs}); e != nil {
+			if e = transport.Apply(ctx, a.Batch{Protocol: a.Protocol, Generation: r.Target, Documents: docs}); e != nil {
 				return e
 			}
 			if e = owned(); e != nil {
@@ -263,7 +266,7 @@ func (s *Store) syncOnlineRebuild(ctx context.Context, owned func() error) error
 		if !ack.Ready {
 			// Repair a missing/older copy, then verify the same cursor on the next turn.
 			// Equal-version different hashes fail closed in the normal Apply contract.
-			if e = s.Search.Apply(ctx, a.Batch{Protocol: a.Protocol, Generation: r.Target, Documents: docs}); e != nil {
+			if e = transport.Apply(ctx, a.Batch{Protocol: a.Protocol, Generation: r.Target, Documents: docs}); e != nil {
 				return e
 			}
 			return a.ErrPending
@@ -282,7 +285,7 @@ func (s *Store) syncOnlineRebuild(ctx context.Context, owned func() error) error
 		return e
 	}
 	if len(docs) > 0 {
-		if e = s.Search.Apply(ctx, a.Batch{Protocol: a.Protocol, Generation: r.Target, Documents: docs}); e != nil {
+		if e = transport.Apply(ctx, a.Batch{Protocol: a.Protocol, Generation: r.Target, Documents: docs}); e != nil {
 			return e
 		}
 		if e = owned(); e != nil {

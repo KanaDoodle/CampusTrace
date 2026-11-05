@@ -16,12 +16,7 @@ test('all inventory can be screened but only the first 30 eligible jobs enter de
  rows[0].state='ANALYZED';rows[1].excluded_reason='明确不符合';rows[2].state='STALE';
  const selected=m.shortlist(rows,30);assert.equal(selected.length,30);assert.equal(selected[0].job.id,'2');assert.equal(selected.at(-1).job.id,'31');
 });
-test('batching respects both job count and text budget, and failed-item retries can be individual',()=>{
- assert.equal(m.pack([row('a'),row('b'),row('c'),row('d')]).length,3);
- assert.equal(m.pack([row('a','BASIC',18000),row('b','BASIC',10000)]).length,1);
- assert.equal(m.pack([row('a'),row('b')],1).length,1);
- assert.equal(m.pack([row('a','BASIC',25000)]).length,0);
-});
+
 test('company and analysis-state filters remain separate from scores',()=>{
  assert.equal(m.filtered([row('a'),row('b','STALE')],'小红书','STALE')[0].job.id,'b');
  assert.equal(m.filtered([row('a')],'另一公司','').length,0);

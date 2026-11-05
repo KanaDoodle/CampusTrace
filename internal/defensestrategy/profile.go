@@ -5,16 +5,11 @@ package defensestrategy
 import (
 	"bytes"
 	"crypto/sha256"
-	"embed"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/fs"
 )
-
-//go:embed registry.json versions/*.json
-var bundled embed.FS
 
 type Profile struct {
 	Schema   string `json:"schema"`
@@ -23,7 +18,10 @@ type Profile struct {
 	Reading  string `json:"reading"`
 }
 
-func Default() Profile {
+func Default() Profile { return Legacy() }
+
+// Legacy describes the original prompt and historical runs without a snapshot.
+func Legacy() Profile {
 	return Profile{"defense-teaching-v1", "code-first", "current-gap", "gap-only"}
 }
 func (p Profile) Validate() error {
@@ -54,7 +52,7 @@ func (p Profile) ID() string {
 	return hex.EncodeToString(sum[:])
 }
 func (p Profile) Instructions() string {
-	if p == Default() {
+	if p == Legacy() {
 		return ""
 	}
 	text := "本轮教学策略（仅改变表达与练习选择，既有规则继续适用）："
@@ -74,39 +72,4 @@ func (p Profile) Instructions() string {
 		text += "只针对仍有依据缺口的内容安排阅读，依据足够时直接追问或结束。"
 	}
 	return text
-}
-
-func Active() (Profile, error) { return FromRegistry(bundled) }
-func FromRegistry(files fs.FS) (Profile, error) {
-	raw, err := fs.ReadFile(files, "registry.json")
-	if err != nil {
-		return Profile{}, err
-	}
-	var state struct {
-		Schema           string `json:"schema"`
-		Generation       int    `json:"generation"`
-		Active           string `json:"active"`
-		VerificationOnly bool   `json:"verification_only"`
-	}
-	if err = json.Unmarshal(raw, &state); err != nil {
-		return Profile{}, err
-	}
-	if state.VerificationOnly || state.Schema != "defense-strategy-registry-v1" || len(state.Active) != 64 || state.Generation < 0 {
-		return Profile{}, fmt.Errorf("invalid registry")
-	}
-	if _, err = hex.DecodeString(state.Active); err != nil {
-		return Profile{}, err
-	}
-	raw, err = fs.ReadFile(files, "versions/"+state.Active+".json")
-	if err != nil {
-		return Profile{}, err
-	}
-	p, err := Parse(raw)
-	if err != nil {
-		return Profile{}, err
-	}
-	if p.ID() != state.Active {
-		return Profile{}, fmt.Errorf("profile hash mismatch")
-	}
-	return p, nil
 }

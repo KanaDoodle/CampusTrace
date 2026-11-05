@@ -11,7 +11,6 @@ import (
 	"github.com/KanaDoodle/CampusTrace/internal/observability"
 	p "github.com/KanaDoodle/CampusTrace/internal/persistence"
 	"github.com/KanaDoodle/CampusTrace/internal/resume"
-	"github.com/KanaDoodle/CampusTrace/internal/scheduling"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -39,7 +38,6 @@ type MatchTaskRunner struct {
 	mu                            sync.Mutex
 	active                        map[string]matchExecution
 	wg                            sync.WaitGroup
-	fair                          *scheduling.Pool
 	WaitTimeout, ExecutionTimeout time.Duration
 	admission                     chan struct{}
 }
@@ -50,12 +48,9 @@ type matchExecution struct {
 
 // Credentials and the optional masking name live only in these execution
 // closures. SQL retains IDs, input hashes, states and sanitized diagnostics.
-func (a *API) StartMatchTasks(ctx context.Context, concurrency int) *MatchTaskRunner {
-	if concurrency < 1 {
-		concurrency = 2
-	}
+func (a *API) StartMatchTasks(ctx context.Context) *MatchTaskRunner {
 	root, cancel := context.WithCancel(ctx)
-	runner := &MatchTaskRunner{api: a, root: root, cancel: cancel, active: map[string]matchExecution{}, fair: scheduling.New(concurrency, 16, 1), WaitTimeout: 30 * time.Second, ExecutionTimeout: 175 * time.Second, admission: make(chan struct{}, 16)}
+	runner := &MatchTaskRunner{api: a, root: root, cancel: cancel, active: map[string]matchExecution{}, WaitTimeout: 30 * time.Second, ExecutionTimeout: 175 * time.Second, admission: make(chan struct{}, 16)}
 	a.MatchTasks = runner
 	return runner
 }
@@ -112,7 +107,21 @@ func (a *API) matchingTaskRoutes(on func(string, http.HandlerFunc)) {
 			codedError(w, 503, "MATCH_RUN_UNAVAILABLE")
 			return
 		}
-		write(w, map[string]any{"scope": "api_instance", "admission_limit": cap(a.MatchTasks.admission), "admitted": len(a.MatchTasks.admission), "permits": a.MatchTasks.fair.Stats(), "wait_seconds": a.MatchTasks.WaitTimeout.Seconds(), "execution_seconds": a.MatchTasks.ExecutionTimeout.Seconds()}, nil)
+		permits := map[string]int{"running": 0, "waiting": 0, "peak_waiting": 0, "concurrency": 0, "queue_limit": 0}
+		if a.ModelControl != nil {
+			ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+			defer cancel()
+			pool, err := a.Store.ModelPoolMetrics(ctx, a.ModelControl.Options.Policy.ID)
+			if err != nil {
+				write(w, nil, p.ErrBackendUnavailable)
+				return
+			}
+			permits["running"] = pool.Active
+			permits["waiting"] = pool.Waiting
+			permits["concurrency"] = pool.Policy.Capacity
+			permits["queue_limit"] = pool.Policy.QueueLimit
+		}
+		write(w, map[string]any{"scope": "api_instance", "admission_limit": cap(a.MatchTasks.admission), "admitted": len(a.MatchTasks.admission), "permits": permits, "permits_scope": "global", "wait_seconds": a.MatchTasks.WaitTimeout.Seconds(), "execution_seconds": a.MatchTasks.ExecutionTimeout.Seconds()}, nil)
 	})
 	on("GET /api/matching/tasks", func(w http.ResponseWriter, r *http.Request) {
 		runs, err := a.Store.MatchRuns(r.Context(), user(r))
@@ -149,6 +158,10 @@ func (a *API) matchingTaskRoutes(on func(string, http.HandlerFunc)) {
 			if a.MatchTasks == nil || !a.MatchTasks.available() {
 				w.Header().Set("Retry-After", "2")
 				codedError(w, 503, "MATCH_QUEUE_FULL")
+				return
+			}
+			if a.ModelControl == nil {
+				codedError(w, 503, "MATCH_RUN_UNAVAILABLE")
 				return
 			}
 			select {
@@ -375,49 +388,13 @@ func (r *MatchTaskRunner) process(ctx context.Context, user string, run p.MatchR
 			})
 			return
 		}
-		queuedAt := time.Now()
-		waitUntil := queuedAt.Add(r.WaitTimeout)
-		if err = r.api.Store.UpdateMatchRun(ctx, user, g, func(v *p.MatchRun) error {
-			v.ExecutionState = "QUEUED"
-			v.QueueUntil = &waitUntil
-			v.ExecutionUntil = nil
-			return nil
-		}); err != nil {
-			return
-		}
-		waitCtx, stopWait := context.WithDeadline(ctx, waitUntil)
-		release := func() {}
-		var waitErr error
-		if r.api.ModelControl == nil {
-			release, waitErr = r.fair.Acquire(waitCtx, user)
-		}
-		stopWait()
-		if waitErr != nil {
-			if ctx.Err() != nil {
-				return
-			}
-			code := "MATCH_QUEUE_TIMEOUT"
-			if errors.Is(waitErr, scheduling.ErrFull) {
-				code = "MATCH_QUEUE_FULL"
-			}
-			r.queueStopped(ctx, user, g, ids, code)
-			return
-		}
-		if r.api.Metrics != nil && r.api.ModelControl == nil {
-			r.api.Metrics.Observe("matching_queue_seconds", time.Since(queuedAt).Seconds())
-		}
-		// The permit belongs to a single paid-analysis quantum, not the whole run.
-		stop := func() bool { defer release(); return r.processQuantum(ctx, user, run, g, in, model, ids) }()
-		if stop {
+		if r.processQuantum(ctx, user, run, g, in, model, ids) {
 			return
 		}
 	}
 }
 func (r *MatchTaskRunner) processQuantum(ctx context.Context, user string, run p.MatchRun, g p.MatchRunGuard, in matchTaskRequest, model resume.Completer, ids []string) bool {
-	quantumLimit := r.ExecutionTimeout
-	if r.api.ModelControl != nil {
-		quantumLimit += r.api.ModelControl.Options.Wait
-	}
+	quantumLimit := r.ExecutionTimeout + r.api.ModelControl.Options.Wait
 	until := time.Now().Add(quantumLimit)
 	if e := r.api.Store.UpdateMatchRun(ctx, user, g, func(v *p.MatchRun) error {
 		if v.State == "PAUSING" {

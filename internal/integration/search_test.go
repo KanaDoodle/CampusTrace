@@ -26,7 +26,7 @@ import (
 const searchQueryToken = "integration-search-query-01234567890123456789"
 const searchWriteToken = "integration-search-write-01234567890123456789"
 
-func searchFixture(t *testing.T, s *p.Store) *a.Client {
+func searchFixture(t *testing.T, s *p.Store) *fixtureSearchClient {
 	t.Helper()
 	endpoint := os.Getenv("OPENSEARCH_TEST_URL")
 	if endpoint == "" {
@@ -37,7 +37,7 @@ func searchFixture(t *testing.T, s *p.Store) *a.Client {
 	must(t, err)
 	server, err := searchservice.NewServer(backend, searchQueryToken, searchWriteToken)
 	must(t, err)
-	httpServer := httptest.NewServer(server.Handler())
+	httpServer := httptest.NewServer(searchFixtureHandler(server))
 	t.Cleanup(httpServer.Close)
 	t.Cleanup(func() {
 		request, _ := http.NewRequest("DELETE", endpoint+"/"+alias+"-*", nil)
@@ -45,7 +45,7 @@ func searchFixture(t *testing.T, s *p.Store) *a.Client {
 			response.Body.Close()
 		}
 	})
-	client, err := a.NewClient(httpServer.URL, searchQueryToken, searchWriteToken)
+	client, err := newFixtureSearchClient(httpServer.URL, searchQueryToken, searchWriteToken)
 	must(t, err)
 	t.Cleanup(client.Close)
 	s.Search = client
@@ -105,7 +105,7 @@ func TestSearchProjectionIsolationRecovery(t *testing.T) {
 		t.Fatal("Agent bypassed search", d.JSON(raw))
 	}
 	// Search failure leaves Core writes and JD fallback available.
-	offline, _ := a.NewClient("http://127.0.0.1:1", searchQueryToken, searchWriteToken)
+	offline, _ := newFixtureSearchClient("http://127.0.0.1:1", searchQueryToken, searchWriteToken)
 	s.Search = offline
 	in.ObservedAt = in.ObservedAt.Add(time.Second)
 	in.Text = "Rust Tokio 更新后岗位"
@@ -344,7 +344,7 @@ func TestSearchHTTPAuthoritativeIdentity(t *testing.T) {
 	}
 }
 
-func finishSearchRebuild(t *testing.T, ctx context.Context, s *p.Store, client *a.Client) {
+func finishSearchRebuild(t *testing.T, ctx context.Context, s *p.Store, client *fixtureSearchClient) {
 	t.Helper()
 	for i := 0; i < 80; i++ {
 		e := s.SyncSearchOnce(ctx)

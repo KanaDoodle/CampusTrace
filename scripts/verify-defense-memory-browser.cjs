@@ -8,7 +8,7 @@ const fs=require('node:fs'),path=require('node:path');
   await page.locator('#login input[name=email]').fill(process.env.PREP_BROWSER_EMAIL);
   await page.locator('#login input[name=password]').fill(process.env.PREP_BROWSER_PASSWORD);
   await page.locator('#auth-submit').click();await page.locator('#workspace').waitFor({state:'visible'});
-  const open=async()=>{await page.evaluate(async app=>{await page('dossier',{applicationID:app});},process.env.PREP_BROWSER_APPLICATION);await page.locator('#dossier-project-defense').click();};
+  const open=async()=>{await page.evaluate(async app=>{await page('dossier',{applicationID:app});},process.env.PREP_BROWSER_APPLICATION);await page.locator('#dossier-prepare').click();await page.locator('#prep-goal select[name=mode]').selectOption('defense');};
   const review=async()=>{await page.locator('#prep-goal textarea[name=defense_answer]').fill('我还不熟悉模型请求的位置。');await page.locator('#prep-goal button.btn-primary').click();await page.locator('#prep-consent').waitFor();};
   const run=async()=>{await page.locator('#prep-consent').check();await page.locator('#prep-start').click();await page.getByRole('heading',{name:'答辩反馈已生成',exact:true}).waitFor();};
   await open();await review();await run();

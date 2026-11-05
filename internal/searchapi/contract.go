@@ -122,10 +122,14 @@ type Batch struct {
 	Generation string     `json:"generation"`
 	Documents  []Document `json:"documents"`
 }
-type Transport interface {
+type Reader interface {
 	Status(context.Context) (Status, error)
-	Apply(context.Context, Batch) error
 	Query(context.Context, Query) (Result, error)
+}
+
+type Transport interface {
+	Reader
+	Apply(context.Context, Batch) error
 }
 
 var technologies = map[string]*regexp.Regexp{
@@ -168,7 +172,8 @@ type AppliedQuery struct {
 	Hits       []Hit  `json:"hits"`
 }
 type AppliedResult struct {
-	Protocol   string `json:"protocol"`
-	Generation string `json:"generation"`
-	Ready      bool   `json:"ready"`
+	Protocol   string   `json:"protocol"`
+	Generation string   `json:"generation"`
+	Ready      bool     `json:"ready"`
+	Missing    []string `json:"missing,omitempty"`
 }

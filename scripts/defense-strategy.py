@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-"""Offline teaching-policy experiments, attributable review, adoption and rollback.
+"""Offline teaching-policy experiments and attributable review.
 
 No provider client or credential loading. Local evaluation uses controlled
 responses; explicitly prepared real reports may be imported without new calls.
 """
 import argparse
-import contextlib
 import hashlib
 import importlib.util
 import json
@@ -15,8 +14,7 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-REGISTRY = ROOT / 'internal/defensestrategy'
-DEFAULT = dict(schema='defense-teaching-v1', explain='code-first', followup='current-gap', reading='gap-only')
+PROFILE_FIELDS = {'schema', 'explain', 'followup', 'reading'}
 LABELS = ('baseline', 'candidate')
 SPLITS = ('development', 'validation')
 
@@ -49,7 +47,7 @@ def write_new(path, value):
 
 
 def profile(value):
-    if set(value) != set(DEFAULT) or value['schema'] != DEFAULT['schema'] or value['explain'] not in ('code-first', 'observation-first') or value['followup'] not in ('current-gap', 'contrast') or value['reading'] not in ('gap-only', 'read-one'):
+    if set(value) != PROFILE_FIELDS or value['schema'] != 'defense-teaching-v1' or value['explain'] not in ('code-first', 'observation-first') or value['followup'] not in ('current-gap', 'contrast') or value['reading'] not in ('gap-only', 'read-one'):
         raise ValueError('teaching profile is outside the allowed choices')
     return value
 
@@ -77,19 +75,6 @@ def code_sha():
     return digest(b''.join(str(p.relative_to(ROOT)).encode() + b'\0' + p.read_bytes() for p in sorted(paths)))
 
 
-def registry_state(folder):
-    state = load(folder / 'registry.json')
-    if state['schema'] != 'defense-strategy-registry-v1' or not isinstance(state['generation'], int) or state['generation'] < 0:
-        raise ValueError('invalid registry state')
-    identity = state['active']
-    if not isinstance(identity, str) or len(identity) != 64 or any(c not in '0123456789abcdef' for c in identity):
-        raise ValueError('invalid strategy identity')
-    selected = profile(load(inside(folder, 'versions/' + identity + '.json')))
-    if digest(canonical(selected)) != identity:
-        raise ValueError('profile hash mismatch')
-    return state, selected, digest((folder / 'registry.json').read_bytes())
-
-
 def environment():
     return dict(os.environ, GOWORK='off', LLM_API_KEY='', LLM_URL='', LLM_MODEL='', LANGSMITH_TRACING='false', LANGCHAIN_TRACING_V2='false')
 
@@ -100,7 +85,7 @@ def command(args, log):
         subprocess.run(args, cwd=ROOT, env=environment(), stdout=f, stderr=subprocess.STDOUT, check=True)
 
 
-def prepare_diagnostics(report_path, dataset_path, base):
+def prepare_diagnostics(report_path, dataset_path):
     data = dataset_path.read_bytes()
     if len(data)>1<<20:
         raise ValueError('dataset exceeds evaluation input limit')
@@ -116,6 +101,9 @@ def prepare_diagnostics(report_path, dataset_path, base):
     task_index = {t['id']: t for t in tasks}
     if report['split'] != 'development' or report['dataset_sha256'] != digest(data) or not report['results']:
         raise ValueError('proposer accepts only a matching development report')
+    base = profile(report['defense_teaching_strategy'])
+    if digest(canonical(base)) != report['defense_teaching_strategy_sha256']:
+        raise ValueError('development report profile and identity disagree')
     seen = set()
     observations = []
     for r in report['results']:
@@ -136,9 +124,10 @@ def prepare_diagnostics(report_path, dataset_path, base):
 def run_experiment(args):
     out = private(args.output)
     out.mkdir(parents=True, mode=0o700, exist_ok=False)
-    state, base, state_sha = registry_state(args.registry)
     frame = code_sha()
-    diagnostics = prepare_diagnostics(args.development_report, args.dataset, base)
+    diagnostics = prepare_diagnostics(args.development_report, args.dataset)
+    base = diagnostics['base']
+    base_id = digest(canonical(base))
     write_new(out / 'diagnostics.json', diagnostics)
     write_bytes_new(out / 'dataset.json', args.dataset.read_bytes())
     write_bytes_new(out / 'source-development-report.json', args.development_report.read_bytes())
@@ -147,12 +136,12 @@ def run_experiment(args):
     command(['go', 'run', './cmd/defense-strategy', '-input', str(out / 'diagnostics.json'), '-response', str(out / 'proposal-response.json'), '-output', str(out / 'proposal.json')], out / 'proposal.log')
     proposed = load(out / 'proposal.json')
     candidate = profile(proposed['candidate']['profile'])
-    if proposed['candidate']['parent_sha256'] != state['active']:
-        raise ValueError('proposal parent no longer matches registry')
+    if proposed['candidate']['parent_sha256'] != base_id:
+        raise ValueError('proposal parent differs from the development baseline')
     write_new(out / 'candidate-profile.json', candidate)
     artifacts = {p.name: digest(p.read_bytes()) for p in out.glob('*.json')}
     manifest = dict(schema='defense-strategy-experiment-v1', dataset_sha256=diagnostics['dataset_sha256'],
-                    base_registry_sha256=state_sha, base_strategy_sha256=state['active'], candidate_strategy_sha256=digest(canonical(candidate)),
+                    base_strategy_sha256=base_id, candidate_strategy_sha256=digest(canonical(candidate)),
                     code_sha256=frame, artifacts=artifacts, reports={}, mode='controlled-response-program-regression',
                     proposer_evidence=proposed['evidence'], external_model_calls=0)
     for split in SPLITS:
@@ -217,7 +206,7 @@ def run_experiment(args):
 受控响应不能作为真实模型提升，测试用合成标注必须用 SYNTHETIC_CONTROL，不能伪装成人工审阅。
 调试和验证分别比较，每个语义维度保留退化；验证集至少一处改善且无退化才可通过。空分数保持待审阅。
 不依据模型自评采用策略。使用已有 build-preparation-human-review.py 可进一步导出逐题材料。
-运行 scripts/defense-strategy.py review --experiment <本目录> --output <新的决策文件>，随后核对决策再采用。
+运行 scripts/defense-strategy.py review --experiment <本目录> --output <新的决策文件>，对照结果可用于代码评审。
 该命令只读本地材料，不调用模型。实验快照不可编辑；评分文件可填写，旧决策不可覆盖。
 ''')
     (out / '审阅说明.md').chmod(0o600)
@@ -331,86 +320,10 @@ def review(out):
     elif pending:
         decision['status'] = 'PENDING_HUMAN_REVIEW'
     elif decision['validation_improvements']:
-        decision['status'] = 'APPROVABLE'
+        decision['status'] = 'SYNTHETIC_GATE_PASSED' if m['mode'] == 'controlled-response-program-regression' else 'REVIEWED_IMPROVEMENT'
     else:
         decision['status'] = 'NO_GAIN'
     return decision
-
-
-@contextlib.contextmanager
-def locked_registry(folder, expected, verification):
-    folder = folder.resolve()
-    if verification and folder.is_relative_to(ROOT):
-        raise ValueError('controlled adoption must use an isolated registry outside the repository')
-    lock = folder / '.adoption.lock'
-    fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
-    try:
-        os.close(fd)
-        state, selected, actual = registry_state(folder)
-        if actual != expected:
-            raise ValueError('registry changed; review its current state')
-        if state.get('verification_only', False) != verification:
-            raise ValueError('registry evidence mode differs')
-        yield folder, state, selected
-    finally:
-        lock.unlink()
-
-
-def replace_state(folder, state):
-    tmp = folder / ('.registry-' + os.urandom(8).hex() + '.json')
-    write_new(tmp, state)
-    os.replace(tmp, folder / 'registry.json')
-    fd = os.open(folder, os.O_RDONLY)
-    try:
-        os.fsync(fd)
-    finally:
-        os.close(fd)
-
-
-def adopt(args):
-    current = review(args.experiment)
-    if load(args.decision) != current or current['status'] != 'APPROVABLE':
-        raise ValueError('adoption requires the unchanged, reviewed approvable decision')
-    controlled = current['mode'] == 'controlled-response-program-regression'
-    if controlled and not args.verification_only:
-        raise ValueError('controlled responses cannot authorize product adoption')
-    m = load(args.experiment / 'experiment.json')
-    if args.expected_registry_sha256 != m['base_registry_sha256']:
-        raise ValueError('decision belongs to a different registry state')
-    p = profile(load(args.experiment / 'candidate-profile.json'))
-    identity = digest(canonical(p))
-    with locked_registry(args.registry, args.expected_registry_sha256, args.verification_only) as (folder, state, _):
-        if state['active'] != m['base_strategy_sha256']:
-            raise ValueError('decision parent no longer active')
-        dest = inside(folder, 'versions/' + identity + '.json')
-        if dest.exists():
-            if profile(load(dest)) != p:
-                raise ValueError('immutable profile version changed')
-        else:
-            write_new(dest, p)
-        state['history'].append(dict(action='ADOPT', previous=state['active'], active=identity,
-                                    decision_sha256=digest(canonical(current)), experiment_sha256=current['experiment_sha256']))
-        state['active'] = identity
-        state['generation'] += 1
-        replace_state(folder, state)
-    return dict(status='ADOPTED', strategy_sha256=identity, verification_only=args.verification_only)
-
-
-def rollback(args):
-    if not args.reason.strip() or len(args.reason) > 500:
-        raise ValueError('rollback needs a reviewable reason')
-    with locked_registry(args.registry, args.expected_registry_sha256, args.verification_only) as (folder, state, _):
-        allowed = {digest(canonical(DEFAULT))} | {h['previous'] for h in state['history']} | {h['active'] for h in state['history']}
-        if args.target not in allowed or args.target == state['active']:
-            raise ValueError('rollback target is not a recorded previous version')
-        p = profile(load(inside(folder, 'versions/' + args.target + '.json')))
-        if digest(canonical(p)) != args.target:
-            raise ValueError('rollback profile changed')
-        state['history'].append(dict(action='ROLLBACK', previous=state['active'], active=args.target, reason=args.reason))
-        state['active'] = args.target
-        state['generation'] += 1
-        replace_state(folder, state)
-    return dict(status='ROLLED_BACK', strategy_sha256=args.target, verification_only=args.verification_only)
 
 
 def main():
@@ -421,44 +334,16 @@ def main():
     p.add_argument('--development-report', type=Path, required=True)
     p.add_argument('--response', type=Path, required=True)
     p.add_argument('--output', type=Path, required=True)
-    p.add_argument('--registry', type=Path, default=REGISTRY)
     p.add_argument('--evaluation-root', type=Path, help='import authorized existing reports; never requests a provider')
     p = sub.add_parser('review')
     p.add_argument('--experiment', type=Path, required=True)
     p.add_argument('--output', type=Path, required=True)
-    for name in ('adopt', 'rollback'):
-        p = sub.add_parser(name)
-        p.add_argument('--registry', type=Path, default=REGISTRY)
-        p.add_argument('--expected-registry-sha256', required=True)
-        p.add_argument('--verification-only', action='store_true')
-        if name == 'adopt':
-            p.add_argument('--experiment', type=Path, required=True)
-            p.add_argument('--decision', type=Path, required=True)
-        else:
-            p.add_argument('--target', required=True)
-            p.add_argument('--reason', required=True)
-    p = sub.add_parser('init-verification-registry')
-    p.add_argument('--registry', type=Path, required=True)
-    p = sub.add_parser('status')
-    p.add_argument('--registry', type=Path, default=REGISTRY)
     args = parser.parse_args()
     if args.action == 'run':
         result = run_experiment(args)
     elif args.action == 'review':
         result = review(args.experiment)
         write_new(args.output, result)
-    elif args.action == 'adopt':
-        result = adopt(args)
-    elif args.action == 'rollback':
-        result = rollback(args)
-    elif args.action == 'init-verification-registry':
-        folder = private(args.registry)
-        write_new(folder / 'versions' / (digest(canonical(DEFAULT)) + '.json'), DEFAULT)
-        write_new(folder / 'registry.json', dict(schema='defense-strategy-registry-v1', generation=0, active=digest(canonical(DEFAULT)), history=[], verification_only=True))
-        result = dict(status='INITIALIZED_VERIFICATION_ONLY')
-    else:
-        state, p, sha = registry_state(args.registry)
-        result = dict(state=state, profile=p, registry_sha256=sha)
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 

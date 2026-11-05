@@ -1,16 +1,14 @@
 #!/usr/bin/env python3
-"""Exercise proposals, actual LangGraph comparisons, review gates and rollback.
+"""Exercise proposals, actual LangGraph comparisons and offline review.
 
 Every model response and filled review below is explicitly synthetic control.
-The real product registry is read-only; no provider client is invoked.
+No provider client is invoked.
 """
 import argparse
-import copy
 import importlib.util
 import json
 from pathlib import Path
 import shutil
-import subprocess
 import sys
 
 spec = importlib.util.spec_from_file_location('strategy', Path(__file__).with_name('defense-strategy.py'))
@@ -24,10 +22,6 @@ def main():
     args = parser.parse_args()
     out = S.private(args.output)
     out.mkdir(mode=0o700, parents=True, exist_ok=False)
-    original_registry = (S.REGISTRY / 'registry.json').read_bytes()
-    registry = out / 'verification-registry'
-    S.write_new(registry / 'versions' / (S.digest(S.canonical(S.DEFAULT)) + '.json'), S.DEFAULT)
-    S.write_new(registry / 'registry.json', dict(schema='defense-strategy-registry-v1', generation=0, active=S.digest(S.canonical(S.DEFAULT)), history=[], verification_only=True))
     dataset = S.ROOT / 'internal/agent/testdata/project-defense-tasks.json'
     checks = []
 
@@ -40,13 +34,13 @@ def main():
         S.write_bytes_new(task_path,json.dumps(tasks,ensure_ascii=False,separators=(',',':')).encode())
         seed = out / (name + '-seed')
         S.command([sys.executable, str(S.ROOT / 'scripts/evaluate-preparation-langgraph.py'), '--dataset', str(task_path), '--arms', 'dynamic', '--splits', 'development', '--output', str(seed)], out / (name + '-seed.log'))
-        selected = dict(S.DEFAULT, followup='contrast', **(knobs or {}))
         response = out / (name + '-response.json')
         seed_report=S.load(seed/'development.json')
+        selected = dict(seed_report['defense_teaching_strategy'], followup='contrast', **(knobs or {}))
         linked=next((r['case_id'] for r in seed_report['results'] if r['invalid_calls'] or not r['program_expectation_met']),tasks[0]['id'])
-        S.write_new(response, dict(parent_sha256=S.digest(S.canonical(S.DEFAULT)), hypothesis='根据调试集中已记录的参数纠错，尝试更明确的对照提问；此为受控提案，不宣称质量改善。', case_ids=[linked], profile=selected))
+        S.write_new(response, dict(parent_sha256=seed_report['defense_teaching_strategy_sha256'], hypothesis='根据调试集中已记录的参数纠错，尝试更明确的对照提问；此为受控提案，不宣称质量改善。', case_ids=[linked], profile=selected))
         target = out / name
-        a = argparse.Namespace(output=target, registry=registry, dataset=task_path, development_report=seed / 'development.json', response=response, evaluation_root=None)
+        a = argparse.Namespace(output=target, dataset=task_path, development_report=seed / 'development.json', response=response, evaluation_root=None)
         decision = S.run_experiment(a)
         manifest = S.load(target / 'experiment.json')
         assert (target/'dataset.json').read_bytes()==task_path.read_bytes()
@@ -64,7 +58,7 @@ def main():
     c=S.load(pending/manifest['reports']['candidate-validation'])
     assert all(x['prompt_sha256']!=y['prompt_sha256'] for x,y in zip(b['results'],c['results']))
     assert all(x['defense']['teaching_strategy']['followup']=='contrast' for x in c['results'])
-    checks += ['controlled_proposer_consumes_only_development_trajectories', 'candidate_reaches_real_go_python_langgraph', 'empty_reviews_block_adoption']
+    checks += ['controlled_proposer_consumes_only_development_trajectories', 'candidate_reaches_real_go_python_langgraph', 'empty_reviews_remain_pending']
 
     def annotated(name, a, b, degrade=False):
         target = out / name
@@ -88,32 +82,10 @@ def main():
     assert no_gain['status'] == 'NO_GAIN'
     _, degraded = annotated('semantic-regression', 1, 2, True)
     assert degraded['status'] == 'REJECTED_SEMANTIC_REGRESSION' and degraded['semantic_regressions']
-    approved, approval = annotated('controlled-approval', 1, 2)
-    assert approval['status'] == 'APPROVABLE'
-    a = argparse.Namespace(experiment=approved, registry=registry, decision=approved / 'synthetic-decision.json',
-                           expected_registry_sha256=manifest['base_registry_sha256'], verification_only=False)
-    try:
-        S.adopt(a)
-        raise AssertionError('controlled evidence approved product adoption')
-    except ValueError as e:
-        assert 'controlled responses' in str(e)
-    a.verification_only = True
-    S.adopt(a)
-    state, chosen, sha = S.registry_state(registry)
-    assert chosen['followup'] == 'contrast' and state['generation'] == 1
-    probe = subprocess.run(['go', 'run', './cmd/defense-strategy', '-check-registry', str(registry)], cwd=S.ROOT, env=S.environment(), capture_output=True)
-    assert probe.returncode != 0, 'product accepted a verification-only registry'
-    with (out / 'verification-registry-rejected.txt').open('wb') as f:
-        f.write(probe.stderr)
-    S.rollback(argparse.Namespace(registry=registry, expected_registry_sha256=sha, verification_only=True,
-                                 target=manifest['base_strategy_sha256'], reason='合成回滚验收，保留候选与决策'))
-    state, chosen, _ = S.registry_state(registry)
-    assert chosen == S.DEFAULT and [h['action'] for h in state['history']] == ['ADOPT', 'ROLLBACK']
-    checks += ['no_gain_retained', 'semantic_regression_blocks_aggregate_gain', 'synthetic_scores_cannot_authorize_product_adoption',
-               'isolated_adoption_and_rollback_keep_history', 'product_rejects_verification_registry']
+    _, synthetic = annotated('synthetic-gate', 1, 2)
+    assert synthetic['status'] == 'SYNTHETIC_GATE_PASSED' and synthetic['validation_improvements']
+    checks += ['no_gain_retained', 'semantic_regression_blocks_aggregate_gain', 'synthetic_scores_report_gate_only']
 
-    # Bind the next experiments to a fresh isolated registry state. The actual
-    # product files stay untouched throughout all proposals and evaluations.
     _, _, decision = experiment('development-regression', {'development': 'strategy-contract-probe'}, {'explain': 'observation-first'})
     assert decision['status'] == 'REJECTED_PROGRAM_OR_BUDGET' and decision['program_failures']
     assert S.load(out / 'development-regression/experiment.json').get('validation_skipped')
@@ -124,10 +96,8 @@ def main():
     _, _, decision = experiment('validation-regression', {'validation': 'strategy-validation-probe'})
     assert decision['status'] == 'REJECTED_PROGRAM_OR_BUDGET' and any(r['split'] == 'validation' for r in decision['program_failures'])
     checks.append('heldout_regression_retained_and_not_fed_to_proposer')
-    assert (S.REGISTRY / 'registry.json').read_bytes() == original_registry
-    checks.append('actual_product_registry_unchanged')
     result = dict(status='PASS', evidence='controlled-Go-Python-LangGraph-and-synthetic-review-fixtures', external_model_calls=0,
-                  checks=checks, semantic_quality='UNREVIEWED; synthetic labels test gates only', product_strategy=S.digest(S.canonical(S.DEFAULT)))
+                  checks=checks, semantic_quality='UNREVIEWED; synthetic labels test gates only', baseline_strategy=manifest['base_strategy_sha256'])
     S.write_new(out / 'result.json', result)
     print(json.dumps(result, ensure_ascii=False, indent=2))
 

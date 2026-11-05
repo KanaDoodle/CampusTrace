@@ -1,7 +1,6 @@
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const harness=require('./agent_harness.js'),{esc}=require('./ui.js');
-test('task requests keep a replay key and only the chosen task input',()=>{const v=harness.requestInput({id:'review-plan',input:'topic'},'  Go 并发  ','same-nonce');assert.deepEqual(v,{skill_id:'review-plan',request_key:'same-nonce',topic:'Go 并发'});assert.deepEqual(harness.requestInput({id:'daily-review',input:'none'},'ignored','same-nonce'),{skill_id:'daily-review',request_key:'same-nonce'});});
-test('application preparation sends only the selected owned-application scope',()=>{const application='a'.repeat(32);assert.deepEqual(harness.requestInput({id:'application-prep',input:'application_id'},application,'new-key'),{skill_id:'application-prep',request_key:'new-key',application_id:application});assert.equal(harness.inputError({input:'application_id'},application),'');assert.ok(harness.inputError({input:'application_id'},'not-an-id'));});
+test('task requests keep a replay key and only the chosen task input',()=>{const v=harness.requestInput({id:'review-plan',input:'topic'},'  Go 并发  ','same-nonce');assert.deepEqual(v,{skill_id:'review-plan',request_key:'same-nonce',topic:'Go 并发'});assert.deepEqual(harness.requestInput({id:'interview-prep',input:'job_id'},'a'.repeat(32),'same-nonce'),{skill_id:'interview-prep',request_key:'same-nonce',job_id:'a'.repeat(32)});});
 test('task output is escaped and only resumable states expose continuation',()=>{for(const state of ['PAUSED','PENDING','COMPLETED','CANCELLED','STALE']){const html=harness.renderExecution({id:'safe',state,created_at:'2026-10-09',answer:'<script>evil</script>',next_step:1,plan:[{name:'search_jobs'}],failures:[{next_step:'<img src=x>'}]},esc);assert.doesNotMatch(html,/<script>|<img/);assert.match(html,/&lt;script&gt;/);assert.equal(html.includes('data-execution-resume'),['PAUSED','PENDING'].includes(state));assert.match(html,/data-execution-details/);}});
 test('stored MCP credentials accept bounded account-owned connector IDs only',()=>{const id='a'.repeat(32);assert.deepEqual(harness.cleanCredentials({[id]:'token',other:'bad', ['b'.repeat(32)]:'bad\nheader', ['c'.repeat(32)]:'x'.repeat(2049)}),{[id]:'token'});assert.deepEqual(harness.cleanCredentials(['bad']),{});});
 test('continuation honors server lease and attempt limit; recovered warnings are folded away',()=>{
@@ -12,7 +11,6 @@ test('continuation honors server lease and attempt limit; recovered warnings are
  assert.doesNotMatch(html,/class="callout"|data-execution-resume|<script>/);assert.match(html,/曾遇到的问题（已恢复）/);assert.match(html,/腾讯&lt;script&gt;/);
 });
 test('Chinese task input limits use UTF-8 bytes and distinguish identifiers',()=>{
- assert.equal(harness.inputError({input:'company'},'腾讯'),'');assert.ok(harness.inputError({input:'company'},'中'.repeat(67)));
  assert.equal(harness.inputError({input:'topic'},'中'.repeat(166)),'');assert.ok(harness.inputError({input:'topic'},'中'.repeat(167)));
  assert.ok(harness.inputError({input:'job_id'},'bad'));assert.equal(harness.inputError({input:'job_id'},'a'.repeat(32)),'');
 });

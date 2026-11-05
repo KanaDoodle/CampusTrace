@@ -33,11 +33,6 @@ const CampusMatching=(function(root){
     const planLabel=application?'查看投递进展':loading?'读取投递状态…':applicationReady?'加入投递计划':'重试读取投递状态';
     return `${application?`<p class="drawer-workflow"><span class="badge badge-green">${esc(D.label('application',application.current_state))}</span><span>已建立投递记录</span></p>`:''}<div class="detail-action-bar"><div class="drawer-actions"><button type="button" class="btn btn-primary" data-detail-plan ${loading?'disabled':''}>${U.icon(application?'list':'plus')}${planLabel}</button>${officialURL?`<a class="btn" href="${esc(officialURL)}" target="_blank" rel="noopener noreferrer" aria-label="在新标签页查看官网岗位">${U.icon('external')}官网岗位</a>`:''}<button type="button" class="btn" data-detail-compare>同公司对比</button><button type="button" class="btn" data-detail-analyze ${eligible(row)?'':'disabled'} ${row.state==='ANALYZED'&&row.analysis_mode!=='LEGACY'?'hidden':''}>${U.icon('spark')}${row.analysis_mode==='LEGACY'?'重新整体分析':row.state==='STALE'?'更新分析':'深度分析'}</button></div><div class="drawer-secondary-actions"><button type="button" class="btn btn-subtle btn-small" data-detail-pref="SAVED" aria-pressed="${disposition==='SAVED'}">${U.icon('bookmark')}${disposition==='SAVED'?'取消稍后看':'稍后看'}</button><details class="drawer-more-actions"><summary>更多操作</summary><div><button type="button" class="btn btn-subtle btn-small" data-detail-preparation>准备清单</button><button type="button" class="btn btn-subtle btn-small" data-detail-pref="IGNORED" aria-pressed="${disposition==='IGNORED'}">${disposition==='IGNORED'?'取消忽略':'忽略'}</button></div></details>${!loading&&!officialURL?'<span class="detail-missing-link">暂无官网链接</span>':''}</div></div>`;
   }
-  function pack(rows,max=3,bytes=24000){
-    const batch=[];let size=0;
-    for(const row of rows){if(batch.length===max||size+row.text_bytes>bytes)break;batch.push(row);size+=row.text_bytes;}
-    return batch;
-  }
   function shortlist(rows,limit){return rows.filter(eligible).slice(0,limit);}
   function detailPosition(rows,id){
     const index=rows.findIndex(row=>row.job.id===id);
@@ -152,10 +147,6 @@ const CampusMatching=(function(root){
     progress.calls=progress.calls||0;
     return progress;
   }
-  function queueWork(progress,ids,continuing=false){
-    const requested=new Set(ids),hasWork=progress.pending.length||progress.failed.length;
-    return {...progress,pending:[...requested,...progress.pending.filter(id=>!requested.has(id))],failed:progress.failed.filter(f=>!requested.has(f.id)),done:continuing||hasWork?progress.done:0,calls:continuing||hasWork?progress.calls:0};
-  }
   function analysisActions(progress,options){
     const {running,preparing,taskLoading,taskUnavailable,authorized,modelAvailable,callsToday,dailyCalls,runCount,pendingCount,failedCount}=options;
     const reason=taskLoading?'正在读取分析任务进度，岗位可先浏览和勾选。':taskUnavailable?'分析任务进度暂未读取，请重新读取后再操作任务。':running?'本轮正在分析，请等待当前批次完成或暂停后续分析。':preparing?'正在准备分析包，请等待完成。':!modelAvailable?'请先在模型设置填写密钥并选择模型。':!authorized?'请先核对上方「本轮外发资料」，并勾选同意发送。':callsToday>=dailyCalls?'今日调用已达到上限，请在北京时间次日重置后继续，或调整每日上限。':'';
@@ -237,7 +228,6 @@ const CampusMatching=(function(root){
     const targetRoles=()=>snapshot.candidate.facts.filter(f=>f.kind==='ROLE').map(f=>f.text);
     let directionFilter=freshFilter?'ALL':browse.direction||(targetRoles().length?'MAIN':'ALL'),showIgnored=!freshFilter&&!!browse.showIgnored,showQuotaFull=!freshFilter&&!!browse.showQuotaFull,bulkBusy=false;
     let lastJob=browse.lastJob||'',lastTab=browse.lastTab||'overview',drawerOpen=!freshFilter&&!!browse.drawerOpen,lastOpened=null;
-    let comparisonCompany='',comparisonScope='ALL',comparisonReport=null,comparisonBusy=false,comparisonError='',comparisonRevision=0,comparisonTaskIDs=[];
     let reviewKeys=new Map(),renderedViewKey='',cardRead=null,cardError='',updateDetailNavigation=null,inventoryRevision=0;
     let searchDraft=query,searchPending=false,searchComposing=false,jobSearchState=null;
     const jobSearch=cap.job_search&&root.CampusJobSearch?root.CampusJobSearch.create({api,active:()=>current(),changed:()=>render()}):null;
@@ -248,9 +238,9 @@ const CampusMatching=(function(root){
     const modelKey=()=>JSON.stringify([identity().model_url,identity().model_name,cap.model]);
     let progress=reconcileProgress(readProgress(cap.user_id,snapshot.candidate_hash,modelKey()),snapshot.jobs);
     const Tasks=root.CampusMatchTasks,durable=!!cap.durable_matching&&!!Tasks;
-    let taskRuns=[],task=null,taskLoading=durable,taskReady=!durable,inventoryChecking=!!remembered,inventoryError='';
+    let taskRuns=[],task=null,taskLoading=durable,taskReady=false,inventoryChecking=!!remembered,inventoryError='';
     const inventoryBlocked=()=>inventoryChecking||!!inventoryError;
-    const taskStateBlocked=()=>inventoryBlocked()||durable&&(taskLoading||!taskReady);
+    const taskStateBlocked=()=>inventoryBlocked()||taskLoading||!taskReady;
     if(initialTask&&durable){
       query=filter=tierFilter=companyFilter=cityFilter=workflowFilter='';onlySelected=false;pageNo=1;drawerOpen=false;
       directionFilter='ALL';showIgnored=true;
@@ -323,7 +313,7 @@ const CampusMatching=(function(root){
       const ignoreCount=bulkTargets(jobs,'IGNORED').length,restoreCount=bulkTargets(jobs,'NONE').length;
       const blocked=taskStateBlocked()||running||preparing||bulkBusy;
       const analysisReason=canAnalyze?'每轮最多分析 '+snapshot.settings.round_limit+' 个；先核对外发资料，再确认调用模型。':jobs.length&&jobs.every(j=>j.state==='ANALYZED'&&j.analysis_mode!=='LEGACY')?'已选岗位已有当前分析，可直接对比或导出。':'当前选择暂无可分析岗位，已忽略或关闭的岗位不会分析。';
-      return `<div class="selection-bar matching-selection" ${selected.size||undoIDs.length?'':'hidden'}><div class="selection-summary"><span><strong>${selected.size}</strong> 个岗位已选${visibleCount<selected.size?`<small>当前筛选中 ${visibleCount} 个，其他范围 ${selected.size-visibleCount} 个</small>`:''}</span><button id="match-show-selection" class="btn btn-subtle btn-small" ${selected.size?'':'disabled'}>查看已选</button><button id="match-clear-selection" class="btn btn-subtle btn-small" ${preparing||bulkBusy?'disabled':''}>清空</button><button id="match-actions-toggle" class="btn btn-subtle btn-small" aria-expanded="${bulkExpanded}" aria-controls="match-selection-actions">${bulkExpanded?'收起更多操作':'更多操作'}</button>${undoIDs.length?`<button id="match-undo-ignore" class="btn btn-subtle btn-small" ${blocked?'disabled':''}>撤销刚才的忽略（${undoIDs.length}）</button>`:''}</div><div class="selection-primary" ${selected.size?'':'hidden'}>${canCompare?'<button id="match-compare-selected" class="btn">对比已选</button>':''}<button id="match-export" class="btn" ${blocked||!selected.size||selected.size>1000?'disabled':''}>${U.icon('download')}${preparing?'准备分析包…':'导出到 ChatGPT'}</button><button id="match-selected-run" class="btn btn-primary" title="${esc(analysisReason)}" ${blocked||!canAnalyze?'disabled':''}>${U.icon('spark')}深度分析（${canAnalyze}）</button></div><div id="match-selection-actions" ${bulkExpanded?'':'hidden'}><button id="match-bulk-ignore" class="btn" title="稍后看和已有投递记录的岗位会保留" ${blocked||!ignoreCount?'disabled':''}>批量忽略（${ignoreCount}）</button>${restoreCount?`<button id="match-bulk-restore" class="btn" ${blocked||!restoreCount?'disabled':''}>恢复已忽略（${restoreCount}）</button>`:''}${!canCompare?'<button id="match-compare-selected" class="btn" disabled title="选择同一公司至少两个岗位">对比已选</button>':''}<button id="match-ask-selected" class="btn" ${canCompare&&jobs.length<=8?'':'disabled'} title="选择同一公司 2—8 个岗位，向求职问答询问已有分析">问 Agent</button></div></div>${selected.size>1000?'<p class="pending-note">单次导出最多 1,000 个岗位，请减少选择；API 可分轮处理。</p>':''}`;
+      return `<div class="selection-bar matching-selection" ${selected.size||undoIDs.length?'':'hidden'}><div class="selection-summary"><span><strong>${selected.size}</strong> 个岗位已选${visibleCount<selected.size?`<small>当前筛选中 ${visibleCount} 个，其他范围 ${selected.size-visibleCount} 个</small>`:''}</span><button id="match-show-selection" class="btn btn-subtle btn-small" ${selected.size?'':'disabled'}>查看已选</button><button id="match-clear-selection" class="btn btn-subtle btn-small" ${preparing||bulkBusy?'disabled':''}>清空</button><button id="match-actions-toggle" class="btn btn-subtle btn-small" aria-expanded="${bulkExpanded}" aria-controls="match-selection-actions">${bulkExpanded?'收起更多操作':'更多操作'}</button>${undoIDs.length?`<button id="match-undo-ignore" class="btn btn-subtle btn-small" ${blocked?'disabled':''}>撤销刚才的忽略（${undoIDs.length}）</button>`:''}</div><div class="selection-primary" ${selected.size?'':'hidden'}>${canCompare?'<button id="match-compare-selected" class="btn">对比已选</button>':''}<button id="match-selected-run" class="btn btn-primary" title="${esc(analysisReason)}" ${blocked||!canAnalyze?'disabled':''}>${U.icon('spark')}深度分析（${canAnalyze}）</button></div><div id="match-selection-actions" ${bulkExpanded?'':'hidden'}><button id="match-bulk-ignore" class="btn" title="稍后看和已有投递记录的岗位会保留" ${blocked||!ignoreCount?'disabled':''}>批量忽略（${ignoreCount}）</button>${restoreCount?`<button id="match-bulk-restore" class="btn" ${blocked||!restoreCount?'disabled':''}>恢复已忽略（${restoreCount}）</button>`:''}${!canCompare?'<button id="match-compare-selected" class="btn" disabled title="选择同一公司至少两个岗位">对比已选</button>':''}<button id="match-ask-selected" class="btn" ${canCompare&&jobs.length<=8?'':'disabled'} title="选择同一公司 2—8 个岗位，向求职问答询问已有分析">问 Agent</button></div></div>${selected.size>1000?'<p class="pending-note">单次导出最多 1,000 个岗位，请减少选择；API 可分轮处理。</p>':''}`;
     }
     async function bulkPreference(value,undo=false){
       if(bulkBusy||taskStateBlocked()||running||preparing||!current())return;
@@ -412,13 +402,15 @@ const CampusMatching=(function(root){
       if(taskStateBlocked()||running||preparing||bulkBusy||!current())return;
       if(!companyWork&&(retry||continuing)&&task?.kind==='COMPANY'){companyWork={company:task.company,kind:'COMPANY',scopeKey:task.scope_key};ids=task.items.map(i=>i.job_id);}
       const available=new Set(snapshot.jobs.filter(j=>companyWork?!j.excluded_reason:eligible(j)).map(j=>j.job.id));
-      ids=[...new Set(ids)].filter(id=>available.has(id));
+      ids=[...new Set(ids)];
+      if(companyWork&&ids.some(id=>!available.has(id))){notice='公司比较范围已变化，请返回公司决策重新选择。';render();return;}
+      ids=ids.filter(id=>available.has(id));
       if(!ids.length){notice='没有待分析且可分析的岗位。';render();return;}
       intent={ids,retry,continuing,companyWork};panel='review';consentHash='';paused=true;reviewBusy=true;reviewBundle=null;reviewError='';
       const revision=++reviewRevision,hash=snapshot.candidate_hash;
       reviewKeys=new Map(ids.map(id=>{const j=snapshot.jobs.find(j=>j.job.id===id);return [id,j.input_key];}));
       render();
-      try{const bundle=await api('/api/matching/export','POST',{...identity(),job_ids:ids,candidate_hash:hash});if(!current()||revision!==reviewRevision)return;if(bundle.candidate_hash!==snapshot.candidate_hash)throw new UserError('求职资料已变化，请重新核对外发资料。');reviewBundle=bundle;if(companyWork){const input=bundle.company_inputs?.find(v=>v.job_ids?.length===ids.length&&v.job_ids.every(id=>ids.includes(id)));if(!input)throw new UserError('公司比较范围已变化，请重新选择。');intent.companyWork={...companyWork,scopeKey:input.model_input_key};}}
+      try{const bundle=await api('/api/matching/export','POST',{...identity(),job_ids:ids,candidate_hash:hash});if(!current()||revision!==reviewRevision)return;if(bundle.candidate_hash!==snapshot.candidate_hash)throw new UserError('求职资料已变化，请重新核对外发资料。');reviewBundle=bundle;if(companyWork){const input=bundle.company_inputs?.find(v=>v.company===companyWork.company&&v.job_ids?.length===ids.length&&v.job_ids.every(id=>ids.includes(id)));if(!input)throw new UserError('公司比较范围已变化，请重新选择。');intent.companyWork={...companyWork,scopeKey:input.model_input_key};}}
       catch(err){if(revision===reviewRevision){reviewError=err.message;reviewBundle=null;}}
       finally{if(current()&&revision===reviewRevision){reviewBusy=false;render();}}
     }
@@ -431,8 +423,9 @@ const CampusMatching=(function(root){
     }
     function progressHTML(actions){
       if(taskLoading)return '<section class="match-progress match-progress-compact" aria-label="分析任务进度"><p role="status">正在读取分析任务进度，岗位可先浏览和勾选。</p></section>';
-      if(durable&&!taskReady)return `<section class="match-progress match-progress-compact" aria-label="分析任务进度"><p role="status">${esc(notice)}</p><button id="match-task-read-retry" class="btn btn-small">重新读取任务进度</button></section>`;
-      if(durable&&task)return Tasks.render(task,taskRuns,{esc,D},notice);
+      if(!durable)return '<section class="match-progress match-progress-compact" aria-label="分析任务进度"><p role="status">持久分析任务暂不可用，请检查服务状态。</p></section>';
+      if(!taskReady)return `<section class="match-progress match-progress-compact" aria-label="分析任务进度"><p role="status">${esc(notice)}</p><button id="match-task-read-retry" class="btn btn-small">重新读取任务进度</button></section>`;
+      if(task)return Tasks.render(task,taskRuns,{esc,D},notice);
       const hasQueue=running||progress.pending.length||progress.failed.length;
       if(!hasQueue&&!notice)return '';
       if(!hasQueue)return `<section class="match-progress match-progress-compact" aria-label="本轮分析任务"><p role="status">${esc(notice)}</p><button id="match-dismiss-notice" class="btn btn-subtle btn-small">知道了</button></section>`;
@@ -442,7 +435,7 @@ const CampusMatching=(function(root){
       // Replacing the focused input would end the browser's IME session.
       if(!current()||searchComposing)return;
       jobSearchState=jobSearch?.ensure({scope:JSON.stringify([cap.user_id,snapshot.snapshot_key||snapshot.input_hash||inventoryRevision]),text:query,mode:queryMode,exclude:excludeQuery})||null;
-      const dialogIDs={settings:'match-settings-dialog',review:'match-review-dialog',export:'match-export-review',import:'match-import-dialog',company:'match-comparison-dialog'};
+      const dialogIDs={settings:'match-settings-dialog',review:'match-review-dialog',export:'match-export-review',import:'match-import-dialog'};
       for(const id of Object.values(dialogIDs)){
         const dialog=document.querySelector('#'+id);
         if(id!==dialogIDs[panel]&&dialog?.open)dialog.close();
@@ -459,7 +452,7 @@ const CampusMatching=(function(root){
       if(renderedViewKey&&viewKey!==renderedViewKey)saved.regions=(saved.regions||[]).filter(region=>region.id!=='match-job-list');renderedViewKey=viewKey;
       saveBrowse();
       const slice=view.slice((pageNo-1)*50,pageNo*50),selectedOnPage=slice.filter(j=>selected.has(j.job.id)).length,availableIDs=new Set(snapshot.jobs.filter(j=>task?.kind==='COMPANY'?!j.excluded_reason:eligible(j)).map(j=>j.job.id));
-      const actions=analysisActions(progress,{running,preparing:preparing||inventoryChecking||!!inventoryError,taskLoading,taskUnavailable:durable&&!taskReady,authorized:true,modelAvailable:root.CampusModels.available(cap),callsToday:snapshot.calls_today,dailyCalls:snapshot.settings.daily_calls,runCount:shortlist(view,snapshot.settings.round_limit).length,pendingCount:progress.pending.filter(id=>availableIDs.has(id)).length,failedCount:progress.failed.filter(f=>availableIDs.has(f.id)).length});
+      const actions=analysisActions(progress,{running,preparing:preparing||inventoryChecking||!!inventoryError,taskLoading,taskUnavailable:!taskReady,authorized:true,modelAvailable:root.CampusModels.available(cap),callsToday:snapshot.calls_today,dailyCalls:snapshot.settings.daily_calls,runCount:shortlist(view,snapshot.settings.round_limit).length,pendingCount:progress.pending.filter(id=>availableIDs.has(id)).length,failedCount:progress.failed.filter(f=>availableIDs.has(f.id)).length});
       const companyCounts=new Map();for(const row of matchingRows(directionFilter,'company'))companyCounts.set(row.job.company,(companyCounts.get(row.job.company)||0)+1);
       const companies=[...new Set([...snapshot.jobs.map(j=>j.job.company),...(inventoryBlocked()&&companyFilter?[companyFilter]:[])])].sort((a,b)=>a.localeCompare(b,'zh-CN'));
       const cityCounts=new Map(cityOptions(matchingRows(directionFilter,'city')).map(c=>[c.value,c.count]));
@@ -474,7 +467,7 @@ const CampusMatching=(function(root){
       const quotaHidden=matchingRows(directionFilter,'quota').filter(j=>j.campaign?.hide_unsubmitted).length;
       const reverseLabel=sort==='company'?(sortOrder==='asc'?'名称正序':'名称倒序'):['updated','created'].includes(sort)?(sortOrder==='asc'?'从旧到新':'从新到旧'):(sortOrder==='asc'?'从低到高':'从高到低');
       const sortOption=([value,label])=>`<option value="${value}" ${sort===value?'selected':''}>${label}</option>`;
-      const html='<div class="radar-page-heading">'+U.heading('岗位雷达','',`<button id="match-open-import" class="btn" ${taskStateBlocked()||running||preparing||bulkBusy?'disabled':''}>${U.icon('upload')}导入聊天分析</button><button id="match-source" class="btn" aria-label="关注来源">${U.icon('radar')}招聘来源</button><button id="match-open-settings" class="btn" aria-label="分析设置">${U.icon('filter')}分析设置</button>`)+`<nav class="radar-view-tabs" aria-label="岗位雷达视图"><button aria-pressed="true" disabled>岗位列表</button><button id="match-company-view" aria-pressed="false">公司投递决策</button></nav></div>${returnCompany?`<div class="radar-return-company"><span>正在处理 ${esc(returnCompany)} 的分析</span><button id="match-return-company" class="text-btn">回到公司决策，继续已选岗位</button></div>`:''}`+returnMarkup+`<div id="radar-deadline-slot">${deadlines?.html()||''}</div>`+progressHTML(actions)+`
+      const html='<div class="radar-page-heading">'+U.heading('岗位雷达','',`<details id="match-external" data-remember><summary>外部分析</summary><div class="actions"><button id="match-export" class="btn btn-small" ${taskStateBlocked()||running||preparing||bulkBusy||!selected.size||selected.size>1000?'disabled':''}>${preparing?'准备分析包…':'导出所选岗位'}</button><button id="match-open-import" class="btn btn-small" ${taskStateBlocked()||running||preparing||bulkBusy?'disabled':''}>导入分析结果</button></div></details><button id="match-source" class="btn" aria-label="关注来源">${U.icon('radar')}招聘来源</button><button id="match-open-settings" class="btn" aria-label="分析设置">${U.icon('filter')}分析设置</button>`)+`<nav class="radar-view-tabs" aria-label="岗位雷达视图"><button aria-pressed="true" disabled>岗位列表</button><button id="match-company-view" aria-pressed="false">公司投递决策</button></nav></div>${returnCompany?`<div class="radar-return-company"><span>正在处理 ${esc(returnCompany)} 的分析</span><button id="match-return-company" class="text-btn">回到公司决策，继续已选岗位</button></div>`:''}`+returnMarkup+`<div id="radar-deadline-slot">${deadlines?.html()||''}</div>`+progressHTML(actions)+`
         <form id="match-filter" class="matching-filter radar-filter-bar" aria-label="筛选岗位">
           <div class="radar-filter-topline">${browseViewsHTML({direction:directionFilter,workflow:workflowFilter,onlySelected,hasDirection:!!targetRoles().length,selectedCount:selected.size})}<button type="button" id="match-clear-filters" class="text-btn" ${hasFilters?'':'disabled'}>清空条件</button></div>
           <div class="radar-filter-controls">
@@ -497,7 +490,7 @@ const CampusMatching=(function(root){
         ${recent?`<div class="browse-context" ${drawerOpen?'hidden':''}><span>上次查看：<button id="match-recent" class="text-btn">${esc(recent.job.title)}</button></span></div>`:''}
         ${quotaHidden&&!showQuotaFull&&!onlySelected?`<p class="form-note quota-hidden-note" role="status">已收起 ${quotaHidden} 个限投已满岗位。<button type="button" id="match-reveal-quota" class="text-btn">显示收起岗位</button><button type="button" id="match-quota-rules" class="text-btn">管理限投规则</button></p>`:''}<details class="workbench-selection-tools" data-remember id="match-selection-tools"><summary>批量选择与分析</summary><div class="selection-options"><button id="match-select-top" class="btn btn-subtle btn-small" ${preparing?'disabled':''}>选择前 ${snapshot.settings.round_limit} 个待分析</button>${unrelated.length?`<button id="match-select-unrelated" class="btn btn-subtle btn-small" title="替换已选，跨页选择当前筛选范围中未收藏且没有投递记录的明显无关岗位" ${preparing||bulkBusy?'disabled':''}>选择明显无关（${unrelated.length}）</button>`:''}<button id="match-select-page" class="btn btn-subtle btn-small" ${preparing||bulkBusy||!slice.length?'disabled':''}>选择本页（${slice.length}）</button><button id="match-select-all" class="btn btn-subtle btn-small" ${preparing||bulkBusy||!view.length?'disabled':''}>选择全部结果（${view.length}）</button><button id="match-run" class="btn btn-subtle btn-small" ${actions.run.disabled?'disabled':''} title="${esc(actions.run.reason)}">分析前 ${snapshot.settings.round_limit} 个待分析岗位</button></div></details>
         <div id="match-job-list" data-scroll-region class="workbench-job-list" aria-label="当前筛选岗位">${cardError?`<p class="pending-note">卡片说明暂未读取，筛选与选择仍可使用。<button id="match-cards-retry" class="text-btn">重试读取</button></p>`:''}${slice.map(j=>jobRowHTML(j,{esc,D},selected.has(j.job.id),drawerOpen&&lastJob===j.job.id,preparing||bulkBusy,progress.failed.some(f=>f.id===j.job.id),sort)).join('')||emptyResultsHTML()}</div>
-        <div class="table-footer"><span>今日分析调用 ${snapshot.calls_today} / ${snapshot.settings.daily_calls}</span><span><button id="match-refresh" class="btn btn-small" ${taskStateBlocked()||running||preparing||bulkBusy?'disabled':''}>刷新</button> 第 ${pageNo} / ${totalPages} 页 <button id="match-prev" class="btn btn-small" ${pageNo===1?'disabled':''}>上一页</button><button id="match-next" class="btn btn-small" ${pageNo===totalPages?'disabled':''}>下一页</button></span></div></section><aside id="match-detail" data-scroll-region class="workbench-detail" aria-label="岗位详情"><div class="workbench-detail-empty"><span>${U.icon('radar')}</span><h2>选择一个岗位</h2><p>查看匹配结果和岗位原文。</p></div></aside></div>${selectionHTML()}${settingsHTML()}${reviewHTML()}${exportHTML()}${importHTML()}${comparisonHTML()}`;
+        <div class="table-footer"><span>今日分析调用 ${snapshot.calls_today} / ${snapshot.settings.daily_calls}</span><span><button id="match-refresh" class="btn btn-small" ${taskStateBlocked()||running||preparing||bulkBusy?'disabled':''}>刷新</button> 第 ${pageNo} / ${totalPages} 页 <button id="match-prev" class="btn btn-small" ${pageNo===1?'disabled':''}>上一页</button><button id="match-next" class="btn btn-small" ${pageNo===totalPages?'disabled':''}>下一页</button></span></div></section><aside id="match-detail" data-scroll-region class="workbench-detail" aria-label="岗位详情"><div class="workbench-detail-empty"><span>${U.icon('radar')}</span><h2>选择一个岗位</h2><p>查看匹配结果和岗位原文。</p></div></aside></div>${selectionHTML()}${settingsHTML()}${reviewHTML()}${exportHTML()}${importHTML()}`;
       U.releaseDrawer();
       const sync=`<div id="match-sync-status" class="inventory-sync" role="status" aria-live="polite">${inventoryChecking?'正在核对最新岗位，当前显示上次浏览内容。':inventoryError?`暂未更新，当前显示上次浏览内容。${esc(inventoryError)} <button type="button" id="match-sync-retry" class="text-btn">重新读取</button>`:''}</div>`;
       if(!set(html.replace('<form id="match-filter"',sync+(jobSearchState?`<p class="form-note" role="status">${jobSearchState.pending?'正在搜索岗位内容…':jobSearchState.error?'搜索暂不可用，当前按列表中的岗位资料筛选。 <button type="button" id="match-search-retry" class="text-btn">重试搜索</button>':jobSearchState.mode==='basic'?'已按关键词搜索岗位内容。':'已搜索岗位名称和 JD 内容。'}${jobSearchState.more?' 结果较多，请缩小搜索范围。':''}</p>`:'')+'<form id="match-filter"'),{stable:true}))return;
@@ -524,15 +517,6 @@ const CampusMatching=(function(root){
       on('match-company-view',openCompanyView);on('match-return-company',()=>navigate('matching',{view:'company',company:returnCompany}));
       on('match-compare-selected',()=>openComparison('SELECTED'));
       on('match-ask-selected',()=>{const jobs=chosen();if(jobs.length<2||jobs.length>8||new Set(jobs.map(j=>j.job.company)).size!==1)return;navigate('agent',{message:`请对比 ${jobs[0].job.company} 的这些岗位，说明当前深度匹配依据、待核对项和是否存在并列：${jobs.map(j=>j.job.id).join('、')}`});});
-      if(panel==='company'){
-        $('#match-comparison-company').onchange=e=>{comparisonTaskIDs=[];comparisonCompany=e.target.value;comparisonReport=null;comparisonError='';comparisonRevision++;comparisonBusy=false;render();};
-        $('#match-comparison-scope').onchange=e=>{comparisonTaskIDs=[];comparisonScope=e.target.value;comparisonReport=null;comparisonError='';comparisonRevision++;comparisonBusy=false;render();};
-        $('#match-comparison-form').onsubmit=e=>{e.preventDefault();return loadComparison();};
-        on('match-company-analyze',()=>requestAnalysis(comparisonReport.holistic_job_ids,false,false,{company:comparisonCompany,kind:'COMPANY',scopeKey:comparisonReport.holistic_input_key}));
-        on('match-company-export-evaluation',()=>navigate('company_decision',{company:comparisonCompany,jobIDs:[...comparisonReport.holistic_job_ids],evaluation:true}));
-        for(const b of document.querySelectorAll('[data-compare-detail]'))b.onclick=()=>{document.querySelector('#match-comparison-dialog').close();openMatchDetail(b.dataset.compareDetail);};
-        for(const b of document.querySelectorAll('[data-compare-prepare]'))b.onclick=()=>{document.querySelector('#match-comparison-dialog').close();openMatchDetail(b.dataset.comparePrepare,'preparation');};
-      }
       on('match-dismiss-notice',()=>{notice='';render();});on('match-source',()=>navigate('watches'));on('match-quota-rules',()=>navigate('applications'));on('match-reveal-quota',()=>{showQuotaFull=true;pageNo=1;render();});on('match-open-settings',()=>{panel='settings';render();});
       on('match-open-import',()=>{panel='import';importError='';render();});
       on('match-import-preview',previewImport);on('match-import-confirm',confirmImport);
@@ -584,7 +568,7 @@ const CampusMatching=(function(root){
       on('match-task-read-retry',()=>loadTasks());
       on('match-continue',()=>requestAnalysis([...progress.pending],false,true));on('match-retry',()=>requestAnalysis(progress.failed.map(f=>f.id).filter(id=>availableIDs.has(id)).slice(0,snapshot.settings.round_limit),true));
       on('match-refresh',async()=>{try{await refresh();notice='岗位与分析进度已刷新。';render();}catch(err){notice=err.message;render();}});
-      on('match-pause',async()=>{if(durable){await taskControl('PAUSE');return;}paused=true;notice='已暂停后续分析，当前批次完成后停止。';render();});
+      on('match-pause',()=>taskControl('PAUSE'));
       on('match-task-company-result',()=>openComparison('SELECTED',task.company,task.items.map(i=>i.job_id)));
       on('match-task-cancel',()=>taskControl('CANCEL'));
       on('match-task-events',async()=>{const id=task?.id;try{const events=await api('/api/matching/tasks/'+encodeURIComponent(id)+'/events');if(current()&&task?.id===id)document.querySelector('#match-task-events-box').innerHTML=Tasks.traceHTML(events,{esc,D});}catch(e){notice=e.message;render();}});
@@ -592,7 +576,7 @@ const CampusMatching=(function(root){
       on('match-prev',()=>{clearTimeout(searchTimer);checkpoint();pageNo=Math.max(1,pageNo-1);render();});on('match-next',()=>{clearTimeout(searchTimer);checkpoint();pageNo=Math.min(Math.max(1,Math.ceil(rows().length/50)),pageNo+1);render();});
       for(const b of document.querySelectorAll('[data-match-job]'))b.onclick=()=>openMatchDetail(b.dataset.matchJob);
       const dialogID=dialogIDs[panel],dialogPanel=panel;
-      if(dialogID){const dialog=$('#'+dialogID);U.openDialog(dialog,()=>{if(document.querySelector('#'+dialogID)!==dialog||panel!==dialogPanel)return;panel='';if(dialogID==='match-import-dialog'){importRevision++;importBusy=false;importPreview=null;}if(dialogID==='match-comparison-dialog'){comparisonRevision++;comparisonBusy=false;}if(dialogID==='match-review-dialog'){consentHash='';paused=true;reviewRevision++;reviewBusy=false;}});}
+      if(dialogID){const dialog=$('#'+dialogID);U.openDialog(dialog,()=>{if(document.querySelector('#'+dialogID)!==dialog||panel!==dialogPanel)return;panel='';if(dialogID==='match-import-dialog'){importRevision++;importBusy=false;importPreview=null;}if(dialogID==='match-review-dialog'){consentHash='';paused=true;reviewRevision++;reviewBusy=false;}});}
       U.restore(saved);
     }
     async function openMatchDetail(id,initialTab='overview',focus=true){
@@ -702,26 +686,15 @@ const CampusMatching=(function(root){
         for(const b of opened.element.querySelectorAll('[data-detail-record]'))b.onclick=()=>openRecord(id).catch(err=>{document.querySelector('#notice').textContent=err.message;});
       }catch(err){if(valid()){loading=false;opened.element.innerHTML=header()+`<div class="drawer-body"><p class="pending-note">${esc(err.message)}</p></div>`;bindHeader();opened.element.querySelector('.drawer-body').insertAdjacentHTML('beforeend','<button class="btn" data-detail-retry>重新读取岗位详情</button>');opened.element.querySelector('[data-detail-retry]').onclick=()=>openMatchDetail(id,lastTab);}}
     }
-    function comparisonHTML(){
-      if(panel!=='company')return '';
-      const companies=[...new Set(snapshot.jobs.map(j=>j.job.company))];
-      return `<dialog id="match-comparison-dialog" class="modal comparison-modal" aria-labelledby="match-comparison-title">${U.modalHead('match-comparison-title','同公司岗位对比')}<div class="modal-body"><form id="match-comparison-form" class="comparison-controls"><label>公司<select id="match-comparison-company">${companies.map(c=>`<option value="${esc(c)}" ${c===comparisonCompany?'selected':''}>${esc(c)}</option>`).join('')}</select></label><label>对比范围<select id="match-comparison-scope">${[['ALL','该公司全部本地岗位'],['FILTERED','该公司当前筛选结果'],['SELECTED','该公司已选岗位']].map(([key,n])=>`<option value="${key}" ${key===comparisonScope?'selected':''}>${n}</option>`).join('')}</select></label><button class="btn btn-primary" ${comparisonBusy?'disabled':''}>${comparisonBusy?'正在读取…':comparisonReport?'刷新对比':'查看对比'}</button></form><p class="form-note">每次最多比较 16 个岗位。</p><button id="match-company-analyze" class="btn btn-primary" ${taskStateBlocked()||running||comparisonBusy||!comparisonReport?.holistic_job_ids?.length||comparisonReport?.holistic_notice?'disabled':''}>${comparisonReport?.holistic?'核对并复用当前比较':'核对并生成整体比较'}</button><button id="match-company-export-evaluation" type="button" class="btn" ${taskStateBlocked()||running||comparisonBusy||!comparisonReport?.holistic_input_key||comparisonReport?.holistic_notice?'disabled':''}>导出评测 JSON</button><div aria-live="polite">${comparisonError?`<p class="pending-note">${esc(comparisonError)}</p>`:''}${comparisonReport?Decision.renderCompany(comparisonReport,{esc,D}):!comparisonBusy?'<div class="empty-state"><h3>选好范围，再查看对比</h3></div>':'<p class="empty">正在读取当前资料与岗位分析…</p>'}</div></div></dialog>`;
-    }
     function openComparison(scope,requestedCompany='',scopeIDs=[]){
-      const jobs=chosen(),companies=[...new Set(jobs.map(j=>j.job.company))];
-      comparisonCompany=requestedCompany||(scope==='SELECTED'&&companies.length===1?companies[0]:companyFilter||companies[0]||snapshot.jobs[0]?.job.company||'');
-      comparisonTaskIDs=scopeIDs;comparisonScope=scope||'ALL';comparisonReport=null;comparisonError='';comparisonBusy=false;comparisonRevision++;panel='company';render();
-      if(scopeIDs.length)return loadComparison();
-    }
-    async function loadComparison(){
-      if(comparisonBusy||!current()||panel!=='company')return;
-      const jobs=(comparisonTaskIDs.length?snapshot.jobs.filter(j=>comparisonTaskIDs.includes(j.job.id)):comparisonScope==='SELECTED'?chosen():rows()).filter(j=>j.job.company===comparisonCompany);
-      if(comparisonScope!=='ALL'&&!jobs.length){comparisonError='此公司在所选范围没有岗位，请更换范围或先选择岗位。';render();return;}
-      if((comparisonScope==='ALL'?snapshot.jobs.filter(j=>j.job.company===comparisonCompany):jobs).length>200){comparisonError='对比最多 200 个岗位，请用筛选或勾选缩小范围。';render();return;}
-      const revision=++comparisonRevision;comparisonBusy=true;comparisonError='';comparisonReport=null;render();
-      try{const report=await api('/api/matching/company','POST',{...identity(),company:comparisonCompany,scope:comparisonScope,...(comparisonScope==='ALL'?{}:{job_ids:jobs.map(j=>j.job.id)})});if(!current()||panel!=='company'||revision!==comparisonRevision)return;comparisonReport=report;}
-      catch(err){if(!current()||panel!=='company'||revision!==comparisonRevision)return;comparisonError=err.message;}
-      finally{if(current()&&panel==='company'&&revision===comparisonRevision){comparisonBusy=false;render();}}
+      const candidates=scope==='SELECTED'?chosen():rows();
+      const company=requestedCompany||(companyFilter&&candidates.some(row=>row.job.company===companyFilter)?companyFilter:candidates[0]?.job.company);
+      if(!company)return;
+      const jobIDs=scopeIDs.length?scopeIDs:scope==='ALL'?[]:candidates.filter(row=>row.job.company===company).map(row=>row.job.id);
+      if(scope!=='ALL'&&!jobIDs.length){notice='此公司在所选范围没有岗位。';render();return;}
+      if(jobIDs.length>200){notice='对比最多 200 个岗位，请用筛选或勾选缩小范围。';render();return;}
+      checkpoint();
+      return navigate('matching',{view:'company',company,jobIDs,companyScope:scope==='ALL'?'all':'selected'});
     }
     async function prepareExport(){
       if(taskStateBlocked()||preparing||running||bulkBusy||!current()||!selected.size)return;
@@ -768,47 +741,19 @@ const CampusMatching=(function(root){
       const idSet=new Set(ids),byID=new Map(snapshot.jobs.map(j=>[j.job.id,j]));const jobs=[...idSet].map(id=>byID.get(id)).filter(j=>j&&(companyWork?!j.excluded_reason:eligible(j)));
       if(!jobs.length){notice='这批岗位已经分析完成，或暂时没有可分析的岗位。';render();return;}
       const workIDs=new Set(jobs.map(j=>j.job.id));
-      if(durable){
-        running=true;notice='正在保存本轮任务…';render();
-        try{
-          const resume=(retry||continuing)&&task&&(task.kind||'')===(companyWork?.kind||'')&&!['COMPLETED','CANCELLED'].includes(task.state)&&task.candidate_hash===snapshot.candidate_hash&&(!companyWork||(task.company===companyWork.company&&task.scope_key===companyWork.scopeKey&&task.items.length===workIDs.size))&&[...workIDs].every(id=>task.items.some(i=>i.job_id===id&&i.input_key===jobs.find(j=>j.job.id===id).input_key));
-          const target=resume?'/api/matching/tasks/'+encodeURIComponent(task.id)+'/resume':'/api/matching/tasks';
-          const requestKey=root.crypto.randomUUID().replaceAll('-','');
-          const body={...(companyWork?{kind:'COMPANY',company:companyWork.company,scope_key:companyWork.scopeKey}:{}),job_ids:[...workIDs],input_keys:Object.fromEntries(jobs.map(j=>[j.job.id,j.input_key])),candidate_hash:snapshot.candidate_hash,mask_name:maskName,model_config:root.CampusModels.requestConfig(),request_key:requestKey,version:resume?task.version:0,retry};
-          let v;try{v=await api(target,'POST',body);}catch(error){
-            // Resolve an ambiguous response by reading server history, never by
-            // automatically making another paid submission.
-            if(!error.code){const runs=await api('/api/matching/tasks');const existing=runs.find(x=>resume?x.id===task.id&&Tasks.active(x):x.request_key===requestKey);if(existing)v=existing;else throw error;}else throw error;
-          }
-          if(!current())return;applyTask(v);notice='本轮任务已保存，可以离开页面；处理进度会自动更新。';
-        }catch(e){running=false;notice=e.message;}finally{if(current())render();}return;
-      }
-      if(companyWork){notice='公司整体比较需要启用持久分析任务，请检查服务状态。';render();return;}
-      progress=queueWork(progress,[...workIDs],continuing);persist();
-      let evidenceReviews=0;const reviewNotice=()=>evidenceReviews?` ${evidenceReviews} 项结论已本地复核，请打开岗位的逐项依据核对。`:'';
-      running=true;paused=false;notice='正在分析，结果会逐批保存。';render();
+      running=true;notice='正在保存本轮任务…';render();
       try{
-        while(progress.pending.some(id=>workIDs.has(id))&&!paused&&current()&&authorized()){
-          if(snapshot.calls_today>=snapshot.settings.daily_calls){notice='已达到每日岗位匹配调用上限，未完成项保留供之后继续。';paused=true;break;}
-          const byID=new Map(snapshot.jobs.map(j=>[j.job.id,j]));const pending=progress.pending.filter(id=>workIDs.has(id)).map(id=>byID.get(id)).filter(j=>j&&eligible(j));
-          if(!pending.length)break;
-          if(pending[0].text_bytes>24000||!pending[0].text_bytes){progress.failed.push({id:pending[0].job.id,message:'岗位文字过长或原文尚不可用，请检查岗位内容。'});progress.pending=progress.pending.filter(id=>id!==pending[0].job.id);persist();continue;}
-          const batch=pack(pending,retry?1:3),batchIDs=batch.map(j=>j.job.id);let batchFailed=false;
-          try{
-            const result=await api('/api/matching/analyze','POST',{job_ids:batchIDs,candidate_hash:snapshot.candidate_hash,mask_name:maskName,model_config:root.CampusModels.requestConfig()});
-            const done=new Set([...(result.analyzed||[]),...(result.reused||[])]);
-            progress.pending=progress.pending.filter(id=>!done.has(id));progress.done+=done.size;progress.calls+=result.calls||0;evidenceReviews+=result.evidence_reviews||0;
-            notice=`本轮完成 ${progress.done} 个岗位，调用 ${progress.calls} 次；命中缓存的岗位不重复调用。`+reviewNotice();
-          }catch(err){
-            batchFailed=true;
-            if(['MATCH_DAILY_LIMIT','MATCH_BUSY','MATCH_INPUT_CHANGED','MODEL_AUTH_FAILED','MODEL_BALANCE_LOW','MODEL_PROVIDER_BUSY'].includes(err.code)){notice=err.message;paused=true;if(err.code==='MATCH_INPUT_CHANGED')consentHash='';}
-            else{for(const id of batchIDs)progress.failed.push({id,message:err.message});progress.pending=progress.pending.filter(id=>!batchIDs.includes(id));notice='部分岗位分析失败，已保留成功结果，可单独重试失败项。';}
-          }
-          const priorCalls=snapshot.calls_today;persist();await refresh();
-          if(batchFailed)progress.calls+=Math.max(0,snapshot.calls_today-priorCalls);persist();render();
+        const resume=(retry||continuing)&&task&&(task.kind||'')===(companyWork?.kind||'')&&!['COMPLETED','CANCELLED'].includes(task.state)&&task.candidate_hash===snapshot.candidate_hash&&(!companyWork||(task.company===companyWork.company&&task.scope_key===companyWork.scopeKey&&task.items.length===workIDs.size))&&[...workIDs].every(id=>task.items.some(i=>i.job_id===id&&i.input_key===jobs.find(j=>j.job.id===id).input_key));
+        const target=resume?'/api/matching/tasks/'+encodeURIComponent(task.id)+'/resume':'/api/matching/tasks';
+        const requestKey=root.crypto.randomUUID().replaceAll('-','');
+        const body={...(companyWork?{kind:'COMPANY',company:companyWork.company,scope_key:companyWork.scopeKey}:{}),job_ids:[...workIDs],input_keys:Object.fromEntries(jobs.map(j=>[j.job.id,j.input_key])),candidate_hash:snapshot.candidate_hash,mask_name:maskName,model_config:root.CampusModels.requestConfig(),request_key:requestKey,version:resume?task.version:0,retry};
+        let v;try{v=await api(target,'POST',body);}catch(error){
+          // Resolve an ambiguous response by reading server history, never by
+          // automatically making another paid submission.
+          if(!error.code){const runs=await api('/api/matching/tasks');const existing=runs.find(x=>resume?x.id===task.id&&Tasks.active(x):x.request_key===requestKey);if(existing)v=existing;else throw error;}else throw error;
         }
-        if(!progress.pending.length&&!progress.failed.length)notice=`本轮已完成 ${progress.done} 个岗位；可继续分析下一批。`+reviewNotice();
-      }catch(err){notice=err.message;}finally{running=false;persist();render();}
+        if(!current())return;applyTask(v);notice='本轮任务已保存，可以离开页面；处理进度会自动更新。';
+      }catch(e){running=false;notice=e.message;}finally{if(current())render();}
     }
     inventoryPainted=true;render();
     if(current())Navigation?.register({active:current,checkpoint,dispose:()=>deadlines?.dispose()});
@@ -821,12 +766,15 @@ const CampusMatching=(function(root){
     }
     if(durable){await loadTasks(taskRead);if(!current())return;setTimeout(pollTask,5000);}
     await resumedRead;if(!current())return;
-    if(current()&&initialComparison){await openComparison('SELECTED',initialComparison.company,initialComparison.jobIDs||[]);if(current()&&comparisonReport&&initialComparison.review&&!comparisonReport.holistic_notice&&comparisonReport.holistic_job_ids?.length)await requestAnalysis(comparisonReport.holistic_job_ids,false,false,{company:comparisonCompany,kind:'COMPANY',scopeKey:comparisonReport.holistic_input_key});}
+    if(current()&&initialComparison?.review){
+      const {company,jobIDs}=initialComparison;
+      if(company&&jobIDs?.length)await requestAnalysis(jobIDs,false,false,{company,kind:'COMPANY'});
+    }
     if(current()&&!initialComparison){if(initialJob){if(initialAnalyze)await requestAnalysis([initialJob]);else await openMatchDetail(initialJob,initialView);}else if(drawerOpen&&lastJob&&!lastOpened)await openMatchDetail(lastJob,lastTab,false);}
     async function poll(){if(!current())return;try{if(root.document?.visibilityState!=='hidden'&&!running&&!preparing&&!bulkBusy&&!panel&&!exportFiles.length&&!(document.querySelector('#job-drawer')?.open&&!document.querySelector('#job-drawer')?.classList.contains('is-docked'))&&!['INPUT','SELECT','TEXTAREA'].includes(document.activeElement?.tagName)){await refresh();render();if(snapshot.settings.auto_new&&!paused&&authorized()&&autoQueue.length){const ids=autoQueue.splice(0,snapshot.settings.round_limit);await start(ids);}}}catch(err){notice=err.message;render();}if(current())setTimeout(poll,60000);}
     setTimeout(poll,60000);
   }
-  const api={page,showJob,pack,shortlist,detailPosition,detailNavigationHTML,filtered,directionMatch,catalogVisible,bulkTargets,workflowMatch,workflowHTML,browseView,browseViewsHTML,jobRowHTML,overviewHTML,renderResult,renderRequirements,requirementStatus,orderByPriority,sortRows,cityNames,cityMatch,cityOptions,renderLocal,drawerActions,readProgress,reconcileProgress,queueWork,analysisActions,lock,bindUser,matchIdentity:identity};
+  const api={page,showJob,shortlist,detailPosition,detailNavigationHTML,filtered,directionMatch,catalogVisible,bulkTargets,workflowMatch,workflowHTML,browseView,browseViewsHTML,jobRowHTML,overviewHTML,renderResult,renderRequirements,requirementStatus,orderByPriority,sortRows,cityNames,cityMatch,cityOptions,renderLocal,drawerActions,readProgress,reconcileProgress,analysisActions,lock,bindUser,matchIdentity:identity};
   if(typeof module==='object'&&module.exports)module.exports=api;
   root.CampusMatching=api;return api;
 })(typeof window==='undefined'?globalThis:window);

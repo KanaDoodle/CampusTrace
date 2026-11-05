@@ -28,11 +28,11 @@ Applications freeze the materials used for that submission. Reviewed interview n
 - **Core API / Worker:** Go, MySQL, Kafka and Redis. Owns authoritative records, authorization, task scheduling and the application workflow.
 - **Analysis:** separate Go processes, discovered through etcd and called through the public [KanaRPC](https://github.com/KanaDoodle/KanaRPC) APIs over KNR2, with remote cancellation, bounded scheduling, discovery-driven connection reuse and graceful drain. The module pins a public commit using a Go pseudo-version; no sibling checkout is required. See [dependency provenance](docs/dependency-audit.md) and [migration acceptance](docs/kanarpc-migration.md).
 - **Optional Search:** independent HTTP service owning only the derived OpenSearch index. Core retains permission and content checks.
-- **Optional job-event consumers / Notify:** independent Search and notification consumer groups. Notify remains in the Core business domain and shares its SQL database.
+- **Job-event consumers:** Notify is enabled in the base stack. Optional Search uses an independent consumer group. Notify remains in the Core business domain and shares its SQL database.
 - **Observability and regression:** OpenTelemetry, Prometheus/Grafana/Tempo, pprof, k6, race/fuzz checks and GitHub Actions.
 - **AI application backend:** persistent tasks, controlled tools, resumable reviewed workflows and MCP; local BM25 with optional Embedding/RRF/Reranker. Model and retrieval results have dedicated evaluation workflows.
 
-The [Chinese README](README.md#架构与技术栈) includes the service diagram. Default deployment starts Core, MySQL, Kafka, Redis, etcd and two Analysis instances. Search, independent job-event consumers and the full observation stack are opt-in.
+The [Chinese README](README.md#架构与技术栈) includes the service diagram. Default deployment starts Core, MySQL, Kafka, Notify, Redis, etcd and one Analysis instance. The `compose.rpc-pair.yml` override adds a second instance for discovery and failover checks. It uses MySQL for job search. The optional Search stack adds OpenSearch indexing from the same Kafka job events.
 
 ## Start
 
@@ -96,7 +96,7 @@ Each report records its workload, environment, source revision, complete quantil
 
 [Application journey](docs/application-journey.md) · [Matching](docs/matching.md) · [Knowledge retrieval](docs/knowledge-retrieval.md) · [Agent](docs/agent-harness.md) · [Sources](docs/campus-source-inventory.md) · [Operations](docs/operations.md) · [API](docs/api.md) · [Archived experiments](experiments/README.md).
 
-Optional stacks: `make search-stack`, `make kafka-stack`, `make observability`. Disposable acceptance: `make resilience-test`, `make kafka-test`, `make performance`.
+Optional stacks: `make search-stack` and `make observability`. Disposable acceptance: `make resilience-test`, `make kafka-test`, `make performance`.
 
 ## Usage and data handling
 

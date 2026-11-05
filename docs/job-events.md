@@ -25,15 +25,15 @@ Notify 独立运行并消费岗位事件，复用 Core 数据域，在同一数�
 
 ```sh
 export COMPOSE_PROJECT_NAME=campustrace  # 如果平时通过 CLI 启动
-make kafka-stack
-make kafka-status
+make search-stack
+make search-status
 ```
 
-`compose.kafka.yml` 叠加基础、App 和 Search 配置，启用 `JOB_EVENTS_MODE=kafka`、岗位事件主题初始化和 Notify；Kafka 本身已由默认任务栈提供。普通 `./campustrace start` / `make search-stack` 仍是直接同步模式，**不要用它们重启已切换的 Kafka 部署**；岗位事件 Kafka 模式用 `make kafka-stack` 和 `make kafka-stop` 管理。停止命令保留数据卷。回切时先停 Kafka 模式的 API/Worker/Search/Notify，再启动直接模式；未发布事件保留在 SQL 中，回切不会把历史通知转换为原来的扫描通知。
+`compose.search.yml` 在基础应用的岗位事件和 Notify 之上启用 Search。`make kafka-stack`、`make kafka-stop`、`make kafka-status` 是同一部署的兼容命令。普通 `./campustrace start` 使用 MySQL 基础搜索，并通过同一个 Kafka 岗位事件链路生成站内提醒。切换前先停止旧实例，使用同一 Compose 项目和数据卷；旧 HTTP 模式未同步的 SQL 投影通过快照补齐，快照不生成历史通知。回到基础部署前先用 `make search-stop` 停止 Search 栈。
 
 | 配置 | 默认值 / 语义 |
 | --- | --- |
-| `JOB_EVENTS_MODE` | `direct`；API 和 Worker 必须一起切到 `kafka` |
+| `JOB_EVENTS_MODE` | 基础部署默认 `kafka`。隔离验证可用 `disabled` 停用 Kafka 岗位事件和对应通知。旧配置 `direct` 请删除或改为 `kafka`。 |
 | `KAFKA_BROKERS` | 主机开发默认 `127.0.0.1:19092`，容器内 `kafka:9092`；支持逗号分隔的多个地址 |
 | `KAFKA_JOB_TOPIC` | `campustrace.jobs.v1` |
 | `KAFKA_DLQ_TOPIC` | `campustrace.jobs.dlq.v1` |
@@ -59,7 +59,8 @@ Kafka 生产确认只表示消息已存入 broker。Core 的 `search_outbox` 仍
 
 1. Search 独立消费组把事件写入 OpenSearch，外部版本控制拒绝旧版本覆盖，同版本不同哈希报冲突。
 2. Core 用 `/v1/applied` 检查指定索引 generation、文档版本和哈希；查询实际搜索可见的数据，而非实时 GET。
-3. 只有确认满足时，才按对应版本清理脏记录。尚未追平时继续基础回退，并保留原有 Core ACL、哈希和版本复核。
+3. 已可见的版本按各自版本号清理脏记录。同一批次里有缺口时，已可见的版本可以先确认。
+4. 普通事件尚未确认发布时，保留缺失的脏记录，等发布器重试。发布确认后等五秒，如果索引仍缺该版本，才发对应的快照。没有普通事件的历史版本可以立即补快照。尚未追平时继续基础回退，并保留原有 Core ACL、哈希和版本复核。
 
 在线重建使用带候选 generation 的 `snapshot` 事件，经同一 Kafka topic 分发；前台事件仍写当前活动索引。当前操作的候选及交接源可接收对应快照，其他过时代次跳过。候选要通过逐份版本/哈希验证，再追平增量和切换，见[在线重建](search-service.md)。快照只修复投影，不产生业务通知。投递成功后但消费尚未完成的同批快照最多每五秒重发一次；断线/重启后允许重复。
 
@@ -69,7 +70,7 @@ Notify 的组独立提交 offset，事务写入 `job_notification_receipts`、�
 
 只有与 Core 当前文档一致的最新事件生成提醒；延迟的旧变化记为已处理，不补发已经过时的历史提示。私有岗位只通知当前所有者；公共岗位通知已收藏、已有投递、或启用了对应来源关注的用户，忽略的岗位不通知。每次重新检查岗位权限，提醒文案来自 Core 当前资料，不信任事件中的文本。单事件最多 1,000 名收件人，超限事务回滚并重试，需人工调整范围或扩展分批 fanout，不截断后确认。
 
-Kafka 模式关闭原先定时扫描的 `JOB_STATUS_CHANGED` 生成路径，改用岗位事件。优先级、截止时间、面试等时间驱动提醒仍使用原逻辑。删除事件推进消费并保留回执，不生成新增/资料更新提醒。当前通知是站内通知，没有接入邮件、短信或推送供应商。
+岗位状态提醒只由 Notify 根据岗位事件生成。切换前已生成的提醒保留，未生成的历史状态提醒不追补，岗位变化历史仍可查。优先级、截止时间、面试等时间驱动提醒仍按原规则生成。今日待办的岗位变化提示复用同一份事务内的岗位事件判定，保留独立的启停与处理状态。删除事件推进消费并保留回执，不生成新增/资料更新提醒。当前通知是站内通知，没有接入邮件、短信或推送供应商。
 
 无效 schema、格式或分区 key 的记录，先将来源 topic/partition/offset、SHA-256 和固定原因写入 DLQ，再提交源 offset。DLQ 不复制原始 JD/隐私正文。有效但暂时处理失败的业务事件保持重试，不直接丢入 DLQ；某个分区阻塞时可能连带该实例已分配的其他分区，独立消费组之间仍隔离。
 

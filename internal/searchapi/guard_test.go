@@ -187,9 +187,9 @@ func TestQueryCircuitDoesNotBlockProjectionRecovery(t *testing.T) {
 		case "/v1/status":
 			statuses.Add(1)
 			json.NewEncoder(w).Encode(Status{Protocol: Protocol, Generation: "generation"})
-		case "/v1/batch":
+		case "/v1/applied":
 			applies.Add(1)
-			json.NewEncoder(w).Encode(Status{Protocol: Protocol, Generation: "generation"})
+			json.NewEncoder(w).Encode(AppliedResult{Protocol: Protocol, Generation: "generation", Ready: true})
 		}
 	}))
 	defer server.Close()
@@ -210,7 +210,7 @@ func TestQueryCircuitDoesNotBlockProjectionRecovery(t *testing.T) {
 	if _, e = client.Status(context.Background()); e != nil {
 		t.Fatal(e)
 	}
-	if e = client.Apply(context.Background(), Batch{Protocol: Protocol, Generation: "generation", Documents: []Document{{}}}); e != nil {
+	if _, e = client.Applied(context.Background(), AppliedQuery{Protocol: Protocol, Generation: "generation"}); e != nil {
 		t.Fatal(e)
 	}
 	if queries.Load() != 1 || statuses.Load() != 1 || applies.Load() != 1 {

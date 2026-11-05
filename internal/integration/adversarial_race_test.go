@@ -62,7 +62,7 @@ func TestAdversarialPauseBetweenExecutingAndCall(t *testing.T) {
 	db := sql.OpenDB(gate)
 	defer db.Close()
 	api.Store = &p.Store{DB: db, Weights: s.Weights}
-	runner := api.StartMatchTasks(ctx, 1)
+	runner := startControlledMatchTasks(t, ctx, api, 1)
 	defer runner.Close()
 	run := schedulerSubmit(t, ctx, s, u, token, ids, h)
 	select {

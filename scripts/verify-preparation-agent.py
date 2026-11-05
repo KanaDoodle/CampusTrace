@@ -10,7 +10,7 @@ def main():
  work=args.output.resolve();work.mkdir(parents=True,exist_ok=True)
  if any(work.iterdir()):raise SystemExit('use a new empty output directory')
  root=pathlib.Path(__file__).resolve().parents[1];runid=uuid.uuid4().hex[:10];containers=[];processes=[];handles=[];checks=[]
- env=dict(os.environ,GOWORK='off',LLM_URL='',LLM_API_KEY='',LLM_MODEL='',SEARCH_URL='',JOB_EVENTS_MODE='direct',NARRATION_BACKEND='disabled',INFERENCE_RPC_ADDRESS='',INFERENCE_MODEL='',INFERENCE_BACKEND_KIND='',OTEL_EXPORTER_OTLP_TRACES_ENDPOINT='',CAMPUS_LIVE_SOURCES='0',PROFILE_ADDR='',PROFILE_TOKEN='')
+ env=dict(os.environ,GOWORK='off',LLM_URL='',LLM_API_KEY='',LLM_MODEL='',SEARCH_URL='',JOB_EVENTS_MODE='disabled',NARRATION_BACKEND='disabled',INFERENCE_RPC_ADDRESS='',INFERENCE_MODEL='',INFERENCE_BACKEND_KIND='',OTEL_EXPORTER_OTLP_TRACES_ENDPOINT='',CAMPUS_LIVE_SOURCES='0',PROFILE_ADDR='',PROFILE_TOKEN='')
  def run(cmd):return subprocess.check_output(cmd,text=True,stderr=subprocess.PIPE,env=env).strip()
  def wait(fn,seconds=20):
   until=time.monotonic()+seconds

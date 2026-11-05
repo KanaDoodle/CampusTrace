@@ -24,10 +24,7 @@ func newDefenseState(in d.PreparationInput, prior *d.DefenseState) (*d.DefenseSt
 		return nil, p.ErrValidation
 	}
 	s := &d.DefenseState{PromptVersion: DefensePromptVersion, Version: projectdefense.Version(), Topic: topic.ID, Title: topic.Title, Question: topic.Question, Answer: in.Defense.Answer, Round: 1}
-	strategy, err := defensestrategy.Active()
-	if err != nil {
-		return nil, fmt.Errorf("%w: teaching strategy unavailable", p.ErrBackendUnavailable)
-	}
+	strategy := defensestrategy.Default()
 	s.TeachingStrategy = &strategy
 	if prior != nil {
 		if prior.Version != s.Version || prior.Topic != s.Topic || prior.Review == nil || prior.Round >= 4 {
@@ -35,13 +32,11 @@ func newDefenseState(in d.PreparationInput, prior *d.DefenseState) (*d.DefenseSt
 		}
 		s.Round = prior.Round + 1
 		s.Previous = prior.Review
-		// Continuations retain the reviewed snapshot across adoption or rollback.
+		// A continuation uses the snapshot reviewed when the practice began.
 		if prior.TeachingStrategy != nil {
-			copyStrategy := *prior.TeachingStrategy
-			s.TeachingStrategy = &copyStrategy
+			strategy = *prior.TeachingStrategy
 		} else {
-			legacy := defensestrategy.Default()
-			s.TeachingStrategy = &legacy
+			strategy = defensestrategy.Legacy()
 		}
 		if prior.Review.NextQuestion != "" {
 			s.Question = prior.Review.NextQuestion
@@ -72,7 +67,7 @@ func defenseMessages(in d.PreparationInput, sources []d.PreparationSource, missi
 	if in.Defense != nil && in.Defense.MemoryMode == "off" {
 		memories = nil
 	}
-	strategy := defensestrategy.Default()
+	strategy := defensestrategy.Legacy()
 	if s.TeachingStrategy != nil {
 		strategy = *s.TeachingStrategy
 	}

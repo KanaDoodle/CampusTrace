@@ -97,7 +97,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	if os.Getenv("KAFKA_BROKERS") != "" {
+	{
 		cfg, e := eventbus.FromEnv(env("KAFKA_SEARCH_GROUP", "campustrace-search-v1"))
 		if e != nil {
 			return e

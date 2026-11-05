@@ -82,6 +82,15 @@ test('handoff preserves the exact selected scope even when the company has more 
  assert.match(h.html(),/当前范围已有比较/);assert.match(h.html(),/本次候选岗位 2 个/);
 });
 
+test('opening a filtered comparison leaves radar selections intact',async()=>{
+ const stored=new Map([['campustrace:match-selection:v1:synthetic-account',JSON.stringify(['b','other-employer'])]]);
+ const h=harness({stored});
+ await h.start({initialCompany:'测试公司',initialIDs:['a'],initialScope:'selected'});
+ assert.deepEqual(h.reads[0].job_ids,['a']);
+ h.elements.get('company-list-view').onclick();
+ assert.deepEqual(JSON.parse(stored.get('campustrace:match-selection:v1:synthetic-account')),['b','other-employer']);
+});
+
 test('missing handoff jobs never expand an evaluation to the full company',async()=>{
  const h=harness({missingID:true});await h.start({initialIDs:['a','b'],initialEvaluation:true});
  assert.equal(h.reads.length,0);assert.equal(h.exports.length,0);assert.match(h.html(),/本次比较中有岗位已不在/);
@@ -235,4 +244,4 @@ test('automatic compare respects an unsaved annotation cancellation',async()=>{
  const h=harness({discard:false});await h.start({initialIDs:['a','b']});h.elements.get('company-eval-form').elements.reason.value='尚未保存的标注';await h.elements.get('company-auto-analyze').onclick();assert.equal(h.autoCalls.length,0);assert.equal(h.navigations.length,0);assert.equal(h.elements.get('company-eval-form').elements.reason.value,'尚未保存的标注');
 });
 
-test('without a configured model auto candidates remain usable for the GPT chat export',async()=>{const h=harness({withReport:false,modelAvailable:false});await h.start();await h.elements.get('company-auto-analyze').onclick();assert.equal(h.navigations.length,0);assert.match(h.elements.get('company-notice').textContent,/候选已挑好/);assert.match(h.html(),/用 GPT 聊天比较/);await h.elements.get('company-open-chat').onclick();await h.elements.get('company-chat-export').onclick();assert.equal(h.chatCalls[0].path,'/api/matching/company-chat/export');assert.deepEqual(h.chatCalls[0].body.job_ids,['a','b']);});
+test('without a configured model auto candidates remain usable for the GPT chat export',async()=>{const h=harness({withReport:false,modelAvailable:false});await h.start();await h.elements.get('company-auto-analyze').onclick();assert.equal(h.navigations.length,0);assert.match(h.elements.get('company-notice').textContent,/候选已挑好/);assert.match(h.html(),/外部分析 · 公司排序/);await h.elements.get('company-open-chat').onclick();await h.elements.get('company-chat-export').onclick();assert.equal(h.chatCalls[0].path,'/api/matching/company-chat/export');assert.deepEqual(h.chatCalls[0].body.job_ids,['a','b']);});

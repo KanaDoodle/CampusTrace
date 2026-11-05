@@ -26,12 +26,12 @@ func TestDecodeComposeStatus(t *testing.T) {
 	if _, err := decodeContainers([]byte("not JSON")); err == nil {
 		t.Fatal("accepted invalid status")
 	}
-	if err := ready([]Container{{Service: "api", State: "running", Health: "healthy"}}); err == nil {
+	if err := ready([]Container{{Service: "api", State: "running", Health: "healthy"}}, true); err == nil {
 		t.Fatal("accepted missing worker and dependencies")
 	}
 	rows := healthy()
 	rows[0].Health = "unhealthy"
-	if ready(rows) == nil {
+	if ready(rows, true) == nil {
 		t.Fatal("accepted unhealthy component")
 	}
 }
@@ -89,10 +89,49 @@ func TestFailedStartOnlyStopsNewApplicationServices(t *testing.T) {
 			}
 		}
 	}
-	if !reflect.DeepEqual(stop, []string{"worker", "analysis-1", "analysis-2", "preparation"}) {
+	if !reflect.DeepEqual(stop, []string{"worker", "analysis-1", "notify"}) {
 		t.Fatal("rollback stopped preexisting service or dependency", stop)
 	}
 }
+func TestPreparationStartupFailureLeavesCoreRunning(t *testing.T) {
+	var calls [][]string
+	var warnings strings.Builder
+	port := unusedPort(t)
+	var coreRows []Container
+	for _, row := range healthy() {
+		if row.Service != "preparation" {
+			coreRows = append(coreRows, row)
+		}
+	}
+	rows, _ := json.Marshal(coreRows)
+	m := manager{root: t.TempDir(), out: io.Discard, errOut: &warnings, execute: func(_ context.Context, _ string, args []string, out, _ io.Writer) error {
+		calls = append(calls, append([]string{}, args...))
+		line := strings.Join(args, " ")
+		switch {
+		case args[0] == "launchctl":
+			return errors.New("no legacy job")
+		case strings.Contains(line, "ps --all --format json"):
+			out.Write(rows)
+		case strings.Contains(line, "config --format json"):
+			io.WriteString(out, `{"services":{"api":{"ports":[{"published":"`+port+`"}]}}}`)
+		case strings.Contains(line, "up --detach") && strings.HasSuffix(line, " preparation"):
+			return errors.New("simulated preparation failure")
+		}
+		return nil
+	}}
+	if err := m.start(context.Background(), false, false, 1); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(warnings.String(), "基础服务已运行") {
+		t.Fatal(warnings.String())
+	}
+	for _, args := range calls {
+		if strings.Contains(strings.Join(args, " "), " stop ") {
+			t.Fatal("preparation failure stopped a core service", args)
+		}
+	}
+}
+
 func TestStartUsesDetachedComposeAndExplicitProjectFromAnyDirectory(t *testing.T) {
 	var calls [][]string
 	rows, _ := json.Marshal(healthy())
@@ -168,7 +207,7 @@ func TestRebuildQuiescesWritersOnlyAfterBackupAndSuccessfulBuild(t *testing.T) {
 			if (err != nil) != buildFails {
 				t.Fatal(err)
 			}
-			want := []string{"backup", "build", "stop", "up"}
+			want := []string{"backup", "build", "stop", "up", "up"}
 			if buildFails {
 				want = want[:2]
 			}

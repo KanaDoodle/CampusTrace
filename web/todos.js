@@ -20,11 +20,11 @@ const CampusTodos=(function(root){
   function draw(){
    if(!active()||!box.isConnected)return;
    reminders?.dispose();
-   box.innerHTML='<div class="actions"><button id="todo-inbox" class="btn btn-subtle">查看站内提醒历史</button></div>'+render(snapshot,{esc,D},kind,expanded)+'<div id="todo-reminders"></div>';
+   box.innerHTML=render(snapshot,{esc,D},kind,expanded)+'<section aria-label="招聘提醒"><div class="actions"><button id="todo-inbox" class="btn btn-subtle">查看站内提醒历史</button></div><div id="todo-reminders"></div></section>';
    const inbox=box.querySelector('#todo-inbox');if(inbox)inbox.onclick=()=>go('notifications');
    const extra=box.querySelector('#todo-reminders');if(extra&&root.CampusRecruitingReminders)reminders=root.CampusRecruitingReminders.mount(extra,{api,esc,D,navigate,active,state:reminderState});
    for(const button of box.querySelectorAll('[data-todo-kind]'))button.onclick=()=>{kind=button.dataset.todoKind;expanded=false;draw();};
-   for(const button of box.querySelectorAll('[data-todo-prepare]'))button.onclick=()=>go('agent',{skill:{id:'application-prep',value:button.dataset.todoPrepare}});
+   for(const button of box.querySelectorAll('[data-todo-prepare]'))button.onclick=()=>go('preparation',{applicationID:button.dataset.todoPrepare});
    for(const button of box.querySelectorAll('[data-todo-page]'))button.onclick=()=>go(button.dataset.todoPage);
    for(const button of box.querySelectorAll('[data-todo-open]'))button.onclick=()=>{const item=snapshot.items.find(item=>item.id===button.dataset.todoOpen),next=item&&target(item);if(!next)return;if(next[0]==='review')Promise.resolve(reviewInterview(next[1])).catch(error=>notify(error.message));else go(...next);};
    box.querySelector('#todo-expand')?.addEventListener('click',()=>{expanded=true;draw();});

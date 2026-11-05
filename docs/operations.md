@@ -140,6 +140,12 @@ Worker 平时每分钟只查询到期索引，每批最多 100 个；批次满�
 
 实现依据：[MySQL 8.4 Performance Schema 配置](https://dev.mysql.com/doc/refman/8.4/en/performance-schema-system-variables.html)、[Compose 健康检查](https://docs.docker.com/reference/compose-file/services/#healthcheck)。
 
+## 启动依赖
+
+Worker 等待 MySQL、Redis、Kafka 主题和默认 Analysis，独立执行数据库迁移。API 等待 MySQL 和 Redis。CLI 在基础服务就绪后单独启动 LangGraph，面试准备开始或恢复时检查它的健康状态。
+
+隔离验证可运行 `CAMPUS_VERIFY_STARTUP_SPLIT=1 sh scripts/observability-local.sh`。脚本先启动 Worker，再在 LangGraph 未启动时检查 API 就绪与准备服务错误，最后启动完整应用。
+
 ## 岗位事件独立消费
 
-岗位变更可通过 `make kafka-stack` 启动 Kafka、Search 独立消费组和 Notify 进程。默认栈已包含任务使用的 Kafka；启用岗位事件消费者时 API/Worker 配置必须一致，先停止旧 writer 并备份。CLI 普通启动不管理这个可选栈，切换、回放、观测及验收命令见[岗位事件运行说明](job-events.md)。
+默认栈启动 Kafka 和 Notify，使用 MySQL 搜索。需要独立索引时用 `make search-stack` 增加 OpenSearch 和 Search 消费组。切换前先停止原来的应用实例并备份，避免两个 API/Worker 组合同时写入。回放、观测及验收命令见[岗位事件运行说明](job-events.md)。

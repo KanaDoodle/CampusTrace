@@ -1,5 +1,5 @@
 {
-  "base_commit": "fc4bbfabcd793edd2c4098f4d9cb1e14eaea9602",
+  "base_commit": "5696689160313a7378fd81e47a971f2ecc832ad3",
   "snapshot_kind": "reviewed-working-tree-excerpts; file hashes identify exact input; not historical application material",
   "topics": [
     {
@@ -70,7 +70,7 @@
           "kind": "CODE",
           "text": "\t\tstate.ModelCalls++\n\t\treserved := estimate + 2048\n\t\tbudget.Charged += reserved\n\t\tbudget.UnreportedCalls++\n\t\tstate.ProviderState = \"DISPATCHED\"\n\t\tcallID := fmt.Sprintf(\"model-%d\", state.ModelCalls)\n\t\ttrace(\"model\", \"\", \"DISPATCHED\", callID, \"\", 0)\n\t\tif err := intent(); err != nil {\n\t\t\treturn err\n\t\t}\n\t\tstarted := time.Now()\n\t\treply, err := capModel(model, 2048).Next(ctx, messages, defs)\n\t\tbudget.Charged -= reserved\n\t\tbudget.UnreportedCalls--\n\t\tbudget.charge(reply.Usage, estimate, 2048)\n\t\tif err != nil {\n\t\t\tstate.ProviderState = \"UNKNOWN\"\n\t\t\tv.State = \"PAUSED\"\n\t\t\tv.Answer = \"模型请求结果未知。已完成的读取保留；核对后可明确授权一次新尝试。\"\n\t\t\ttrace(\"model\", \"\", \"UNKNOWN\", callID, \"未自动重试\", time.Since(started).Milliseconds())\n\t\t\tif e := save(); e != nil {\n\t\t\t\treturn e\n\t\t\t}\n\t\t\treturn err\n\t\t}\n",
           "sha256": "f071ab2b9731db9e8ccc9890a2a248e180f3384289ca89ead66f48ee6513d7ef",
-          "file_sha256": "18e0c367f07c00d00df0c9ccf0514bc6e76506e2312db6210237280b3b89a669"
+          "file_sha256": "50e9dc26b48053b84aa4595c4291c5f5e8170464d619d8d96682c258b1e98a1b"
         }
       ]
     },
@@ -111,7 +111,7 @@
           "kind": "CODE",
           "text": "\t\tstate.ModelCalls++\n\t\treserved := estimate + 2048\n\t\tbudget.Charged += reserved\n\t\tbudget.UnreportedCalls++\n\t\tstate.ProviderState = \"DISPATCHED\"\n\t\tcallID := fmt.Sprintf(\"model-%d\", state.ModelCalls)\n\t\ttrace(\"model\", \"\", \"DISPATCHED\", callID, \"\", 0)\n\t\tif err := intent(); err != nil {\n\t\t\treturn err\n\t\t}\n\t\tstarted := time.Now()\n\t\treply, err := capModel(model, 2048).Next(ctx, messages, defs)\n\t\tbudget.Charged -= reserved\n\t\tbudget.UnreportedCalls--\n\t\tbudget.charge(reply.Usage, estimate, 2048)\n\t\tif err != nil {\n\t\t\tstate.ProviderState = \"UNKNOWN\"\n\t\t\tv.State = \"PAUSED\"\n\t\t\tv.Answer = \"模型请求结果未知。已完成的读取保留；核对后可明确授权一次新尝试。\"\n\t\t\ttrace(\"model\", \"\", \"UNKNOWN\", callID, \"未自动重试\", time.Since(started).Milliseconds())\n\t\t\tif e := save(); e != nil {\n\t\t\t\treturn e\n\t\t\t}\n\t\t\treturn err\n\t\t}\n",
           "sha256": "f071ab2b9731db9e8ccc9890a2a248e180f3384289ca89ead66f48ee6513d7ef",
-          "file_sha256": "18e0c367f07c00d00df0c9ccf0514bc6e76506e2312db6210237280b3b89a669"
+          "file_sha256": "50e9dc26b48053b84aa4595c4291c5f5e8170464d619d8d96682c258b1e98a1b"
         },
         {
           "id": "step-receipt",

@@ -54,7 +54,7 @@ func runModelControlAPI(t *testing.T, ctx context.Context, s *p.Store, q *pipeli
 	control, e := modelcontrol.New(ctx, s, modelcontrol.Options{Policy: c.ModelPolicy, Wait: 4 * time.Second, Execution: 2 * time.Second, Grace: 100 * time.Millisecond, Poll: 10 * time.Millisecond})
 	must(t, e)
 	a := &transport.API{Store: s, Queue: q, Auth: auth.Service{Store: s, Secret: []byte(controlTestSecret)}, Metrics: observability.New(), ResumeModel: controlHTTPModel{c.ProviderURL}, ResumeModelName: "control-fixture", ModelControl: control}
-	runner := a.StartMatchTasks(ctx, 2)
+	runner := a.StartMatchTasks(ctx)
 	defer runner.Close()
 	listener, e := net.Listen("tcp", "127.0.0.1:0")
 	must(t, e)

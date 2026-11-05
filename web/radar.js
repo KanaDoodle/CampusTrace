@@ -26,7 +26,7 @@ function bindRadar(box,refresh,{active=()=>true,canAct=()=>true,openJob,pending=
 }
 async function radarPage(name,set,box,query,{active=()=>true,reviewInterview}={}){
  if(name==='radar'){
- if(!set(CampusUI.heading('今日待办','',`<button data-go="watches" class="btn" aria-label="关注来源">${CampusUI.icon('radar')}关注来源</button><button data-go="notifications" class="btn" aria-label="通知收件箱">${CampusUI.icon('bell')}通知收件箱</button>`)+'<div id="home-deadlines"></div><div id="today-todos">'+CampusUI.loading('正在读取待办…')+'</div><details id="radar-discoveries" class="radar-discoveries"><summary>岗位发现与变化 <span data-discovery-summary>展开查看</span></summary><div id="radar-discovery-content"></div></details>'))return;
+ if(!set(CampusUI.heading('今日待办','',`<button data-go="watches" class="btn" aria-label="关注来源">${CampusUI.icon('radar')}关注来源</button>`)+'<div id="home-deadlines"></div><div id="today-todos">'+CampusUI.loading('正在读取待办…')+'</div><details id="radar-discoveries" class="radar-discoveries"><summary>岗位发现与变化 <span data-discovery-summary>展开查看</span></summary><div id="radar-discovery-content"></div></details>'))return;
  const deadlines=globalThis.CampusDeadlines?.mount(box.querySelector('#home-deadlines'),{api,esc,D,navigate:page,active});
  globalThis.CampusNavigation?.register({active,dispose:()=>deadlines?.dispose()});
  const todos=box.querySelector('#today-todos'),discoveries=box.querySelector('#radar-discoveries'),discoveryContent=box.querySelector('#radar-discovery-content'),summary=box.querySelector('[data-discovery-summary]');

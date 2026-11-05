@@ -1,6 +1,6 @@
 # 申请准备的 Go + Python / LangGraph 链路
 
-申请档案中的 **生成面试准备计划** 与求职问答中的申请准备入口，默认都通过同一个 LangGraph 服务执行。普通问答、固定 Skills、岗位分析及其 KanaRPC 链路继续使用原职责。
+申请档案中的 **准备这场面试** 与求职问答中的申请准备入口，默认都通过同一个 LangGraph 服务执行。普通问答、固定 Skills、岗位分析及其 KanaRPC 链路继续使用原职责。
 
 ## 职责与数据流
 
@@ -49,12 +49,11 @@ make dev-run
 make dev-stop
 ```
 
-Compose 的 `preparation` 服务只走内部网络，不发布宿主端口，单 Uvicorn worker。持久卷 `preparation-checkpoints:/data` 保存 SQLite 文件，停止/重建容器保留检查点。API 启动依赖该服务健康，CLI 的启停、日志、状态和失败清理均包含它。Go `/readyz` 仍表示业务依赖就绪；准备子系统可单独检查 `/internal/preparation/health`，避免把其他业务和准备服务混为一个健康结论。
+Compose 的 `preparation` 服务只走内部网络，不发布宿主端口，单 Uvicorn worker。持久卷 `preparation-checkpoints:/data` 保存 SQLite 文件，停止/重建容器保留检查点。CLI 在基础服务启动后单独启动准备服务。准备服务异常时，API 和 Worker 可继续运行。Go `/readyz` 仍表示业务依赖就绪；准备子系统可单独检查 `/internal/preparation/health`，避免把其他业务和准备服务混为一个健康结论。
 
 本机开发默认配置：
 
 ```ini
-PREPARATION_EXECUTOR=langgraph
 PREPARATION_GRAPH_URL=http://127.0.0.1:18110
 PREPARATION_GO_URL=http://127.0.0.1:8080
 PREPARATION_SERVICE_TOKEN=local-preparation-service-change-this-2027
@@ -88,7 +87,7 @@ curl --fail http://127.0.0.1:18110/healthz
 
 ## 演示
 
-- **正常准备**：申请档案 → 生成面试准备计划 → 填 180 分钟、3 天 → 核对材料与外发范围 → 确认开始。查看岗位要求/一般建议、引用、时长及完成标准；保存预览后再次确认，刷新读取实际记录。
+- **正常准备**：申请档案 → 准备这场面试 → 填 180 分钟、3 天 → 核对材料与外发范围 → 确认开始。查看岗位要求/一般建议、引用、时长及完成标准；保存预览后再次确认，刷新读取实际记录。
 - **反馈与澄清**：将事项标为掌握或完成，填写“只剩一小时”或 15 分钟，核对新版。剩余项保留原 ID/标题，排除已完成项。时间或天数为零时出现澄清；补充后建立关联修订。
 - **失败与恢复**：执行期间停止 Python 服务，页面显示中断和下一步；重启同一持久卷后继续。UNKNOWN 必须明确确认新尝试，已完成读取继续复用。取消后不提供保存路径；材料版本变化后重新核对建任务。
 
@@ -137,7 +136,7 @@ CLI 不隐式读取网页密钥，不自动重置历史调用额度。完整输�
 
 ## 旧执行器与迁移边界
 
-产品默认为 LangGraph。`RunPreparationLoop` 只循环同一组受控单步函数，用于旧评测回归及显式回滚；没有复制两套模型、工具和校验规则。历史 CLI 需要显式 `-legacy-dynamic`；临时产品回滚使用 `PREPARATION_EXECUTOR=legacy` 并重启 API，日志会警告。如果 Python 不能启动，明确使用 `PREPARATION_EXECUTOR=legacy docker compose -f docker-compose.yml -f compose.app.yml up -d --no-deps api` 应用回滚配置；这是人工操作，不通过整栈健康检查掩盖依赖故障。没有失败后的自动降级，两个执行器的未完成任务不能互相接管。稳定后可移除产品回滚分支，保留历史报告。
+产品只使用 LangGraph 编排。旧 Go 执行循环保留给历史评测和回归夹具，离线 CLI 通过 `-legacy-dynamic` 选择历史对照。旧执行记录仍可按原权限读取。两种执行器的未完成任务不能互相接管，升级其他数据库前需先用旧版本处理未完成的 Go 执行记录。移除部署里的 `PREPARATION_EXECUTOR=legacy`；Python 服务异常时检查准备服务健康，恢复后继续原 LangGraph 任务。
 
 本轮增加的两项小范围补强：用户进度与诊断分层；检索使用量及可绑定证据的语义审阅入口。框架迁移本身不表示质量提升。下一项优先工作是在相同授权材料与额度下完成新链路真实模型对照，并由独立审阅者检查短时计划工作量与引用支持。
 

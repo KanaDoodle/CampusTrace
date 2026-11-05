@@ -79,37 +79,6 @@ func (c *Client) Status(ctx context.Context) (out Status, err error) {
 	return
 }
 
-// Split by encoded size as well as count: escaped JD text can be much larger
-// on the wire. A partial failure leaves the whole Core batch unacknowledged.
-func (c *Client) Apply(ctx context.Context, b Batch) error {
-	if b.Protocol != Protocol || len(b.Documents) == 0 || len(b.Documents) > MaxBatch {
-		return ErrInvalid
-	}
-	for start := 0; start < len(b.Documents); {
-		end, size := start, 512
-		for end < len(b.Documents) {
-			raw, e := json.Marshal(b.Documents[end])
-			if e != nil || len(raw) > 1<<20 {
-				return ErrInvalid
-			}
-			if size+len(raw) > 4<<20 {
-				break
-			}
-			size += len(raw) + 1
-			end++
-		}
-		var out Status
-		if e := c.call(ctx, "/v1/batch", c.WriteToken, Batch{Protocol: b.Protocol, Generation: b.Generation, Documents: b.Documents[start:end]}, &out); e != nil {
-			return e
-		}
-		if out.Protocol != Protocol || out.Generation != b.Generation {
-			return ErrConflict
-		}
-		start = end
-	}
-	return nil
-}
-
 // ConfigureQueries is a startup-only operation, before sharing this client.
 func (c *Client) ConfigureQueries(policy QueryPolicy, metrics *observability.Metrics) error {
 	if !policy.Valid() {

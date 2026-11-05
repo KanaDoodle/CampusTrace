@@ -16,7 +16,7 @@ func TestDefenseTeachingStrategyReachesActualPrompt(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !strings.Contains(d.JSON(defenseMessages(s.Input, s.Sources, s.Missing, s.Defense)), "先指出本轮原回答中的具体表述") {
-		t.Fatal("candidate teaching strategy never reaches product model prompt")
+		t.Fatal("candidate teaching strategy never reaches the evaluation prompt")
 	}
 }
 
@@ -62,6 +62,19 @@ func TestStrategySnapshotAndProgramGuardsSurviveContinuation(t *testing.T) {
 	if err != nil || child.TeachingStrategy == nil || *child.TeachingStrategy != custom {
 		t.Fatal(child, err)
 	}
+	if child.TeachingStrategy == s.Defense.TeachingStrategy {
+		t.Fatal("continuation must own its snapshot")
+	}
+	fresh, err := newDefenseState(s.Input, nil)
+	if err != nil || fresh.TeachingStrategy == nil || *fresh.TeachingStrategy != defensestrategy.Default() {
+		t.Fatal("fresh practice must use the shipped strategy", fresh, err)
+	}
+	s.Defense.TeachingStrategy = nil
+	legacy, err := newDefenseState(s.Input, s.Defense)
+	if err != nil || legacy.TeachingStrategy == nil || *legacy.TeachingStrategy != defensestrategy.Legacy() {
+		t.Fatal("historical practice must keep its original strategy", legacy, err)
+	}
+	s.Defense.TeachingStrategy = &custom
 	readDefenseFixture(t, s)
 	r.Findings[0].References[0].Quote = "fabricated"
 	if validateDefenseReview(s, r) == nil {

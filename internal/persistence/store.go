@@ -24,7 +24,7 @@ var ErrValidation = errors.New("business validation")
 type Store struct {
 	searchReads      searchReads
 	JobEvents        bool
-	Search           searchapi.Transport
+	Search           searchapi.Reader
 	Metrics          *observability.Metrics
 	DB               *sql.DB
 	Weights          rules.Weights

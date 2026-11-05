@@ -201,8 +201,8 @@ func TestRadarNotificationVersionsAndIsolation(t *testing.T) {
 	refresh()
 	observe()
 	refresh()
-	if n := count("JOB_STATUS_CHANGED"); n != 1 {
-		t.Fatal("status transition repeated", n)
+	if n := count("JOB_STATUS_CHANGED"); n != 0 {
+		t.Fatal("time-based refresh generated a job-status notification", n)
 	}
 	changes, err := s.RecentChanges(ctx, u, 1)
 	must(t, err)

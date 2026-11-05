@@ -70,7 +70,7 @@ MySQL 事务与唯一约束承担业务正确性；Kafka 承担消息投递，My
 
 ### 岗位事件独立消费
 
-`compose.kafka.yml` 在已有 Core、Analysis、Search 架构上增加岗位事件分发。岗位写入和不可变事件 Outbox 同事务提交，Worker 发布到 Kafka；Search 与独立 Notify 进程使用不同消费组，业务效果持久化后才提交各自 offset。Search 索引确认与 Kafka 发布确认分开，未追平时 Core 继续基础回退；Notify 按当前权限和 SQL 回执去重。后台任务也通过 Kafka 投递，使用独立主题和消费组；MySQL 管理任务重试、容量和公平发布。Notify 仍属于 Core 业务域并共享其数据库，默认 Compose 使用单节点 Kafka，适合本地运行与验收。详细一致性与恢复机制见[岗位变更事件](job-events.md)。
+基础 Compose 启动 Kafka 与 Notify；`compose.search.yml` 另外启用独立 Search。岗位写入和不可变事件 Outbox 同事务提交，Worker 发布到 Kafka；Search 与独立 Notify 进程使用不同消费组，业务效果持久化后才提交各自 offset。Search 索引确认与 Kafka 发布确认分开，未追平时 Core 继续基础回退；Notify 按当前权限和 SQL 回执去重。后台任务也通过 Kafka 投递，使用独立主题和消费组；MySQL 管理任务重试、容量和公平发布。Notify 仍属于 Core 业务域并共享其数据库，默认 Compose 使用单节点 Kafka，适合本地运行与验收。详细一致性与恢复机制见[岗位变更事件](job-events.md)。
 
 ### 岗位来源、归并与变化记录
 
@@ -139,11 +139,11 @@ go run ./cmd/dlq -redrive TASK_ID
 
 CampusTrace 是独立 module `github.com/KanaDoodle/CampusTrace`，固定依赖 `github.com/KanaDoodle/KanaRPC v0.0.0-20261031172914-7b63b80f0544`，导入根包、`discovery` 和 `routing` 的公开 API。`go.mod` 无 replace，正常构建使用 `GOWORK=off`，无需 sibling checkout。新版独立仓库与旧框架的沿革、许可见[依赖说明](dependency-audit.md)。
 
-两个 Analysis 实例以稳定 instance ID 注册到 `/campustrace/kanarpc/v2/services/CampusTraceAnalysis/`。Worker 从新鲜发现快照轮转选址，以有界连接池复用连接；节点撤出后退休连接，在途调用结束后回收。建连失败采用退避，失效连接在后续调用重新建立；一次业务调用只发送一次。快照保留 3 秒新鲜度门槛，过期时通过 SDK 公开 API 有界重建 watch，并校验集群与 revision 后替换；发现失去新鲜度时停止派发，不继续使用过期地址。
+默认启动一个 Analysis 实例。每个实例以稳定 instance ID 注册到 `/campustrace/kanarpc/v2/services/CampusTraceAnalysis/`。Worker 从新鲜发现快照轮转选址，以有界连接池复用连接；节点撤出后退休连接，在途调用结束后回收。建连失败采用退避，失效连接在后续调用重新建立；一次业务调用只发送一次。快照保留 3 秒新鲜度门槛，过期时通过 SDK 公开 API 有界重建 watch，并校验集群与 revision 后替换；发现失去新鲜度时停止派发，不继续使用过期地址。
 
 服务端按 `ANALYSIS_CONCURRENCY` 限制执行数量，等待队列容量与并发值一致，排队上限 100 ms；请求总时限最多 30 秒。客户端保留执行并发限制，启用短效压力反馈。远程 CANCEL 和 deadline 进入处理器 Context，继续传播到规则提取或模型 HTTP 请求。请求保留业务 deadline、traceparent 与任务 IDs，延续跨进程追踪及相关日志。
 
-KeepAlive/lease 丢失会降低 readiness，注册器重新获取 lease 并验证归属。启动等待 listener 与注册共同就绪；`/healthz`、`/readyz` 使用 `ANALYSIS_HEALTH_ADDR`，本地两实例默认为 `127.0.0.1:19191` / `19192`。关闭先降低 readiness、撤销注册，再在 5 秒预算内 drain 在途调用和协议回执；超时取消工作，日志保留资源完成状态与交付故障。协议回执表示 RPC 交付，业务是否持久化以 SQL 回执为准。
+KeepAlive/lease 丢失会降低 readiness，注册器重新获取 lease 并验证归属。启动等待 listener 与注册共同就绪；`/healthz`、`/readyz` 使用 `ANALYSIS_HEALTH_ADDR`，本机开发实例使用 `127.0.0.1:19191`；Compose 双实例验收按服务名区分。关闭先降低 readiness、撤销注册，再在 5 秒预算内 drain 在途调用和协议回执；超时取消工作，日志保留资源完成状态与交付故障。协议回执表示 RPC 交付，业务是否持久化以 SQL 回执为准。
 
 SQL 调用凭据继续保护付费分析。明确的提供商拒绝、连接池派发前拒绝及已确认的本地发送前准入拒绝允许后续任务重试；其他连接错误、超时或仅有状态码的远端拒绝保持结果未知，进入核对流程。RPC 层不因故障自动重复模型调用。
 

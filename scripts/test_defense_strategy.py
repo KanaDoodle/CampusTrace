@@ -1,6 +1,4 @@
 """Contract tests use synthetic artifacts, not model-quality measurements."""
-import argparse
-import copy
 import importlib.util
 import json
 from pathlib import Path
@@ -20,17 +18,13 @@ class StrategyTests(unittest.TestCase):
         self.root = Path(self.tmp.name)
         self.experiment = self.root / 'experiment'
         self.experiment.mkdir()
-        self.registry = self.root / 'registry'
-        S.write_new(self.registry / 'versions' / (S.digest(S.canonical(S.DEFAULT)) + '.json'), S.DEFAULT)
-        S.write_new(self.registry / 'registry.json', dict(schema='defense-strategy-registry-v1', generation=0, active=S.digest(S.canonical(S.DEFAULT)), history=[], verification_only=True))
-        self.base = S.DEFAULT
-        self.candidate = dict(S.DEFAULT, followup='contrast')
+        self.base = dict(schema='defense-teaching-v1', explain='code-first', followup='current-gap', reading='gap-only')
+        self.candidate = dict(self.base, followup='contrast')
         tasks = [{'id': 'dev', 'split': 'development'}, {'id': 'val', 'split': 'validation'}]
         S.write_new(self.experiment / 'dataset.json', tasks)
         S.write_new(self.experiment / 'baseline-profile.json', self.base)
         S.write_new(self.experiment / 'candidate-profile.json', self.candidate)
         self.m = dict(schema='defense-strategy-experiment-v1', code_sha256=S.code_sha(),
-                      base_registry_sha256=S.digest((self.registry / 'registry.json').read_bytes()),
                       base_strategy_sha256=S.digest(S.canonical(self.base)), candidate_strategy_sha256=S.digest(S.canonical(self.candidate)),
                       dataset_sha256=S.digest((self.experiment / 'dataset.json').read_bytes()), reports={}, artifacts={}, mode='controlled-response-program-regression')
         for split, case in [('development', 'dev'), ('validation', 'val')]:
@@ -62,10 +56,6 @@ class StrategyTests(unittest.TestCase):
         for split in S.SPLITS:
             self.scores('baseline', split, baseline)
             self.scores('candidate', split, candidate)
-
-    def args(self, decision, verification=True):
-        return argparse.Namespace(experiment=self.experiment, decision=decision, registry=self.registry,
-                                  expected_registry_sha256=self.m['base_registry_sha256'], verification_only=verification)
 
     def test_empty_reviews_are_pending_and_no_gain_is_preserved(self):
         self.assertEqual(S.review(self.experiment)['status'], 'PENDING_HUMAN_REVIEW')
@@ -103,44 +93,11 @@ class StrategyTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'provenance'):
             S.review(self.experiment)
 
-    def test_controlled_adoption_is_isolated_and_rollback_is_recorded(self):
+    def test_synthetic_scores_only_pass_the_review_gate(self):
         self.scored()
         decision = S.review(self.experiment)
-        p = self.root / 'decision.json'
-        S.write_new(p, decision)
-        with self.assertRaisesRegex(ValueError, 'controlled responses'):
-            S.adopt(self.args(p, False))
-        adopted = S.adopt(self.args(p))
-        self.assertEqual(adopted['strategy_sha256'], self.m['candidate_strategy_sha256'])
-        state, _, sha = S.registry_state(self.registry)
-        self.assertEqual(state['generation'], 1)
-        with self.assertRaisesRegex(ValueError, 'registry changed'):
-            S.adopt(self.args(p))
-        args = argparse.Namespace(registry=self.registry, expected_registry_sha256=sha, verification_only=True,
-                                  target=self.m['base_strategy_sha256'], reason='合成回滚验收')
-        S.rollback(args)
-        state, _, _ = S.registry_state(self.registry)
-        self.assertEqual(state['active'], self.m['base_strategy_sha256'])
-        self.assertEqual([h['action'] for h in state['history']], ['ADOPT', 'ROLLBACK'])
-
-    def test_review_changes_invalidate_old_decision(self):
-        self.scored()
-        decision = self.root / 'approved.json'
-        S.write_new(decision, S.review(self.experiment))
-        self.scores('candidate', 'validation', 0)
-        with self.assertRaisesRegex(ValueError, 'unchanged'):
-            S.adopt(self.args(decision))
-
-    def test_lock_and_rollback_target_are_checked(self):
-        (self.registry / '.adoption.lock').write_text('other owner')
-        with self.assertRaises(FileExistsError):
-            with S.locked_registry(self.registry, self.m['base_registry_sha256'], True):
-                pass
-        self.assertTrue((self.registry / '.adoption.lock').exists())
-        (self.registry / '.adoption.lock').unlink()
-        args = argparse.Namespace(registry=self.registry, expected_registry_sha256=self.m['base_registry_sha256'], verification_only=True, target='a' * 64, reason='test')
-        with self.assertRaisesRegex(ValueError, 'not a recorded'):
-            S.rollback(args)
+        self.assertEqual(decision['status'], 'SYNTHETIC_GATE_PASSED')
+        self.assertTrue(decision['validation_improvements'])
 
     def test_profiles_cannot_add_tools_or_permissions(self):
         with self.assertRaises(ValueError):
@@ -161,7 +118,20 @@ class StrategyTests(unittest.TestCase):
         p=self.root/'tasks.json';S.write_new(p,tasks)
         report=self.root/'validation.json';S.write_new(report,dict(split='validation',dataset_sha256=S.digest(p.read_bytes()),results=[dict(case_id='6',arm='dynamic')]))
         with self.assertRaisesRegex(ValueError,'development'):
-            S.prepare_diagnostics(report,p,self.base)
+            S.prepare_diagnostics(report,p)
+
+    def test_development_baseline_profile_must_match_its_hash(self):
+        tasks = [dict(id=str(i), split='development' if i < 6 else 'validation',
+                      input={'defense': {'topic': 'go-langgraph'}}) for i in range(20)]
+        dataset = self.root / 'tasks.json'
+        S.write_new(dataset, tasks)
+        report = self.root / 'development.json'
+        S.write_new(report, dict(split='development', dataset_sha256=S.digest(dataset.read_bytes()),
+                                 defense_teaching_strategy=self.base,
+                                 defense_teaching_strategy_sha256=S.digest(S.canonical(self.candidate)),
+                                 results=[dict(case_id='0', arm='dynamic')]))
+        with self.assertRaisesRegex(ValueError, 'profile and identity disagree'):
+            S.prepare_diagnostics(report, dataset)
 
 
 if __name__ == '__main__':

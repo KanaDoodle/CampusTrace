@@ -1,0 +1,9 @@
+# Opt-in two-node KanaRPC discovery and failover validation.
+services:
+  analysis-2:
+    extends:
+      file: compose.app.yml
+      service: analysis-1
+    environment:
+      INSTANCE_ID: analysis-2
+      ANALYSIS_ADVERTISE: analysis-2:19091

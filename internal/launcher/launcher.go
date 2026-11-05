@@ -22,8 +22,9 @@ import (
 	"time"
 )
 
-var appServices = []string{"api", "worker", "analysis-1", "analysis-2", "preparation"}
-var allServices = []string{"mysql", "redis", "etcd", "kafka", "api", "worker", "analysis-1", "analysis-2", "preparation"}
+var coreServices = []string{"api", "worker", "analysis-1", "notify"}
+var appServices = []string{"api", "worker", "analysis-1", "preparation", "notify"}
+var allServices = []string{"mysql", "redis", "etcd", "kafka", "api", "worker", "analysis-1", "preparation", "notify"}
 
 type Container struct {
 	Name    string
@@ -226,7 +227,7 @@ func (m *manager) restoreLegacy() error {
 }
 func (m *manager) build(ctx context.Context) error {
 	fmt.Fprintln(m.out, "正在构建应用镜像；数据库和模型密钥不会放入镜像。首次构建需要下载依赖。")
-	return m.run(ctx, m.compose("build", "api", "preparation")...)
+	return m.run(ctx, m.compose("build", "api")...)
 }
 func acquire(root string) (func(), error) {
 	dir := filepath.Join(root, "bin")
@@ -305,7 +306,7 @@ func (m *manager) start(ctx context.Context, rebuild, open bool, timeout int) (r
 		rollback, cancel := context.WithTimeout(context.Background(), 40*time.Second)
 		defer cancel()
 		newServices := []string{}
-		for _, service := range appServices {
+		for _, service := range coreServices {
 			if !previous[service] {
 				newServices = append(newServices, service)
 			}
@@ -321,16 +322,26 @@ func (m *manager) start(ctx context.Context, rebuild, open bool, timeout int) (r
 			}
 		}
 	}()
-	fmt.Fprintln(m.out, "正在启动整套服务并等待健康检查…")
-	if err = m.run(ctx, m.compose("up", "--detach", "--wait", "--wait-timeout", strconv.Itoa(timeout))...); err != nil {
+	fmt.Fprintln(m.out, "正在启动基础服务并等待健康检查…")
+	up := []string{"up", "--detach", "--wait", "--wait-timeout", strconv.Itoa(timeout)}
+	if err = m.run(ctx, m.compose(append(up, coreServices...)...)...); err != nil {
 		return errors.New("服务未能全部就绪，数据卷保留。请运行 status、logs 或 doctor")
 	}
 	rows, err := m.states(ctx)
 	if err != nil {
 		return err
 	}
-	if err = ready(rows); err != nil {
+	if err = ready(rows, false); err != nil {
 		return err
+	}
+	if err = m.stopOldAnalysis(ctx, rows); err != nil {
+		return err
+	}
+	if rebuild {
+		up = append(up, "--build")
+	}
+	if err := m.run(ctx, m.compose(append(up, "preparation")...)...); err != nil {
+		fmt.Fprintln(m.errOut, "面试准备服务暂未就绪，基础服务已运行。请运行 logs preparation 查看原因。")
 	}
 	address := "http://127.0.0.1:" + port
 	fmt.Fprintln(m.out, "CampusTrace 已启动：", address)
@@ -342,12 +353,15 @@ func (m *manager) start(ctx context.Context, rebuild, open bool, timeout int) (r
 	}
 	return nil
 }
-func ready(rows []Container) error {
+func ready(rows []Container, includePreparation bool) error {
 	byName := map[string]Container{}
 	for _, row := range rows {
 		byName[row.Service] = row
 	}
 	for _, name := range allServices {
+		if name == "preparation" && !includePreparation {
+			continue
+		}
 		row, ok := byName[name]
 		if !ok || row.State != "running" || row.Health != "healthy" {
 			return fmt.Errorf("服务 %s 尚未就绪，请运行 logs %s 查看原因", name, name)
@@ -355,6 +369,23 @@ func ready(rows []Container) error {
 	}
 	return nil
 }
+
+// A previous default stack can leave the second instance as a Compose orphan.
+func (m *manager) stopOldAnalysis(ctx context.Context, rows []Container) error {
+	for _, row := range rows {
+		if row.Service != "analysis-2" || row.State != "running" {
+			continue
+		}
+		if !strings.HasPrefix(row.Name, "campustrace-") {
+			return errors.New("无法确认旧 Analysis 容器身份，请检查项目容器")
+		}
+		if err := m.run(ctx, "docker", "stop", row.Name); err != nil {
+			return fmt.Errorf("旧 Analysis 实例停止失败: %w", err)
+		}
+	}
+	return nil
+}
+
 func (m *manager) stop(ctx context.Context, all bool) error {
 	if err := m.check(ctx); err != nil {
 		return err
@@ -367,6 +398,9 @@ func (m *manager) stop(ctx context.Context, all bool) error {
 		services = append([]string{}, allServices...)
 	}
 	if rows, e := m.states(ctx); e == nil {
+		if err := m.stopOldAnalysis(ctx, rows); err != nil {
+			return err
+		}
 		for _, row := range rows {
 			if row.Service == "sandbox-runner" {
 				if !strings.HasPrefix(row.Name, "campustrace-") {
@@ -418,7 +452,7 @@ func (m *manager) status(ctx context.Context) error {
 	if m.legacy(ctx) {
 		fmt.Fprintln(m.out, "本项目仍有本机后台服务；start 会备份后接管。")
 	}
-	return ready(rows)
+	return ready(rows, true)
 }
 func (m *manager) backup(ctx context.Context, destination string) (string, error) {
 	started := time.Now().UTC()
@@ -505,7 +539,7 @@ const help = `CampusTrace — 统一启动入口
   restart [--build]        重启应用；--build 先构建更新再停旧服务
   status                  查看所有组件状态
   resources               查看本项目各组件的 CPU 与内存占用
-  logs [组件] [--follow]   查看日志；组件为 api/worker/analysis-1/analysis-2/preparation/mysql/redis/etcd/kafka
+  logs [组件] [--follow]   查看日志；组件为 api/worker/analysis-1/preparation/notify/mysql/redis/etcd/kafka
   doctor                  检查 Docker、配置与服务状态
   backup [--file 路径] [--verify] 备份数据库；可同时验证恢复
   verify-backup --file 路径 将备份恢复到隔离库，验证后删除隔离库
@@ -649,6 +683,9 @@ func Run(ctx context.Context, args []string, out, errOut io.Writer) error {
 			}
 			if err = m.build(ctx); err != nil {
 				return err
+			}
+			if err := m.run(ctx, m.compose("build", "preparation")...); err != nil {
+				fmt.Fprintln(m.errOut, "面试准备镜像构建失败，基础服务仍会更新。")
 			}
 		}
 		if err = m.stop(ctx, false); err != nil {

@@ -132,16 +132,6 @@ func (s *Server) Handler() http.Handler {
 		}
 		return engine.Applied(ctx, q)
 	})
-	on("POST /v1/batch", true, func(ctx context.Context, r *http.Request) (any, error) {
-		var b a.Batch
-		if decode(r, &b) != nil {
-			return nil, a.ErrInvalid
-		}
-		if e := s.Engine.Apply(ctx, b); e != nil {
-			return nil, e
-		}
-		return a.Status{Protocol: a.Protocol, Generation: b.Generation}, nil
-	})
 	on("POST /v1/rebuild", true, func(ctx context.Context, r *http.Request) (any, error) {
 		var in struct{}
 		if decode(r, &in) != nil {

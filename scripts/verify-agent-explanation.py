@@ -31,7 +31,7 @@ def main():
     processes, containers, handles, checks = ([], [], [], [])
     run_id = uuid.uuid4().hex[:10]
     password = 'm4-synthetic-only'
-    env = dict(os.environ, GOWORK='off', SEARCH_URL='', SEARCH_QUERY_TOKEN='', SEARCH_WRITE_TOKEN='', LLM_URL='', LLM_API_KEY='', LLM_MODEL='', OTEL_EXPORTER_OTLP_ENDPOINT='', OTEL_EXPORTER_OTLP_TRACES_ENDPOINT='', OTEL_EXPORTER_OTLP_METRICS_ENDPOINT='', CAMPUS_LIVE_SOURCES='0', VLLM_API_KEY='', KANARPC_FIXTURE_KEY='', NARRATION_BACKEND='disabled', INFERENCE_RPC_ADDRESS='', INFERENCE_MODEL='', INFERENCE_BACKEND_KIND='', JOB_EVENTS_MODE='direct', KAFKA_BROKERS='')
+    env = dict(os.environ, GOWORK='off', SEARCH_URL='', SEARCH_QUERY_TOKEN='', SEARCH_WRITE_TOKEN='', LLM_URL='', LLM_API_KEY='', LLM_MODEL='', OTEL_EXPORTER_OTLP_ENDPOINT='', OTEL_EXPORTER_OTLP_TRACES_ENDPOINT='', OTEL_EXPORTER_OTLP_METRICS_ENDPOINT='', CAMPUS_LIVE_SOURCES='0', VLLM_API_KEY='', KANARPC_FIXTURE_KEY='', NARRATION_BACKEND='disabled', INFERENCE_RPC_ADDRESS='', INFERENCE_MODEL='', INFERENCE_BACKEND_KIND='', JOB_EVENTS_MODE='disabled', KAFKA_BROKERS='')
 
     def run(command, **kwargs):
         return subprocess.run(command, check=True, text=True, capture_output=True, env=env, **kwargs).stdout.strip()
@@ -188,6 +188,15 @@ def main():
         notice_hex = json.dumps(notice, ensure_ascii=False).encode().hex()
         sql("INSERT INTO ct_m4.notifications(id,user_id,dedup_key,created_at,body) VALUES('" + notice_id + "','" + notice_owner + "','" + hashlib.sha256(notice_id.encode()).hexdigest() + "',UTC_TIMESTAMP(6),CONVERT(0x" + notice_hex + " USING utf8mb4))")
         document = b.request('/api/documents/import', {'title': 'Redis 消费恢复笔记', 'text': 'Redis Streams PEL 消息通过 XAUTOCLAIM 恢复，持久化后确认。COHESION_FULL_NOTE'})
+        materials_path = '/api/agent/preparation/materials?application_id=' + application['id']
+        a.request(materials_path, status=404)
+        task_count = len(b.request('/api/agent/executions'))
+        materials = b.request(materials_path)
+        assert materials['preparation_scope'] == 'frozen_application' and materials['context_key']
+        assert 'XAUTOCLAIM' in materials['retrieval_context']['query']
+        assert materials['knowledge'][0]['document_id'] == document['id']
+        assert len(b.request('/api/agent/executions')) == task_count
+        checks.append('owned-preparation-materials-are-read-only; other-account-denied')
         original = parent(a)
         preview = review(a, original)
         assert preview['evidence_kind'] == 'fixture-no-model' and get(fixture_url + '/fixture/status')['calls'] == 0

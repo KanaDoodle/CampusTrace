@@ -38,7 +38,7 @@ func TestModelControlFailuresPreserveActionableHTTPStatus(t *testing.T) {
 
 func TestMatchingAdmissionReturnsRetryAfterBeforeAnyDatabaseOrModelWork(t *testing.T) {
 	api := &API{}
-	runner := api.StartMatchTasks(context.Background(), 2)
+	runner := api.StartMatchTasks(context.Background())
 	defer runner.Close()
 	for i := 0; i < 16; i++ {
 		runner.admission <- struct{}{}
@@ -59,7 +59,7 @@ func TestMatchingAdmissionReturnsRetryAfterBeforeAnyDatabaseOrModelWork(t *testi
 
 func TestRetiredExecutionCannotRemoveResumedCancellationHandle(t *testing.T) {
 	api := &API{}
-	r := api.StartMatchTasks(context.Background(), 1)
+	r := api.StartMatchTasks(context.Background())
 	defer r.Close()
 	oldCtx, oldCancel := context.WithCancel(context.Background())
 	defer oldCancel()

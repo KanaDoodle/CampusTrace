@@ -6,7 +6,7 @@ const fs=require('node:fs'),path=require('node:path');
   const page=await browser.newPage({viewport:{width:1360,height:1000}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto(process.env.PREP_BROWSER_URL);await page.locator('#login input[name=email]').fill(process.env.PREP_BROWSER_EMAIL);await page.locator('#login input[name=password]').fill(process.env.PREP_BROWSER_PASSWORD);await page.locator('#auth-submit').click();await page.locator('#workspace').waitFor({state:'visible'});
   await page.evaluate(async app=>{await page('dossier',{applicationID:app});},process.env.PREP_BROWSER_APPLICATION);
-  await page.locator('#dossier-agent-plan').click();
+  await page.locator('#dossier-prepare').click();
   await page.getByRole('heading',{name:'把有限时间用在这次面试上'}).waitFor();await page.locator('.prep-result').waitFor();
   await page.locator('#prep-goal select[name=retrieval_mode]').selectOption('off');
   await page.locator('#prep-feedback select[name="status-go"]').selectOption('mastered');await page.locator('#prep-feedback input[name=minutes]').fill('60');await page.locator('#prep-feedback textarea').fill('Go 并发已经掌握，只剩一小时');

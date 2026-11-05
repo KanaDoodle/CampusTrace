@@ -46,13 +46,18 @@ func Open(ctx context.Context) (*App, error) {
 	}
 	metrics := observability.New()
 	s.Metrics = metrics
-	mode := config.Env("JOB_EVENTS_MODE", "direct")
-	if mode != "direct" && mode != "kafka" {
+	endpoint := os.Getenv("SEARCH_URL")
+	mode := config.Env("JOB_EVENTS_MODE", "kafka")
+	if mode != "kafka" && mode != "disabled" {
 		s.DB.Close()
-		return nil, fmt.Errorf("invalid JOB_EVENTS_MODE")
+		return nil, fmt.Errorf("JOB_EVENTS_MODE must be kafka or disabled")
 	}
 	s.JobEvents = mode == "kafka"
-	if endpoint := os.Getenv("SEARCH_URL"); endpoint != "" {
+	if endpoint != "" {
+		if !s.JobEvents {
+			s.DB.Close()
+			return nil, fmt.Errorf("Search requires JOB_EVENTS_MODE=kafka")
+		}
 		var client *searchapi.Client
 		client, err = searchapi.NewClient(endpoint, os.Getenv("SEARCH_QUERY_TOKEN"), os.Getenv("SEARCH_WRITE_TOKEN"))
 		if err == nil {

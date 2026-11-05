@@ -3,7 +3,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
 
-function harness({pending=['pending-a','pending-b'],failed=['failed-a','failed-b'],analyze,exportError,compare,exportRequest,evidenceReviews=0,durable=false,taskRuns=[],taskRequest,taskRead,bulkRequest,importRequest,paging=false,inventoryRequest,previewRequest,deadlineRequest,preserveDialogs=false,searchRequest}={}){
+function harness({pending=['pending-a','pending-b'],failed=['failed-a','failed-b'],analyze,exportError,compare,exportRequest,evidenceReviews=0,durable=true,taskRuns=[],taskRequest,taskRead,bulkRequest,importRequest,paging=false,inventoryRequest,previewRequest,deadlineRequest,preserveDialogs=false,searchRequest}={}){
   const stored=new Map(),elements=new Map(),requests=[],exports=[],decisionRequests=[],taskRequests=[],bulkRequests=[],importRequests=[],inventoryRequests=[],timers=[],navigations=[];
   const model={url:'https://model.example/chat',model:'test-model',api_key:'synthetic-test-key'};
   const modelKey=JSON.stringify([model.url,model.model,'server-model']);
@@ -220,38 +220,27 @@ test('saved work opens a full outbound review before consent and an explicit sta
   assert.deepEqual(h.requests,[],'consent alone never starts paid analysis');
 });
 
-test('retry analyzes failed jobs individually, preserves pending work and accumulated counters',async()=>{
-  const h=harness();await h.start();await h.elements.get('match-retry').onclick();h.consent();await h.review();
-  assert.deepEqual(h.requests,[['failed-a'],['failed-b']]);
-  assert.deepEqual(h.progress().pending,['pending-a','pending-b']);
-  assert.deepEqual(h.progress().failed,[]);
-  assert.equal(h.progress().done,3);assert.equal(h.progress().calls,3);
-  assert.equal(h.elements.get('match-continue').disabled,false);
-  assert.equal(h.elements.get('match-retry').disabled,true);
+test('old browser progress can submit its failed or pending scope as one durable task',async()=>{
+ for(const retry of [true,false]){
+  const h=harness();await h.start();
+  await h.elements.get(retry?'match-retry':'match-continue').onclick();h.consent();await h.review();
+  assert.equal(h.requests.length,0);
+  assert.equal(h.taskRequests.length,1);
+  const {path,body}=h.taskRequests[0];
+  assert.equal(path,'/api/matching/tasks');
+  assert.deepEqual(Array.from(body.job_ids),retry?['failed-a','failed-b']:['pending-a','pending-b']);
+  assert.equal(body.retry,retry);
+  assert.ok(body.request_key);
   assert.ok(!JSON.stringify(h.progress()).includes('synthetic-test-key'));
+ }
 });
 
-test('continuing unfinished work preserves failure items for a separate retry',async()=>{
-  const h=harness();await h.start();await h.elements.get('match-continue').onclick();h.consent();await h.review();
-  assert.deepEqual(h.requests,[['pending-a','pending-b']]);
-  assert.deepEqual(h.progress().pending,[]);
-  assert.deepEqual(h.progress().failed.map(f=>f.id),['failed-a','failed-b']);
-  assert.equal(h.elements.get('match-retry').disabled,false);
-});
-
-test('pausing a retry keeps both unattempted retry jobs and the original unfinished queue',async()=>{
-  const h=harness({analyze:async({elements})=>elements.get('match-pause').onclick()});await h.start();await h.elements.get('match-retry').onclick();h.consent();await h.review();
-  assert.deepEqual(h.requests,[['failed-a']]);
-  assert.deepEqual(h.progress().pending,['failed-b','pending-a','pending-b']);
-  assert.equal(h.elements.get('match-continue').disabled,false);
-});
-
-test('failed retries retain their errors without losing or automatically running other pending work',async()=>{
-  const h=harness({analyze:async()=>{throw Object.assign(new Error('模拟连接中断'),{code:'MODEL_CONNECTION_FAILED'});}});await h.start();await h.elements.get('match-retry').onclick();h.consent();await h.review();
-  assert.deepEqual(h.requests,[['failed-a'],['failed-b']]);
-  assert.deepEqual(h.progress().pending,['pending-a','pending-b']);
-  assert.deepEqual(h.progress().failed.map(f=>f.id),['failed-a','failed-b']);
-  assert.equal(h.progress().calls,3,'failed model attempts remain counted');
+test('an older API without persistent tasks blocks analysis instead of falling back to a synchronous call',async()=>{
+ const h=harness({durable:false});await h.start();
+ assert.match(h.html(),/持久分析任务暂不可用/);
+ assert.equal(h.elements.get('match-run').disabled,true);
+ await h.elements.get('match-run').onclick();
+ assert.deepEqual(h.requests,[]);assert.deepEqual(h.taskRequests,[]);assert.deepEqual(h.exports,[]);
 });
 
 test('refresh removes deleted jobs and completed results from saved progress without an external request',async()=>{
@@ -300,40 +289,31 @@ test('failed local preparation never permits an external analysis request',async
 });
 
 
-test('company comparison is an explicit local read without keys, outbound consent or model requests',async()=>{
-  const h=harness();await h.start();h.elements.get('match-compare-company').onclick();
-  assert.equal(h.decisionRequests.length,0);
-  await h.elements.get('match-comparison-form').onsubmit({preventDefault(){}});
-  assert.equal(h.decisionRequests.length,1);assert.equal(h.decisionRequests[0].company,'测试公司');
-  assert.equal(h.decisionRequests[0].scope,'FILTERED');assert.equal(h.decisionRequests[0].job_ids.length,4);assert.equal(h.decisionRequests[0].api_key,undefined);
-  assert.equal(JSON.stringify(h.decisionRequests).includes('synthetic-test-key'),false);
-  assert.deepEqual(h.requests,[]);assert.deepEqual(h.exports,[]);
-  assert.ok(h.html().includes('待确定候选岗位'));
+test('filtered company comparison opens the decision page with the exact filtered scope and no model request',async()=>{
+ const h=harness();await h.start();
+ await h.elements.get('match-compare-company').onclick();
+ const [nav]=h.navigations;
+ assert.equal(nav.name,'matching');
+ assert.equal(nav.query.view,'company');
+ assert.equal(nav.query.company,'测试公司');
+ assert.equal(nav.query.companyScope,'selected');
+ assert.equal(nav.query.jobIDs.length,4);
+ assert.equal(h.decisionRequests.length,0);
+ assert.deepEqual(h.requests,[]);
+ assert.deepEqual(h.exports,[]);
 });
 
-test('a delayed comparison cannot reopen a canceled dialog or replace a newly chosen scope',async()=>{
-  let resolve;const h=harness({compare:()=>new Promise(r=>{resolve=r;})});await h.start();h.elements.get('match-compare-company').onclick();
-  const request=h.elements.get('match-comparison-form').onsubmit({preventDefault(){}});
-  h.elements.get('match-comparison-dialog').close();
-  resolve({total:99,recommendation:'READY',reasons:['old-response'],jobs:[]});await request;
-  assert.ok(!h.html().includes('old-response'));assert.equal(h.elements.get('match-comparison-dialog').open,false);
+test('company comparison rejects an excessive filtered scope without truncating it',async()=>{
+ const h=harness();h.snapshot.jobs=Array.from({length:201},(_,i)=>({job:{id:String(i),company:'测试公司',title:'服务端开发',locations:[]},state:'BASIC',local:{tier:'HIGH'},preliminary_score:50}));
+ await h.start();await h.elements.get('match-compare-company').onclick();
+ assert.equal(h.navigations.length,0);assert.ok(h.html().includes('对比最多 200'));
 });
 
-test('company comparison rejects excessive and empty selected scopes without truncation or a request',async()=>{
-  const h=harness();h.snapshot.jobs=Array.from({length:201},(_,i)=>({job:{id:String(i),company:'测试公司',title:'服务端开发',locations:[]},state:'BASIC',local:{tier:'HIGH'},preliminary_score:50}));
-  await h.start();h.elements.get('match-compare-company').onclick();await h.elements.get('match-comparison-form').onsubmit({preventDefault(){}});
-  assert.equal(h.decisionRequests.length,0);assert.ok(h.html().includes('对比最多 200'));
-  h.elements.get('match-comparison-scope').onchange({target:{value:'SELECTED'}});
-  await h.elements.get('match-comparison-form').onsubmit({preventDefault(){}});
-  assert.equal(h.decisionRequests.length,0);assert.ok(h.html().includes('没有岗位'));
-});
-
-
-test('completed analysis surfaces withdrawn evidence without queuing another model request',async()=>{
- const h=harness({pending:['pending-a'],failed:[],evidenceReviews:2});await h.start();
- await h.elements.get('match-continue').onclick();h.consent();await h.review();
- assert.deepEqual(h.requests,[['pending-a']]);assert.deepEqual(h.progress().failed,[]);
- assert.ok(h.html().includes('2 项结论已本地复核'));
+test('completed durable analysis surfaces withdrawn evidence without submitting again',async()=>{
+ const run={id:'completed',state:'COMPLETED',version:2,candidate_hash:'profile',calls:1,items:[{job_id:'pending-a',state:'SUCCEEDED',reviews:2}]};
+ const h=harness({pending:['pending-a'],failed:[],taskRuns:[run]});await h.start();
+ assert.match(h.html(),/2 项结论已本地复核/);
+ assert.equal(h.taskRequests.length,0);assert.equal(h.requests.length,0);
 });
 
 
@@ -506,9 +486,8 @@ test('whole company analysis reviews all candidate jobs including already analyz
  const h=harness({pending:ids,failed:[],durable:true,compare:body=>({company:body.company,scope:body.scope,total:2,holistic_job_ids:ids,holistic_input_key:'current-scope',jobs:[]}),exportRequest:(body,snap)=>({candidate_hash:snap.candidate_hash,candidate:snap.candidate,company_inputs:[{company:'测试公司',job_ids:ids,model_input_key:'reviewed-scope'}],jobs:body.job_ids.map(id=>({job_id:id,title:id,text:'完整岗位文字 '+id}))}),taskRequest:(_path,body)=>({id:'company-run',kind:body.kind,company:body.company,scope_key:body.scope_key,state:'RUNNING',version:1,candidate_hash:'profile',calls:0,items:body.job_ids.map(id=>({job_id:id,input_key:id,state:'QUEUED'}))})});
  h.snapshot.candidate.projects=[{id:'p',name:'完整项目',description:'背景、实现与结果保持在同一完整叙述中。',bullets:[{text:'通过事务处理并发状态更新。'}]}];h.snapshot.candidate_document='背景、实现与结果保持在同一完整叙述中。\n通过事务处理并发状态更新。';
  h.snapshot.jobs.forEach(j=>{j.state='ANALYZED';j.analysis_mode='holistic-v1';});
- await h.start();await h.elements.get('match-compare-company').onclick();await h.elements.get('match-comparison-form').onsubmit({preventDefault(){}});
+ await h.start({initialComparison:{company:'测试公司',jobIDs:ids,review:true}});
  assert.equal(h.taskRequests.length,0);assert.equal(h.requests.length,0);
- await h.elements.get('match-company-analyze').onclick();
  assert.match(h.html(),/背景、实现与结果保持在同一完整叙述中/);assert.match(h.html(),/完整岗位文字 whole-b/);
  assert.equal(h.elements.get('match-confirm').disabled,true);
  h.consent();assert.equal(h.taskRequests.length,0);await h.review();
@@ -527,20 +506,10 @@ test('whole company failed tasks remain retryable even when every individual job
 test('a completed company task opens its captured job scope without sending a model request',async()=>{
  const task={id:'company-complete',kind:'COMPANY',company:'测试公司',state:'COMPLETED',version:3,candidate_hash:'profile',calls:1,items:[{job_id:'a',input_key:'a',state:'SUCCEEDED'},{job_id:'b',input_key:'b',state:'SUCCEEDED'}]};
  const h=harness({pending:['a','b','extra'],failed:[],durable:true,taskRuns:[task]});await h.start();await h.elements.get('match-task-company-result').onclick();
- assert.equal(h.decisionRequests.length,1);assert.equal(h.decisionRequests[0].scope,'SELECTED');assert.deepEqual(Array.from(h.decisionRequests[0].job_ids),['a','b']);assert.equal(h.taskRequests.length,0);assert.equal(h.requests.length,0);
+ assert.equal(h.decisionRequests.length,0);assert.equal(h.navigations[0].query.companyScope,'selected');assert.deepEqual(Array.from(h.navigations[0].query.jobIDs),['a','b']);assert.equal(h.taskRequests.length,0);assert.equal(h.requests.length,0);
 });
 
-test('company comparison export opens evaluation with the captured candidate scope rather than the full company',async()=>{
- const ids=['a','b'],h=harness({pending:[...ids,'extra'],failed:[],compare:body=>({company:body.company,scope:'SELECTED',total:2,holistic_job_ids:ids,holistic_input_key:'scope',jobs:[]})});
- await h.start();await h.elements.get('match-compare-company').onclick();
- assert.equal(h.elements.get('match-company-export-evaluation').disabled,true);
- await h.elements.get('match-comparison-form').onsubmit({preventDefault(){}});
- assert.equal(h.elements.get('match-company-export-evaluation').disabled,false);
- h.elements.get('match-company-export-evaluation').onclick();
- assert.equal(h.navigations.length,1);assert.equal(h.navigations[0].name,'company_decision');
- assert.equal(h.navigations[0].query.company,'测试公司');assert.equal(h.navigations[0].query.evaluation,true);assert.deepEqual(Array.from(h.navigations[0].query.jobIDs),ids);
- assert.equal(h.requests.length,0);assert.equal(h.taskRequests.length,0);assert.equal(h.exports.length,0);
-});
+
 
 test('radar company view carries the current company selection without starting analysis',async()=>{
  const h=harness();h.stored.set('campustrace:match-selection:v1:alice',JSON.stringify(['pending-a','failed-a']));await h.start();h.elements.get('match-company-view').onclick();
@@ -631,7 +600,7 @@ test('selection shows hidden counts and exposes the review and export actions wi
  assert.equal(h.elements.get('match-search').value,'a');
  h.elements.get('match-filter').onsubmit({preventDefault(){}});h.elements.get('match-actions-toggle').onclick();
  assert.match(h.html(),/当前筛选中 1 个，其他范围 1 个/);assert.match(h.html(),/id="match-selection-actions" hidden/);
- assert.ok(h.html().indexOf('id="match-export"')<h.html().indexOf('id="match-selection-actions"'));
+ assert.match(h.html(),/id="match-external"[\s\S]*id="match-export"/);
  assert.ok(h.html().indexOf('id="match-compare-selected"')<h.html().indexOf('id="match-selection-actions"'));
  assert.equal((h.html().match(/id="match-compare-selected"/g)||[]).length,1);
  await h.elements.get('match-selected-run').onclick();assert.equal(h.elements.get('match-confirm').disabled,true);assert.deepEqual(h.requests,[]);
@@ -745,10 +714,10 @@ test('search blur recovers an interrupted composition and does not leave a stale
 });
 
 test('changing radar panels closes the previous dialog without its close callback canceling the new one',async()=>{
- const h=harness({preserveDialogs:true});await h.start();h.elements.get('match-compare-company').onclick();const previous=h.elements.get('match-comparison-dialog');let closed=0;previous.close=()=>{closed++;previous.open=false;previous.onclose?.();};h.elements.get('match-open-settings').onclick();assert.equal(closed,1);assert.equal(h.elements.get('match-settings-dialog').open,true);assert.equal(!!h.elements.get('match-comparison-dialog')?.open,false);
+ const h=harness({preserveDialogs:true});await h.start();h.elements.get('match-open-import').onclick();const previous=h.elements.get('match-import-dialog');let closed=0;previous.close=()=>{closed++;previous.open=false;previous.onclose?.();};h.elements.get('match-open-settings').onclick();assert.equal(closed,1);assert.equal(h.elements.get('match-settings-dialog').open,true);assert.equal(!!h.elements.get('match-import-dialog')?.open,false);
 });
 test('confirmed analysis closes the reviewed dialog and preserves authorization for its one submission',async()=>{
- const h=harness({pending:['job-a'],failed:[],preserveDialogs:true});await h.start();await h.elements.get('match-run').onclick();h.consent();const previous=h.elements.get('match-review-dialog');let closed=0;previous.close=()=>{closed++;previous.open=false;previous.onclose?.();};await h.review();assert.equal(closed,1);assert.equal(h.requests.length,1);assert.equal(h.elements.get('match-review-dialog').open,false);
+ const h=harness({pending:['job-a'],failed:[],preserveDialogs:true});await h.start();await h.elements.get('match-run').onclick();h.consent();const previous=h.elements.get('match-review-dialog');let closed=0;previous.close=()=>{closed++;previous.open=false;previous.onclose?.();};await h.review();assert.equal(closed,1);assert.equal(h.requests.length,0);assert.equal(h.taskRequests.length,1);assert.equal(h.elements.get('match-review-dialog').open,false);
 });
 
 test('JD search results survive the local title filter and show bounded fallback status',async()=>{

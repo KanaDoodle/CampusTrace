@@ -59,7 +59,7 @@ func NewPreparationRunner(ctx context.Context, store *p.Store) *PreparationRunne
 	return &PreparationRunner{Graph: PreparationGraphFromEnvironment(), Store: store, root: root, cancel: cancel, active: map[string]context.CancelFunc{}, slots: make(chan struct{}, 4)}
 }
 
-// Explicit compatibility constructor for historical regression; never selected on failure.
+// NewLegacyPreparationRunner is used by historical integration fixtures.
 func NewLegacyPreparationRunner(ctx context.Context, store *p.Store) *PreparationRunner {
 	r := NewPreparationRunner(ctx, store)
 	r.Graph = nil

@@ -131,7 +131,7 @@ func ValidatePreparationPlan(state *d.PreparationState, plan d.PreparationPlan) 
 
 // Model/tool loops reuse Model, Toolset, usage admission and source sanitization.
 // The checkpoint is called before every dispatch and after each durable result.
-// RunPreparationLoop is retained for historical evaluation and explicit rollback only.
+// RunPreparationLoop is retained for historical evaluation and regression fixtures only.
 // Product execution uses LangGraph to select each bounded operation.
 func RunPreparationLoop(ctx context.Context, user string, v *p.AgentExecution, model Model, tools Toolset, checkpoint func() error) error {
 	for v.State == "RUNNING" || v.State == "" {

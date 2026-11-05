@@ -59,7 +59,7 @@ const CampusInterviews=(function(root){
         const article=[...host.querySelectorAll('[data-interview-id]')].find(el=>el.dataset.interviewId===row.id);if(!article)continue;
         article.querySelector('[data-interview-application]').onclick=()=>go('applications',{applicationID:row.application_id});
         article.querySelector('[data-interview-dossier]')?.addEventListener('click',()=>go('dossier',{applicationID:row.application_id}));
-        article.querySelector('[data-interview-assistant]')?.addEventListener('click',()=>go('agent',{skill:{id:'application-prep',value:row.application_id}}));
+        article.querySelector('[data-interview-assistant]')?.addEventListener('click',()=>go('preparation',{applicationID:row.application_id}));
         article.querySelector('[data-interview-material]')?.addEventListener('click',()=>go('knowledge',{reviewInterviewID:row.id}));
         const preparation=article.querySelector('[data-interview-preparation]');if(preparation)preparation.onclick=()=>{lastInterview=row.id;savePosition();return go('matching',{jobID:row.job.id,view:'preparation',returnTo:{page:'interviews'}});};
         const review=article.querySelector('[data-interview-review]');if(review)review.onclick=()=>Promise.resolve(reviewInterview(row.id)).catch(failure=>{if(alive())notify(failure.message);});

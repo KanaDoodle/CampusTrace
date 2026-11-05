@@ -140,7 +140,7 @@ Legacy model evidence containing only `id` and `excerpt` remains accepted with e
 
 ## Durable matching tasks and application campaign limits
 
-`GET /api/profile/resume/capabilities` includes `durable_matching` and `application_campaigns`. Old synchronous `/api/matching/analyze` stays compatible and shares the external-call lease. New UI prefers durable tasks.
+`GET /api/profile/resume/capabilities` includes `durable_matching` and `application_campaigns`. Old synchronous `/api/matching/analyze` stays compatible and shares the external-call lease. The browser submits analysis only through durable tasks.
 
 - `GET /api/matching/tasks`: latest 20 owned tasks, including state, version, per-item status and safe diagnostics. Expired executions become WAITING_AUTH.
 - `POST /api/matching/tasks`: `{job_ids,input_keys,candidate_hash,request_key,mask_name?,model_config?,retry?}`, max configured round limit (at most 100). `request_key` is 16–64 ASCII alphanumeric/underscore/hyphen. Returns 202 with durable task; replay uses user/key plus stable input fingerprint. One active round per account; no key or outbound text is persisted.
@@ -264,6 +264,8 @@ Job search synchronization, internal read/write credentials, bounded fallback an
 
 
 ## Frozen application preparation and retired practice
+
+`GET /api/agent/preparation/materials?application_id=...` reads the current account’s frozen preparation materials and local keyword matches without creating an execution. The task creation API retains the original fixed skill IDs for compatibility. The question page offers new fixed tasks only for `interview-prep` and `review-plan`.
 
 `POST /api/agent/executions` accepts `skill_id: "application-prep"`, owned `application_id`, and a fresh `request_key`; it rejects mixed job/company/topic scope. The fixed task calls `get_application_preparation`, using frozen application materials and same-application reviews. Enabled retrieval services may be called; matching/chat generation is not started. Its `next_actions` can open the dossier or full owned source note. No-snapshot legacy applications return unknown, without current-material substitution or retrieval.
 

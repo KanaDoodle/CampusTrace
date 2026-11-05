@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/KanaDoodle/CampusTrace/internal/agent"
-	"github.com/KanaDoodle/CampusTrace/internal/defensestrategy"
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
 )
 
@@ -23,16 +22,7 @@ func run() error {
 	in := flag.String("input", "", "development-only diagnostics")
 	response := flag.String("response", "", "supplied controlled response; never performs a network call")
 	out := flag.String("output", "", "new private candidate record")
-	registry := flag.String("check-registry", "", "validate a registry for product use, no proposal")
 	flag.Parse()
-	if *registry != "" {
-		p, e := defensestrategy.FromRegistry(os.DirFS(*registry))
-		if e != nil {
-			return e
-		}
-		fmt.Println(p.ID())
-		return nil
-	}
 	if *in == "" || *response == "" || *out == "" {
 		return fmt.Errorf("input, response and output required")
 	}

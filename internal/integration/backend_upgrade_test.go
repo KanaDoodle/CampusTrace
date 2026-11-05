@@ -54,7 +54,7 @@ func TestDurableMatchingSurvivesRequestEndAndIdempotentReplay(t *testing.T) {
 	token, err := authn.Token(u)
 	must(t, err)
 	a := &transport.API{Store: s, Queue: q, Auth: authn, Metrics: observability.New(), ResumeModel: blocked, ResumeModelName: "fixture"}
-	runner := a.StartMatchTasks(ctx, 2)
+	runner := startControlledMatchTasks(t, ctx, a, 2)
 	defer runner.Close()
 	h := a.Handler()
 	snap, err := s.MatchSnapshot(ctx, u, matching.ModelIdentity("server", "fixture"), "", ids)
@@ -145,7 +145,7 @@ func TestDurablePauseResumeAndCancellationFence(t *testing.T) {
 	token, err := authn.Token(u)
 	must(t, err)
 	a := &transport.API{Store: s, Queue: q, Auth: authn, Metrics: observability.New(), ResumeModel: blocked, ResumeModelName: "fixture"}
-	runner := a.StartMatchTasks(ctx, 1)
+	runner := startControlledMatchTasks(t, ctx, a, 1)
 	defer runner.Close()
 	h := a.Handler()
 	preview := matchingRequest(h, token, "/api/matching/preview", "POST", map[string]any{})

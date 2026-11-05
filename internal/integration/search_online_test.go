@@ -42,7 +42,7 @@ func TestSearchOnlineProcessHelper(t *testing.T) {
 		s, e := p.Open(ctx, os.Getenv("CAMPUS_ONLINE_DSN"))
 		must(t, e)
 		defer s.DB.Close()
-		s.Search, e = a.NewClient(os.Getenv("CAMPUS_ONLINE_SEARCH"), searchQueryToken, searchWriteToken)
+		s.Search, e = newFixtureSearchClient(os.Getenv("CAMPUS_ONLINE_SEARCH"), searchQueryToken, searchWriteToken)
 		must(t, e)
 		fmt.Println("ready")
 		s.RunSearchSync(ctx)
@@ -58,7 +58,7 @@ func TestSearchOnlineProcessHelper(t *testing.T) {
 	listener, e := net.Listen("tcp", "127.0.0.1:0")
 	must(t, e)
 	fmt.Println("http://" + listener.Addr().String())
-	must(t, http.Serve(listener, server.Handler()))
+	must(t, http.Serve(listener, searchFixtureHandler(server)))
 }
 func onlineProcess(t *testing.T, ctx context.Context, role string, env ...string) (string, func()) {
 	t.Helper()
@@ -199,7 +199,7 @@ func TestSearchOnlineRebuildSurvivesProcessesAndLostAliasReply(t *testing.T) {
 			res.Body.Close()
 		}
 	})
-	client, e := a.NewClient(relay.URL, searchQueryToken, searchWriteToken)
+	client, e := newFixtureSearchClient(relay.URL, searchQueryToken, searchWriteToken)
 	must(t, e)
 	s.Search = client
 	inputs := make(map[string]p.Ingest)
@@ -500,7 +500,7 @@ func TestSearchOnlineVerificationRejectsSameCountWrongHash(t *testing.T) {
 }
 
 type onlineQueryHandoff struct {
-	*a.Client
+	*fixtureSearchClient
 	after func()
 }
 
@@ -536,14 +536,14 @@ func TestSearchOnlineInFlightReadAcrossCutover(t *testing.T) {
 	if state.Phase != "CATCHUP" {
 		t.Fatal("did not reach cutover barrier", state)
 	}
-	s.Search = &onlineQueryHandoff{Client: client, after: func() { must(t, s.SyncSearchRebuildOnce(ctx)) }}
+	s.Search = &onlineQueryHandoff{fixtureSearchClient: client, after: func() { must(t, s.SyncSearchRebuildOnce(ctx)) }}
 	out, e := s.SearchJobs(ctx, owner, a.Query{Text: "handoffmarker"})
 	must(t, e)
 	if out.Mode != "fulltext" || len(out.IDs) != 1 || out.IDs[0] != obs.JobID {
 		t.Fatal("identical snapshot fell back at handoff", out)
 	}
 	// A changed authoritative revision is never covered by the handoff exception.
-	s.Search = &onlineQueryHandoff{Client: client, after: func() {
+	s.Search = &onlineQueryHandoff{fixtureSearchClient: client, after: func() {
 		input.Text = "Rust changedmarker"
 		input.ObservedAt = input.ObservedAt.Add(time.Second)
 		_, e := s.IngestForUser(ctx, owner, input)

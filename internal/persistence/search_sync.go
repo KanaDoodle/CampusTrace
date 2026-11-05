@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -73,9 +74,9 @@ func projectSearchJob(job d.Job, visibility, owner, text string) a.Document {
 // Called inside the business transaction, with the job row locked first.
 // Latest-state coalescing bounds backlog by number of jobs, not update count.
 func (s *Store) touchSearchJob(ctx context.Context, tx *sql.Tx, id string) error {
-	return s.writeSearchProjection(ctx, tx, id, s.JobEvents)
+	return s.writeSearchProjection(ctx, tx, id, s.JobEvents, true)
 }
-func (s *Store) writeSearchProjection(ctx context.Context, tx *sql.Tx, id string, events bool) error {
+func (s *Store) writeSearchProjection(ctx context.Context, tx *sql.Tx, id string, events, foreground bool) error {
 	doc, err := searchDocument(ctx, tx, id, true)
 	if err != nil {
 		return err
@@ -127,19 +128,36 @@ func (s *Store) writeSearchProjection(ctx context.Context, tx *sql.Tx, id string
  ON DUPLICATE KEY UPDATE version=VALUES(version)`, id, doc.Version, doc.Dataset); err != nil {
 		return err
 	}
-	if events {
-		var old *a.Document
-		if len(previousBody) > 0 {
-			var value a.Document
-			if err = json.Unmarshal(previousBody, &value); err != nil {
+	if !events && !foreground {
+		return nil
+	}
+	var old *a.Document
+	if len(previousBody) > 0 {
+		var value a.Document
+		if err = json.Unmarshal(previousBody, &value); err != nil {
+			return err
+		}
+		old = &value
+	}
+	event := jobevent.New(doc, old, observability.TraceParent(ctx))
+	if !event.Valid() {
+		return ErrValidation
+	}
+	if foreground {
+		kind := ""
+		switch {
+		case event.Kind == "created":
+			kind = "NEW_JOB"
+		case event.Kind == "updated" && old != nil && old.Text != "" && doc.Text != "" && slices.Contains(event.Changes, "content"):
+			kind = "JD_CHANGED"
+		}
+		if kind != "" {
+			if err = agentEvent(ctx, tx, doc.Owner, doc.ID, kind); err != nil {
 				return err
 			}
-			old = &value
 		}
-		event := jobevent.New(doc, old, observability.TraceParent(ctx))
-		if !event.Valid() {
-			return ErrValidation
-		}
+	}
+	if events {
 		_, err = tx.ExecContext(ctx, "INSERT INTO job_event_outbox(event_id,dataset,job_id,event_version,occurred_at,body) VALUES(?,?,?,?,?,?)", event.ID, doc.Dataset, doc.ID, doc.Version, event.OccurredAt, d.JSON(event))
 	}
 	return err
@@ -175,7 +193,7 @@ func (s *Store) reconcileSearch(ctx context.Context) error {
 		return err
 	}
 	for _, id := range ids {
-		if err = s.Tx(ctx, func(tx *sql.Tx) error { return s.writeSearchProjection(ctx, tx, id, s.JobEvents && initialDone) }); err != nil {
+		if err = s.Tx(ctx, func(tx *sql.Tx) error { return s.writeSearchProjection(ctx, tx, id, s.JobEvents && initialDone, false) }); err != nil {
 			return err
 		}
 	}
@@ -207,7 +225,7 @@ func (s *Store) reconcileSearch(ctx context.Context) error {
 		return err
 	}
 	for _, id := range ids {
-		if err = s.Tx(ctx, func(tx *sql.Tx) error { return s.writeSearchProjection(ctx, tx, id, s.JobEvents && initialDone) }); err != nil {
+		if err = s.Tx(ctx, func(tx *sql.Tx) error { return s.writeSearchProjection(ctx, tx, id, s.JobEvents && initialDone, false) }); err != nil {
 			return err
 		}
 	}
@@ -224,7 +242,8 @@ func (s *Store) SyncSearchOnce(ctx context.Context) error {
 	return nil
 }
 func (s *Store) syncSearchForeground(ctx context.Context) (err error) {
-	if s.Search == nil {
+	transport, ok := s.Search.(a.Transport)
+	if !ok {
 		return nil
 	}
 	conn, err := s.DB.Conn(ctx)
@@ -282,12 +301,12 @@ func (s *Store) syncSearchForeground(ctx context.Context) (err error) {
 		generation, cursor, ready = status.Generation, "", false
 	}
 	if !ready {
-		docs, e := Many[a.Document](ctx, s.DB, "SELECT body FROM search_documents WHERE job_id>? ORDER BY job_id LIMIT 64", cursor)
+		docs, repair, _, e := s.readSearchSyncBatch(ctx, true, cursor)
 		if e != nil {
 			return e
 		}
 		if len(docs) > 0 {
-			if e = s.Search.Apply(ctx, a.Batch{Protocol: a.Protocol, Generation: generation, Documents: docs}); e != nil {
+			if _, e = syncActiveSearch(ctx, transport, a.Batch{Protocol: a.Protocol, Generation: generation, Documents: docs}, repair); e != nil {
 				return e
 			}
 			if e = owned(); e != nil {
@@ -303,16 +322,80 @@ func (s *Store) syncSearchForeground(ctx context.Context) (err error) {
 			return err
 		}
 	}
-	rows, err := s.DB.QueryContext(ctx, "SELECT p.body,o.traceparent FROM search_outbox o JOIN search_documents p ON p.job_id=o.job_id AND p.version=o.version ORDER BY o.version LIMIT 64")
+	docs, repair, parent, err := s.readSearchSyncBatch(ctx, false, "")
 	if err != nil {
 		return err
 	}
+	if len(docs) == 0 {
+		return nil
+	}
+	// One coalesced batch follows the first item's trace; it contains no payload attributes.
+	send, span := observability.Consumer(ctx, "search.outbox.publish", parent)
+	batch := a.Batch{Protocol: a.Protocol, Generation: generation, Documents: docs}
+	confirmed, err := syncActiveSearch(send, transport, batch, repair)
+	observability.End(span, err)
+	if len(confirmed) == 0 {
+		return err
+	}
+	if e := owned(); e != nil {
+		return e
+	}
+	for _, doc := range docs {
+		if slices.Contains(confirmed, doc.ID) {
+			if _, e := conn.ExecContext(ctx, "DELETE FROM search_outbox WHERE job_id=? AND version=?", doc.ID, doc.Version); e != nil {
+				return e
+			}
+		}
+	}
+	if s.Metrics != nil {
+		s.Metrics.Add("search_documents_synced_total", float64(len(confirmed)))
+	}
+	return err
+}
+func syncActiveSearch(ctx context.Context, transport a.Transport, batch a.Batch, repair map[string]bool) ([]string, error) {
+	if eventTransport, ok := transport.(interface {
+		Sync(context.Context, a.Batch, map[string]bool) ([]string, error)
+	}); ok {
+		return eventTransport.Sync(ctx, batch, repair)
+	}
+	if err := transport.Apply(ctx, batch); err != nil {
+		return nil, err
+	}
+	var confirmed []string
+	for _, doc := range batch.Documents {
+		confirmed = append(confirmed, doc.ID)
+	}
+	return confirmed, nil
+}
+
+const searchEventRepairAllowed = `COALESCE(e.event_id IS NULL OR e.published_at <= UTC_TIMESTAMP(6)-INTERVAL 5 SECOND, FALSE)`
+const searchEventJoin = ` LEFT JOIN job_event_outbox e
+ ON e.dataset=JSON_UNQUOTE(JSON_EXTRACT(p.body,'$.dataset')) AND e.event_version=p.version AND e.job_id=p.job_id `
+
+func (s *Store) readSearchSyncBatch(ctx context.Context, bootstrap bool, cursor string) ([]a.Document, map[string]bool, string, error) {
+	// Give the ordinary event time to reach the refreshed index. Legacy
+	// versions without an event can be repaired immediately.
+	var rows *sql.Rows
+	var err error
+	if bootstrap {
+		rows, err = s.DB.QueryContext(ctx, `SELECT p.body,'',`+searchEventRepairAllowed+` FROM search_documents p `+
+			searchEventJoin+` WHERE p.job_id>? ORDER BY p.job_id LIMIT 64`, cursor)
+	} else {
+		rows, err = s.DB.QueryContext(ctx, `SELECT p.body,o.traceparent,`+searchEventRepairAllowed+`
+ FROM search_outbox o JOIN search_documents p ON p.job_id=o.job_id AND p.version=o.version `+
+			searchEventJoin+` ORDER BY o.version LIMIT 64`)
+	}
+	if err != nil {
+		return nil, nil, "", err
+	}
 	docs := []a.Document{}
+	repair := map[string]bool{}
 	parent := ""
 	for rows.Next() {
 		var raw []byte
 		var p string
-		if err = rows.Scan(&raw, &p); err != nil {
+		var eligible bool
+		if err = rows.Scan(&raw, &p, &eligible); err != nil {
 			break
 		}
 		var doc a.Document
@@ -320,6 +403,7 @@ func (s *Store) syncSearchForeground(ctx context.Context) (err error) {
 			break
 		}
 		docs = append(docs, doc)
+		repair[doc.ID] = eligible
 		if parent == "" {
 			parent = p
 		}
@@ -329,31 +413,11 @@ func (s *Store) syncSearchForeground(ctx context.Context) (err error) {
 	}
 	rows.Close()
 	if err != nil {
-		return err
+		return nil, nil, "", err
 	}
-	if len(docs) == 0 {
-		return nil
-	}
-	// One coalesced batch follows the first item's trace; it contains no payload attributes.
-	send, span := observability.Consumer(ctx, "search.outbox.publish", parent)
-	err = s.Search.Apply(send, a.Batch{Protocol: a.Protocol, Generation: generation, Documents: docs})
-	observability.End(span, err)
-	if err != nil {
-		return err
-	}
-	if err = owned(); err != nil {
-		return err
-	}
-	for _, doc := range docs {
-		if _, err = conn.ExecContext(ctx, "DELETE FROM search_outbox WHERE job_id=? AND version=?", doc.ID, doc.Version); err != nil {
-			return err
-		}
-	}
-	if s.Metrics != nil {
-		s.Metrics.Add("search_documents_synced_total", float64(len(docs)))
-	}
-	return nil
+	return docs, repair, parent, nil
 }
+
 func (s *Store) RunSearchSync(ctx context.Context) {
 	var rebuild sync.WaitGroup
 	rebuild.Add(1)

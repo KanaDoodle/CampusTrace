@@ -41,7 +41,7 @@ func TestHTTPBoundary(t *testing.T) {
 	for _, c := range []struct {
 		method, path, token, body string
 		status                    int
-	}{{"GET", "/v1/status", "", "", 401}, {"POST", "/v1/batch", queryToken, `{}`, 401}, {"POST", "/v1/rebuild/commit", queryToken, `{}`, 401}, {"POST", "/v1/rebuild/abort", queryToken, `{}`, 401}, {"POST", "/v1/rebuild/rollback", queryToken, `{}`, 401}, {"POST", "/v1/query", writeToken, `{}`, 401}, {"POST", "/v1/query", queryToken, `{"user":"x","unexpected":true}`, 400}, {"POST", "/v1/query", queryToken, `{} {}`, 400}, {"GET", "/v1/status", queryToken, "", 503}, {"GET", "/healthz", "", "", 200}} {
+	}{{"GET", "/v1/status", "", "", 401}, {"POST", "/v1/batch", writeToken, `{}`, 404}, {"POST", "/v1/rebuild/commit", queryToken, `{}`, 401}, {"POST", "/v1/rebuild/abort", queryToken, `{}`, 401}, {"POST", "/v1/rebuild/rollback", queryToken, `{}`, 401}, {"POST", "/v1/query", writeToken, `{}`, 401}, {"POST", "/v1/query", queryToken, `{"user":"x","unexpected":true}`, 400}, {"POST", "/v1/query", queryToken, `{} {}`, 400}, {"GET", "/v1/status", queryToken, "", 503}, {"GET", "/healthz", "", "", 200}} {
 		r := httptest.NewRequest(c.method, c.path, strings.NewReader(c.body))
 		r.Header.Set("Authorization", "Bearer "+c.token)
 		w := httptest.NewRecorder()
@@ -80,7 +80,7 @@ func TestOpenSearchContract(t *testing.T) {
 	}
 	docs := []a.Document{document("11111111111111111111111111111111", "服务器工程师", "C++17 Redis 分布式网络开发", "GLOBAL", ""), document("22222222222222222222222222222222", "开发工程师", "Golang MySQL", "PRIVATE", alice), document("33333333333333333333333333333333", "客户端工程师", "C# Unity", "PRIVATE", bob)}
 	apply := func(d ...a.Document) error {
-		return client.Apply(ctx, a.Batch{Protocol: a.Protocol, Generation: status.Generation, Documents: d})
+		return backend.Apply(ctx, a.Batch{Protocol: a.Protocol, Generation: status.Generation, Documents: d})
 	}
 	if e = apply(docs...); e != nil {
 		t.Fatal("apply", e)
@@ -140,10 +140,10 @@ func TestOpenSearchContract(t *testing.T) {
 		t.Fatal(e)
 	}
 	// A candidate is filled using fenced snapshots, including retained tombstones.
-	if e = client.Apply(ctx, a.Batch{Protocol: a.Protocol, Generation: plan.Target, Documents: docs}); e != nil {
+	if e = backend.Apply(ctx, a.Batch{Protocol: a.Protocol, Generation: plan.Target, Documents: docs}); e != nil {
 		t.Fatal(e)
 	}
-	if e = client.Apply(ctx, a.Batch{Protocol: a.Protocol, Generation: plan.Target, Documents: []a.Document{changed, tombstone}}); e != nil {
+	if e = backend.Apply(ctx, a.Batch{Protocol: a.Protocol, Generation: plan.Target, Documents: []a.Document{changed, tombstone}}); e != nil {
 		t.Fatal(e)
 	}
 	_, e = client.CommitRebuild(ctx, a.RebuildCommit{RebuildRef: a.RebuildRef{Operation: plan.Operation, Dataset: dataset}, Version: 3, Documents: int64(len(docs) + 1)})
@@ -163,7 +163,7 @@ func TestOpenSearchContract(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	if e = client.Apply(ctx, a.Batch{Protocol: a.Protocol, Generation: old.Generation, Documents: docs}); !errors.Is(e, a.ErrConflict) {
+	if e = backend.Apply(ctx, a.Batch{Protocol: a.Protocol, Generation: old.Generation, Documents: docs}); !errors.Is(e, a.ErrConflict) {
 		t.Fatal("retired generation accepted writes", e)
 	}
 	r, e = query(alice, "Python")

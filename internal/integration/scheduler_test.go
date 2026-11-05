@@ -8,9 +8,11 @@ import (
 	"github.com/KanaDoodle/CampusTrace/internal/analysis"
 	d "github.com/KanaDoodle/CampusTrace/internal/domain"
 	"github.com/KanaDoodle/CampusTrace/internal/matching"
+	"github.com/KanaDoodle/CampusTrace/internal/modelcontrol"
 	"github.com/KanaDoodle/CampusTrace/internal/observability"
 	p "github.com/KanaDoodle/CampusTrace/internal/persistence"
 	"github.com/KanaDoodle/CampusTrace/internal/pipeline"
+	"github.com/KanaDoodle/CampusTrace/internal/transport"
 	"net/http"
 	"sync"
 	"sync/atomic"
@@ -310,6 +312,17 @@ func schedulerQueued(t *testing.T, ctx context.Context, s *p.Store, u, id string
 	t.Fatal("run never queued")
 	return p.MatchRun{}
 }
+func startControlledMatchTasks(t *testing.T, ctx context.Context, a *transport.API, capacity int) *transport.MatchTaskRunner {
+	t.Helper()
+	control, err := modelcontrol.New(ctx, a.Store, modelcontrol.Options{
+		Policy: p.ModelPoolPolicy{ID: "matching-fixture", Capacity: capacity, QueueLimit: 16, OwnerQueueLimit: 1, DailyLimit: 400, LeaseMS: 10000},
+		Wait:   4 * time.Second, Execution: 10 * time.Second, Poll: 10 * time.Millisecond,
+	})
+	must(t, err)
+	a.ModelControl = control
+	return a.StartMatchTasks(ctx)
+}
+
 func TestSchedulerMatchingYieldsBetweenBatches(t *testing.T) {
 	ctx, s, u, token, ids, api, h, delegate := wholeSetup(t)
 	_, _, small, smallToken, smallIDs, _, _, _ := wholeSetup(t)
@@ -320,7 +333,7 @@ func TestSchedulerMatchingYieldsBetweenBatches(t *testing.T) {
 	}
 	model := &schedulerModel{delegate: delegate, entered: make(chan struct{}), unblock: make(chan struct{})}
 	api.ResumeModel = model
-	runner := api.StartMatchTasks(ctx, 1)
+	runner := startControlledMatchTasks(t, ctx, api, 1)
 	t.Cleanup(runner.Close)
 	bigRun := schedulerSubmit(t, ctx, s, u, token, ids, h)
 	select {
@@ -346,8 +359,8 @@ func TestSchedulerQueueDeadlineCancelAndPauseDoNotCallProvider(t *testing.T) {
 			_, _, small, st, si, _, _, _ := wholeSetup(t)
 			model := &schedulerModel{delegate: delegate, entered: make(chan struct{}), unblock: make(chan struct{})}
 			api.ResumeModel = model
-			runner := api.StartMatchTasks(ctx, 1)
-			runner.WaitTimeout = 150 * time.Millisecond
+			runner := startControlledMatchTasks(t, ctx, api, 1)
+			api.ModelControl.Options.Wait = 250 * time.Millisecond
 			t.Cleanup(runner.Close)
 			big := schedulerSubmit(t, ctx, s, u, token, ids, h)
 			<-model.entered
@@ -390,13 +403,13 @@ func TestSchedulerProviderRejectionAndUnknownTimeoutStopWithoutReplay(t *testing
 			ctx, s, u, token, ids, api, h, delegate := wholeSetup(t)
 			model := &schedulerModel{delegate: delegate, failure: &analysis.HTTPError{Status: 429}, timeout: timeout}
 			api.ResumeModel = model
-			runner := api.StartMatchTasks(ctx, 1)
+			runner := startControlledMatchTasks(t, ctx, api, 1)
 			// Both branches must reach the provider. A 100ms whole-execution
 			// budget could expire in SQL preparation under -race, turning the
 			// intended 429 into a pre-dispatch timeout with zero model calls.
 			// The timeout fixture blocks on ctx.Done, so a wider budget still
 			// exercises a real in-provider deadline without a fixed sleep.
-			runner.ExecutionTimeout = 2 * time.Second
+			api.ModelControl.Options.Execution = 2 * time.Second
 			t.Cleanup(runner.Close)
 			run := schedulerSubmit(t, ctx, s, u, token, ids, h)
 			done := awaitRun(t, s, u, run.ID, "WAITING_AUTH")

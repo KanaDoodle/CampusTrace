@@ -33,10 +33,9 @@ flowchart LR
     Outbox --> Tasks[(Kafka 任务主题)]
     Tasks --> Worker[Core Worker]
     Worker --> SQL
-    Worker -->|KanaRPC| Analysis[Analysis × 2]
+    Worker -->|KanaRPC| Analysis[Analysis]
     Analysis -. 注册 .-> Etcd[(etcd)]
     API -->|HTTP| Search[Search]
-    Worker -. 默认直接同步 .-> Search
     Search --> OpenSearch[(OpenSearch)]
     Worker -. 事务事件发布 .-> Kafka[(Kafka 岗位事件主题)]
     Kafka -. 独立消费组 .-> Search
@@ -46,12 +45,12 @@ flowchart LR
 
 - **Core**：Go、MySQL、Kafka、Redis；保存业务事实、权限、任务、投递留档与复盘。API 与 Worker 属于同一业务域。
 - **Analysis**：独立 Go 进程，通过 [KanaRPC](https://github.com/KanaDoodle/KanaRPC) 的 KNR2 协议及 etcd 提供分析，支持远端取消、有界调度、发现驱动的连接复用与优雅关闭。固定依赖公开提交对应的 Go 版本，不需要相邻源码仓库；见[依赖说明](docs/dependency-audit.md)与[迁移验收](docs/kanarpc-migration.md)。
-- **Search / Notify**：Search 只维护 OpenSearch 派生索引；Notify 独立消费，但属于 Core 业务域并共享其数据库。完整栈按需开启。
-- **申请准备 Agent**：Python / LangGraph 状态图、持久 SQLite Checkpointer；Go 提供受控工具、模型预算和确认保存，支持澄清、反馈修订与恢复。[使用与部署](docs/preparation-langgraph.md)。[项目答辩练习](docs/project-defense.md)支持对照当前代码核对回答、阅读后复述与确认保存复习计划；已确认经历可跨练习使用。[离线策略实验](docs/defense-strategy-optimization.md)复用轨迹和评测，保留退化、人工审阅及采用回滚。
+- **Search / Notify**：Search 只维护 OpenSearch 派生索引；Notify 独立消费，但属于 Core 业务域并共享其数据库。OpenSearch 按需开启。
+- **申请准备 Agent**：Python / LangGraph 状态图、持久 SQLite Checkpointer；Go 提供受控工具、模型预算和确认保存，支持澄清、反馈修订与恢复。[使用与部署](docs/preparation-langgraph.md)。[项目答辩练习](docs/project-defense.md)支持对照当前代码核对回答、阅读后复述与确认保存复习计划；已确认经历可跨练习使用。[离线策略实验](docs/defense-strategy-optimization.md)复用轨迹和评测，保留失败、退化与人工审阅结果。
 - **观测与回归**：OpenTelemetry、Prometheus/Grafana/Tempo、pprof、k6、Go race/fuzz、GitHub Actions。
 - **AI 应用**：持久任务、受控工具调用、固定可恢复工作流、MCP；本地 BM25，按需配置 Embedding/RRF/Reranker。模型与检索效果通过独立评测记录。
 
-默认部署启用 Core、MySQL、Kafka、Redis、etcd 与两个 Analysis 实例；Search、岗位事件独立消费与完整观测栈按需启用。
+默认部署启用 Core、MySQL、Kafka、Notify、Redis、etcd 与一个 Analysis 实例。RPC 双实例验收通过 `compose.rpc-pair.yml` 另行启用。默认用 MySQL 搜索，Notify 通过 Kafka 消费岗位变更。启用独立 Search 后，它用独立消费组接收同一批岗位变更。完整观测栈按需启用。
 
 ## 快速启动
 
@@ -121,8 +120,7 @@ make performance-test
 
 | 命令 | 说明 |
 |---|---|
-| `make search-stack` | [独立 Search](docs/search-service.md) |
-| `make kafka-stack` | [岗位事件与独立消费](docs/job-events.md) |
+| `make search-stack` | 在默认岗位通知上启用[独立 Search](docs/search-service.md) |
 | `make observability` | [观测栈、指标与本地告警](docs/operations.md#可选的完整观测栈) |
 | `make resilience-test` | 隔离的真实 HTTP / SQL / OpenSearch 故障验收 |
 | `make kafka-test` | 隔离 Kafka 消费、重放与恢复验收 |

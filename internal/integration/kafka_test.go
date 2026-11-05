@@ -78,6 +78,17 @@ func (publisher lostEventAck) Publish(ctx context.Context, events []jobevent.Eve
 	}
 	return errors.New("broker reply lost before SQL acknowledgement")
 }
+
+type searchRepairRecorder struct {
+	target *eventbus.Producer
+	events []jobevent.Event
+}
+
+func (p *searchRepairRecorder) Publish(ctx context.Context, events []jobevent.Event) error {
+	p.events = append(p.events, events...)
+	return p.target.Publish(ctx, events)
+}
+
 func TestKafkaSearchAndNotificationsIndependentRecovery(t *testing.T) {
 	cfg := kafkaConfig(t)
 	ctx, s, _, owner, _ := kafkaSetup(t)
@@ -101,12 +112,16 @@ func TestKafkaSearchAndNotificationsIndependentRecovery(t *testing.T) {
 	})
 	client, e := a.NewClient(httpServer.URL, searchQueryToken, searchWriteToken)
 	must(t, e)
-	s.Search = &eventbus.SearchTransport{HTTP: client, Producer: producer}
+	repairs := &searchRepairRecorder{target: producer}
+	s.Search = &eventbus.SearchTransport{HTTP: client, Producer: repairs}
 	cfg.Group = cfg.Topic + "-notify"
 	stopNotify := kafkaConsumer(t, ctx, cfg, s.ConsumeNotificationEvents)
 	input := p.Ingest{Company: "Synthetic Kafka " + d.ID(), Title: "服务器工程师", JobType: "FULL_TIME", Locations: []string{"上海"}, ExternalID: d.ID(), FetchStatus: "SUCCESS", Text: "Golang Redis firstmarker", ObservedAt: time.Now().UTC()}
 	observation, e := s.IngestForUser(ctx, owner, input)
 	must(t, e)
+	if e = s.SyncSearchOnce(ctx); !errors.Is(e, a.ErrPending) || len(repairs.events) != 0 {
+		t.Fatal("an unpublished normal event should wait without a snapshot", e, len(repairs.events))
+	}
 	_, e = s.PublishJobEventsOnce(ctx, lostEventAck{producer})
 	if e == nil {
 		t.Fatal("missing producer fault")
@@ -194,6 +209,9 @@ func TestKafkaSearchAndNotificationsIndependentRecovery(t *testing.T) {
 	if len(rows) != 0 {
 		t.Fatal("private job notification leaked")
 	}
+	if len(repairs.events) != 0 {
+		t.Fatal("ordinary Kafka writes also emitted repair snapshots", len(repairs.events))
+	}
 	// A new index generation replays snapshots, which are not business changes.
 	beforeRebuild, e := client.Status(ctx)
 	must(t, e)
@@ -209,6 +227,98 @@ func TestKafkaSearchAndNotificationsIndependentRecovery(t *testing.T) {
 	must(t, e)
 	if len(rows) != 2 {
 		t.Fatal("snapshot replay generated notifications")
+	}
+	// Suppress delivery of one event with a fresh receipt. Another normal
+	// event is already visible, so its dirty record can clear independently.
+	missing := input
+	missing.ExternalID = d.ID()
+	missing.Text = "missingversionmarker"
+	missingObservation, e := s.IngestForUser(ctx, owner, missing)
+	must(t, e)
+	normal := input
+	normal.ExternalID = d.ID()
+	normal.Text = "normalmixedbatchmarker"
+	normalObservation, e := s.IngestForUser(ctx, owner, normal)
+	must(t, e)
+	_, e = s.DB.ExecContext(ctx, "UPDATE job_event_outbox SET published_at=UTC_TIMESTAMP(6) WHERE job_id=?", missingObservation.JobID)
+	must(t, e)
+	_, e = s.PublishJobEventsOnce(ctx, producer)
+	must(t, e)
+	normalDocument, e := p.One[a.Document](ctx, s.DB, "SELECT body FROM search_documents WHERE job_id=?", normalObservation.JobID)
+	must(t, e)
+	active, e := client.Status(ctx)
+	must(t, e)
+	kafkaWait(t, ctx, "normal version never became visible", func() bool {
+		got, err := client.Applied(ctx, a.AppliedQuery{Protocol: a.Protocol, Generation: active.Generation, Dataset: normalDocument.Dataset, Hits: []a.Hit{{ID: normalDocument.ID, Version: normalDocument.Version, Hash: normalDocument.Hash}}})
+		must(t, err)
+		return got.Ready
+	})
+	_, e = s.DB.ExecContext(ctx, "UPDATE job_event_outbox SET published_at=UTC_TIMESTAMP(6) WHERE job_id=?", missingObservation.JobID)
+	must(t, e)
+	beforeRepair := len(repairs.events)
+	if e = s.SyncSearchOnce(ctx); !errors.Is(e, a.ErrPending) || len(repairs.events) != beforeRepair {
+		t.Fatal("fresh broker receipt should wait for the missing version", e)
+	}
+	must(t, s.DB.QueryRowContext(ctx, "SELECT COUNT(*) FROM search_outbox WHERE job_id=?", normalObservation.JobID).Scan(&dirty))
+	if dirty != 0 {
+		t.Fatal("visible member of a mixed batch stayed dirty")
+	}
+	_, e = s.DB.ExecContext(ctx, "UPDATE job_event_outbox SET published_at=UTC_TIMESTAMP(6)-INTERVAL 10 SECOND WHERE job_id=?", missingObservation.JobID)
+	must(t, e)
+	kafkaWait(t, ctx, "missing version did not repair", func() bool {
+		e := s.SyncSearchOnce(ctx)
+		if e != nil && !errors.Is(e, a.ErrPending) {
+			t.Fatal(e)
+		}
+		must(t, s.DB.QueryRowContext(ctx, "SELECT COUNT(*) FROM search_outbox WHERE job_id=?", missingObservation.JobID).Scan(&dirty))
+		return dirty == 0
+	})
+	if len(repairs.events) != beforeRepair+1 || repairs.events[beforeRepair].Kind != "snapshot" || repairs.events[beforeRepair].Document.ID != missingObservation.JobID {
+		t.Fatal("repair must publish only the missing version")
+	}
+	kafkaWait(t, ctx, "normal mixed event notification missing", func() bool { rows, e := s.Notifications(ctx, owner); must(t, e); return len(rows) == 3 })
+	// Simulate a pending SQL projection from a deployment that never published
+	// job events. The Kafka index writer must catch up without backdating notices.
+	legacy := input
+	legacy.Company = "Legacy Search " + d.ID()
+	legacy.ExternalID = d.ID()
+	legacy.Text = "legacyprojectionmarker"
+	s.JobEvents = false
+	legacyObservation, e := s.IngestForUser(ctx, owner, legacy)
+	s.JobEvents = true
+	must(t, e)
+	var legacyEvents int
+	must(t, s.DB.QueryRowContext(ctx, "SELECT COUNT(*) FROM job_event_outbox WHERE job_id=?", legacyObservation.JobID).Scan(&legacyEvents))
+	if legacyEvents != 0 {
+		t.Fatal("legacy fixture unexpectedly produced a business event")
+	}
+	kafkaWait(t, ctx, "legacy projection was not repaired through Kafka", func() bool {
+		e := s.SyncSearchOnce(ctx)
+		if e != nil && !errors.Is(e, a.ErrPending) {
+			t.Fatal(e)
+		}
+		result, e := s.SearchJobs(ctx, owner, a.Query{Text: legacy.Text, Company: legacy.Company})
+		must(t, e)
+		return result.Mode == "fulltext" && len(result.IDs) == 1 && result.IDs[0] == legacyObservation.JobID
+	})
+	var repairedSnapshotSeen atomic.Bool
+	cfg.Group = cfg.Topic + "-migration-notify"
+	kafkaConsumer(t, ctx, cfg, func(ctx context.Context, batch []jobevent.Event) error {
+		if e := s.ConsumeNotificationEvents(ctx, batch); e != nil {
+			return e
+		}
+		for _, event := range batch {
+			if event.Document.ID == legacyObservation.JobID {
+				repairedSnapshotSeen.Store(true)
+			}
+		}
+		return nil
+	})
+	kafkaWait(t, ctx, "notification consumer did not observe repaired snapshot", repairedSnapshotSeen.Load)
+	rows, e = s.Notifications(ctx, owner)
+	must(t, e)
+	if len(rows) != 3 {
+		t.Fatal("legacy projection repair created a notification", len(rows))
 	}
 	// Simulate an operator deletion, then verify the reconciled tombstone travels
 	// through Kafka and that replaying an older real event cannot resurrect it.

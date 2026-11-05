@@ -57,7 +57,7 @@ eventually('initial fulltext catchup',lambda:search('Redis','fulltext')[0]['job_
 # Read capability is wired into the actual browser entry points.
 cap,_=request('api','/api/profile/resume/capabilities');assert cap['job_search']
 # Replacing a Search process must not restart Core or either Analysis process.
-unchanged={name:started(name) for name in ('api','worker','analysis-1','analysis-2')}
+unchanged={name:started(name) for name in ('api','worker','analysis-1')}
 subprocess.run(compose+['stop','-t','5','search'],check=True,stdout=subprocess.DEVNULL)
 fallback,_=search('Redis','basic');assert fallback['job_ids']==[first['job_id']]
 second,_=ingest('search-offline-synthetic')

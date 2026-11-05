@@ -145,7 +145,7 @@ func TestWholeAnalysisSavesNarrativeReportAndInvalidatesOnProjectEdit(t *testing
 }
 func TestCompanyWholeTaskWorksBeforeSingleAnalysisAndCachesExactScope(t *testing.T) {
 	ctx, s, u, token, ids, api, h, m := wholeSetup(t)
-	runner := api.StartMatchTasks(ctx, 1)
+	runner := startControlledMatchTasks(t, ctx, api, 1)
 	t.Cleanup(runner.Close)
 	identity := matching.ModelIdentity("server-default", "whole-fixture")
 	snap, err := s.MatchSnapshot(ctx, u, identity, "", ids)
@@ -321,7 +321,7 @@ func TestWholeChatRoundTripPreservesCompanyRankingAndPartialImports(t *testing.T
 
 func TestCompanyQuoteFailureKeepsExactSourceLocationAndRetryScope(t *testing.T) {
 	ctx, s, u, token, ids, api, h, m := wholeSetup(t)
-	runner := api.StartMatchTasks(ctx, 1)
+	runner := startControlledMatchTasks(t, ctx, api, 1)
 	t.Cleanup(runner.Close)
 	m.bad.Store(true)
 	identity := matching.ModelIdentity("server-default", "whole-fixture")

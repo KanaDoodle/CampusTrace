@@ -1,5 +1,5 @@
 // The notification consumer belongs to Core's domain but runs independently
-// from the Redis task worker and the Search index consumer.
+// from the background task worker and the Search index consumer.
 package main
 
 import (
@@ -35,7 +35,6 @@ func run() error {
 		return err
 	}
 	defer store.DB.Close()
-	store.JobEvents = true
 	if err = store.Migrate(ctx); err != nil {
 		return err
 	}

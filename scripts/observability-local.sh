@@ -62,6 +62,26 @@ PY
 # One-shot topic initialization is intentionally not a long-running health target.
 services=$(python3 -c 'import json,sys;print(" ".join(n for n in json.load(open(sys.argv[1]))["services"] if n!="kafka-init"))' "$task_dir/compose.json")
 docker compose --project-name "$project" --file "$task_dir/compose.json" run --rm kafka-init > "$evidence/topic-init.log" 2>&1
+if [ "${CAMPUS_VERIFY_STARTUP_SPLIT:-0}" = 1 ];then
+ (
+  set -e
+  ct() { docker compose --project-name "$project" --file "$task_dir/compose.json" "$@"; }
+  ct config --services | grep -qx analysis-1
+  if ct config --services | grep -qx analysis-2; then echo 'Default stack includes analysis-2' >&2; exit 1; fi
+  ct up -d --wait --wait-timeout 120 worker
+  for name in api preparation; do
+   if ct ps --services --status running | grep -qx "$name"; then echo "Worker unexpectedly started $name" >&2; exit 1; fi
+  done
+  ct up -d --wait --wait-timeout 60 api
+  if ct ps --services --status running | grep -qx preparation; then echo 'API unexpectedly started preparation' >&2; exit 1; fi
+  addr=$(ct port api 8080)
+  curl --fail --silent --show-error "http://$addr/readyz"
+  status=$(curl --silent --show-error --output "$evidence/preparation-offline.json" --write-out '%{http_code}' "http://$addr/internal/preparation/health")
+  test "$status" = 503
+  grep -q PREPARATION_SERVICE_UNAVAILABLE "$evidence/preparation-offline.json"
+  printf '\nPASS: default single Analysis, Worker before API, API before LangGraph.\n'
+ ) > "$evidence/startup-split.log" 2>&1 || { cat "$evidence/startup-split.log" >&2; exit 1; }
+fi
 if ! docker compose --project-name "$project" --file "$task_dir/compose.json" up -d --wait --wait-timeout 180 $services > "$evidence/startup.log" 2>&1;then
  docker compose --project-name "$project" --file "$task_dir/compose.json" logs --no-color > "$evidence/services.log" 2>&1
  cat "$evidence/startup.log" >&2

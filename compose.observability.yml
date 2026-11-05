@@ -11,8 +11,6 @@ services:
     environment: *tracing
   analysis-1:
     environment: *tracing
-  analysis-2:
-    environment: *tracing
   prometheus:
     image: prom/prometheus:v3.13.3
     restart: unless-stopped

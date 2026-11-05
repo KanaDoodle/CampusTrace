@@ -10,6 +10,7 @@ import (
 	"github.com/KanaDoodle/CampusTrace/internal/modelconfig"
 	p "github.com/KanaDoodle/CampusTrace/internal/persistence"
 	"github.com/KanaDoodle/CampusTrace/internal/projectdefense"
+	"github.com/KanaDoodle/CampusTrace/internal/rag"
 )
 
 type preparationAPIRequest struct {
@@ -38,6 +39,17 @@ func (a *API) preparationEnvironment(in preparationAPIRequest) (agent.Preparatio
 	return agent.PreparationEnvironment{Model: agent.LiveModel{Client: client}, ModelIdentity: d.Hash(client.URL + "\x00" + client.Model), ModelLabel: client.Model, EvidenceKind: "model-api", MaskName: in.MaskName, Tools: &tools, Budget: in.Budget}, nil
 }
 func (a *API) preparationAgentRoutes(on func(string, http.HandlerFunc)) {
+	on("GET /api/agent/preparation/materials", func(w http.ResponseWriter, r *http.Request) {
+		// Use local retrieval regardless of optional provider settings.
+		retrieval, err := a.requestRAG(rag.Options{})
+		if err != nil {
+			knowledgeWrite(w, nil, err)
+			return
+		}
+		tools := agent.Tools{Store: a.Store, RAG: retrieval}
+		v, err := tools.PrepareApplication(r.Context(), user(r), r.URL.Query().Get("application_id"))
+		knowledgeWrite(w, v, err)
+	})
 	on("GET /api/agent/preparation/defense-memories", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		rows, err := a.Store.DefenseMemories(r.Context(), user(r), r.URL.Query().Get("topic"))

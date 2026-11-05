@@ -68,7 +68,7 @@ def ingest(marker):
                    for row in job['observations'])
 
     eventually('background RPC result', completed)
-    return trace_id, elapsed
+    return trace_id, elapsed, observation["job_id"]
 
 
 def trace_spans(trace_id):
@@ -108,7 +108,15 @@ account = {'email': 'observer-' + uuid.uuid4().hex + '@synthetic.invalid', 'pass
 request('api', '/auth/register', account)
 login, _ = request('api', '/auth/login', account)
 token = login['token']
-first, first_latency = ingest('never-export-private-marker')
+first, first_latency, first_job = ingest('never-export-private-marker')
+
+
+def job_notification():
+    rows, _ = request('api', '/api/notifications')
+    return any(row['entity_id'] == first_job and row['event_version'].startswith('event:') for row in rows)
+
+
+eventually('Kafka job notification with or without Search', job_notification)
 trace = eventually('continuous cross-process trace', lambda: assert_trace(first))
 
 
@@ -131,7 +139,7 @@ def grafana_query_ready():
 
 eventually('Grafana provisioned datasource query', grafana_query_ready)
 subprocess.run(compose + ['stop', '-t', '10', 'tempo'], check=True, stdout=subprocess.DEVNULL)
-while_down, down_latency = ingest('collector-unavailable-synthetic')
+while_down, down_latency, _ = ingest('collector-unavailable-synthetic')
 assert down_latency < 3, 'trace export blocked the business request'
 subprocess.run(compose + ['start', 'tempo'], check=True, stdout=subprocess.DEVNULL)
 # Docker can assign a new host port when a container published port 0. Query it
@@ -145,13 +153,14 @@ def tempo_ready():
 
 
 eventually('Tempo readiness after restart', tempo_ready)
-recovered, recovery_latency = ingest('collector-recovered-synthetic')
+recovered, recovery_latency, _ = ingest('collector-recovered-synthetic')
 recovered_trace = eventually('trace export after Tempo restart', lambda: assert_trace(recovered))
 result = {'kind': 'local-disposable-controlled-acceptance', 'external_model_calls': 0,
           'first_trace': trace, 'recovered_trace': recovered_trace,
           'prometheus_targets': [row['metric']['job'] for row in targets],
           'dashboard_panels': 14, 'alert_rules': 4, 'queue_lanes': 10,
           'observer_outage_business_completed': True,
+          'kafka_job_notification_received': True,
           'api_ingest_seconds': {'first': first_latency, 'observer_down': down_latency, 'recovered': recovery_latency},
           'limits': 'Single-host synthetic inputs. This is not a production latency, HA, privacy proof or model-quality benchmark.'}
 (evidence / 'result.json').write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n')

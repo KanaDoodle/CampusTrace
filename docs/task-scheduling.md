@@ -38,11 +38,11 @@
 
 ## 岗位深度匹配：每批次公平许可
 
-一个普通批次仍最多 3 个岗位／24 KB JD，显式单项重试为 1 个；同公司整体比较保持一个完整量子，最多 16 个候选。每量子归还许可后重新排队，不再由一轮最多 100 岗位的任务长期占槽。每账号最多持有一个本地许可；队列取消会立即释放等待对象，重复 release 无副作用。
+一个普通批次仍最多 3 个岗位／24 KB JD，显式单项重试为 1 个；同公司整体比较保持一个完整量子，最多 16 个候选。每量子归还许可后重新排队，不再由一轮最多 100 岗位的任务长期占槽。每账号受 SQL 任务租约及全局模型控制约束；取消会退出全局等待队列。
 
-等待超时不调用模型，未处理项目保持 QUEUED，任务进入 `WAITING_AUTH`，execution_state 为 `MATCH_QUEUE_TIMEOUT`。暂停仍在排队的任务会立即保存 PAUSED 并取消等待；拿到许可后还会复查状态，不能多发一批。执行超时／429／连接错误保留失败状态，不自动重试已授权的深度分析。页面显示等待截止、执行截止及人工恢复建议。`GET /api/matching/tasks/scheduler` 是登录后的本实例限额快照；单任务响应包含 `execution_state`、`queue_until`、`execution_until`。
+等待超时不调用模型，未处理项目保持 QUEUED，任务进入 `WAITING_AUTH`，execution_state 为 `MATCH_QUEUE_TIMEOUT`。暂停仍在排队的任务会立即保存 PAUSED 并取消等待；拿到许可后还会复查状态，不能多发一批。执行超时／429／连接错误保留失败状态，不自动重试已授权的深度分析。页面显示等待截止、执行截止及人工恢复建议。`GET /api/matching/tasks/scheduler` 返回本实例接纳状态及全局许可快照。旧 `peak_waiting` 字段保留为零；单任务响应包含 `execution_state`、`queue_until`、`execution_until`。
 
-任务执行许可在单 API 内按账号轮转，SQL 账号行锁、执行 token／60 秒 lease 与 15 秒续租协调跨实例的同账号执行。多个 API 的任务执行槽分别计数；实际模型请求由[跨 API 模型执行控制](model-control.md)共享全局许可、公平队列与调用预算。旧同步 `/api/matching/analyze` 保留账号调用租约，并在实际调用模型时进入同一全局控制。
+SQL 账号行锁、执行 token／60 秒 lease 与 15 秒续租协调跨实例的同账号执行。API 进程各自限制已接纳的任务数；模型请求由[跨 API 模型执行控制](model-control.md)共享全局许可、公平队列与调用预算。旧同步 `/api/matching/analyze` 保留账号调用租约，并在实际调用模型时进入同一全局控制。
 
 
 ## 启动与从 Redis 升级

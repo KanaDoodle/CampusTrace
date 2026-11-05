@@ -61,7 +61,7 @@ func TestSearchReadDetachedRecoveryKeepsCurrentACL(t *testing.T) {
 		proxy.ServeHTTP(w, r)
 	}))
 	t.Cleanup(fault.Close)
-	client, err := a.NewClient(fault.URL, searchQueryToken, searchWriteToken)
+	client, err := newFixtureSearchClient(fault.URL, searchQueryToken, searchWriteToken)
 	must(t, err)
 	t.Cleanup(client.Close)
 	var once sync.Once

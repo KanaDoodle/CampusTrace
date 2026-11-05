@@ -3,7 +3,7 @@ MODEL_ENV_FILES = $(if $(wildcard .env.model.local),$(if $(wildcard .env),--env-
 APP_COMPOSE = docker compose $(MODEL_ENV_FILES) --file docker-compose.yml --file compose.app.yml
 SEARCH_COMPOSE = $(APP_COMPOSE) --file compose.search.yml
 OBSERVABILITY_COMPOSE = $(APP_COMPOSE) --file compose.observability.yml
-KAFKA_COMPOSE = $(SEARCH_COMPOSE) --file compose.kafka.yml
+KAFKA_COMPOSE = $(SEARCH_COMPOSE)
 
 .PHONY: deps build cli migrate seed run stop dev-run dev-stop test race vet integration eval loadgen
 deps:
@@ -59,7 +59,7 @@ retrieval-eval:
 
 .PHONY: observability observability-stop observability-status observability-test
 observability:
-	$(OBSERVABILITY_COMPOSE) stop api worker analysis-1 analysis-2
+	$(OBSERVABILITY_COMPOSE) stop api worker analysis-1 notify
 	$(OBSERVABILITY_COMPOSE) up -d --build --wait
 observability-stop:
 	$(OBSERVABILITY_COMPOSE) stop
@@ -91,13 +91,10 @@ performance-compare:
 	PYTHONDONTWRITEBYTECODE=1 python3 scripts/performance/report.py "$(PERF_CANDIDATE)" --baseline "$(PERF_BASELINE)"
 
 .PHONY: kafka-stack kafka-stop kafka-status kafka-replay kafka-test kafka-stack-test
-kafka-stack:
-	$(KAFKA_COMPOSE) run --rm kafka-init
-	$(KAFKA_COMPOSE) up -d --build --wait api worker analysis-1 analysis-2 search notify
-kafka-stop:
-	$(KAFKA_COMPOSE) stop
-kafka-status:
-	$(KAFKA_COMPOSE) ps -a
+# Compatibility aliases for the same Search + Notify deployment.
+kafka-stack: search-stack
+kafka-stop: search-stop
+kafka-status: search-status
 kafka-replay:
 	$(KAFKA_COMPOSE) exec -T worker /app/events replay $(EVENT_ARGS)
 kafka-test:

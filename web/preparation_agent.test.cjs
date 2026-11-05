@@ -5,7 +5,7 @@ test('plan separates evidence kinds, budget, actions and literal references',()=
 test('unknown model attempts require explicit retry acknowledgement',()=>{const v=task();v.state='PAUSED';v.can_resume=true;v.preparation_agent.provider_state='UNKNOWN';delete v.preparation_agent.result;const html=A.render(v,esc);assert.ok(html.includes('prep-retry-unknown'));assert.ok(html.includes('可能已处理或计费'));assert.ok(!html.includes('data-prep-save'));});
 test('saved and stale records do not expose a save action',()=>{const v=task();v.preparation_agent.saved_at='2026-11-01';assert.ok(!A.render(v,esc).includes('data-prep-save'));delete v.preparation_agent.saved_at;v.state='STALE';assert.ok(!A.render(v,esc).includes('data-prep-save'));});
 test('clarification and feedback preserve a separate review before generation',()=>{const v=task();v.state='PAUSED';v.preparation_agent.question='还有多少分钟？';const html=A.render(v,esc);assert.ok(html.includes('补充信息后继续准备'));assert.ok(html.includes('核对下一版输入'));const source=fs.readFileSync(__dirname+'/preparation_agent.js','utf8');assert.ok(source.includes("'/api/agent/preparation/preview'"));assert.ok(source.includes("'/agent/actions/'+pending.action_id+'/confirm'"));assert.ok(source.includes('tick!==revision'));});
-test('application dossier and question workspace both expose the plan entry',()=>{const dossier=fs.readFileSync(__dirname+'/journey.js','utf8'),harness=fs.readFileSync(__dirname+'/agent_harness.js','utf8');assert.ok(dossier.includes('dossier-agent-plan'));assert.ok(harness.includes('agent-preparation-open'));assert.ok(harness.includes('!v.preparation_agent'));});
+test('application dossier and question workspace both expose the plan entry',()=>{const dossier=fs.readFileSync(__dirname+'/journey.js','utf8'),harness=fs.readFileSync(__dirname+'/agent_harness.js','utf8');assert.ok(dossier.includes('dossier-prepare'));assert.ok(harness.includes('agent-preparation-open'));assert.ok(harness.includes('!v.preparation_agent'));});
 
 test('progress separates business steps and keeps the executor in diagnostics',()=>{
  const v={state:'RUNNING',plan:[{name:'search_preparation_knowledge'}],next_step:0,preparation_agent:{provider_state:'READY'}};
@@ -25,4 +25,40 @@ test('quality plans explain evidence use and bounded work without asserting sema
  v.preparation_agent.result.items[0].references[0].supports='岗位要求并发，对应取消传播复习';
  v.preparation_agent.retrievals=[{gap:'缺少核对点',expected_use:'用于口述自查',new_source_ids:['k'],cited_source_ids:[]}];
  const html=A.render(v,esc);assert.ok(html.includes('练习规模'));assert.ok(html.includes('用于说明'));assert.ok(html.includes('最终计划引用 0 份'));assert.ok(!html.includes('语义验证通过'));
+});
+
+test('an unavailable requested application does not open another application',async()=>{
+ const calls=[],routes=[],back={};let html='';
+ const originalDocument=globalThis.document;
+ globalThis.document={querySelector:()=>back};
+ try{
+  await A.page(value=>{html=value;return true;},'',{
+   api:async url=>{calls.push(url);return [{id:'a'.repeat(32)}];},
+   id:'b'.repeat(32),esc,navigate:page=>routes.push(page),
+  });
+  assert.match(html,/这份申请已不可用/);
+  assert.doesNotMatch(html,/prep-goal/);
+  assert.deepEqual(calls,['/api/applications']);
+  back.onclick();
+  assert.deepEqual(routes,['applications']);
+ }finally{
+  if(originalDocument===undefined)delete globalThis.document;
+  else globalThis.document=originalDocument;
+ }
+});
+test('read-only materials separate frozen text and review signals from linked notes',()=>{
+ const documentID='a'.repeat(32);
+ const html=A.materialsHTML({
+  context_key:'frozen',jd:'旧 JD <script>',retrieval_context:{signals:[
+   {source:'interview_missed',text:'XAUTOCLAIM'},{source:'job_title',text:'岗位关键词'},
+  ]},knowledge:[
+   {document_id:documentID,title:'Redis <img>'},{document_id:documentID,title:'Redis <img>'},
+   {document_id:'../invalid',title:'错误笔记'},
+  ],
+ },esc);
+ assert.match(html,/旧 JD &lt;script&gt;|XAUTOCLAIM/);
+ assert.match(html,/Redis &lt;img&gt;/);
+ assert.equal((html.match(/data-prep-material-note/g)||[]).length,1);
+ assert.doesNotMatch(html,/<script>|<img>|岗位关键词|错误笔记/);
+ assert.doesNotMatch(A.materialsHTML({legacy:true,notice:'没有历史快照'},esc),/data-prep-material-note|留档岗位原文/);
 });

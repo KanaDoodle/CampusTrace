@@ -66,14 +66,17 @@ ${JSON.stringify(resultExample,null,2)}
     }
     const url=root.URL.createObjectURL(blob),link=root.document.createElement('a');link.href=url;link.download=name;root.document.body.append(link);link.click();link.remove();setTimeout(()=>root.URL.revokeObjectURL(url),1000);
   }
+  function parseResultJSON(source){
+    let raw=String(source).replace(/^\uFEFF/,'').trim();
+    if(!raw.startsWith('{')){const blocks=[...raw.matchAll(/```(?:json)?\s*\n([\s\S]*?)```/gi)];if(blocks.length!==1)throw new Error('请粘贴完整 JSON，或只包含一个 JSON 代码块的回复。');raw=blocks[0][1].trim();}
+    try{return JSON.parse(raw);}catch{throw new Error('JSON 格式不完整，请重新下载结果文件或复制整个代码块。');}
+  }
   function parseDocuments(texts,onJob){
     if(!Array.isArray(texts)||!texts.length)throw new Error('请上传 JSON 文件或粘贴 ChatGPT 返回的 JSON。');
     if(texts.reduce((n,s)=>n+new TextEncoder().encode(s).length,0)>2*1024*1024)throw new Error('结果文字超过 2 MB，请分批导入。');
     let merged=null;const ids=new Set();
     for(const [fileIndex,source] of texts.entries()){
-      let raw=String(source).replace(/^\uFEFF/,'').trim();
-      if(!raw.startsWith('{')){const blocks=[...raw.matchAll(/```(?:json)?\s*\n([\s\S]*?)```/gi)];if(blocks.length!==1)throw new Error('请粘贴完整 JSON，或只包含一个 JSON 代码块的回复。');raw=blocks[0][1].trim();}
-      let doc;try{doc=JSON.parse(raw);}catch{throw new Error('JSON 格式不完整，请重新下载结果文件或复制整个代码块。');}
+      const doc=parseResultJSON(source);
       if(!['campustrace-chat-v3','campustrace-chat-v4'].includes(doc.version)||typeof doc.candidate_hash!=='string'||!Array.isArray(doc.jobs)||!doc.jobs.length)throw new Error('这份结果缺少新版分析包的标识。请重新导出，并让 ChatGPT 按包内格式返回 JSON。');
       if(merged&&(doc.version!==merged.version||doc.candidate_hash!==merged.candidate_hash))throw new Error('这些文件使用了不同的求职资料，请分开导入。');
       if(doc.prompt_revision!==undefined&&(typeof doc.prompt_revision!=='string'||doc.prompt_revision.length>80))throw new Error('分析指令版本格式无效，请按分析包格式返回。');
@@ -99,7 +102,7 @@ ${JSON.stringify(resultExample,null,2)}
     lines.push('',`返回仅含这些岗位的完整 JSON，version=${doc?.version||'campustrace-chat-v3'}，candidate_hash=${doc?.candidate_hash||'照抄原包'}；保留各岗位 input_key，${doc?.version==='campustrace-chat-v4'?'每岗返回完整assessment，不返回requirements/matches或分数。':'requirements 与 matches 一一对应。无需重算分数。'}资料或岗位原文已变化的条目须先取得新分析包，不能更换 input_key 冒充重新分析。`);
     return lines.join('\n');
   }
-  const api={promptRevision,resultExample,repairInstructions,parseDocuments,selectedRows,readSelection,storeSelection,addSelection,pruneSelection,makeFiles,instructions,download,mergePrompt};
+  const api={promptRevision,resultExample,repairInstructions,parseDocuments,parseResultJSON,selectedRows,readSelection,storeSelection,addSelection,pruneSelection,makeFiles,instructions,download,mergePrompt};
   if(typeof module==='object'&&module.exports)module.exports=api;
   root.CampusMatchingChat=api;return api;
 })(typeof window==='undefined'?globalThis:window);

@@ -9,7 +9,7 @@ services:
       SEARCH_QUERY_TIMEOUT_MS: ${SEARCH_QUERY_TIMEOUT_MS:-200}
       SEARCH_FALLBACK_RESERVE_MS: ${SEARCH_FALLBACK_RESERVE_MS:-150}
   worker:
-    networks: [default, search-rpc]
+    networks: [default, search-rpc, job-events]
     environment:
       SEARCH_URL: http://search:18083
       SEARCH_QUERY_TOKEN: ${SEARCH_QUERY_TOKEN:-local-search-query-token-change-me-2027}
@@ -31,6 +31,10 @@ services:
     mem_limit: 256m
     environment:
       SEARCH_ADDR: 0.0.0.0:18083
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_JOB_TOPIC: ${KAFKA_JOB_TOPIC:-campustrace.jobs.v1}
+      KAFKA_DLQ_TOPIC: ${KAFKA_DLQ_TOPIC:-campustrace.jobs.dlq.v1}
+      KAFKA_SEARCH_GROUP: ${KAFKA_SEARCH_GROUP:-campustrace-search-v1}
       SEARCH_URL: http://127.0.0.1:18083
       SEARCH_QUERY_TOKEN: ${SEARCH_QUERY_TOKEN:-local-search-query-token-change-me-2027}
       SEARCH_WRITE_TOKEN: ${SEARCH_WRITE_TOKEN:-local-search-write-token-change-me-2027}
@@ -38,7 +42,7 @@ services:
       SEARCH_INDEX_ALIAS: campustrace-jobs-v1
       OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:-}
       OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-0.1}
-    networks: [search-rpc, search-index]
+    networks: [search-rpc, search-index, job-events]
     healthcheck:
       test: [CMD, /app/search, probe]
       interval: 30s
@@ -48,6 +52,7 @@ services:
       retries: 30
     depends_on:
       opensearch: {condition: service_healthy}
+      kafka-init: {condition: service_completed_successfully}
   opensearch:
     image: opensearchproject/opensearch:3.9.0
     restart: unless-stopped
@@ -66,7 +71,11 @@ services:
       start_period: 30s
       timeout: 4s
       retries: 40
+  kafka:
+    networks: [default, job-events]
 networks:
+  job-events:
+    internal: true
   search-rpc:
     internal: true
   search-index:

@@ -91,7 +91,7 @@ func TestSearchReadCircuitPreservesACLAndProjectionRecovery(t *testing.T) {
 		proxy.ServeHTTP(w, r)
 	}))
 	t.Cleanup(fault.Close)
-	client, e := a.NewClient(fault.URL, searchQueryToken, searchWriteToken)
+	client, e := newFixtureSearchClient(fault.URL, searchQueryToken, searchWriteToken)
 	must(t, e)
 	t.Cleanup(client.Close)
 	policy := a.DefaultQueryPolicy()

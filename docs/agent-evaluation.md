@@ -72,4 +72,4 @@ go run ./cmd/eval -mode journey -only matching -limit 3 \
 
 ## 离线教学策略实验（2026-11-02）
 
-答辩轨迹可进入[候选策略、同条件对照、人工审阅、采用与回滚](defense-strategy-optimization.md)流程。模型只选择解释、追问和阅读枚举；验证集不进入提案上下文，程序失败、调用增加和语义退化分别记录并阻止采用。程序检查与真实质量仍分开，本轮只使用受控响应和明确的合成评分夹具，正式策略保持原版。[本轮证据](verification/defense-strategy-20261102/README.md)。
+答辩轨迹可进入[候选策略、同条件对照和人工审阅](defense-strategy-optimization.md)流程。模型只选择解释、追问和阅读枚举；验证集不进入提案上下文，程序失败、调用增加和语义退化分别记录并影响审阅结论。程序检查与真实质量仍分开，本轮只使用受控响应和明确的合成评分夹具，正式策略保持原版。[本轮证据](verification/defense-strategy-20261102/README.md)。

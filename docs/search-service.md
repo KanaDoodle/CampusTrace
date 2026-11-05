@@ -1,6 +1,6 @@
 # 独立 Search 服务
 
-本文默认描述直接 HTTP 同步模式。可选 Kafka 模式保留这里的版本、generation、Core 权限复核和回退规则，将更新改由 Search 独立消费；Core 通过搜索可见性接口确认索引，详情见[岗位事件](job-events.md)。
+启用独立 Search 后，岗位变更和索引补齐都经 Kafka 写入 OpenSearch。Core 通过 HTTP 查询、检查版本可见性和管理重建。默认启动使用 MySQL 基础搜索，详情见[岗位事件](job-events.md)。
 
 Search 解决岗位名称无法覆盖 JD 技术要求的问题。例如，标题只有「服务器工程师」，JD 中包含 C++、Redis 或分布式开发要求，用户仍可用这些词找到岗位。岗位雷达与 Agent 的 `search_jobs` 共用 Core 搜索入口；求职资料、资格判断、个人优先级和投递状态继续由 Core 处理。
 
@@ -11,15 +11,16 @@ flowchart LR
   UI[岗位雷达 / Agent] --> Core[Core API：登录、权限、业务状态]
   Core --> MySQL[(Core MySQL)]
   MySQL --> Sync[Core Worker：岗位投影同步]
-  Sync -->|版本化 HTTP / 写凭据| Search[独立 Go Search 服务]
+  Sync -->|岗位事件与补齐快照| Kafka[(Kafka)]
+  Kafka --> Search[独立 Go Search 服务]
   Core -->|版本化 HTTP / 读凭据| Search
   Search --> Index[(OpenSearch：派生岗位索引)]
   Core -. 基础搜索回退 .-> MySQL
   Worker[原有 Core Worker] -->|KanaRPC| Analysis[原有 Analysis 实例]
 ```
 
-- Search 有自己的入口 `cmd/search`、`Dockerfile.search`、健康检查、限流、配置和独立镜像。共享 Go module 中的协议类型不依赖 Core。运行依赖只有 OpenSearch；没有 MySQL/Redis/etcd 驱动或 Core 持久化依赖。共享观测代码使用 `sql.DBStats` 类型输出指标，不会建立数据库连接。
-- Compose 中 Search 只连接 `search-rpc` 和 `search-index` 两个内部网络；没有 Core 数据库网络、数据库凭据、JWT 密钥或模型密钥。OpenSearch 不发布主机端口。
+- Search 有自己的入口 `cmd/search`、`Dockerfile.search`、健康检查、限流、配置和独立镜像。共享 Go module 中的协议类型不依赖 Core。运行依赖为 OpenSearch 与 Kafka；没有 MySQL/Redis/etcd 驱动或 Core 持久化依赖。共享观测代码使用 `sql.DBStats` 类型输出指标，不会建立数据库连接。
+- Compose 中 Search 连接 `search-rpc`、`search-index` 和 `job-events` 内部网络；没有 Core 数据库网络、数据库凭据、JWT 密钥或模型密钥。OpenSearch 不发布主机端口。
 - 只同步岗位 ID、数据集 ID、版本、权限范围/所属用户、公司、标题、城市、类型、岗位状态和最新 JD。不会同步简历、教育、项目、匹配报告或投递材料。位置字段在派生投影中限制为每项 256 字节，原始岗位资料不变。
 - 当前使用 OpenSearch 3.9.0、内置 CJK 分词和 BM25；C++、C#、Go/Golang 单独建立技术词字段，避免标点消失或 `Google` 误命中 Go。支持全部/任一关键词、排除词、公司/城市/类型过滤；没有引入向量、模型调用或语义匹配。
 
@@ -40,7 +41,7 @@ flowchart LR
 
 录入与状态评估在业务事务内更新派生快照及 outbox。一个很短的版本计数器锁确定提交顺序，普通投影发布的远程请求在事务外。在线切换使用有预算的短写屏障，详见下文。Worker 使用连接持有的 MySQL 命名锁协调多个同步器；确认前再次核对连接所有权。发布成功后仅删除相同岗位且相同版本的记录，新更新不会被旧确认删除。
 
-Search 使用外部严格版本写入：旧版本无害忽略；相同版本且内容哈希相同可重放；相同版本但内容不同返回冲突。批次部分失败或响应丢失时 Core 保留记录，重试整个批次。批次最多 64 个岗位，并按编码后大小拆分为不超过 4 MiB 的 HTTP 请求，避免转义文本阻塞同步。
+Search 使用外部严格版本写入。旧版本被忽略，同版本且内容哈希相同可重放，同版本但内容不同返回冲突。Core 按批读取待确认记录，通过 `/v1/applied` 确认实际可搜索后清理。旧部署留下的待同步记录可由快照补齐。
 
 通过受支持的恢复流程创建的新副本会更换数据集，避免旧事件和高版本索引混入恢复后的状态，见[恢复说明](recovery.md)。不要让克隆数据库与原数据库同时写同一索引 alias。
 
@@ -62,7 +63,7 @@ Search 使用外部严格版本写入：旧版本无害忽略；相同版本且�
 
 ## 本地启动与操作
 
-已有数据先按[恢复说明](recovery.md)备份。默认 `./campustrace start` 不启动 OpenSearch；可选完整栈使用：
+已有数据先按[恢复说明](recovery.md)备份。默认 `./campustrace start` 不启动 OpenSearch；Notify 已随基础部署启动。启用可选 Search 使用：
 
 ```sh
 make search-stack

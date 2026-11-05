@@ -308,16 +308,18 @@ func (b *Backend) Applied(ctx context.Context, q a.AppliedQuery) (a.AppliedResul
 	if json.Unmarshal(raw, &result) != nil || result.TimedOut || result.Shards.Failed > 0 {
 		return out, a.ErrUnavailable
 	}
-	if len(result.Hits.Hits) != len(expected) {
-		return out, nil
-	}
 	for _, hit := range result.Hits.Hits {
 		want, ok := expected[hit.Source.ID]
 		if !ok || hit.Source.Version < want.Version || hit.Source.Version == want.Version && hit.Source.Hash != want.Hash || q.Exact && (hit.Source.Version != want.Version || hit.Source.Hash != want.Hash) {
-			return out, nil
+			continue
 		}
 		delete(expected, hit.Source.ID)
 	}
-	out.Ready = len(expected) == 0
+	for _, want := range q.Hits {
+		if _, ok := expected[want.ID]; ok {
+			out.Missing = append(out.Missing, want.ID)
+		}
+	}
+	out.Ready = len(out.Missing) == 0
 	return out, nil
 }

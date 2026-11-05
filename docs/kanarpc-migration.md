@@ -36,12 +36,20 @@ SQL 调用凭据在 RPC 之前写入。明确的提供商 401/403/429 拒绝、`
 KNR2 与旧 KanaRPC-Go 协议不兼容，使用独立发现 namespace `/campustrace/kanarpc/v2`。`ANALYSIS_RPC_NAMESPACE` 可覆盖该值，Worker 与所有 Analysis 实例必须一致；多套部署可使用不同 namespace 和实例 ID。相同 namespace 下的实例 ID 必须唯一，已有注册归属受 lease 校验保护。
 
 1. 先备份数据库，停止 Worker 派发并按原任务恢复流程处理在途工作；已存在的结果未知调用继续保留核对状态。
-2. 停止旧 Analysis，更新并启动两个 Analysis 实例，确认 `/readyz` 返回 200。
+2. 停止旧 Analysis，更新并启动默认的一个 Analysis 实例，确认 `/readyz` 返回 200。
 3. 更新并启动 Worker，确认任务完成、语义版本匹配和 SQL 回执。Kafka 中待处理任务沿用现有 envelope，无需重建业务数据库。
 
 使用项目统一启动入口时，先停止再重新构建、启动应用进程。旧 namespace 的租约自然失效，不会被新 Worker 选中。需要回退时协调回退 Worker 与 Analysis，并保留 SQL 调用凭据和任务状态。
 
 服务端使用私有网络内的 JSON/TCP 普通调用。SDK 自带的 Protobuf、流式 SDK、TLS 与 QUIC 作为库能力保留，分析链路的部署配置以本页为准。对外部署应在网络边界提供访问控制与传输保护。
+
+默认 Compose 只运行 `analysis-1`。需要验收 etcd 发现、轮转和节点撤出时，在隔离项目中追加 `-f compose.rpc-pair.yml`：
+
+```sh
+docker compose -f docker-compose.yml -f compose.app.yml -f compose.rpc-pair.yml config --services
+```
+
+如使用自定义 Compose 命令升级之前的双实例部署，可用同一项目名追加该配置执行 `stop analysis-2`，再以默认配置启动。默认 CLI 会停止它识别到的旧实例。
 
 ## 验证
 

@@ -60,8 +60,8 @@ func TestRadarChangesWindowPreservesHistoricalPredecessorAndTies(t *testing.T) {
 	}
 	var count int
 	must(t, s.DB.QueryRowContext(ctx, "SELECT COUNT(*) FROM notifications WHERE user_id=? AND JSON_UNQUOTE(JSON_EXTRACT(body,'$.type'))='JOB_STATUS_CHANGED'", u).Scan(&count))
-	if count != len(wanted) {
-		t.Fatal("window transition notifications lost or repeated", count)
+	if count != 0 {
+		t.Fatal("radar scan generated job event notifications", count)
 	}
 	must(t, s.SetPreference(ctx, u, o.JobID, "IGNORED"))
 	rows, err = s.RecentChanges(ctx, u, 1)
