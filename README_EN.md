@@ -1,8 +1,8 @@
 # CampusTrace
 
-**A Go-based campus recruitment workspace for tracking roles, comparing opportunities, managing applications, and preparing from interview reviews.**
+**CampusTrace is a Go-based workspace for comparing graduate roles, planning applications, and preparing for interviews with the materials saved for each submission.**
 
-[中文](README.md) | **English** · [Architecture](docs/architecture.md) · [Engineering evidence](docs/engineering-evidence.md) · [Release acceptance](docs/verification/release-20261101/README.md)
+[中文](README.md) | **English** · [Local demo](#explore-the-workflow) · [Architecture](#architecture) · [Verification](#verification)
 
 ```text
 Sources / manual imports → Search and role selection → Application plans and frozen materials
@@ -10,18 +10,24 @@ Sources / manual imports → Search and role selection → Application plans and
 Next interview preparation ← Local study notes ← Interview records and reviews
 ```
 
-CampusTrace preserves source text and analysis evidence, and presents recruiting status, eligibility and role relevance separately. Analysis combines complete job descriptions with reviewed candidate materials to support role selection, application planning and traceable interview preparation.
+1. **Compare roles and plan applications.** Import openings, compare roles by company and hiring round, and plan within the remaining application quota. After applying on the employer's site, record the submission with a snapshot of the job description and resume. [Application journey](docs/application-journey.md)
+2. **Prepare for a specific interview.** Start from the application dossier. The agent uses the saved materials, available time and authorized reviews to draft a plan with sources. Review its citations, refine the constraints and confirm the save. [Preparation guide](docs/preparation-first-run.md) · [Screenshot](docs/verification/preparation-langgraph-20261101/acceptance-preparation-plan.png)
+3. **Keep interview reviews for later.** Attach confirmed recruiting notices and schedules to the application, then save interview notes with their source so later preparation tasks can retrieve them. [Notes and retrieval](docs/application-journey.md#提醒面试与复盘资料的联动)
+
+<img src="docs/images/job-radar.jpg" width="720" alt="CampusTrace job radar showing a fictional role, matching evidence and items to verify">
+
+*Job radar with synthetic data.*
 
 ## Key engineering designs
 
 | Problem | Implementation | Evidence |
 |---|---|---|
-| A saved job must reach Search and notifications independently, including duplicate delivery | Transactional MySQL outbox, Kafka consumer groups, projection versions and durable notification receipts; background tasks also use Kafka with SQL retry schedules and leases | [Job events](docs/job-events.md): lost acknowledgements, independent outages, replay and tombstones |
-| Background tasks need isolated execution and recoverable retries | Kafka task lanes, SQL journal, due times, execution leases and revision fences; offsets follow durable business outcomes | [Task scheduling](docs/task-scheduling.md): process kills, SQL settlement failure and backlog migration |
-| Search failure must preserve authorization and bound database load | Foreground and remote admission limits, one bounded background recovery probe, budgeted SQL fallback; Core revalidates ACL, versions, hashes and generations | [Failure isolation](docs/search-resilience.md), [Trace / EXPLAIN / pprof diagnosis](docs/verification/search-diagnosis-20261031/README.md) |
-| Multiple APIs share paid-model capacity; a crashed process cannot prove whether a request executed | Fair permits, atomic call budgets, invocation ledger, UNKNOWN reconciliation and late-result fencing | [Model execution control](docs/model-control.md): contention, process kills and recovery |
+| Confirm application plans concurrently and preserve the original materials | Recheck quota inside a MySQL transaction, commit the entire plan and snapshots together, and return the original receipt on repeat confirmation | [Application acceptance](docs/application-journey.md#验证与验收) |
+| Keep bulk imports responsive and recover interrupted or redelivered tasks | Transactional outbox and separate Kafka task lanes. MySQL stores retry times, execution leases and task revisions. Consumers commit offsets after persisting the outcome | [Task scheduling](docs/task-scheduling.md) · [Kafka failure tests](docs/verification/kafka-tasks-20261101/README.md) |
+| Ground an interview plan in the application dossier and save it with user approval | LangGraph routes retrieval, clarification and checkpoint recovery. Go enforces tool access, model budgets, citations, material versions and idempotent saves | [Go and LangGraph](docs/preparation-langgraph.md) · [Browser and persistence checks](docs/verification/preparation-langgraph-20261101/README.md) |
+| Update search and reminders independently when a job changes | Independent Kafka groups consume job events. Index versions and notification receipts handle replay. With optional OpenSearch enabled, Core checks permissions and versions and bounds the SQL fallback on failure | [Job events](docs/job-events.md) · [Search failure isolation](docs/search-resilience.md) |
 
-Applications freeze the materials used for that submission. Reviewed interview notes can become source-linked study documents and be retrieved for the same application's next preparation. Technical requirement parsing preserves literal C++, distinguishes required/preferred/alternative conditions, and fences old Analysis responses with semantic versions.
+The [engineering evidence index](docs/engineering-evidence.md) also covers shared model capacity and budgets across API processes, search profiling, and online index rebuilds.
 
 ## Architecture
 
@@ -29,6 +35,7 @@ Applications freeze the materials used for that submission. Reviewed interview n
 - **Analysis:** separate Go processes, discovered through etcd and called through the public [KanaRPC](https://github.com/KanaDoodle/KanaRPC) APIs over KNR2, with remote cancellation, bounded scheduling, discovery-driven connection reuse and graceful drain. The module pins a public commit using a Go pseudo-version; no sibling checkout is required. See [dependency provenance](docs/dependency-audit.md) and [migration acceptance](docs/kanarpc-migration.md).
 - **Optional Search:** independent HTTP service owning only the derived OpenSearch index. Core retains permission and content checks.
 - **Job-event consumers:** Notify is enabled in the base stack. Optional Search uses an independent consumer group. Notify remains in the Core business domain and shares its SQL database.
+- **Interview preparation agent:** Python and LangGraph for conditional routing and clarification, with persistent SQLite checkpoints. Go owns authorization, frozen materials, retrieval, model budgets, validation and confirmed saves. [Deployment and recovery](docs/preparation-langgraph.md)
 - **Observability and regression:** OpenTelemetry, Prometheus/Grafana/Tempo, pprof, k6, race/fuzz checks and GitHub Actions.
 - **AI application backend:** persistent tasks, controlled tools, resumable reviewed workflows and MCP; local BM25 with optional Embedding/RRF/Reranker. Model and retrieval results have dedicated evaluation workflows.
 
@@ -68,9 +75,9 @@ python3 scripts/smoke-journey.py
 
 Demo: `http://127.0.0.1:23380`, account `demo@campustrace.invalid`, password `Synthetic2026!`. It owns disposable SQL/Redis/Kafka dependencies, uses fictional data and a pre-seeded comparison, and makes no external model/source calls. Exiting removes only its temporary dependencies.
 
-Alternatively, `sh scripts/journey-local.sh smoke` runs acceptance and exits. Set `JOURNEY_HTTP_PORT` for a different port. The HTTP scenario covers import/search, atomic application planning, frozen submissions, notice confirmation/rescheduling, review-to-note import, and retrieval for later preparation.
+For model configuration and live plan generation, see the [interview preparation guide](docs/preparation-first-run.md).
 
-![Job radar using fictional data](docs/images/job-radar.jpg)
+Alternatively, `sh scripts/journey-local.sh smoke` runs acceptance and exits. Set `JOURNEY_HTTP_PORT` for a different port. The HTTP scenario covers import/search, atomic application planning, frozen submissions, notice confirmation/rescheduling, review-to-note import, and retrieval for later preparation.
 
 ## Verification
 
@@ -105,7 +112,3 @@ Optional stacks: `make search-stack` and `make observability`. Disposable accept
 - Keep resumes, API keys and database backups outside the public repository. See [operations](docs/operations.md) and [backup and recovery](docs/recovery.md) for deployment and data management.
 
 License: [AGPL-3.0](LICENSE).
-
-### Application interview preparation
-
-The application dossier's preparation entry uses an in-repository Python / LangGraph service for conditional model/tool routing, clarification interrupts and persistent checkpoints. Go owns authorization, frozen materials, retrieval, model budgets, validation and confirmed idempotent saves. Ordinary Q&A, fixed Skills and analysis keep their existing responsibilities. Compose and the local launcher include the service. [Deployment, recovery and evaluation scope](docs/preparation-langgraph.md).

@@ -1,8 +1,8 @@
 # CampusTrace
 
-**基于 Go 的校招求职工作台，串联招聘追踪、岗位分析、投递管理与面试复盘。**
+**CampusTrace 是一个 Go 校招求职工作台，用来比较岗位、安排投递，并根据每次投递留存的材料准备面试。**
 
-**中文** | [English](README_EN.md) · [架构](docs/architecture.md) · [工程证据](docs/engineering-evidence.md) · [版本验收](docs/verification/release-20261101/README.md)
+**中文** | [English](README_EN.md) · [本地演示](#五分钟体验) · [架构](#架构与技术栈) · [工程验证](#质量验证)
 
 ```text
 招聘观察 / 手动导入 → 搜索与岗位取舍 → 投递计划与材料留档
@@ -10,18 +10,24 @@
 下一次面试准备 ← 本地学习资料 ← 面试记录与复盘
 ```
 
-保留招聘原文与分析依据，分别展示招聘状态、投递资格和岗位相关性。岗位分析结合完整 JD 与已确认的个人材料，帮助比较岗位、安排投递顺序，并为面试准备提供可追溯的资料。
+1. **选岗与投递**。导入招聘信息，按公司和招聘批次比较岗位，在剩余名额内安排投递。到招聘官网提交后，在 CampusTrace 记录本次投递并留存当时的 JD 和简历。[申请流程](docs/application-journey.md)
+2. **按本次申请准备面试**。从申请档案发起准备任务，Agent 根据留档材料、可用时间和已授权的复盘整理带依据的计划。用户可以补充约束、核对引用并确认保存。[准备指南](docs/preparation-first-run.md) · [界面截图](docs/verification/preparation-langgraph-20261101/acceptance-preparation-plan.png)
+3. **把复盘留给下次**。核对招聘通知和面试安排后归档，面试复盘可以保存为带来源的学习笔记，供后续准备检索。[复盘与检索](docs/application-journey.md#提醒面试与复盘资料的联动)
+
+<img src="docs/images/job-radar.jpg" width="720" alt="CampusTrace 岗位雷达，展示合成岗位、匹配依据与待核实项">
+
+*岗位雷达，截图使用合成数据。*
 
 ## 关键工程设计
 
 | 实际问题 | 实现 | 验证入口 |
 |---|---|---|
-| 岗位变更驱动搜索与通知独立更新 | MySQL 事务 Outbox、Kafka 独立消费组、索引版本与通知回执；后台任务统一由 Kafka 投递 | [岗位事件](docs/job-events.md)：确认丢失、独立停机恢复、重放与删除 |
-| 后台任务重投、重试与类型隔离 | Kafka 分通道消费，MySQL 任务日志、延迟重试、执行租约与版本校验；业务结果持久化后提交位点 | [可靠任务调度](docs/task-scheduling.md)：强杀恢复、SQL 提交失败与旧队列交接 |
-| Search 依赖异常下的查询响应与数据库保护 | 前台/远程并发隔离、单个有界后台恢复探测、SQL 回退预算与有界等待；Core 复核 ACL、版本、哈希与代际 | [搜索故障隔离](docs/search-resilience.md)、[Trace / EXPLAIN / pprof 诊断](docs/verification/search-diagnosis-20261031/README.md) |
-| 多 API 共享付费模型的并发、额度与执行状态 | 公平许可、原子调用预算、执行账本、UNKNOWN 与人工核对、迟到结果隔离 | [模型执行控制](docs/model-control.md)：多进程竞争、强杀与恢复 |
+| 并发确认投递计划，且后续修改资料时仍能找回原稿 | MySQL 事务内复核名额、提交整组计划和快照，重复确认返回原回执 | [申请流程验收](docs/application-journey.md#验证与验收) |
+| 批量导入触发慢任务，消息中断或重投后要能恢复 | 事务 Outbox 与 Kafka 分通道投递，MySQL 保存重试时间、执行租约和任务版本，持久化结果后提交消费位点 | [任务调度](docs/task-scheduling.md) · [Kafka 故障验收](docs/verification/kafka-tasks-20261101/README.md) |
+| 面试计划要引用本次申请的材料，用户确认后才能保存 | LangGraph 编排检索、澄清和检查点恢复，Go 负责工具权限、模型预算、引用和版本复核、幂等保存 | [Go 与 LangGraph 分工](docs/preparation-langgraph.md) · [浏览器与持久化验收](docs/verification/preparation-langgraph-20261101/README.md) |
+| 岗位变更要分别更新搜索和提醒 | 独立 Kafka 消费组处理同一岗位事件，通过索引版本和通知回执处理重放。启用 OpenSearch 时，Core 复核权限与数据版本，故障时有界回退到 SQL | [岗位事件](docs/job-events.md) · [搜索故障隔离](docs/search-resilience.md) |
 
-此外，申请材料按次冻结，复盘可以保存为带来源的学习笔记，再被同一申请的准备任务检索。技术要求解析保留 C++ 字面量，区分必需、优先与任选，Analysis RPC 语义版本防止旧结果进入新缓存。
+更多后端设计见[工程证据索引](docs/engineering-evidence.md)，包括多 API 模型并发与预算控制、搜索诊断和索引重建。
 
 ## 架构与技术栈
 
@@ -80,7 +86,7 @@ CLI 使用固定 Compose 项目名 `campustrace`，本地配置在 ignored `.env
 
 ## 五分钟体验
 
-演示环境预置合成岗位与比较结果，使用独立的临时 MySQL/Redis/Kafka，可离线体验完整求职流程。
+演示环境预置合成岗位与比较结果，使用独立的临时 MySQL/Redis/Kafka。可以体验从选岗到复盘的流程，无需模型密钥。配置模型并生成准备计划的步骤见[面试准备指南](docs/preparation-first-run.md)。
 
 ```sh
 sh scripts/journey-local.sh demo
@@ -91,8 +97,6 @@ python3 scripts/smoke-journey.py
 演示地址为 `http://127.0.0.1:23380`，账号 `demo@campustrace.invalid`，密码 `Synthetic2026!`。自动验收覆盖导入与搜索、限投计划、材料冻结、通知确认及改期、复盘入库、学习笔记与下一次准备。退出演示进程后仅清理它拥有的临时依赖。
 
 也可直接执行 `sh scripts/journey-local.sh smoke` 完成一次性验收。端口已使用时设置 `JOURNEY_HTTP_PORT`；演示不读取业务 `.env` 或现有数据卷。前端与实际操作见[申请闭环](docs/application-journey.md)。
-
-![岗位雷达：虚构岗位、资料与依据](docs/images/job-radar.jpg)
 
 ## 质量验证
 
